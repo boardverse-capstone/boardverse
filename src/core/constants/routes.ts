@@ -10,4 +10,11 @@ export const ROUTES = {
     MANAGER: '/manager/dashboard',
     STAFF: '/staff/dashboard',
   },
+  ADMIN: {
+    REGISTRATIONS: '/admin/registrations',
+    REGISTRATION_DETAIL: (id: string) => `/admin/registrations/${id}`,
+  },
+  PARTNER: {
+    REGISTER: '/partner/register',
+  },
 } as const;

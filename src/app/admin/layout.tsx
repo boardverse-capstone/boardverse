@@ -1,19 +1,18 @@
 'use client';
 
-// src/app/admin/layout.tsx
 import type { ReactNode } from 'react';
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense } from 'react';
 import {
+  IconCoffee,
   IconLayoutDashboard,
   IconUsers,
   IconSettings,
   IconShield,
 } from '@tabler/icons-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { useAuthStore } from '@/features/auth/store/auth.store';
+import { RoleGuard } from '@/features/auth/components/role-guard';
+import { AuthLoading } from '@/features/auth/components/auth-loading';
 import { UserRole } from '@/core/constants/roles';
-import { ROUTES } from '@/core/constants/routes';
 import type { NavItem } from '@/components/layout/nav-main';
 
 const ADMIN_NAV: NavItem[] = [
@@ -21,6 +20,11 @@ const ADMIN_NAV: NavItem[] = [
     title: 'Dashboard',
     url: '/admin/dashboard',
     icon: <IconLayoutDashboard />,
+  },
+  {
+    title: 'Đăng ký đối tác',
+    url: '/admin/registrations',
+    icon: <IconCoffee />,
   },
   {
     title: 'Quản lý người dùng',
@@ -44,27 +48,13 @@ const ADMIN_NAV: NavItem[] = [
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  const router = useRouter();
-  const { token, user } = useAuthStore();
-
-  useEffect(() => {
-    if (!token || !user) {
-      router.replace(ROUTES.AUTH.LOGIN);
-      return;
-    }
-    if (user.role !== UserRole.Admin) {
-      router.replace(ROUTES.AUTH.LOGIN);
-    }
-  }, [token, user, router]);
-
-  // Không render gì cả trong khi đang kiểm tra quyền
-  if (!token || !user || user.role !== UserRole.Admin) {
-    return null;
-  }
-
   return (
-    <DashboardLayout navItems={ADMIN_NAV} appSubtitle="Admin Portal">
-      {children}
-    </DashboardLayout>
+    <Suspense fallback={<AuthLoading message="Đang xác minh quyền truy cập..." />}>
+      <RoleGuard allowedRole={UserRole.Admin}>
+        <DashboardLayout navItems={ADMIN_NAV} appSubtitle="Admin Portal">
+          {children}
+        </DashboardLayout>
+      </RoleGuard>
+    </Suspense>
   );
 }

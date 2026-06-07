@@ -1,25 +1,22 @@
 'use client';
 
-// src/features/auth/hooks/useLogin.ts
 import { useMutation } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { AuthService } from '../services/auth.service';
 import { useAuthStore } from '../store/auth.store';
 import { decodeToken, normalizeUser } from '@/shared/utils/token.util';
-import { UserRole } from '@/core/constants/roles';
 import { ROUTES } from '@/core/constants/routes';
+import {
+  clearReturnUrl,
+  getReturnUrl,
+  resolvePostLoginRedirect,
+} from '../utils/redirect.util';
 import type { LoginRequest } from '../types/auth.interface';
-
-/** Map role về route dashboard tương ứng */
-const ROLE_ROUTE_MAP: Record<string, string> = {
-  [UserRole.Admin]: ROUTES.DASHBOARD.ADMIN,
-  [UserRole.Manager]: ROUTES.DASHBOARD.MANAGER,
-  [UserRole.Staff]: ROUTES.DASHBOARD.STAFF,
-};
 
 export function useLogin() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setAuth } = useAuthStore();
 
   return useMutation({
@@ -34,14 +31,17 @@ export function useLogin() {
       const user = normalizeUser(decoded);
       setAuth(data.token, data.refreshToken, user);
 
-      const redirectTo = ROLE_ROUTE_MAP[user.role];
-      if (!redirectTo) {
+      const returnUrl = searchParams.get('returnUrl') ?? getReturnUrl();
+      const redirectTo = resolvePostLoginRedirect(user.role, returnUrl);
+
+      if (!redirectTo || redirectTo === ROUTES.AUTH.LOGIN) {
         toast.error('Vai trò không được cấp quyền truy cập vào hệ thống quản trị.');
         return;
       }
 
+      clearReturnUrl();
       toast.success(`Chào mừng trở lại, ${user.username}!`);
-      router.push(redirectTo);
+      router.replace(redirectTo);
     },
     onError: (error: Error) => {
       toast.error(error.message ?? 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
