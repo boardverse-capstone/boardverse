@@ -14,10 +14,10 @@ export function RegistrationAlerts({ registration }: RegistrationAlertsProps) {
   return (
     <div className="grid gap-3">
       {registration.alerts.map((alert) => (
-        <Alert key={alert.id} variant="destructive">
-          <IconAlertTriangle className="size-4" />
-          <AlertTitle>Cảnh báo Ops</AlertTitle>
-          <AlertDescription>{alert.message}</AlertDescription>
+        <Alert key={alert.id} variant="destructive" className="border-orange-300 bg-orange-50">
+          <IconAlertTriangle className="size-4 text-orange-600" />
+          <AlertTitle className="text-orange-800">Cảnh báo</AlertTitle>
+          <AlertDescription className="text-orange-700">{alert.message}</AlertDescription>
         </Alert>
       ))}
     </div>

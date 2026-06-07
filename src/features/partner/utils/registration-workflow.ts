@@ -37,6 +37,11 @@ export function isAdminActionable(status: RegistrationStatus): boolean {
   return ADMIN_ACTIONABLE_STATUSES.includes(status);
 }
 
+/** Đơn đã kích hoạt rời danh sách kiểm duyệt; các trạng thái khác (kể cả REJECTED) vẫn hiển thị */
+export function isAdminListVisible(status: RegistrationStatus): boolean {
+  return status !== 'ACTIVE';
+}
+
 export function canPerformAction(
   status: RegistrationStatus,
   action: RegistrationAction,

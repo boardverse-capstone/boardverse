@@ -1,9 +1,8 @@
 'use client';
 
-import { use, useState } from 'react';
-import Link from 'next/link';
-import { IconArrowLeft } from '@tabler/icons-react';
-import { Button } from '@/components/ui/button';
+import { use, useMemo, useState } from 'react';
+import { ListBackButton } from '@/components/common/list-back-button';
+import { ROUTES } from '@/core/constants/routes';
 import { RegistrationDetail } from '@/features/partner/components/registration-detail';
 import { ApproveRegistrationDialog } from '@/features/partner/components/approve-registration-dialog';
 import { RejectRegistrationDialog } from '@/features/partner/components/reject-registration-dialog';
@@ -12,6 +11,7 @@ import { useApproveRegistration } from '@/features/partner/hooks/useApproveRegis
 import { useRejectRegistration } from '@/features/partner/hooks/useRejectRegistration';
 import { useTransitionRegistration } from '@/features/partner/hooks/useTransitionRegistration';
 import type { RegistrationAction } from '@/features/partner/types/partner.interface';
+import { toPartnerApplication } from '@/features/partner/utils/partner.mapper';
 import { getPrimaryAction } from '@/features/partner/utils/registration-workflow';
 
 interface RegistrationDetailPageProps {
@@ -27,8 +27,12 @@ export default function RegistrationDetailPage({ params }: RegistrationDetailPag
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState<RegistrationAction | null>(null);
   const [rejectMode, setRejectMode] = useState<'reject' | 'cancel'>('reject');
+
+  const partnerTarget = useMemo(
+    () => (data ? toPartnerApplication(data) : null),
+    [data],
+  );
 
   const isActionPending =
     approveMutation.isPending || rejectMutation.isPending || transitionMutation.isPending;
@@ -47,7 +51,6 @@ export default function RegistrationDetailPage({ params }: RegistrationDetailPag
 
     const primary = data ? getPrimaryAction(data.status) : null;
     if (action === primary) {
-      setPendingAction(action);
       setConfirmOpen(true);
       return;
     }
@@ -57,7 +60,6 @@ export default function RegistrationDetailPage({ params }: RegistrationDetailPag
 
   const handleConfirmPrimary = () => {
     approveMutation.mutate(id, { onSuccess: () => setConfirmOpen(false) });
-    setPendingAction(null);
   };
 
   const handleRejectConfirm = (reason: string) => {
@@ -77,12 +79,7 @@ export default function RegistrationDetailPage({ params }: RegistrationDetailPag
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" asChild className="px-0">
-        <Link href="/admin/registrations">
-          <IconArrowLeft className="mr-2 h-4 w-4" />
-          Quay lại danh sách
-        </Link>
-      </Button>
+      <ListBackButton fallbackPath={ROUTES.ADMIN.REGISTRATIONS} />
 
       <RegistrationDetail
         registration={data}
@@ -93,8 +90,7 @@ export default function RegistrationDetailPage({ params }: RegistrationDetailPag
       />
 
       <ApproveRegistrationDialog
-        registration={data ?? null}
-        action={pendingAction ?? (data ? getPrimaryAction(data.status) ?? undefined : undefined)}
+        partner={partnerTarget}
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         onConfirm={handleConfirmPrimary}
@@ -102,7 +98,7 @@ export default function RegistrationDetailPage({ params }: RegistrationDetailPag
       />
 
       <RejectRegistrationDialog
-        registration={data ?? null}
+        partner={partnerTarget}
         mode={rejectMode}
         open={rejectOpen}
         onOpenChange={setRejectOpen}

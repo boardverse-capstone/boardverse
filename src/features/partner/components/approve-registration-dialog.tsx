@@ -12,46 +12,38 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { REGISTRATION_ACTION_LABELS } from '@/core/constants/partner-registration';
-import type { Registration, RegistrationAction } from '../types/partner.interface';
+import type { PartnerActionTarget } from '../types/partner.interface';
 import { getPrimaryAction } from '../utils/registration-workflow';
 
 interface ApproveRegistrationDialogProps {
-  registration: Registration | null;
-  action?: RegistrationAction;
+  partner: PartnerActionTarget | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
   isPending: boolean;
 }
 
-const ACTION_DESCRIPTIONS: Partial<Record<RegistrationAction, string>> = {
-  PASS_OPS_ASSESSMENT:
-    'Xác nhận quán đạt tiêu chuẩn thẩm định thực tế. Đơn sẽ chuyển sang trạng thái Chờ đàm phán.',
-  CONFIRM_VERIFICATION:
-    'Xác nhận thông tin hợp pháp sau khi Ops kiểm tra chéo. Đơn sẽ chuyển sang Chờ đàm phán.',
+const ACTION_DESCRIPTIONS: Partial<Record<string, string>> = {
+  PASS_OPS_ASSESSMENT: 'Xác nhận quán đạt tiêu chuẩn thẩm định thực tế.',
+  CONFIRM_VERIFICATION: 'Xác nhận thông tin hợp pháp sau khi kiểm tra chéo.',
   RECORD_CONTRACT_SIGNED:
-    'Ghi nhận hợp đồng điện tử đã ký. Hệ thống sẽ tự động cấp tài khoản CAFE_MANAGER và chuyển sang Trống dữ liệu.',
-  ACTIVATE_PARTNER:
-    'Kích hoạt quán hiển thị trên ứng dụng Mobile sau khi đã hoàn tất sơ đồ bàn và danh mục game.',
+    'Ghi nhận hợp đồng điện tử đã ký và tự động cấp tài khoản CAFE_MANAGER.',
+  ACTIVATE_PARTNER: 'Kích hoạt quán hiển thị trên ứng dụng Mobile.',
 };
 
 export function ApproveRegistrationDialog({
-  registration,
-  action,
+  partner,
   open,
   onOpenChange,
   onConfirm,
   isPending,
 }: ApproveRegistrationDialogProps) {
-  if (!registration) return null;
+  if (!partner) return null;
 
-  const resolvedAction = action ?? getPrimaryAction(registration.status);
-  if (!resolvedAction) return null;
+  const action = getPrimaryAction(partner.status);
+  if (!action) return null;
 
-  const title = REGISTRATION_ACTION_LABELS[resolvedAction];
-  const description =
-    ACTION_DESCRIPTIONS[resolvedAction] ??
-    `Xác nhận thực hiện "${title}" cho đơn đăng ký này.`;
+  const title = REGISTRATION_ACTION_LABELS[action];
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -59,10 +51,8 @@ export function ApproveRegistrationDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>
-            {description} Đối tác:{' '}
-            <span className="font-medium text-foreground">
-              {registration.basicInfo.cafeName}
-            </span>
+            {ACTION_DESCRIPTIONS[action]} Đối tác:{' '}
+            <span className="font-medium text-foreground">{partner.cafeName}</span>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

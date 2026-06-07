@@ -6,4 +6,6 @@ export type {
   BoardGameCatalog,
   AdditionalServices,
   Registration,
+  PartnerApplication,
+  PartnerActionTarget,
 } from '@/features/partner/types/partner.interface';

@@ -74,6 +74,20 @@ export interface ManagerAccount {
   temporaryPassword?: string;
 }
 
+/** Dòng danh sách phẳng — contract theo `.agents/docs/structure_code.md` */
+export interface PartnerApplication {
+  id: string;
+  cafeName: string;
+  address: string;
+  phone: string;
+  status: RegistrationStatus;
+  createdAt: string;
+  hasAlerts: boolean;
+}
+
+/** Tối thiểu cho dialog hành động từ danh sách */
+export type PartnerActionTarget = Pick<PartnerApplication, 'id' | 'cafeName' | 'status'>;
+
 export interface Registration {
   id: string;
   status: RegistrationStatus;

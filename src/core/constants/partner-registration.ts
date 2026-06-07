@@ -2,7 +2,7 @@ import type { RegistrationAction, RegistrationStatus } from '@/features/partner/
 
 export const REGISTRATION_STATUS_LABELS: Record<RegistrationStatus, string> = {
   PENDING_REVIEW: 'Chờ duyệt',
-  NEEDS_OPS_VERIFICATION: 'Cần Ops xác minh',
+  NEEDS_OPS_VERIFICATION: 'Cần xác minh',
   PENDING_INFO: 'Chờ bổ sung thông tin',
   PENDING_NEGOTIATION: 'Chờ đàm phán',
   CONTRACT_SIGNED: 'Đã ký hợp đồng',
@@ -11,6 +11,19 @@ export const REGISTRATION_STATUS_LABELS: Record<RegistrationStatus, string> = {
   REJECTED: 'Bị từ chối',
   CANCELLED: 'Bị hủy',
   EXPIRED_CANCELLED: 'Hết hạn hủy',
+};
+
+export const REGISTRATION_STATUS_COLORS: Record<RegistrationStatus, string> = {
+  PENDING_REVIEW: 'bg-amber-100 text-amber-800 border-amber-200',
+  NEEDS_OPS_VERIFICATION: 'bg-orange-100 text-orange-800 border-orange-200',
+  PENDING_INFO: 'bg-sky-100 text-sky-800 border-sky-200',
+  PENDING_NEGOTIATION: 'bg-violet-100 text-violet-800 border-violet-200',
+  CONTRACT_SIGNED: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  DATA_BLANK: 'bg-slate-100 text-slate-700 border-slate-200',
+  ACTIVE: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  REJECTED: 'bg-rose-100 text-rose-800 border-rose-200',
+  CANCELLED: 'bg-rose-100 text-rose-800 border-rose-200',
+  EXPIRED_CANCELLED: 'bg-gray-100 text-gray-600 border-gray-200',
 };
 
 export const REGISTRATION_STATUS_VARIANT: Record<
@@ -37,7 +50,7 @@ export const TERMINAL_REGISTRATION_STATUSES: RegistrationStatus[] = [
   'ACTIVE',
 ];
 
-/** Trạng thái cần Admin/Ops xử lý trên Portal */
+/** Trạng thái cần Admin xử lý trên Portal */
 export const ADMIN_ACTIONABLE_STATUSES: RegistrationStatus[] = [
   'PENDING_REVIEW',
   'NEEDS_OPS_VERIFICATION',
@@ -54,7 +67,7 @@ export const DATA_BLANK_CS_THRESHOLD_DAYS = 3;
 export const REGISTRATION_ACTION_LABELS: Record<RegistrationAction, string> = {
   PASS_OPS_ASSESSMENT: 'Đạt thẩm định thực tế',
   REQUEST_ADDITIONAL_INFO: 'Yêu cầu bổ sung hồ sơ',
-  FLAG_FOR_VERIFICATION: 'Chuyển xác minh Ops',
+  FLAG_FOR_VERIFICATION: 'Chuyển xác minh thủ công',
   CONFIRM_VERIFICATION: 'Xác minh thành công',
   RECORD_CONTRACT_SIGNED: 'Ghi nhận ký hợp đồng',
   CANCEL_NEGOTIATION: 'Hủy đàm phán',

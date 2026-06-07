@@ -2,6 +2,7 @@ import apiClient from '@/core/api/client';
 import type { PaginatedResponse, PaginationParams } from '@/shared/types/pagination.interface';
 import type {
   ApproveRegistrationResponse,
+  PartnerApplication,
   PartnerRegistrationRequest,
   Registration,
   RejectRegistrationRequest,
@@ -21,16 +22,16 @@ export const PARTNER_QUERY_KEYS = {
 export const PartnerService = {
   getPendingApplications: async (
     params: PaginationParams,
-  ): Promise<PaginatedResponse<Registration>> => {
+  ): Promise<PaginatedResponse<PartnerApplication>> => {
     if (USE_MOCK) return PartnerMockService.getPendingApplications(params);
 
-    return apiClient.get<never, PaginatedResponse<Registration>>(
-      '/api/PartnerRegistration/pending',
+    return apiClient.get<never, PaginatedResponse<PartnerApplication>>(
+      '/admin/partners/pending',
       {
         params: {
-          Page: params.page,
-          PageSize: params.limit,
-          Search: params.search,
+          page: params.page,
+          limit: params.limit,
+          q: params.search,
         },
       },
     );
@@ -38,17 +39,14 @@ export const PartnerService = {
 
   getRegistrationById: async (id: string): Promise<Registration> => {
     if (USE_MOCK) return PartnerMockService.getRegistrationById(id);
-    return apiClient.get<never, Registration>(`/api/PartnerRegistration/${id}`);
+    return apiClient.get<never, Registration>(`/admin/partners/${id}`);
   },
 
   submitRegistration: async (
     payload: PartnerRegistrationRequest,
   ): Promise<SubmitRegistrationResponse> => {
     if (USE_MOCK) return PartnerMockService.submitRegistration(payload);
-    return apiClient.post<never, SubmitRegistrationResponse>(
-      '/api/PartnerRegistration',
-      payload,
-    );
+    return apiClient.post<never, SubmitRegistrationResponse>('/admin/partners', payload);
   },
 
   transitionRegistration: async (
@@ -57,7 +55,7 @@ export const PartnerService = {
   ): Promise<TransitionRegistrationResponse> => {
     if (USE_MOCK) return PartnerMockService.transitionRegistration(id, payload);
     return apiClient.post<never, TransitionRegistrationResponse>(
-      `/api/PartnerRegistration/${id}/transition`,
+      `/admin/partners/${id}/transition`,
       payload,
     );
   },
@@ -65,7 +63,7 @@ export const PartnerService = {
   approveRegistration: async (id: string): Promise<ApproveRegistrationResponse> => {
     if (USE_MOCK) return PartnerMockService.approveRegistration(id);
     return apiClient.post<never, ApproveRegistrationResponse>(
-      `/api/PartnerRegistration/${id}/approve`,
+      `/admin/partners/${id}/approve`,
     );
   },
 
@@ -74,9 +72,6 @@ export const PartnerService = {
     payload: RejectRegistrationRequest,
   ): Promise<Registration> => {
     if (USE_MOCK) return PartnerMockService.rejectRegistration(id, payload);
-    return apiClient.post<never, Registration>(
-      `/api/PartnerRegistration/${id}/reject`,
-      payload,
-    );
+    return apiClient.post<never, Registration>(`/admin/partners/${id}/reject`, payload);
   },
 } as const;

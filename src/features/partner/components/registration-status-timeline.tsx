@@ -1,12 +1,8 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  REGISTRATION_STATUS_LABELS,
-  REGISTRATION_STATUS_VARIANT,
-  REGISTRATION_WORKFLOW_ORDER,
-} from '@/core/constants/partner-registration';
+import { REGISTRATION_WORKFLOW_ORDER } from '@/core/constants/partner-registration';
+import { RegistrationStatusBadge } from './registration-status-badge';
 import type { Registration, RegistrationStatus } from '../types/partner.interface';
 
 interface RegistrationStatusTimelineProps {
@@ -24,11 +20,11 @@ export function RegistrationStatusTimeline({ registration }: RegistrationStatusT
       );
 
   return (
-    <Card>
+    <Card className="border-violet-200 bg-violet-50/30">
       <CardHeader>
-        <CardTitle className="text-base">Vòng đời đơn đăng ký</CardTitle>
+        <CardTitle className="text-base text-violet-900">Vòng đời đơn đăng ký</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         {steps.map((status, index) => {
           const history = registration.statusHistory.find((entry) => entry.status === status);
           const isCurrent = registration.status === status;
@@ -36,15 +32,13 @@ export function RegistrationStatusTimeline({ registration }: RegistrationStatusT
           return (
             <div key={`${status}-${index}`} className="flex items-start gap-3">
               <div
-                className={`mt-1.5 size-2.5 shrink-0 rounded-full ${
-                  isCurrent ? 'bg-primary' : 'bg-muted-foreground/40'
+                className={`mt-2 size-3 shrink-0 rounded-full ring-4 ring-background ${
+                  isCurrent ? 'bg-violet-500' : 'bg-violet-300'
                 }`}
               />
-              <div className="space-y-1">
+              <div className="space-y-1 pb-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={REGISTRATION_STATUS_VARIANT[status as RegistrationStatus]}>
-                    {REGISTRATION_STATUS_LABELS[status as RegistrationStatus]}
-                  </Badge>
+                  <RegistrationStatusBadge status={status as RegistrationStatus} />
                   {history && (
                     <span className="text-xs text-muted-foreground">
                       {new Date(history.changedAt).toLocaleString('vi-VN')}

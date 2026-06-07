@@ -1,15 +1,12 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  REGISTRATION_STATUS_LABELS,
-  REGISTRATION_STATUS_VARIANT,
-} from '@/core/constants/partner-registration';
 import { RegistrationAlerts } from './registration-alerts';
 import { RegistrationActionsPanel } from './registration-actions-panel';
+import { RegistrationImageGallery } from './registration-image-gallery';
+import { RegistrationStatusBadge } from './registration-status-badge';
 import { RegistrationStatusTimeline } from './registration-status-timeline';
 import type { Registration, RegistrationAction } from '../types/partner.interface';
 import { getAvailableActions } from '../utils/registration-workflow';
@@ -21,6 +18,15 @@ interface RegistrationDetailProps {
   onAction?: (action: RegistrationAction) => void;
   isActionPending?: boolean;
 }
+
+const SECTION_STYLES = {
+  basic: 'border-l-4 border-l-amber-400 bg-amber-50/40',
+  infra: 'border-l-4 border-l-sky-400 bg-sky-50/40',
+  catalog: 'border-l-4 border-l-violet-400 bg-violet-50/40',
+  services: 'border-l-4 border-l-emerald-400 bg-emerald-50/40',
+  manager: 'border-l-4 border-l-indigo-400 bg-indigo-50/40',
+  rejected: 'border-l-4 border-l-rose-400 bg-rose-50/40',
+} as const;
 
 function DetailSkeleton() {
   return (
@@ -44,7 +50,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="grid gap-1 sm:grid-cols-[180px_1fr]">
       <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm">{value}</span>
+      <span className="text-sm font-medium">{value}</span>
     </div>
   );
 }
@@ -71,18 +77,18 @@ export function RegistrationDetail({
   const hasActions = onAction && getAvailableActions(registration.status).length > 0;
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-5">
       <RegistrationAlerts registration={registration} />
 
-      <Card>
+      <Card className="overflow-hidden border-0 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-background shadow-sm">
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-2">
-            <CardTitle>{registration.basicInfo.cafeName}</CardTitle>
+          <div className="space-y-3">
+            <CardTitle className="text-2xl">{registration.basicInfo.cafeName}</CardTitle>
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <span>#{registration.id}</span>
-              <Badge variant={REGISTRATION_STATUS_VARIANT[registration.status]}>
-                {REGISTRATION_STATUS_LABELS[registration.status]}
-              </Badge>
+              <span className="rounded-md bg-background/80 px-2 py-0.5 font-mono text-xs">
+                #{registration.id}
+              </span>
+              <RegistrationStatusBadge status={registration.status} />
               <span>
                 Nộp ngày {new Date(registration.createdAt).toLocaleString('vi-VN')}
               </span>
@@ -101,38 +107,48 @@ export function RegistrationDetail({
 
       <RegistrationStatusTimeline registration={registration} />
 
-      <Card>
+      <Card className={SECTION_STYLES.basic}>
         <CardHeader>
           <CardTitle className="text-base">Khối 1 — Thông tin cơ bản</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3">
-          <InfoRow label="Tên quán" value={registration.basicInfo.cafeName} />
-          <InfoRow label="Địa chỉ" value={registration.basicInfo.address} />
-          <InfoRow label="Hotline" value={registration.basicInfo.hotline} />
-          <InfoRow label="Email đại diện" value={registration.basicInfo.representativeEmail} />
-          <InfoRow label="Giấy phép KD" value={registration.basicInfo.businessLicense} />
+        <CardContent className="grid gap-4">
+          <div className="grid gap-3">
+            <InfoRow label="Tên quán" value={registration.basicInfo.cafeName} />
+            <InfoRow label="Địa chỉ" value={registration.basicInfo.address} />
+            <InfoRow label="Hotline" value={registration.basicInfo.hotline} />
+            <InfoRow label="Email đại diện" value={registration.basicInfo.representativeEmail} />
+            <InfoRow label="Giấy phép KD" value={registration.basicInfo.businessLicense} />
+          </div>
+          <RegistrationImageGallery
+            title="Ảnh giấy phép kinh doanh"
+            images={[registration.basicInfo.businessLicenseImage]}
+            seed={`${registration.id}-license`}
+          />
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className={SECTION_STYLES.infra}>
         <CardHeader>
           <CardTitle className="text-base">Khối 2 — Năng lực hạ tầng</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3">
-          <InfoRow label="Số bàn công cộng" value={registration.infrastructure.numberOfTables} />
-          <InfoRow label="Phòng riêng" value={registration.infrastructure.numberOfPrivateRooms} />
-          <InfoRow
-            label="Sức chứa tối đa"
-            value={`${registration.infrastructure.maximumCapacity} khách`}
-          />
-          <InfoRow
-            label="Ảnh không gian"
-            value={`${registration.infrastructure.spaceImages.length} ảnh`}
+        <CardContent className="grid gap-4">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <InfoRow label="Số bàn công cộng" value={registration.infrastructure.numberOfTables} />
+            <InfoRow label="Phòng riêng" value={registration.infrastructure.numberOfPrivateRooms} />
+            <InfoRow
+              label="Sức chứa tối đa"
+              value={`${registration.infrastructure.maximumCapacity} khách`}
+            />
+          </div>
+          <RegistrationImageGallery
+            title="Ảnh không gian quán"
+            images={registration.infrastructure.spaceImages}
+            seed={`${registration.id}-space`}
           />
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className={SECTION_STYLES.catalog}>
         <CardHeader>
           <CardTitle className="text-base">Khối 3 — Danh mục Board Game</CardTitle>
         </CardHeader>
@@ -148,7 +164,7 @@ export function RegistrationDetail({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className={SECTION_STYLES.services}>
         <CardHeader>
           <CardTitle className="text-base">Khối 4 — Dịch vụ & Mô hình vận hành</CardTitle>
         </CardHeader>
@@ -172,7 +188,7 @@ export function RegistrationDetail({
       </Card>
 
       {registration.managerAccount && (
-        <Card className="border-primary/20">
+        <Card className={SECTION_STYLES.manager}>
           <CardHeader>
             <CardTitle className="text-base">Tài khoản CAFE_MANAGER</CardTitle>
           </CardHeader>
@@ -190,9 +206,9 @@ export function RegistrationDetail({
       )}
 
       {registration.rejectionReason && (
-        <Card className="border-destructive/30">
+        <Card className={SECTION_STYLES.rejected}>
           <CardHeader>
-            <CardTitle className="text-base text-destructive">Lý do từ chối</CardTitle>
+            <CardTitle className="text-base text-rose-700">Lý do từ chối</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm">{registration.rejectionReason}</p>
@@ -201,9 +217,9 @@ export function RegistrationDetail({
       )}
 
       {registration.cancelReason && (
-        <Card className="border-destructive/30">
+        <Card className={SECTION_STYLES.rejected}>
           <CardHeader>
-            <CardTitle className="text-base text-destructive">Lý do hủy</CardTitle>
+            <CardTitle className="text-base text-rose-700">Lý do hủy</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm">{registration.cancelReason}</p>

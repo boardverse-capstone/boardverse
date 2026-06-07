@@ -1,9 +1,8 @@
 import type { PaginatedResponse, PaginationParams } from '@/shared/types/pagination.interface';
-import {
-  ADMIN_ACTIONABLE_STATUSES,
-} from '@/core/constants/partner-registration';
+import { isAdminListVisible } from '../utils/registration-workflow';
 import type {
   ApproveRegistrationResponse,
+  PartnerApplication,
   PartnerRegistrationRequest,
   Registration,
   RejectRegistrationRequest,
@@ -11,6 +10,7 @@ import type {
   TransitionRegistrationRequest,
   TransitionRegistrationResponse,
 } from '../types/partner.interface';
+import { toPartnerApplication } from '../utils/partner.mapper';
 import {
   appendStatusHistory,
   canPerformAction,
@@ -96,7 +96,7 @@ let registrations: Registration[] = [
       {
         id: 'ALT-002',
         type: 'DUPLICATE_SUSPECT',
-        message: 'Tên quán trùng với chi nhánh khác — cần Ops gọi điện xác minh pháp lý.',
+        message: 'Tên quán trùng với chi nhánh khác — cần gọi điện xác minh pháp lý.',
         createdAt: '2026-06-06T15:00:00Z',
       },
     ],
@@ -130,7 +130,7 @@ let registrations: Registration[] = [
       {
         status: 'PENDING_NEGOTIATION',
         changedAt: '2026-06-08T11:00:00Z',
-        changedBy: 'Ops',
+        changedBy: 'Admin',
         note: 'Đạt tiêu chuẩn thẩm định thực tế',
       },
     ],
@@ -173,6 +173,88 @@ let registrations: Registration[] = [
   },
 ];
 
+const SEED_CAFE_NAMES = [
+  'Dragon Dice Lounge',
+  'Quest & Brew',
+  'Roll Initiative',
+  'Kingdom Cards',
+  'Pawn Patrol Cafe',
+  'Hex & Handle',
+  'Victory Point',
+  'Mana Tap House',
+  'Critical Hit Corner',
+  'Token Tavern',
+  'Strategy Bean',
+  'Dungeon Delight',
+];
+
+const SEED_STATUSES: Registration['status'][] = [
+  'PENDING_REVIEW',
+  'NEEDS_OPS_VERIFICATION',
+  'PENDING_INFO',
+  'PENDING_NEGOTIATION',
+  'REJECTED',
+  'CANCELLED',
+  'DATA_BLANK',
+];
+
+function createSeedRegistration(index: number): Registration {
+  const status = SEED_STATUSES[index % SEED_STATUSES.length];
+  const cafeName = SEED_CAFE_NAMES[index % SEED_CAFE_NAMES.length];
+  const createdAt = new Date(2026, 4, 1 + index).toISOString();
+
+  return {
+    id: `REG-${String(index).padStart(3, '0')}`,
+    status,
+    basicInfo: {
+      cafeName,
+      address: `${100 + index} Duong Nguyen Van Linh, Quan 7, TP. Ho Chi Minh`,
+      hotline: `09${String(10000000 + index).slice(0, 8)}`,
+      representativeEmail: `contact@${cafeName.toLowerCase().replace(/[^a-z0-9]+/g, '')}.vn`,
+      businessLicense: `03${String(10000000 + index).slice(0, 8)}`,
+      businessLicenseImage: `/uploads/license${index}.jpg`,
+    },
+    infrastructure: {
+      numberOfTables: 8 + (index % 10),
+      numberOfPrivateRooms: index % 3,
+      maximumCapacity: 30 + index * 2,
+      spaceImages: [
+        `/uploads/space${index}a.jpg`,
+        `/uploads/space${index}b.jpg`,
+        `/uploads/space${index}c.jpg`,
+      ],
+    },
+    boardGameCatalog: {
+      numberOfGamesOwned: 40 + index * 5,
+      listOfPopularGames: 'Catan, Codenames, Splendor',
+    },
+    additionalServices: {
+      hasGameMaster: index % 2 === 0,
+      billingModel: index % 2 === 0 ? 'BY_HOUR' : 'PER_DRINK',
+    },
+    createdAt,
+    updatedAt: createdAt,
+    statusHistory: initialHistory(status),
+    alerts: index % 4 === 0
+      ? [
+          {
+            id: `ALT-SEED-${index}`,
+            type: 'DUPLICATE_SUSPECT',
+            message: 'Cần kiểm tra chéo thông tin đăng ký.',
+            createdAt,
+          },
+        ]
+      : [],
+    ...(status === 'REJECTED' ? { rejectionReason: 'Hồ sơ không đáp ứng tiêu chí hợp tác.' } : {}),
+    ...(status === 'CANCELLED' ? { cancelReason: 'Quán hủy đàm phán hợp tác.' } : {}),
+  };
+}
+
+registrations = [
+  ...registrations,
+  ...Array.from({ length: 12 }, (_, index) => createSeedRegistration(index + 5)),
+];
+
 function buildMeta(totalItems: number, page: number, limit: number) {
   const totalPages = Math.max(1, Math.ceil(totalItems / limit));
   return {
@@ -185,17 +267,19 @@ function buildMeta(totalItems: number, page: number, limit: number) {
   };
 }
 
-function filterRegistrations(params: PaginationParams): PaginatedResponse<Registration> {
+function filterRegistrations(params: PaginationParams): PaginatedResponse<PartnerApplication> {
   const search = params.search?.trim().toLowerCase() ?? '';
-  const filtered = registrations.filter((item) => {
-    if (!ADMIN_ACTIONABLE_STATUSES.includes(item.status)) return false;
-    if (!search) return true;
-    return (
-      item.basicInfo.cafeName.toLowerCase().includes(search) ||
-      item.basicInfo.address.toLowerCase().includes(search) ||
-      item.id.toLowerCase().includes(search)
-    );
-  });
+  const filtered = registrations
+    .filter((item) => {
+      if (!isAdminListVisible(item.status)) return false;
+      if (!search) return true;
+      return (
+        item.basicInfo.cafeName.toLowerCase().includes(search) ||
+        item.basicInfo.address.toLowerCase().includes(search) ||
+        item.id.toLowerCase().includes(search)
+      );
+    })
+    .map(toPartnerApplication);
 
   const start = (params.page - 1) * params.limit;
   return {
@@ -256,8 +340,8 @@ function detectDuplicateOnSubmit(payload: PartnerRegistrationRequest): {
           id: `ALT-${Date.now()}`,
           type: 'DUPLICATE_SUSPECT',
           message: nameDuplicate
-            ? 'Tên quán trùng nhưng địa chỉ khác — cần Ops xác minh thủ công.'
-            : 'Hotline trùng nhưng tên quán khác — cần Ops kiểm tra chéo thông tin.',
+            ? 'Tên quán trùng nhưng địa chỉ khác — cần xác minh thủ công.'
+            : 'Hotline trùng nhưng tên quán khác — cần kiểm tra chéo thông tin.',
           createdAt: new Date().toISOString(),
         },
       ],
@@ -344,7 +428,7 @@ function applyTransition(
 }
 
 export const PartnerMockService = {
-  getPendingApplications: async (params: PaginationParams): Promise<PaginatedResponse<Registration>> => {
+  getPendingApplications: async (params: PaginationParams): Promise<PaginatedResponse<PartnerApplication>> => {
     await delay();
     return filterRegistrations(params);
   },

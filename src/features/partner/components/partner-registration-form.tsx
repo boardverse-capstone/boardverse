@@ -106,7 +106,7 @@ export function PartnerRegistrationForm() {
         <CardHeader>
           <CardTitle>Đã gửi đơn đăng ký</CardTitle>
           <CardDescription>
-            Cảm ơn bạn đã đăng ký trở thành đối tác BoardVerse. Đội ngũ Ops sẽ liên hệ
+            Cảm ơn bạn đã đăng ký trở thành đối tác BoardVerse. Chúng tôi sẽ liên hệ
             qua email đại diện trong 3–5 ngày làm việc.
           </CardDescription>
         </CardHeader>

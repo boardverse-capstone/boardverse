@@ -13,12 +13,12 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Spinner } from '@/components/ui/spinner';
-import type { Registration } from '../types/partner.interface';
+import type { PartnerActionTarget } from '../types/partner.interface';
 
 type RejectMode = 'reject' | 'cancel';
 
 interface RejectRegistrationDialogProps {
-  registration: Registration | null;
+  partner: PartnerActionTarget | null;
   mode?: RejectMode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -42,7 +42,7 @@ const MODE_COPY: Record<RejectMode, { title: string; description: string; label:
 };
 
 export function RejectRegistrationDialog({
-  registration,
+  partner,
   mode = 'reject',
   open,
   onOpenChange,
@@ -75,7 +75,7 @@ export function RejectRegistrationDialog({
     onConfirm(trimmed);
   };
 
-  if (!registration) return null;
+  if (!partner) return null;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -84,9 +84,7 @@ export function RejectRegistrationDialog({
           <DialogTitle>{copy.title}</DialogTitle>
           <DialogDescription>
             {copy.description} Đối tác:{' '}
-            <span className="font-medium text-foreground">
-              {registration.basicInfo.cafeName}
-            </span>
+            <span className="font-medium text-foreground">{partner.cafeName}</span>
           </DialogDescription>
         </DialogHeader>
 
