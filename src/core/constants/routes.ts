@@ -14,7 +14,7 @@ export const ROUTES = {
     REGISTRATIONS: '/admin/registrations',
     REGISTRATION_DETAIL: (id: string) => `/admin/registrations/${id}`,
     USERS: '/admin/users',
-    USER_ROLES: '/admin/users/roles',
+    USER_CREATE: '/admin/users/new',
     USER_DETAIL: (id: string) => `/admin/users/${id}`,
   },
   PARTNER: {

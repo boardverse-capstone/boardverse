@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ColumnDef } from '@tanstack/react-table';
-import { ArrowUpDown, Eye, Lock, MoreHorizontal, Unlock } from 'lucide-react';
+import { ArrowUpDown, Eye, Lock, MoreHorizontal, Plus, Unlock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -24,6 +24,7 @@ import { useUsers } from '../hooks/useUsers';
 import { useBlockUser } from '../hooks/useBlockUser';
 import { useUnblockUser } from '../hooks/useUnblockUser';
 import { BlockUserDialog } from './block-user-dialog';
+import { UserEmailBadge } from './user-email-badge';
 import { UserRoleBadge } from './user-role-badge';
 import { UserStatusBadge } from './user-status-badge';
 import type { ManagedUser, UserActionTarget } from '../types/user.interface';
@@ -63,9 +64,19 @@ function createColumns({
       ),
     },
     {
+      accessorKey: 'phoneNumber',
+      header: 'Số điện thoại',
+      cell: ({ row }) => row.original.phoneNumber ?? '—',
+    },
+    {
       accessorKey: 'role',
       header: 'Vai trò',
       cell: ({ row }) => <UserRoleBadge role={row.original.role} />,
+    },
+    {
+      accessorKey: 'isEmailVerified',
+      header: 'Email',
+      cell: ({ row }) => <UserEmailBadge verified={row.original.isEmailVerified} />,
     },
     {
       accessorKey: 'status',
@@ -215,6 +226,15 @@ export function UserListTable() {
 
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">
+        <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
+          <Link href={ROUTES.ADMIN.USER_CREATE}>
+            <Plus className="mr-2 h-4 w-4" />
+            Tạo tài khoản
+          </Link>
+        </Button>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
           <p className="text-xs font-medium uppercase tracking-wide text-indigo-700">Tổng tài khoản</p>
@@ -236,7 +256,7 @@ export function UserListTable() {
         value={roleFilter}
         onValueChange={setRoleFilter}
       >
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-indigo-50/80 sm:grid-cols-4">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-indigo-50/80 sm:grid-cols-3 lg:grid-cols-5">
           {MANAGED_ROLE_FILTERS.map((filter) => (
             <TabsTrigger
               key={filter.value}
@@ -251,7 +271,7 @@ export function UserListTable() {
 
       <Input
         type="text"
-        placeholder="Tìm theo username hoặc email..."
+        placeholder="Tìm theo username, email hoặc số điện thoại..."
         value={search}
         onChange={(event) => setSearch(event.target.value)}
         className="max-w-sm border-indigo-200 bg-indigo-50/40 focus-visible:ring-indigo-400"
@@ -266,12 +286,10 @@ export function UserListTable() {
       {data?.meta && (
         <CommonPagination
           meta={data.meta}
+          pageSize={limit}
           pageSizeOptions={PAGE_SIZE_OPTIONS}
-          onPageChange={(targetPage) => setPage(targetPage)}
-          onLimitChange={(nextLimit) => {
-            setLimit(nextLimit);
-            setPage(1);
-          }}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
         />
       )}
 

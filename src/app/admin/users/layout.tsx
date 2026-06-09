@@ -14,7 +14,7 @@ export default function UsersLayout({ children }: { children: React.ReactNode })
               Quản lý tài khoản người dùng
             </h1>
             <p className="mt-1 text-sm text-white/85">
-              Xem thông tin, khóa hoặc mở khóa tài khoản Player, Cafe Manager và Staff
+              Xem thông tin và khóa/mở khóa tài khoản Player, Cafe Manager và Cafe Staff
             </p>
           </div>
         </div>

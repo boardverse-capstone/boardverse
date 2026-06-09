@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 
 interface CommonPaginationProps {
   meta: PaginationMeta;
+  pageSize?: number;
   onPageChange: (page: number) => void;
   onLimitChange?: (limit: number) => void;
   pageSizeOptions?: number[];
@@ -30,13 +31,16 @@ interface CommonPaginationProps {
 
 export function CommonPagination({
   meta,
+  pageSize,
   onPageChange,
   onLimitChange,
   pageSizeOptions = [5, 10, 20],
   className,
 }: CommonPaginationProps) {
-  const { currentPage, totalPages, totalItems, limit, hasPrevious, hasNext } = meta;
-  const { start, end } = getPaginationRange(meta);
+  const { currentPage, totalPages, totalItems, hasPrevious, hasNext } = meta;
+  const activeLimit = pageSize ?? meta.limit;
+  const rangeMeta = { ...meta, limit: activeLimit };
+  const { start, end } = getPaginationRange(rangeMeta);
   const visiblePages = getVisiblePages(currentPage, totalPages);
 
   return (
@@ -58,7 +62,7 @@ export function CommonPagination({
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>Số dòng</span>
             <Select
-              value={String(limit)}
+              value={String(activeLimit)}
               onValueChange={(value) => onLimitChange(Number(value))}
             >
               <SelectTrigger className="h-8 w-[72px] bg-background">

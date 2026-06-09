@@ -248,12 +248,10 @@ export function PartnerPendingTable() {
       {data?.meta && (
         <CommonPagination
           meta={data.meta}
+          pageSize={limit}
           pageSizeOptions={PAGE_SIZE_OPTIONS}
-          onPageChange={(targetPage) => setPage(targetPage)}
-          onLimitChange={(nextLimit) => {
-            setLimit(nextLimit);
-            setPage(1);
-          }}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
         />
       )}
 

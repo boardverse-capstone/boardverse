@@ -30,10 +30,6 @@ const ADMIN_NAV: NavItem[] = [
     title: 'Quản lý người dùng',
     url: '/admin/users',
     icon: <IconUsers />,
-    items: [
-      { title: 'Danh sách người dùng', url: '/admin/users' },
-      { title: 'Phân quyền', url: '/admin/users/roles' },
-    ],
   },
   {
     title: 'Bảo mật',

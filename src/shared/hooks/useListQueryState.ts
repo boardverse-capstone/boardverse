@@ -42,12 +42,13 @@ export function useListQueryState({
 
   const pushQuery = useCallback(
     (patch: Partial<ListQueryState>) => {
-      const next = { ...queryState, ...patch };
+      const current = parseListQuery(searchParams, defaults);
+      const next = { ...current, ...patch };
       const queryString = buildListQueryString(next, defaults);
       const href = queryString ? `${pathname}?${queryString}` : pathname;
       router.replace(href, { scroll: false });
     },
-    [queryState, defaults, pathname, router],
+    [searchParams, defaults, pathname, router],
   );
 
   useEffect(() => {

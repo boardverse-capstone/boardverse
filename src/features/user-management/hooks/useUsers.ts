@@ -16,7 +16,19 @@ export function useUsers(params: UserListParams) {
       params.isBlocked,
     ],
     queryFn: () => UserManagementService.getUsers(params),
-    placeholderData: (previousData) => previousData,
+    placeholderData: (previousData, previousQuery) => {
+      if (!previousQuery) return undefined;
+      const [, prevPage, prevLimit] = previousQuery.queryKey as [
+        string,
+        number,
+        number,
+        ...unknown[],
+      ];
+      if (prevPage === params.page && prevLimit === params.limit) {
+        return previousData;
+      }
+      return undefined;
+    },
     staleTime: 5000,
   });
 }

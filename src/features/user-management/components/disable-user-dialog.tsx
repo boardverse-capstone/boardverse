@@ -2,7 +2,6 @@
 
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -10,55 +9,53 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { MANAGED_ROLE_LABELS } from '@/core/constants/user-management';
-import type { ManagedUser } from '../types/user.interface';
+import type { UserActionTarget } from '../types/user.interface';
 
-interface UpdateRoleDialogProps {
-  user: ManagedUser | null;
-  newRole: string;
+interface DisableUserDialogProps {
+  user: UserActionTarget | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
   isPending: boolean;
 }
 
-export function UpdateRoleDialog({
+export function DisableUserDialog({
   user,
-  newRole,
   open,
   onOpenChange,
   onConfirm,
   isPending,
-}: UpdateRoleDialogProps) {
+}: DisableUserDialogProps) {
   if (!user) return null;
 
-  const currentLabel = MANAGED_ROLE_LABELS[user.role] ?? user.role;
-  const nextLabel = MANAGED_ROLE_LABELS[newRole] ?? newRole;
+  const roleLabel = MANAGED_ROLE_LABELS[user.role] ?? user.role;
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Xác nhận thay đổi vai trò</AlertDialogTitle>
+          <AlertDialogTitle>Vô hiệu hóa tài khoản</AlertDialogTitle>
           <AlertDialogDescription>
-            Bạn sắp đổi vai trò của <strong>{user.username}</strong> từ{' '}
-            <strong>{currentLabel}</strong> sang <strong>{nextLabel}</strong>. Hành động này ảnh
-            hưởng quyền truy cập hệ thống của người dùng.
+            Bạn sắp vô hiệu hóa tài khoản <strong>{user.username}</strong> ({roleLabel}). Tài khoản sẽ
+            không còn hoạt động trên hệ thống.
           </AlertDialogDescription>
         </AlertDialogHeader>
+
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending}>Hủy</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} disabled={isPending}>
+          <Button variant="destructive" disabled={isPending} onClick={onConfirm}>
             {isPending ? (
               <>
                 <Spinner className="mr-2" />
-                Đang cập nhật...
+                Đang xử lý...
               </>
             ) : (
-              'Xác nhận'
+              'Xác nhận vô hiệu hóa'
             )}
-          </AlertDialogAction>
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

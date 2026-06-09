@@ -14,6 +14,8 @@ const PORTAL_ROLE_ALIASES: Record<string, UserRole | null> = {
   'Cafe Manager': UserRole.Manager,
   CafeManager: UserRole.Manager,
   Staff: UserRole.Staff,
+  CafeStaff: UserRole.Staff,
+  cafestaff: UserRole.Staff,
   User: null,
   Player: null,
 };
