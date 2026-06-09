@@ -25,7 +25,7 @@ export const UserManagementService = {
     const raw = await apiClient.get<
       never,
       RawUserRecord[] | PaginatedResponse<ManagedUser> | { Items: RawUserRecord[]; TotalCount: number; Page: number; PageSize: number }
-    >('/api/UserManagement', {
+    >('/api/UserManagement/users', {
       params: {
         Page: params.page,
         PageSize: params.limit,
