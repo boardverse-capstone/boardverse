@@ -1,0 +1,71 @@
+'use client';
+
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { PartnerService, PARTNER_QUERY_KEYS } from '../services/partner.service';
+import type { PaginatedResponse } from '@/shared/types/pagination.interface';
+import type { PartnerApplication, Registration } from '../types/partner.interface';
+import { toPartnerApplication } from '../utils/partner.mapper';
+import { syncPartnerInPendingCaches } from '../utils/partner-cache.util';
+
+interface RejectVariables {
+  id: string;
+  payload: { reason: string };
+}
+
+export function useRejectRegistration() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }: RejectVariables) =>
+      PartnerService.rejectRegistration(id, payload),
+    onMutate: async ({ id, payload }) => {
+      await queryClient.cancelQueries({ queryKey: [PARTNER_QUERY_KEYS.pending] });
+
+      const previousQueries = queryClient.getQueriesData({
+        queryKey: [PARTNER_QUERY_KEYS.pending],
+      });
+
+      queryClient.setQueriesData<PaginatedResponse<PartnerApplication>>(
+        { queryKey: [PARTNER_QUERY_KEYS.pending] },
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            data: old.data.map((item) =>
+              item.id === id ? { ...item, status: 'REJECTED' } : item,
+            ),
+          };
+        },
+      );
+
+      const previousDetail = queryClient.getQueryData<Registration>([
+        PARTNER_QUERY_KEYS.detail,
+        id,
+      ]);
+      if (previousDetail) {
+        queryClient.setQueryData([PARTNER_QUERY_KEYS.detail, id], {
+          ...previousDetail,
+          status: 'REJECTED',
+          rejectionReason: payload.reason,
+        });
+      }
+
+      return { previousQueries, previousDetail };
+    },
+    onSuccess: (data) => {
+      toast.success(`Đã từ chối đơn "${data.basicInfo.cafeName}".`);
+      queryClient.setQueryData([PARTNER_QUERY_KEYS.detail, data.id], data);
+      syncPartnerInPendingCaches(queryClient, toPartnerApplication(data));
+    },
+    onError: (error: Error, { id }, context) => {
+      context?.previousQueries.forEach(([queryKey, data]) => {
+        if (data) queryClient.setQueryData(queryKey, data);
+      });
+      if (context?.previousDetail) {
+        queryClient.setQueryData([PARTNER_QUERY_KEYS.detail, id], context.previousDetail);
+      }
+      toast.error(error.message ?? 'Từ chối đơn thất bại.');
+    },
+  });
+}

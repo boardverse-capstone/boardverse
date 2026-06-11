@@ -3,7 +3,7 @@ import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import type { ApiResponse } from '@/shared/types/api.interface';
 import type { LoginResponse } from '@/features/auth/types/auth.interface';
-import { ROUTES } from '@/core/constants/routes';
+import { buildLoginUrl, saveReturnUrl } from '@/features/auth/utils/redirect.util';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
 
@@ -79,7 +79,9 @@ apiClient.interceptors.response.use(
       if (!refreshToken) {
         clearAuth();
         if (typeof window !== 'undefined') {
-          window.location.href = ROUTES.AUTH.LOGIN;
+          const currentPath = window.location.pathname + window.location.search;
+          saveReturnUrl(currentPath);
+          window.location.replace(buildLoginUrl(currentPath));
         }
         return Promise.reject(error);
       }
@@ -104,7 +106,9 @@ apiClient.interceptors.response.use(
         processQueue(refreshError as AxiosError, null);
         clearAuth();
         if (typeof window !== 'undefined') {
-          window.location.href = ROUTES.AUTH.LOGIN;
+          const currentPath = window.location.pathname + window.location.search;
+          saveReturnUrl(currentPath);
+          window.location.replace(buildLoginUrl(currentPath));
         }
         return Promise.reject(refreshError);
       } finally {

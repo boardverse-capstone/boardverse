@@ -1,9 +1,7 @@
 'use client';
 
-// src/app/staff/layout.tsx
 import type { ReactNode } from 'react';
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense } from 'react';
 import {
   IconLayoutDashboard,
   IconChecklist,
@@ -12,9 +10,9 @@ import {
   IconHelp,
 } from '@tabler/icons-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { useAuthStore } from '@/features/auth/store/auth.store';
+import { RoleGuard } from '@/features/auth/components/role-guard';
+import { AuthLoading } from '@/features/auth/components/auth-loading';
 import { UserRole } from '@/core/constants/roles';
-import { ROUTES } from '@/core/constants/routes';
 import type { NavItem } from '@/components/layout/nav-main';
 
 const STAFF_NAV: NavItem[] = [
@@ -50,26 +48,13 @@ const STAFF_NAV: NavItem[] = [
 ];
 
 export default function StaffLayout({ children }: { children: ReactNode }) {
-  const router = useRouter();
-  const { token, user } = useAuthStore();
-
-  useEffect(() => {
-    if (!token || !user) {
-      router.replace(ROUTES.AUTH.LOGIN);
-      return;
-    }
-    if (user.role !== UserRole.Staff) {
-      router.replace(ROUTES.AUTH.LOGIN);
-    }
-  }, [token, user, router]);
-
-  if (!token || !user || user.role !== UserRole.Staff) {
-    return null;
-  }
-
   return (
-    <DashboardLayout navItems={STAFF_NAV} appSubtitle="Staff Portal">
-      {children}
-    </DashboardLayout>
+    <Suspense fallback={<AuthLoading message="Đang xác minh quyền truy cập..." />}>
+      <RoleGuard allowedRole={UserRole.Staff}>
+        <DashboardLayout navItems={STAFF_NAV} appSubtitle="Staff Portal">
+          {children}
+        </DashboardLayout>
+      </RoleGuard>
+    </Suspense>
   );
 }

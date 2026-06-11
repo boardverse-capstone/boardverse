@@ -21,7 +21,7 @@ export function useLogout() {
     },
     onSettled: () => {
       clearAuth();
-      router.push(ROUTES.AUTH.LOGIN);
+      router.replace(ROUTES.AUTH.LOGIN);
     },
     onError: () => {
       // Luôn clear auth kể cả khi API lỗi
