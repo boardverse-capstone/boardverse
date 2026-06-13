@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserDetailContent } from './user-detail-content';
+import { AdjustKarmaDialog } from '@/features/behavior-monitoring/components/adjust-karma-dialog';
 import type { ManagedUser } from '../types/user.interface';
 import { toUserActionTarget } from '../utils/user.mapper';
 
@@ -59,6 +60,11 @@ export function UserDetailPanel({
 
           {user && (
             <div className="flex flex-wrap gap-2">
+              <AdjustKarmaDialog
+                userId={user.id}
+                username={user.username}
+                currentKarma={user.karmaPoints ?? 100}
+              />
               <Button size="sm" variant="outline" asChild>
                 <a href="#user-update-form">
                   <Pencil className="mr-2 h-4 w-4" />

@@ -229,6 +229,7 @@ export const UserManagementMockService = {
       ...(email ? { email } : {}),
       ...(payload.role ? { role: payload.role } : {}),
       ...(payload.isActive != null ? { isActive: payload.isActive } : {}),
+      ...(payload.karmaPoints != null ? { karmaPoints: payload.karmaPoints } : {}),
       ...(payload.isBlocked != null
         ? {
             isBlocked: payload.isBlocked,

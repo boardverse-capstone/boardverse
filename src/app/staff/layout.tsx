@@ -8,6 +8,7 @@ import {
   IconCalendar,
   IconClipboard,
   IconHelp,
+  IconDeviceDesktop,
 } from '@tabler/icons-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { RoleGuard } from '@/features/auth/components/role-guard';
@@ -20,6 +21,11 @@ const STAFF_NAV: NavItem[] = [
     title: 'Dashboard',
     url: '/staff/dashboard',
     icon: <IconLayoutDashboard />,
+  },
+  {
+    title: 'Web POS',
+    url: '/staff/pos',
+    icon: <IconDeviceDesktop />,
   },
   {
     title: 'Công việc',

@@ -16,8 +16,16 @@ export const ROUTES = {
     USERS: '/admin/users',
     USER_CREATE: '/admin/users/new',
     USER_DETAIL: (id: string) => `/admin/users/${id}`,
+    KARMA_LOGS: '/admin/karma-logs',
+    BEHAVIOR_WARNINGS: '/admin/behavior-warnings',
+    SETTINGS: '/admin/settings',
+    SECURITY: '/admin/security',
   },
   PARTNER: {
     REGISTER: '/partner/register',
+  },
+  STAFF: {
+    POS: '/staff/pos',
+    POS_CHECK_IN: (bookingId: string) => `/staff/pos/${bookingId}`,
   },
 } as const;

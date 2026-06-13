@@ -8,6 +8,8 @@ import {
   IconUsers,
   IconSettings,
   IconShield,
+  IconAlertTriangle,
+  IconHistory,
 } from '@tabler/icons-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { RoleGuard } from '@/features/auth/components/role-guard';
@@ -30,6 +32,16 @@ const ADMIN_NAV: NavItem[] = [
     title: 'Quản lý người dùng',
     url: '/admin/users',
     icon: <IconUsers />,
+  },
+  {
+    title: 'Nhật ký Karma',
+    url: '/admin/karma-logs',
+    icon: <IconHistory />,
+  },
+  {
+    title: 'Cảnh báo hành vi',
+    url: '/admin/behavior-warnings',
+    icon: <IconAlertTriangle />,
   },
   {
     title: 'Bảo mật',

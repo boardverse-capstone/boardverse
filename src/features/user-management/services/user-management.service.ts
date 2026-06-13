@@ -83,6 +83,8 @@ export const UserManagementService = {
     if (payload.role != null) body.role = payload.role;
     if (payload.isActive != null) body.isActive = payload.isActive;
     if (payload.isBlocked != null) body.isBlocked = payload.isBlocked;
+    if (payload.karmaPoints != null) body.karmaPoints = payload.karmaPoints;
+    if (payload.blockReason != null) body.blockReason = payload.blockReason;
 
     const raw = await apiClient.put<never, RawUserRecord | ManagedUser>(
       `/api/UserManagement/${id}`,

@@ -78,7 +78,7 @@ export interface CreateUserRequest {
   role: string;
 }
 
-/** Body PUT /api/UserManagement/{id} — AdminUpdateUserDto */
+/** Body PUT /api/UserManagement/{id} — AdminUpdateUserDto + mở rộng karma */
 export interface UpdateUserRequest {
   username?: string;
   email?: string;
@@ -86,6 +86,8 @@ export interface UpdateUserRequest {
   role?: string;
   isActive?: boolean;
   isBlocked?: boolean;
+  karmaPoints?: number;
+  blockReason?: string;
 }
 
 export interface BlockUserRequest {
