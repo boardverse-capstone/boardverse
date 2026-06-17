@@ -2,7 +2,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import type { PaginatedResponse } from '@/shared/types/pagination.interface';
 import type { PartnerApplication } from '../types/partner.interface';
 import { PARTNER_QUERY_KEYS } from '../services/partner.service';
-import { isAdminListVisible } from './registration-workflow';
+import { isApplicationListVisible } from './application-workflow';
 
 export function removePartnerFromPendingCaches(queryClient: QueryClient, id: string) {
   queryClient.setQueriesData<PaginatedResponse<PartnerApplication>>(
@@ -32,7 +32,7 @@ export function syncPartnerInPendingCaches(
     (old) => {
       if (!old) return old;
 
-      if (!isAdminListVisible(partner.status)) {
+      if (!isApplicationListVisible(partner)) {
         return {
           ...old,
           data: old.data.filter((item) => item.id !== partner.id),

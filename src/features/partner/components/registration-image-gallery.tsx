@@ -1,7 +1,8 @@
 'use client';
 
 import Image from 'next/image';
-import { IconPhoto } from '@tabler/icons-react';
+import Link from 'next/link';
+import { IconExternalLink, IconFileText, IconPhoto } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
 
 interface RegistrationImageGalleryProps {
@@ -16,6 +17,15 @@ function resolveDisplayUrl(src: string, seed: string, index: number): string {
     return src;
   }
   return `https://picsum.photos/seed/${seed}-${index}/640/480`;
+}
+
+function isPdfUrl(url: string): boolean {
+  try {
+    const pathname = new URL(url, 'https://placeholder.local').pathname.toLowerCase();
+    return pathname.endsWith('.pdf');
+  } catch {
+    return url.toLowerCase().includes('.pdf');
+  }
 }
 
 const LABELS = ['Mặt tiền', 'Khu vực bàn chơi', 'Hệ thống ánh sáng', 'Không gian', 'Chi tiết'];
@@ -42,6 +52,29 @@ export function RegistrationImageGallery({
         {images.map((src, index) => {
           const displayUrl = resolveDisplayUrl(src, seed, index);
           const label = LABELS[index] ?? `Ảnh ${index + 1}`;
+
+          if (isPdfUrl(displayUrl)) {
+            return (
+              <figure
+                key={`${seed}-${index}`}
+                className="overflow-hidden rounded-xl border bg-card shadow-sm"
+              >
+                <div className="flex aspect-[4/3] flex-col items-center justify-center gap-3 bg-muted/50 p-6">
+                  <IconFileText className="size-10 text-amber-600" />
+                  <p className="text-center text-sm font-medium">{label}</p>
+                  <Link
+                    href={displayUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                  >
+                    Xem tài liệu PDF
+                    <IconExternalLink className="size-4" />
+                  </Link>
+                </div>
+              </figure>
+            );
+          }
 
           return (
             <figure

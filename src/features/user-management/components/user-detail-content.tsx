@@ -196,7 +196,16 @@ export function UserDetailContent({ user, isLoading, isError }: UserDetailConten
 
           <InfoRow label="Email" value={user.email} />
 
-          {user.phoneNumber && <InfoRow label="Số điện thoại" value={user.phoneNumber} />}
+          <InfoRow
+            label="Số điện thoại"
+            value={
+              user.phoneNumber?.trim() ? (
+                user.phoneNumber
+              ) : (
+                <span className="font-normal text-muted-foreground">Chưa nhập</span>
+              )
+            }
+          />
 
           {user.provider && user.provider !== 'Local' && (
 

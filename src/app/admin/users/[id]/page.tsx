@@ -6,7 +6,6 @@ import { ROUTES } from '@/core/constants/routes';
 import { BlockUserDialog } from '@/features/user-management/components/block-user-dialog';
 import { DisableUserDialog } from '@/features/user-management/components/disable-user-dialog';
 import { UserDetailPanel } from '@/features/user-management/components/user-detail-panel';
-import { UserUpdateForm } from '@/features/user-management/components/user-update-form';
 import { useUserDetail } from '@/features/user-management/hooks/useUserDetail';
 import { useBlockUser } from '@/features/user-management/hooks/useBlockUser';
 import { useDisableUser } from '@/features/user-management/hooks/useDisableUser';
@@ -51,8 +50,6 @@ export default function UserDetailPage({ params }: UserDetailPageProps) {
         onUnblock={() => unblockMutation.mutate(id)}
         onDisable={() => setDisableOpen(true)}
       />
-
-      {data && <UserUpdateForm user={data} />}
 
       <BlockUserDialog
         user={actionTarget}

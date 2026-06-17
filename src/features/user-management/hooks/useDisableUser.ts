@@ -18,13 +18,13 @@ export function useDisableUser() {
   return useMutation({
     mutationFn: ({ id }: DisableUserVariables) => UserManagementService.disableUser(id),
     onSuccess: (_data, variables) => {
-      toast.success(`Đã vô hiệu hóa tài khoản "${variables.username}".`);
+      toast.success(`Đã xóa tài khoản "${variables.username}".`);
       queryClient.removeQueries({ queryKey: [USER_QUERY_KEYS.detail, variables.id] });
       queryClient.invalidateQueries({ queryKey: [USER_QUERY_KEYS.list] });
       router.push(ROUTES.ADMIN.USERS);
     },
     onError: (error: Error) => {
-      toast.error(error.message ?? 'Vô hiệu hóa tài khoản thất bại.');
+      toast.error(error.message ?? 'Xóa tài khoản thất bại.');
     },
   });
 }

@@ -1,8 +1,9 @@
-import type { PaginatedResponse, PaginationParams } from '@/shared/types/pagination.interface';
+import type { PaginatedResponse } from '@/shared/types/pagination.interface';
 import { isAdminListVisible } from '../utils/registration-workflow';
 import type {
   ApproveRegistrationResponse,
   PartnerApplication,
+  PartnerApplicationListParams,
   PartnerRegistrationRequest,
   Registration,
   RejectRegistrationRequest,
@@ -10,7 +11,10 @@ import type {
   TransitionRegistrationRequest,
   TransitionRegistrationResponse,
 } from '../types/partner.interface';
-import { toPartnerApplication } from '../utils/partner.mapper';
+import { mapRegistrationToPartnerApplication } from '../utils/partner.mapper';
+import {
+  filterApplicationsByStatus,
+} from '../utils/application-workflow';
 import {
   appendStatusHistory,
   canPerformAction,
@@ -267,19 +271,36 @@ function buildMeta(totalItems: number, page: number, limit: number) {
   };
 }
 
-function filterRegistrations(params: PaginationParams): PaginatedResponse<PartnerApplication> {
+function filterRegistrations(params: PartnerApplicationListParams): PaginatedResponse<PartnerApplication> {
   const search = params.search?.trim().toLowerCase() ?? '';
-  const filtered = registrations
-    .filter((item) => {
-      if (!isAdminListVisible(item.status)) return false;
-      if (!search) return true;
-      return (
-        item.basicInfo.cafeName.toLowerCase().includes(search) ||
-        item.basicInfo.address.toLowerCase().includes(search) ||
-        item.id.toLowerCase().includes(search)
-      );
-    })
-    .map(toPartnerApplication);
+
+  const filtered = filterApplicationsByStatus(
+    registrations
+      .filter((item) => isAdminListVisible(item.status))
+      .map((item, index) => ({
+        ...mapRegistrationToPartnerApplication(item),
+        ...(index % 2 === 0
+          ? {
+              workingHours: {
+                weekdayStart: '09:00',
+                weekdayEnd: '22:00',
+                weekendStart: '10:00',
+                weekendEnd: '23:00',
+              },
+            }
+          : {}),
+      })),
+    params.status,
+  ).filter((item) => {
+    if (!search) return true;
+    return (
+      item.cafeName.toLowerCase().includes(search) ||
+      item.address.toLowerCase().includes(search) ||
+      item.hotline.toLowerCase().includes(search) ||
+      item.representativeEmail.toLowerCase().includes(search) ||
+      item.id.toLowerCase().includes(search)
+    );
+  });
 
   const start = (params.page - 1) * params.limit;
   return {
@@ -428,16 +449,18 @@ function applyTransition(
 }
 
 export const PartnerMockService = {
-  getPendingApplications: async (params: PaginationParams): Promise<PaginatedResponse<PartnerApplication>> => {
+  getPendingApplications: async (
+    params: PartnerApplicationListParams,
+  ): Promise<PaginatedResponse<PartnerApplication>> => {
     await delay();
     return filterRegistrations(params);
   },
 
-  getRegistrationById: async (id: string): Promise<Registration> => {
+  getRegistrationById: async (id: string): Promise<PartnerApplication> => {
     await delay();
     const registration = registrations.find((item) => item.id === id);
     if (!registration) throw new Error('Không tìm thấy đơn đăng ký.');
-    return registration;
+    return mapRegistrationToPartnerApplication(registration);
   },
 
   submitRegistration: async (

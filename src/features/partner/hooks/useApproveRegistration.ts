@@ -2,10 +2,9 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { REGISTRATION_STATUS_LABELS } from '@/core/constants/partner-registration';
+import { APPLICATION_STATUS_LABELS } from '@/core/constants/partner-registration';
 import { PartnerService, PARTNER_QUERY_KEYS } from '../services/partner.service';
-import type { Registration } from '../types/partner.interface';
-import { toPartnerApplication } from '../utils/partner.mapper';
+import { mapRegistrationToPartnerApplication } from '../utils/partner.mapper';
 import { syncPartnerInPendingCaches } from '../utils/partner-cache.util';
 
 export function useApproveRegistration() {
@@ -13,7 +12,7 @@ export function useApproveRegistration() {
 
   return useMutation({
     mutationFn: (id: string) => PartnerService.approveRegistration(id),
-    onMutate: async (id) => {
+    onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: [PARTNER_QUERY_KEYS.pending] });
       const previousQueries = queryClient.getQueriesData({
         queryKey: [PARTNER_QUERY_KEYS.pending],
@@ -21,8 +20,10 @@ export function useApproveRegistration() {
       return { previousQueries };
     },
     onSuccess: (data) => {
+      const application = mapRegistrationToPartnerApplication(data.registration);
+
       toast.success(
-        `${data.registration.basicInfo.cafeName} → ${REGISTRATION_STATUS_LABELS[data.registration.status]}`,
+        `${application.cafeName} → ${APPLICATION_STATUS_LABELS[application.applicationStatus]}`,
       );
 
       if (data.managerAccount) {
@@ -31,12 +32,10 @@ export function useApproveRegistration() {
         });
       }
 
-      queryClient.setQueryData(
-        [PARTNER_QUERY_KEYS.detail, data.registration.id],
-        data.registration,
-      );
-
-      syncPartnerInPendingCaches(queryClient, toPartnerApplication(data.registration));
+      queryClient.setQueryData([PARTNER_QUERY_KEYS.detail, application.id], application);
+      syncPartnerInPendingCaches(queryClient, application);
+      queryClient.invalidateQueries({ queryKey: [PARTNER_QUERY_KEYS.pending] });
+      queryClient.invalidateQueries({ queryKey: [PARTNER_QUERY_KEYS.detail, application.id] });
     },
     onError: (error: Error, _id, context) => {
       context?.previousQueries.forEach(([queryKey, data]) => {

@@ -11,36 +11,39 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import { MANAGED_ROLE_LABELS } from '@/core/constants/user-management';
-import type { UserActionTarget } from '../types/user.interface';
 
-interface DisableUserDialogProps {
-  user: UserActionTarget | null;
+interface ProfileDeleteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
   isPending: boolean;
+  username?: string;
 }
 
-export function DisableUserDialog({
-  user,
+export function ProfileDeleteDialog({
   open,
   onOpenChange,
   onConfirm,
   isPending,
-}: DisableUserDialogProps) {
-  if (!user) return null;
-
-  const roleLabel = MANAGED_ROLE_LABELS[user.role] ?? user.role;
-
+  username,
+}: ProfileDeleteDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Xóa tài khoản</AlertDialogTitle>
+          <AlertDialogTitle>Vô hiệu hóa hồ sơ</AlertDialogTitle>
           <AlertDialogDescription>
-            Bạn sắp xóa tài khoản <strong>{user.username}</strong> ({roleLabel}). Tài khoản sẽ
-            không còn hoạt động trên hệ thống.
+            {username ? (
+              <>
+                Bạn sắp vô hiệu hóa hồ sơ của <strong>{username}</strong>. Dữ liệu hồ sơ gamer sẽ
+                không còn hiển thị và bạn có thể tạo lại hồ sơ mới sau này.
+              </>
+            ) : (
+              <>
+                Bạn sắp vô hiệu hóa hồ sơ của mình. Dữ liệu hồ sơ gamer sẽ không còn hiển thị và
+                bạn có thể tạo lại hồ sơ mới sau này.
+              </>
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -53,7 +56,7 @@ export function DisableUserDialog({
                 Đang xử lý...
               </>
             ) : (
-              'Xác nhận xóa'
+              'Xác nhận vô hiệu hóa'
             )}
           </Button>
         </AlertDialogFooter>

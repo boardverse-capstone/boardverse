@@ -1,5 +1,4 @@
 export const CREATE_USER_ROLES = [
-  { value: 'User', label: 'Player' },
   { value: 'Admin', label: 'Admin' },
   { value: 'Manager', label: 'Cafe Manager' },
   { value: 'cafestaff', label: 'Cafe Staff' },

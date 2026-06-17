@@ -1,8 +1,9 @@
 import apiClient from '@/core/api/client';
-import type { PaginatedResponse, PaginationParams } from '@/shared/types/pagination.interface';
+import type { PaginatedResponse } from '@/shared/types/pagination.interface';
 import type {
   ApproveRegistrationResponse,
   PartnerApplication,
+  PartnerApplicationListParams,
   PartnerRegistrationRequest,
   Registration,
   RejectRegistrationRequest,
@@ -10,6 +11,7 @@ import type {
   TransitionRegistrationRequest,
   TransitionRegistrationResponse,
 } from '../types/partner.interface';
+import { normalizePartnerDetailResponse, normalizePartnerListResponse } from '../utils/partner.mapper';
 import { PartnerMockService } from './partner.mock';
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_PARTNER_API === 'true';
@@ -21,25 +23,30 @@ export const PARTNER_QUERY_KEYS = {
 
 export const PartnerService = {
   getPendingApplications: async (
-    params: PaginationParams,
+    params: PartnerApplicationListParams,
   ): Promise<PaginatedResponse<PartnerApplication>> => {
     if (USE_MOCK) return PartnerMockService.getPendingApplications(params);
 
-    return apiClient.get<never, PaginatedResponse<PartnerApplication>>(
-      '/admin/partners/pending',
-      {
-        params: {
-          page: params.page,
-          limit: params.limit,
-          q: params.search,
-        },
+    const raw = await apiClient.get('/api/admin/cafe-partner-applications', {
+      params: {
+        Search: params.search || undefined,
+        Status: params.status && params.status !== 'all' ? params.status : undefined,
+        Page: params.page,
+        PageSize: params.limit,
       },
-    );
+    });
+
+    return normalizePartnerListResponse(raw, params);
   },
 
-  getRegistrationById: async (id: string): Promise<Registration> => {
+  getRegistrationById: async (id: string): Promise<PartnerApplication> => {
     if (USE_MOCK) return PartnerMockService.getRegistrationById(id);
-    return apiClient.get<never, Registration>(`/admin/partners/${id}`);
+
+    const raw = await apiClient.get<never, unknown>(
+      `/api/admin/cafe-partner-applications/${id}`,
+    );
+
+    return normalizePartnerDetailResponse(raw);
   },
 
   submitRegistration: async (

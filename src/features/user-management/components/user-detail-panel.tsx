@@ -1,7 +1,7 @@
 'use client';
 
 import { IconShield } from '@tabler/icons-react';
-import { Lock, Pencil, Unlock, UserX } from 'lucide-react';
+import { Lock, Unlock, UserX } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -65,12 +65,6 @@ export function UserDetailPanel({
                 username={user.username}
                 currentKarma={user.karmaPoints ?? 100}
               />
-              <Button size="sm" variant="outline" asChild>
-                <a href="#user-update-form">
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Chỉnh sửa
-                </a>
-              </Button>
               {user.isBlocked ? (
                 <Button
                   size="sm"
@@ -101,7 +95,7 @@ export function UserDetailPanel({
                   onClick={onDisable}
                 >
                   <UserX className="mr-2 h-4 w-4" />
-                  Vô hiệu hóa
+                  Xóa tài khoản
                 </Button>
               )}
             </div>
