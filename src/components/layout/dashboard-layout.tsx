@@ -37,7 +37,11 @@ export function DashboardLayout({
 }: DashboardLayoutProps) {
   return (
     <SidebarProvider>
-      <AppSidebar navItems={navItems} appSubtitle={appSubtitle} />
+      <AppSidebar
+        navItems={navItems}
+        appSubtitle={appSubtitle}
+        homeUrl={navItems[0]?.url}
+      />
       <SidebarInset>
         {/* Top bar */}
         <header className="flex h-16 shrink-0 items-center gap-2 border-b">
@@ -60,7 +64,7 @@ export function DashboardLayout({
         </header>
 
         {/* Page content */}
-        <main className="flex flex-1 flex-col gap-4 p-4 pt-6">{children}</main>
+        <main className="flex flex-1 flex-col gap-4 p-3 pt-4 sm:p-4 sm:pt-6 md:p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

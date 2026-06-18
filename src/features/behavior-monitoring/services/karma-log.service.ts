@@ -1,25 +1,49 @@
 import apiClient from '@/core/api/client';
 import type { PaginatedResponse } from '@/shared/types/pagination.interface';
+import { isPlayerRole } from '@/core/constants/user-management';
 import { UserManagementService } from '@/features/user-management/services/user-management.service';
-import type { KarmaLogEntry, KarmaLogParams } from '../types/behavior.interface';
+import type { KarmaLogEntry, KarmaLogParams, RawKarmaLogRecord } from '../types/behavior.interface';
+import { normalizeKarmaLogListResponse } from '../utils/karma-log.mapper';
 import { KarmaLogMockService } from './karma-log.mock';
 
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_BEHAVIOR_API !== 'false';
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_BEHAVIOR_API === 'true';
 
 export const KARMA_LOG_QUERY_KEY = 'karma-logs';
+
+async function enrichUsersWithKarma(
+  users: { id: string; username: string; karmaPoints?: number }[],
+) {
+  const missingKarma = users.filter((user) => user.karmaPoints == null);
+  if (missingKarma.length === 0) return users;
+
+  const enriched = await Promise.all(
+    missingKarma.map(async (user) => {
+      try {
+        return await UserManagementService.getUserById(user.id);
+      } catch {
+        return user;
+      }
+    }),
+  );
+
+  const enrichedById = new Map(enriched.map((user) => [user.id, user]));
+  return users.map((user) => enrichedById.get(user.id) ?? user);
+}
 
 function buildSnapshotLogs(
   users: { id: string; username: string; karmaPoints?: number }[],
 ): KarmaLogEntry[] {
-  return users.map((user) => ({
-    id: `snapshot-${user.id}`,
-    userId: user.id,
-    displayName: user.username,
-    currentKarma: user.karmaPoints ?? 100,
-    behaviorType: 'SYSTEM',
-    delta: 0,
-    recordedAt: new Date().toISOString(),
-  }));
+  return users
+    .filter((user) => user.karmaPoints != null)
+    .map((user) => ({
+      id: `snapshot-${user.id}`,
+      userId: user.id,
+      displayName: user.username,
+      currentKarma: user.karmaPoints as number,
+      behaviorType: 'SYSTEM',
+      delta: 0,
+      recordedAt: new Date().toISOString(),
+    }));
 }
 
 function filterLogs(entries: KarmaLogEntry[], params: KarmaLogParams): KarmaLogEntry[] {
@@ -62,6 +86,18 @@ function paginateLogs(
   };
 }
 
+async function buildFallbackLogs(params: KarmaLogParams): Promise<PaginatedResponse<KarmaLogEntry>> {
+  const response = await UserManagementService.getUsers({
+    page: 1,
+    limit: 100,
+    search: params.search,
+  });
+
+  const players = response.data.filter((user) => isPlayerRole(user.role));
+  const withKarma = await enrichUsersWithKarma(players);
+  return paginateLogs(buildSnapshotLogs(withKarma), params);
+}
+
 export const KarmaLogService = {
   getLogs: async (params: KarmaLogParams): Promise<PaginatedResponse<KarmaLogEntry>> => {
     if (USE_MOCK) return KarmaLogMockService.getLogs(params);
@@ -69,34 +105,24 @@ export const KarmaLogService = {
     try {
       const raw = await apiClient.get<
         never,
-        PaginatedResponse<KarmaLogEntry> | KarmaLogEntry[]
+        PaginatedResponse<RawKarmaLogRecord> | RawKarmaLogRecord[] | RawKarmaLogRecord
       >('/api/UserManagement/karma-logs', {
         params: {
           Search: params.search || undefined,
-          BehaviorType: params.behaviorType && params.behaviorType !== 'all' ? params.behaviorType : undefined,
+          BehaviorType:
+            params.behaviorType && params.behaviorType !== 'all' ? params.behaviorType : undefined,
           Page: params.page,
           PageSize: params.limit,
         },
       });
 
-      if (Array.isArray(raw)) {
-        return paginateLogs(raw, params);
-      }
+      const normalized = Array.isArray(raw) || (raw && 'data' in raw)
+        ? normalizeKarmaLogListResponse(raw, params)
+        : normalizeKarmaLogListResponse(raw ? [raw] : [], params);
 
-      if (raw?.data && raw?.meta) {
-        return raw;
-      }
-
-      return paginateLogs((raw as unknown as KarmaLogEntry[]) ?? [], params);
+      return normalized;
     } catch {
-      const users = await UserManagementService.getUsers({
-        page: params.page,
-        limit: params.limit,
-        search: params.search,
-        role: 'User',
-      });
-
-      return paginateLogs(buildSnapshotLogs(users.data), params);
+      return buildFallbackLogs(params);
     }
   },
 };

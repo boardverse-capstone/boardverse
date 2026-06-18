@@ -69,14 +69,6 @@ export function MasterSettingsPortal() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="relative space-y-6 pb-20">
-      <div>
-        <h2 className="text-xl font-semibold">Quản trị Tham số Toàn cục</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          GET/PUT <code className="text-xs">/api/MasterSettings</code> — mock khi backend chưa sẵn
-          sàng.
-        </p>
-      </div>
-
       <Tabs defaultValue="elo" className="space-y-4">
         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 lg:grid-cols-4">
           <TabsTrigger value="elo">Công thức Elo</TabsTrigger>

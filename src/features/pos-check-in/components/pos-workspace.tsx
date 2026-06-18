@@ -3,8 +3,10 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { LayoutGrid } from 'lucide-react';
+import { PageHeader } from '@/components/common/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
+import { QR_BOOKING_PREFIX } from '@/core/constants/pos-check-in';
 import { POS_QUERY_KEYS } from '../services/pos-check-in.service';
 import { PosCheckInMockService } from '../services/pos-check-in.mock';
 import { useFloorPlan, useStaffCafe } from '../hooks/usePosCheckIn';
@@ -20,35 +22,49 @@ export function PosWorkspace() {
 
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [selectedTableId, setSelectedTableId] = useState<string | undefined>();
+  const [selectedTableLabel, setSelectedTableLabel] = useState<string | undefined>();
   const [resolvedBooking, setResolvedBooking] = useState<QrResolveResult | null>(null);
 
   const sampleCodes = useMemo(() => PosCheckInMockService.getSampleQrCodes(), []);
+
+  const presetQr = useMemo(() => {
+    if (resolvedBooking?.booking.qrCode) return resolvedBooking.booking.qrCode;
+    if (!selectedBookingId) return undefined;
+    const sample = sampleCodes.find((item) => item.bookingId === selectedBookingId);
+    return sample?.qrCode ?? `${QR_BOOKING_PREFIX}${selectedBookingId}`;
+  }, [resolvedBooking, sampleCodes, selectedBookingId]);
 
   const handleQrResolved = useCallback((result: QrResolveResult) => {
     setResolvedBooking(result);
     setSelectedBookingId(result.booking.id);
     setSelectedTableId(result.table.id);
+    setSelectedTableLabel(result.table.label);
   }, []);
 
-  const handleTableSelect = useCallback((table: CafeTable) => {
-    setSelectedTableId(table.id);
+  const handleTableSelect = useCallback(
+    (table: CafeTable) => {
+      setSelectedTableId(table.id);
+      setSelectedTableLabel(table.label);
 
-    if (table.status === 'Reserved' && table.bookingId) {
-      setSelectedBookingId(table.bookingId);
-      setResolvedBooking(null);
-      return;
-    }
+      if (table.status === 'Reserved' && table.bookingId) {
+        setSelectedBookingId(table.bookingId);
+        setResolvedBooking(null);
+        return;
+      }
 
-    if (table.status === 'Occupied') {
-      setSelectedBookingId(table.bookingId ?? null);
-    }
-  }, []);
+      if (table.status === 'Occupied') {
+        setSelectedBookingId(table.bookingId ?? null);
+      }
+    },
+    [],
+  );
 
   const handleSessionActivated = useCallback(
     (_session: ActivatedSession) => {
       queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.floorPlan] });
       setSelectedBookingId(null);
       setResolvedBooking(null);
+      setSelectedTableLabel(undefined);
     },
     [queryClient],
   );
@@ -57,6 +73,7 @@ export function PosWorkspace() {
     setSelectedBookingId(null);
     setResolvedBooking(null);
     setSelectedTableId(undefined);
+    setSelectedTableLabel(undefined);
   };
 
   if (cafeLoading) {
@@ -70,19 +87,17 @@ export function PosWorkspace() {
   const tables = floorPlan?.tables ?? [];
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Web POS — Quầy check-in</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {cafe?.name} · Quét QR xác thực lịch đặt, điểm danh và điều khiển sơ đồ bàn
-        </p>
-      </div>
+    <div className="space-y-4 md:space-y-6">
+      <PageHeader
+        title="Web POS"
+        description={`${cafe?.name ?? 'Quán'} · Tạo mã QR cho khách quét, điểm danh và điều khiển sơ đồ bàn`}
+      />
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
-        <Card className="min-h-[480px]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,400px)] lg:items-start">
+        <Card className="min-h-[360px] lg:min-h-[480px]">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <LayoutGrid className="h-5 w-5" />
+              <LayoutGrid className="h-5 w-5 shrink-0" />
               Sơ đồ mặt bằng
             </CardTitle>
           </CardHeader>
@@ -102,7 +117,12 @@ export function PosWorkspace() {
         </Card>
 
         <div className="space-y-4">
-          <QrScanPanel onResolved={handleQrResolved} sampleCodes={sampleCodes} />
+          <QrScanPanel
+            onResolved={handleQrResolved}
+            presetCode={presetQr}
+            presetLabel={selectedTableLabel ?? resolvedBooking?.table.label}
+            sampleCodes={sampleCodes}
+          />
 
           {selectedBookingId ? (
             <PosCheckInReception
@@ -113,8 +133,8 @@ export function PosWorkspace() {
             />
           ) : (
             <Card className="border-dashed">
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
-                Quét mã QR đặt chỗ hoặc chọn bàn vàng (Đã đặt) trên sơ đồ để bắt đầu check-in.
+              <CardContent className="py-8 text-center text-sm text-muted-foreground sm:py-10">
+                Tạo mã QR cho khách hoặc chọn bàn vàng (Đã đặt) trên sơ đồ để bắt đầu check-in.
               </CardContent>
             </Card>
           )}

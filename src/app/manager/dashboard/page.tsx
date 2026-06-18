@@ -2,6 +2,7 @@
 
 // src/app/manager/dashboard/page.tsx
 import { BarChart3, Calendar, Coffee, TrendingUp } from 'lucide-react';
+import { PageHeader } from '@/components/common/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ProfileCard } from '@/features/profile/components/profile-card';
@@ -18,20 +19,15 @@ export default function ManagerDashboardPage() {
   const user = useAuthStore((state) => state.user);
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">This is page Manager</h1>
-            <Badge variant="secondary" className="text-xs">
-              Manager
-            </Badge>
-          </div>
-          <p className="text-muted-foreground mt-1">
-            Chào mừng trở lại, {user?.username ?? 'Manager'}. Đây là trang quản lý vận hành.
-          </p>
-        </div>
+    <div className="flex flex-col gap-4 sm:gap-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <PageHeader
+          title="Dashboard"
+          description={`Chào mừng trở lại, ${user?.username ?? 'Manager'}. Đây là trang quản lý vận hành.`}
+        />
+        <Badge variant="secondary" className="w-fit text-xs">
+          Manager
+        </Badge>
       </div>
 
       {/* Stats grid */}

@@ -46,7 +46,7 @@ const columns: ColumnDef<KarmaLogEntry>[] = [
     header: 'Karma hiện tại',
     cell: ({ row }) => (
       <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-800">
-        {row.original.currentKarma}
+        {row.original.currentKarma.toLocaleString('vi-VN')}
       </Badge>
     ),
   },
@@ -98,7 +98,7 @@ export function KarmaLogTable() {
   };
 
   if (isLoading) {
-    return <div className="p-4 text-sm text-muted-foreground">Đang tải nhật ký uy tín...</div>;
+    return <div className="p-4 text-sm text-muted-foreground">Đang tải Karma...</div>;
   }
 
   if (isError) {
@@ -114,21 +114,21 @@ export function KarmaLogTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="flex flex-1 gap-2">
+      <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
+        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
           <Input
             placeholder="Tìm theo ID hoặc tên người dùng..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="max-w-md border-indigo-200"
+            className="min-w-0 flex-1 border-indigo-200"
           />
-          <Button variant="outline" onClick={handleSearch}>
+          <Button variant="outline" onClick={handleSearch} className="shrink-0">
             Tìm kiếm
           </Button>
         </div>
         <Select value={behaviorType} onValueChange={(v) => { setBehaviorType(v); setPage(1); }}>
-          <SelectTrigger className="w-full sm:w-[220px]">
+          <SelectTrigger className="w-full md:w-[220px]">
             <SelectValue placeholder="Lọc hành vi" />
           </SelectTrigger>
           <SelectContent>

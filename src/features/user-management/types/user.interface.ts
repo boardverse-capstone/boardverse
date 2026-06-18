@@ -44,6 +44,12 @@ export interface ApiUserRecord {
   UpdatedAt?: string;
   LastLoginAt?: string | null;
   BlockedAt?: string | null;
+  KarmaPoints?: number;
+  GlobalElo?: number;
+  Level?: number;
+  GamerTier?: string | null;
+  AvatarUrl?: string | null;
+  Bio?: string | null;
 }
 
 /** Raw hỗn hợp PascalCase + camelCase từ các endpoint UserManagement */

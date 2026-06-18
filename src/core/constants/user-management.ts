@@ -40,3 +40,9 @@ export const MANAGED_ROLE_COLORS: Record<string, string> = {
   Staff: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   Admin: 'bg-amber-100 text-amber-800 border-amber-200',
 };
+
+/** Player trên API có thể là User hoặc Player */
+export function isPlayerRole(role: string): boolean {
+  const normalized = role.trim().toLowerCase();
+  return normalized === 'user' || normalized === 'player';
+}

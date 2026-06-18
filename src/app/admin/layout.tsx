@@ -34,7 +34,7 @@ const ADMIN_NAV: NavItem[] = [
     icon: <IconUsers />,
   },
   {
-    title: 'Nhật ký Karma',
+    title: 'Karma',
     url: '/admin/karma-logs',
     icon: <IconHistory />,
   },

@@ -38,7 +38,7 @@ export function CafeFloorPlan({ tables, selectedTableId, onSelectTable }: CafeFl
         return (
           <div key={zone}>
             <p className="mb-2 text-sm font-semibold text-muted-foreground">{zone}</p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:gap-3">
               {zoneTables.map((table) => {
                 const colors = TABLE_STATUS_COLORS[table.status];
                 const isSelected = selectedTableId === table.id;

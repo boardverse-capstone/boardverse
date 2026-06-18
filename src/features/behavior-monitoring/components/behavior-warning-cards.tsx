@@ -45,14 +45,13 @@ export function BehaviorWarningCards() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <p className="text-sm text-muted-foreground">
-          Hiển thị tài khoản có Karma &lt; {KARMA_WARNING_THRESHOLD} (lọc phía client từ{' '}
-          <code className="text-xs">GET /api/UserManagement/users</code>).
+          Hiển thị tài khoản Player có Karma &lt; {KARMA_WARNING_THRESHOLD}.
         </p>
         <Input
           placeholder="Lọc theo tên hoặc email..."
-          className="max-w-xs border-rose-200"
+          className="w-full max-w-xs border-rose-200 md:shrink-0"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)}
