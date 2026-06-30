@@ -1,10 +1,10 @@
-import type { Metadata } from 'next';
-import { PartnerRegistrationForm } from '@/features/partner/components/partner-registration-form';
+import PartnerRegistrationForm from "@/features/partner/components/partner-registration-form";
+import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: 'Đăng ký đối tác Cafe — BoardVerse',
+  title: "Đăng ký đối tác Cafe — BoardVerse",
   description:
-    'Đăng ký quán cafe board game trở thành đối tác của nền tảng BoardVerse.',
+    "Đăng ký quán cafe board game trở thành đối tác của nền tảng BoardVerse.",
 };
 
 export default function PartnerRegisterPage() {
@@ -14,8 +14,9 @@ export default function PartnerRegisterPage() {
         <div className="mb-8 space-y-2">
           <h1 className="text-3xl font-bold">Đăng ký đối tác Cafe</h1>
           <p className="text-muted-foreground">
-            Hoàn thiện 4 khối thông tin bắt buộc để tham gia mạng lưới BoardVerse.
-            Đơn đăng ký sẽ được gán trạng thái <strong>Chờ duyệt</strong> sau khi gửi.
+            Hoàn thiện thông tin bắt buộc để tham gia mạng lưới BoardVerse. Đơn
+            đăng ký sẽ được gán trạng thái <strong>Chờ duyệt</strong> sau khi
+            gửi.
           </p>
         </div>
         <PartnerRegistrationForm />
