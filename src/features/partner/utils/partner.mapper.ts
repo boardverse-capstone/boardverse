@@ -188,7 +188,7 @@ function normalizeOperationalStatus(value?: string | null): OperationalStatus | 
 
   const normalized = value.toUpperCase() as OperationalStatus;
 
-  if (normalized === 'DATA_BLANK' || normalized === 'ACTIVE' || normalized === 'SUSPENDED') {
+  if (normalized === 'DATA_BLANK' || normalized === 'ACTIVE' || normalized === 'SUSPENDED' || normalized === 'INACTIVE' || normalized === 'BANNED') {
 
     return normalized;
 

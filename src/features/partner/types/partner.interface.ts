@@ -30,7 +30,7 @@ export type ApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 /** Trạng thái vận hành sau khi đơn được duyệt */
 
-export type OperationalStatus = 'DATA_BLANK' | 'ACTIVE' | 'SUSPENDED';
+export type OperationalStatus = 'DATA_BLANK' | 'ACTIVE' | 'INACTIVE' | 'BANNED' | 'SUSPENDED';
 
 
 

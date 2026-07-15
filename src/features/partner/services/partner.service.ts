@@ -31,7 +31,7 @@ export const PartnerService = {
       params: {
         Search: params.search || undefined,
         Status: params.status && params.status !== 'all' ? params.status : undefined,
-        Page: params.page,
+        PageNumber: params.page,
         PageSize: params.limit,
       },
     });
@@ -70,7 +70,7 @@ export const PartnerService = {
   approveRegistration: async (id: string): Promise<ApproveRegistrationResponse> => {
     if (USE_MOCK) return PartnerMockService.approveRegistration(id);
     return apiClient.post<never, ApproveRegistrationResponse>(
-      `/admin/partners/${id}/approve`,
+      `/api/admin/cafe-partner-applications/${id}/approve`,
     );
   },
 
@@ -79,6 +79,9 @@ export const PartnerService = {
     payload: RejectRegistrationRequest,
   ): Promise<Registration> => {
     if (USE_MOCK) return PartnerMockService.rejectRegistration(id, payload);
-    return apiClient.post<never, Registration>(`/admin/partners/${id}/reject`, payload);
+    return apiClient.post<never, Registration>(
+      `/api/admin/cafe-partner-applications/${id}/reject`,
+      payload,
+    );
   },
 } as const;

@@ -10,6 +10,9 @@ import {
   IconShield,
   IconAlertTriangle,
   IconHistory,
+  IconBuildingStore,
+  IconCategory,
+  IconComponents,
 } from '@tabler/icons-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { RoleGuard } from '@/features/auth/components/role-guard';
@@ -27,6 +30,21 @@ const ADMIN_NAV: NavItem[] = [
     title: 'Đăng ký đối tác',
     url: '/admin/registrations',
     icon: <IconCoffee />,
+  },
+  {
+    title: 'Quản lý quán',
+    url: '/admin/cafes',
+    icon: <IconBuildingStore />,
+  },
+  {
+    title: 'Thể loại game',
+    url: '/admin/categories',
+    icon: <IconCategory />,
+  },
+  {
+    title: 'Linh kiện game',
+    url: '/admin/master-games',
+    icon: <IconComponents />,
   },
   {
     title: 'Quản lý người dùng',

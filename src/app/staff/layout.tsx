@@ -9,6 +9,8 @@ import {
   IconClipboard,
   IconHelp,
   IconDeviceDesktop,
+  IconPackage,
+  IconMapPin,
 } from '@tabler/icons-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { RoleGuard } from '@/features/auth/components/role-guard';
@@ -26,6 +28,16 @@ const STAFF_NAV: NavItem[] = [
     title: 'Web POS',
     url: '/staff/pos',
     icon: <IconDeviceDesktop />,
+  },
+  {
+    title: 'Kho game',
+    url: '/staff/inventory',
+    icon: <IconPackage />,
+  },
+  {
+    title: 'Quán gần đây',
+    url: '/staff/cafes/nearby',
+    icon: <IconMapPin />,
   },
   {
     title: 'Công việc',

@@ -13,6 +13,9 @@ export const ROUTES = {
   ADMIN: {
     REGISTRATIONS: '/admin/registrations',
     REGISTRATION_DETAIL: (id: string) => `/admin/registrations/${id}`,
+    CAFES: '/admin/cafes',
+    CATEGORIES: '/admin/categories',
+    MASTER_GAMES: '/admin/master-games',
     USERS: '/admin/users',
     USER_CREATE: '/admin/users/new',
     USER_DETAIL: (id: string) => `/admin/users/${id}`,
@@ -27,5 +30,9 @@ export const ROUTES = {
   STAFF: {
     POS: '/staff/pos',
     POS_CHECK_IN: (bookingId: string) => `/staff/pos/${bookingId}`,
+    INVENTORY: '/staff/inventory',
+    INVENTORY_DETAIL: (cafeId: string, inventoryId: string) =>
+      `/staff/inventory/${inventoryId}?cafeId=${cafeId}`,
+    NEARBY_CAFES: '/staff/cafes/nearby',
   },
 } as const;

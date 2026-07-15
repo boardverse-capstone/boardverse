@@ -58,6 +58,10 @@ export const OPERATIONAL_STATUS_LABELS: Record<OperationalStatus, string> = {
 
   ACTIVE: 'Đang hoạt động',
 
+  INACTIVE: 'Ngừng hoạt động',
+
+  BANNED: 'Bị cấm',
+
   SUSPENDED: 'Tạm ngưng',
 
 };
@@ -69,6 +73,10 @@ export const OPERATIONAL_STATUS_COLORS: Record<OperationalStatus, string> = {
   DATA_BLANK: 'bg-slate-100 text-slate-700 border-slate-200',
 
   ACTIVE: 'bg-sky-100 text-sky-800 border-sky-200',
+
+  INACTIVE: 'bg-orange-100 text-orange-800 border-orange-200',
+
+  BANNED: 'bg-rose-100 text-rose-800 border-rose-200',
 
   SUSPENDED: 'bg-orange-100 text-orange-800 border-orange-200',
 
