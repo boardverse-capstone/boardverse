@@ -31,7 +31,7 @@ export type AlertTicketType =
 export interface BasicInformation {
   cafeName: string;
   address: string;
-  hotline: string;
+  phoneNumber: string;
   representativeEmail: string;
   businessLicense: string;
   businessLicenseImage: string;

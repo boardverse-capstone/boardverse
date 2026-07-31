@@ -5,7 +5,7 @@ export function toPartnerApplication(registration: Registration): PartnerApplica
     id: registration.id,
     cafeName: registration.basicInfo.cafeName,
     address: registration.basicInfo.address,
-    phone: registration.basicInfo.hotline,
+    phone: registration.basicInfo.phoneNumber,
     status: registration.status,
     createdAt: registration.createdAt,
     hasAlerts: registration.alerts.length > 0,

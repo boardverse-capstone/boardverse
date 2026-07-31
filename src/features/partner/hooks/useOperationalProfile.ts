@@ -15,7 +15,7 @@ export interface OperationalProfileInput {
   address: string;
   latitude: number;
   longitude: number;
-  hotline: string;
+  phoneNumber: string;
   representativeEmail: string;
   workingHours: WorkingHours;
   businessLicense: string;
@@ -36,7 +36,7 @@ export function useOperationalProfile() {
     address: "123 Nguyen Thai Hoc, Q1, TP.HCM",
     latitude: 90,
     longitude: 180,
-    hotline: "0954315552",
+    phoneNumber: "0954315552",
     representativeEmail: "hanphamviet6@gmail.com",
     workingHours: {
       weekdayStart: "08:00",

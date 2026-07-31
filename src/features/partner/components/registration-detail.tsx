@@ -115,7 +115,7 @@ export function RegistrationDetail({
           <div className="grid gap-3">
             <InfoRow label="Tên quán" value={registration.basicInfo.cafeName} />
             <InfoRow label="Địa chỉ" value={registration.basicInfo.address} />
-            <InfoRow label="Hotline" value={registration.basicInfo.hotline} />
+            <InfoRow label="phoneNumber" value={registration.basicInfo.phoneNumber} />
             <InfoRow label="Email đại diện" value={registration.basicInfo.representativeEmail} />
             <InfoRow label="Giấy phép KD" value={registration.basicInfo.businessLicense} />
           </div>

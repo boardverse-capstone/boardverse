@@ -49,7 +49,7 @@ export const PartnerRegistrationSchema = z.object({
       .string()
       .trim()
       .min(10, 'Địa chỉ phải mô tả đầy đủ Số nhà, Đường, Phường/Xã, Quận/Huyện, Tỉnh/TP'),
-    hotline: z
+    phoneNumber: z
       .string()
       .trim()
       .regex(VIETNAM_PHONE_REGEX, 'Hotline phải là số Việt Nam hợp lệ (10–11 số)'),

@@ -71,12 +71,12 @@ export default function PartnerRegistrationForm() {
                 </label>
                 <Input
                   type="text"
-                  name="hotline"
+                  name="phoneNumber"
                   required
                   minLength={10}
                   maxLength={11}
                   pattern="^[0-9]+$"
-                  value={formData.hotline}
+                  value={formData.phoneNumber}
                   onChange={handleChange}
                   placeholder="Ví dụ: 0854316662"
                   className="w-full border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-0 bg-white text-sm"

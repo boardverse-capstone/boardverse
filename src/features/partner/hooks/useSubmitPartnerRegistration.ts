@@ -15,7 +15,7 @@ export interface CafePartnerFormInput {
   address: string;
   latitude: number;
   longitude: number;
-  hotline: string;
+  phoneNumber: string;
   representativeEmail: string;
   workingHours: WorkingHours;
   businessLicense: string;
@@ -28,7 +28,7 @@ export function useSubmitPartnerRegistration(onSuccessAction?: () => void) {
     address: "",
     latitude: 90,
     longitude: 180,
-    hotline: "",
+    phoneNumber: "",
     representativeEmail: "",
     workingHours: {
       weekdayStart: "08:00",
@@ -73,7 +73,7 @@ export function useSubmitPartnerRegistration(onSuccessAction?: () => void) {
       ...prev,
       cafeName: "",
       address: "",
-      hotline: "",
+      phoneNumber: "",
       representativeEmail: "",
       businessLicense: "",
       businessLicenseImageUrl: "",
