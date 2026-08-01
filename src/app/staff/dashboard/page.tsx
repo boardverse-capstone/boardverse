@@ -1,7 +1,7 @@
-'use client';
+  'use client';
 
 // src/app/staff/dashboard/page.tsx
-import { CheckSquare, Calendar, ClipboardList, Clock } from 'lucide-react';
+import { Calendar, ClipboardList, Clock } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,6 @@ import { ProfileCard } from '@/features/profile/components/profile-card';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 
 const STATS = [
-  { label: 'Công việc hôm nay', value: '—', icon: CheckSquare, color: 'text-blue-500' },
   { label: 'Ca làm việc', value: '—', icon: Clock, color: 'text-green-500' },
   { label: 'Báo cáo ca', value: '—', icon: ClipboardList, color: 'text-orange-500' },
   { label: 'Lịch tuần này', value: '—', icon: Calendar, color: 'text-purple-500' },
@@ -29,7 +28,7 @@ export default function StaffDashboardPage() {
       </div>
 
       {/* Stats grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {STATS.map((stat) => (
           <Card key={stat.label}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

@@ -31,6 +31,7 @@ export interface GameTemplateDetail {
   gameTemplateId: string;
   title: string;
   description: string | null;
+  imageUrl: string | null;
   minPlayers: number;
   maxPlayers: number;
   playingTime: number;
@@ -100,6 +101,10 @@ export interface RawInventoryListItem {
   Name?: string;
   imageUrl?: string | null;
   ImageUrl?: string | null;
+  coverUrl?: string | null;
+  CoverUrl?: string | null;
+  coverImageUrl?: string | null;
+  CoverImageUrl?: string | null;
   status?: string;
   Status?: string;
   barcode?: string | null;
@@ -129,6 +134,12 @@ export interface RawInventoryDetail {
   PurchaseDate?: string | null;
   notes?: string | null;
   Notes?: string | null;
+  imageUrl?: string | null;
+  ImageUrl?: string | null;
+  coverUrl?: string | null;
+  CoverUrl?: string | null;
+  coverImageUrl?: string | null;
+  CoverImageUrl?: string | null;
   componentPenalties?: RawComponentPenaltyDetail[];
   ComponentPenalties?: RawComponentPenaltyDetail[];
 }

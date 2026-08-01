@@ -33,6 +33,5 @@ export const ROUTES = {
     INVENTORY: '/staff/inventory',
     INVENTORY_DETAIL: (cafeId: string, inventoryId: string) =>
       `/staff/inventory/${inventoryId}?cafeId=${cafeId}`,
-    NEARBY_CAFES: '/staff/cafes/nearby',
   },
 } as const;

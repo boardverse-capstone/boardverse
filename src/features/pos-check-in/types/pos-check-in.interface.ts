@@ -16,6 +16,8 @@ export interface TableBookingParticipant {
   attendanceStatus: 'Present' | 'Absent';
 }
 
+export type BookingSessionStatus = 'Pending' | 'Active' | 'Checking' | 'Completed' | 'Cancelled';
+
 export interface TableBooking {
   id: string;
   cafeId: string;
@@ -25,7 +27,9 @@ export interface TableBooking {
   scheduledAt: string;
   bookedGame: BookedGame;
   participants: TableBookingParticipant[];
-  sessionStatus: 'Pending' | 'Active' | 'Completed';
+  sessionStatus: BookingSessionStatus;
+  /** Có khi booking đã check-in / đang chơi */
+  sessionId?: string;
 }
 
 export type TableStatus = 'Available' | 'Reserved' | 'Occupied';
@@ -93,8 +97,134 @@ export interface ActivatedSession {
   depositCreditTotal: number;
 }
 
+export type BillingModel = 'BY_HOUR' | 'PER_DRINK';
+
+export interface BillLineItem {
+  id: string;
+  label: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
+export interface SessionBill {
+  sessionId: string;
+  bookingId: string;
+  billingModel: BillingModel;
+  durationMinutes: number;
+  lineItems: BillLineItem[];
+  depositCreditTotal: number;
+  subtotal: number;
+  totalDue: number;
+  currency: 'VND';
+  calculatedAt: string;
+}
+
+export type PaymentCodeStatus = 'Pending' | 'Paid' | 'Expired';
+
+export interface PaymentCode {
+  code: string;
+  qrPayload: string;
+  amount: number;
+  expiresAt: string;
+  status: PaymentCodeStatus;
+}
+
+export interface ActiveSessionDetail extends ActivatedSession {
+  cafeId: string;
+  billingModel: BillingModel;
+  endedAt?: string;
+}
+
+export interface CompleteSessionResult {
+  sessionId: string;
+  bookingId: string;
+  tableId: string;
+  bill: SessionBill;
+  paymentCode: PaymentCode;
+  completedAt: string;
+}
+
 export interface StaffCafe {
   id: string;
   name: string;
   address?: string;
+}
+
+// ─── CafeStaff API payloads (Booking + Active Session) ───────────────────────
+
+/** POST /api/bookings/{bookingId}/check-in */
+export interface CheckInBookingPayload {
+  presentParticipantIds: string[];
+  /** Game thay thế khi thiếu người / đổi game */
+  inventoryId?: string;
+}
+
+/** POST /api/cafes/{cafeId}/sessions/{sessionId}/guest-slots */
+export interface AddGuestSlotsPayload {
+  guestCount: number;
+}
+
+/** POST /api/cafes/{cafeId}/sessions/{sessionId}/members/add */
+export interface AddSessionMembersPayload {
+  userIds: string[];
+}
+
+/** POST /api/cafes/{cafeId}/sessions/{sessionId}/games */
+export interface AssignSessionGamesPayload {
+  inventoryIds: string[];
+}
+
+/** POST /api/cafes/{cafeId}/sessions/{sessionId}/games/check */
+export interface SessionGameCheckItem {
+  inventoryId: string;
+  componentId?: string;
+  expectedQuantity: number;
+  actualQuantity: number;
+}
+
+export interface CheckSessionGamesPayload {
+  items: SessionGameCheckItem[];
+}
+
+/** POST /api/cafes/{cafeId}/sessions/{sessionId}/inventory-loss */
+export type InventoryLossType = 'Lost' | 'Damaged';
+
+export interface ReportInventoryLossPayload {
+  inventoryId: string;
+  componentId?: string;
+  quantity: number;
+  lossType: InventoryLossType;
+  note?: string;
+}
+
+/** POST /api/cafes/{cafeId}/sessions/{sourceSessionId}/merge */
+export interface MergeSessionsPayload {
+  targetSessionId: string;
+  memberIds: string[];
+}
+
+/** POST /api/cafes/{cafeId}/sessions/{sessionId}/partial-checkout */
+export interface PartialCheckoutPayload {
+  memberIds: string[];
+  amount?: number;
+}
+
+/** POST /api/cafes/{cafeId}/sessions/{sessionId}/pay */
+export interface PaySessionPayload {
+  paymentMethod?: 'QR' | 'Cash' | 'Card';
+}
+
+export type SessionLifecycleStatus =
+  | 'Active'
+  | 'Checking'
+  | 'Paying'
+  | 'Completed'
+  | 'Cancelled';
+
+export interface CafeSessionDetail extends ActiveSessionDetail {
+  status: SessionLifecycleStatus;
+  guestCount?: number;
+  memberIds?: string[];
+  assignedInventoryIds?: string[];
 }

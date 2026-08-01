@@ -47,7 +47,7 @@ export function UnderstaffedAlertDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-2xl sm:max-w-3xl">
+      <AlertDialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl md:max-w-3xl">
         <AlertDialogHeader className="text-start">
           <AlertDialogMedia className="bg-rose-100 text-rose-600">
             <AlertTriangle className="h-8 w-8" />
@@ -72,12 +72,15 @@ export function UnderstaffedAlertDialog({
           />
         </div>
 
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isConfirming}>Hủy</AlertDialogCancel>
+        <AlertDialogFooter className="gap-2 sm:gap-0">
+          <AlertDialogCancel disabled={isConfirming} className="h-11 min-h-[44px] touch-manipulation md:h-12">
+            Hủy
+          </AlertDialogCancel>
           <Button
             type="button"
             variant="destructive"
             disabled={!canConfirm}
+            className="h-11 min-h-[44px] touch-manipulation md:h-12"
             onClick={onConfirm}
           >
             {isConfirming ? (

@@ -1,17 +1,21 @@
 import apiClient from '@/core/api/client';
 import type { PaginatedResponse } from '@/shared/types/pagination.interface';
 import type {
-  ApproveRegistrationResponse,
+  ApproveRegistrationResult,
   PartnerApplication,
   PartnerApplicationListParams,
   PartnerRegistrationRequest,
-  Registration,
   RejectRegistrationRequest,
   SubmitRegistrationResponse,
   TransitionRegistrationRequest,
   TransitionRegistrationResponse,
 } from '../types/partner.interface';
-import { normalizePartnerDetailResponse, normalizePartnerListResponse } from '../utils/partner.mapper';
+import {
+  normalizeApproveRegistrationResponse,
+  normalizePartnerDetailResponse,
+  normalizePartnerListResponse,
+  normalizePartnerMutationResponse,
+} from '../utils/partner.mapper';
 import { PartnerMockService } from './partner.mock';
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_PARTNER_API === 'true';
@@ -67,21 +71,33 @@ export const PartnerService = {
     );
   },
 
-  approveRegistration: async (id: string): Promise<ApproveRegistrationResponse> => {
-    if (USE_MOCK) return PartnerMockService.approveRegistration(id);
-    return apiClient.post<never, ApproveRegistrationResponse>(
+  approveRegistration: async (id: string): Promise<ApproveRegistrationResult> => {
+    if (USE_MOCK) {
+      const mock = await PartnerMockService.approveRegistration(id);
+      return normalizeApproveRegistrationResponse(mock);
+    }
+
+    const raw = await apiClient.post<never, unknown>(
       `/api/admin/cafe-partner-applications/${id}/approve`,
     );
+
+    return normalizeApproveRegistrationResponse(raw);
   },
 
   rejectRegistration: async (
     id: string,
     payload: RejectRegistrationRequest,
-  ): Promise<Registration> => {
-    if (USE_MOCK) return PartnerMockService.rejectRegistration(id, payload);
-    return apiClient.post<never, Registration>(
+  ): Promise<PartnerApplication> => {
+    if (USE_MOCK) {
+      const mock = await PartnerMockService.rejectRegistration(id, payload);
+      return normalizePartnerMutationResponse(mock);
+    }
+
+    const raw = await apiClient.post<never, unknown>(
       `/api/admin/cafe-partner-applications/${id}/reject`,
       payload,
     );
+
+    return normalizePartnerMutationResponse(raw);
   },
 } as const;

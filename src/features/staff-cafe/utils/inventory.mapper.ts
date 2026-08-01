@@ -67,7 +67,15 @@ export function mapApiInventoryListItem(raw: RawInventoryListItem): InventoryLis
     inventoryId: pickString(raw.inventoryId, raw.InventoryId),
     gameTemplateId: pickString(raw.gameTemplateId, raw.GameTemplateId),
     name: pickString(raw.name, raw.Name),
-    imageUrl: raw.imageUrl ?? raw.ImageUrl ?? null,
+    imageUrl:
+      pickString(
+        raw.imageUrl as string | undefined,
+        raw.ImageUrl as string | undefined,
+        raw.coverUrl as string | undefined,
+        raw.CoverUrl as string | undefined,
+        raw.coverImageUrl as string | undefined,
+        raw.CoverImageUrl as string | undefined,
+      ) || null,
     status: pickString(raw.status, raw.Status) || 'AVAILABLE',
     barcode: raw.barcode ?? raw.Barcode ?? null,
     condition: raw.condition ?? raw.Condition ?? null,
@@ -76,11 +84,25 @@ export function mapApiInventoryListItem(raw: RawInventoryListItem): InventoryLis
   };
 }
 
+function mapGameTemplateImage(raw: Record<string, unknown>): string | null {
+  const imageUrl = pickString(
+    raw.imageUrl as string | undefined,
+    raw.ImageUrl as string | undefined,
+    raw.coverUrl as string | undefined,
+    raw.CoverUrl as string | undefined,
+    raw.coverImageUrl as string | undefined,
+    raw.CoverImageUrl as string | undefined,
+  );
+
+  return imageUrl || null;
+}
+
 function mapGameTemplate(raw: Record<string, unknown>): GameTemplateDetail {
   return {
     gameTemplateId: pickString(raw.gameTemplateId as string, raw.GameTemplateId as string, raw.id as string, raw.Id as string),
     title: pickString(raw.title as string, raw.Title as string, raw.name as string, raw.Name as string),
     description: (raw.description as string | null) ?? (raw.Description as string | null) ?? null,
+    imageUrl: mapGameTemplateImage(raw),
     minPlayers: pickNumber(raw.minPlayers as number, raw.MinPlayers as number) ?? 0,
     maxPlayers: pickNumber(raw.maxPlayers as number, raw.MaxPlayers as number) ?? 0,
     playingTime: pickNumber(raw.playingTime as number, raw.PlayingTime as number) ?? 0,
@@ -90,11 +112,24 @@ function mapGameTemplate(raw: Record<string, unknown>): GameTemplateDetail {
 export function mapApiInventoryDetail(raw: RawInventoryDetail): InventoryDetail {
   const templateRaw = (raw.gameTemplate ?? raw.GameTemplate ?? {}) as Record<string, unknown>;
   const penalties = raw.componentPenalties ?? raw.ComponentPenalties ?? [];
+  const gameTemplate = mapGameTemplate(templateRaw);
+
+  if (!gameTemplate.imageUrl) {
+    gameTemplate.imageUrl =
+      pickString(
+        raw.imageUrl,
+        raw.ImageUrl,
+        raw.coverUrl,
+        raw.CoverUrl,
+        raw.coverImageUrl,
+        raw.CoverImageUrl,
+      ) || null;
+  }
 
   return {
     inventoryId: pickString(raw.inventoryId, raw.InventoryId),
     cafeId: pickString(raw.cafeId, raw.CafeId),
-    gameTemplate: mapGameTemplate(templateRaw),
+    gameTemplate,
     barcode: raw.barcode ?? raw.Barcode ?? null,
     status: pickString(raw.status, raw.Status) || 'AVAILABLE',
     condition: raw.condition ?? raw.Condition ?? null,

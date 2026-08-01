@@ -29,19 +29,9 @@ export const STAFF_CAFE_QUERY_KEYS = {
 } as const;
 
 export const StaffCafeService = {
-  /** Quán staff đang gán — fallback từ nearby hoặc mock */
+  /** Quán staff đang gán */
   getStaffWorkingCafe: async (): Promise<StaffWorkingCafe> => {
     if (USE_MOCK) return StaffCafeMockService.getStaffWorkingCafe();
-
-    try {
-      const nearby = await StaffCafeService.getNearbyCafes();
-      if (nearby.length > 0) {
-        const closest = nearby[0];
-        return { id: closest.id, name: closest.name, address: closest.address };
-      }
-    } catch {
-      // fallback below
-    }
 
     try {
       const raw = await apiClient.get<never, StaffWorkingCafe[] | { data?: StaffWorkingCafe[] }>(

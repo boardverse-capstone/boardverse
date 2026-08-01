@@ -5,7 +5,6 @@ import { toast } from 'sonner';
 import { PartnerService, PARTNER_QUERY_KEYS } from '../services/partner.service';
 import type { PaginatedResponse } from '@/shared/types/pagination.interface';
 import type { PartnerApplication } from '../types/partner.interface';
-import { mapRegistrationToPartnerApplication } from '../utils/partner.mapper';
 import { syncPartnerInPendingCaches } from '../utils/partner-cache.util';
 
 interface RejectVariables {
@@ -61,8 +60,7 @@ export function useRejectRegistration() {
 
       return { previousQueries, previousDetail };
     },
-    onSuccess: (data) => {
-      const application = mapRegistrationToPartnerApplication(data);
+    onSuccess: (application) => {
       toast.success(`Đã từ chối đơn "${application.cafeName}".`);
       queryClient.setQueryData([PARTNER_QUERY_KEYS.detail, application.id], application);
       syncPartnerInPendingCaches(queryClient, application);

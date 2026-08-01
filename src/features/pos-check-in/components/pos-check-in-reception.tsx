@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { NO_SHOW_KARMA_PENALTY } from '@/core/constants/pos-check-in';
 import { AttendeeChecklist } from './attendee-checklist';
+import { SessionOpsPanel } from './session-ops-panel';
 import { UnderstaffedAlertDialog } from './understaffed-alert-dialog';
 import { useAlternativeGames, useTableBooking } from '../hooks/usePosCheckIn';
 import { useActivateSession, useMarkAbsent } from '../hooks/usePosMutations';
@@ -26,6 +27,7 @@ interface PosCheckInReceptionProps {
   initialBooking?: TableBooking;
   onClose: () => void;
   onSessionActivated?: (session: ActivatedSession) => void;
+  onSessionCompleted?: () => void;
 }
 
 function formatCurrency(amount: number) {
@@ -65,6 +67,7 @@ export function PosCheckInReception({
   initialBooking,
   onClose,
   onSessionActivated,
+  onSessionCompleted,
 }: PosCheckInReceptionProps) {
   const { data: fetchedBooking, isLoading, refetch } = useTableBooking(bookingId);
   const booking = fetchedBooking ?? initialBooking;
@@ -80,7 +83,11 @@ export function PosCheckInReception({
   useEffect(() => {
     if (booking) {
       setPresentIds(initPresentIds(booking));
-      setSessionActive(booking.sessionStatus === 'Active');
+      setSessionActive(
+        booking.sessionStatus === 'Active' ||
+          booking.sessionStatus === 'Checking' ||
+          booking.sessionStatus === 'Completed',
+      );
       setAbsentProcessed(booking.participants.some((p) => p.attendanceStatus === 'Absent'));
     }
   }, [booking]);
@@ -180,20 +187,28 @@ export function PosCheckInReception({
     <Card className="border-primary/20">
       <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
         <div>
-          <CardTitle className="text-base">Check-in {booking.tableLabel}</CardTitle>
-          <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3" />
+          <CardTitle className="text-base md:text-lg">
+            {sessionActive ? `Thanh toán ${booking.tableLabel}` : `Check-in ${booking.tableLabel}`}
+          </CardTitle>
+          <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground md:text-sm">
+            <Clock className="h-3 w-3 md:h-4 md:w-4" />
             {formatTime(booking.scheduledAt)}
           </p>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Đóng">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-11 w-11 shrink-0 touch-manipulation md:h-12 md:w-12"
+          onClick={onClose}
+          aria-label="Đóng"
+        >
           <X className="h-4 w-4" />
         </Button>
       </CardHeader>
 
-      <CardContent className="space-y-4">
-        <div className="flex gap-3 rounded-lg border bg-muted/30 p-3">
-          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md">
+      <CardContent className="space-y-4 md:space-y-5">
+        <div className="flex gap-3 rounded-lg border bg-muted/30 p-3 md:p-4">
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md md:h-20 md:w-20">
             <Image
               src={booking.bookedGame.imageUrl}
               alt={booking.bookedGame.name}
@@ -214,52 +229,62 @@ export function PosCheckInReception({
           {sessionActive && <Badge className="ml-auto bg-green-600">Active Session</Badge>}
         </div>
 
-        <AttendeeChecklist
-          participants={booking.participants}
-          presentIds={presentIds}
-          onToggle={handleToggle}
-          disabled={sessionActive || markAbsent.isPending}
-        />
+        {sessionActive ? (
+          <SessionOpsPanel
+            booking={booking}
+            onCompleted={() => {
+              setSessionActive(false);
+              onSessionCompleted?.();
+            }}
+          />
+        ) : (
+          <>
+            <AttendeeChecklist
+              participants={booking.participants}
+              presentIds={presentIds}
+              onToggle={handleToggle}
+              disabled={sessionActive || markAbsent.isPending}
+            />
 
-        {absentIds.length > 0 && !sessionActive && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="w-full border-rose-200 text-rose-700"
-            disabled={markAbsent.isPending || absentProcessed}
-            onClick={() => void handleProcessAbsent()}
-          >
-            {markAbsent.isPending ? <Spinner className="mr-2 h-4 w-4" /> : <UserX className="mr-2 h-4 w-4" />}
-            Xử lý vắng mặt ({absentIds.length})
-          </Button>
-        )}
-
-        <div className="rounded-lg bg-muted/60 p-3 text-sm">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Có mặt</span>
-            <span className="font-medium">{presentCount}/{booking.participants.length}</span>
-          </div>
-          {allPresent && !sessionActive && (
-            <p className="mt-2 text-xs text-green-700">✓ Đủ người — sẵn sàng mở phiên</p>
-          )}
-        </div>
-
-        {!sessionActive && (
-          <Button
-            type="button"
-            className="w-full"
-            size="lg"
-            disabled={activateSession.isPending || presentCount === 0}
-            onClick={handleCheckIn}
-          >
-            {activateSession.isPending ? (
-              <Spinner className="mr-2 h-4 w-4" />
-            ) : (
-              <Play className="mr-2 h-4 w-4" />
+            {absentIds.length > 0 && !sessionActive && (
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="h-12 w-full touch-manipulation border-rose-200 text-base text-rose-700 md:h-14"
+                disabled={markAbsent.isPending || absentProcessed}
+                onClick={() => void handleProcessAbsent()}
+              >
+                {markAbsent.isPending ? <Spinner className="mr-2 h-4 w-4" /> : <UserX className="mr-2 h-4 w-4" />}
+                Xử lý vắng mặt ({absentIds.length})
+              </Button>
             )}
-            Xác nhận Check-in và Mở phiên
-          </Button>
+
+            <div className="rounded-lg bg-muted/60 p-3 text-sm md:p-4 md:text-base">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Có mặt</span>
+                <span className="font-medium">{presentCount}/{booking.participants.length}</span>
+              </div>
+              {allPresent && !sessionActive && (
+                <p className="mt-2 text-xs text-green-700">✓ Đủ người — sẵn sàng mở phiên</p>
+              )}
+            </div>
+
+            <Button
+              type="button"
+              className="h-12 w-full touch-manipulation text-base md:h-14"
+              size="lg"
+              disabled={activateSession.isPending || presentCount === 0}
+              onClick={handleCheckIn}
+            >
+              {activateSession.isPending ? (
+                <Spinner className="mr-2 h-4 w-4" />
+              ) : (
+                <Play className="mr-2 h-4 w-4" />
+              )}
+              Xác nhận Check-in và Mở phiên
+            </Button>
+          </>
         )}
       </CardContent>
 

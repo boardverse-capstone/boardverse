@@ -52,24 +52,24 @@ export function QrScanPanel({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
+        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
           <QrCode className="h-5 w-5 shrink-0" />
           Mã QR check-in
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-col gap-2 sm:flex-row">
+      <CardContent className="space-y-4 md:space-y-5">
+        <div className="flex flex-col gap-2 md:flex-row md:gap-3">
           <Input
             placeholder={`VD: ${QR_BOOKING_PREFIX}booking-001`}
             value={manualCode}
             onChange={(e) => setManualCode(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && submitManual()}
             disabled={resolveQr.isPending}
-            className="min-w-0 flex-1"
+            className="min-h-12 min-w-0 flex-1 text-base md:min-h-14"
           />
           <Button
             type="button"
-            className="shrink-0 sm:w-auto"
+            className="h-12 shrink-0 text-base md:h-14 md:min-w-[140px]"
             onClick={submitManual}
             disabled={resolveQr.isPending || !qrValue}
           >
@@ -85,21 +85,22 @@ export function QrScanPanel({
         </div>
 
         {qrValue ? (
-          <div className="flex flex-col items-center gap-3 rounded-lg border bg-white p-4 sm:p-6">
-            <p className="text-center text-sm text-muted-foreground">
+          <div className="flex flex-col items-center gap-3 rounded-lg border bg-white p-4 md:p-6">
+            <p className="text-center text-sm text-muted-foreground md:text-base">
               {presetLabel
                 ? `Khách quét mã QR tại ${presetLabel} để check-in`
                 : 'Khách quét mã QR bên dưới để check-in'}
             </p>
-            <div className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-border">
-              <QRCode value={qrValue} size={168} className="h-auto max-w-full" />
+            <div className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-border md:p-4">
+              <QRCode value={qrValue} size={180} className="h-auto max-w-full md:hidden" />
+              <QRCode value={qrValue} size={220} className="hidden h-auto max-w-full md:block" />
             </div>
-            <p className="max-w-full break-all text-center font-mono text-xs text-muted-foreground">
+            <p className="max-w-full break-all text-center font-mono text-xs text-muted-foreground md:text-sm">
               {qrValue}
             </p>
           </div>
         ) : (
-          <div className="rounded-lg border border-dashed bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-lg border border-dashed bg-muted/30 px-4 py-10 text-center text-sm text-muted-foreground md:py-12 md:text-base">
             Nhập mã đặt chỗ hoặc chọn bàn đã đặt trên sơ đồ để tạo QR cho khách.
           </div>
         )}
@@ -118,10 +119,10 @@ export function QrScanPanel({
                 <button
                   key={item.bookingId}
                   type="button"
-                  className="text-left"
+                  className="touch-manipulation rounded-md active:scale-[0.98]"
                   onClick={() => setManualCode(item.qrCode)}
                 >
-                  <Badge variant="outline" className="cursor-pointer hover:bg-background">
+                  <Badge variant="outline" className="min-h-10 cursor-pointer px-3 py-2 text-sm hover:bg-background md:min-h-11">
                     {item.tableLabel}
                   </Badge>
                 </button>

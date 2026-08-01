@@ -12,6 +12,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { NO_SHOW_KARMA_PENALTY } from '@/core/constants/pos-check-in';
 import { ROUTES } from '@/core/constants/routes';
 import { AttendeeChecklist } from './attendee-checklist';
+import { SessionOpsPanel } from './session-ops-panel';
 import { UnderstaffedAlertDialog } from './understaffed-alert-dialog';
 import {
   useAlternativeGames,
@@ -68,7 +69,9 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
   useEffect(() => {
     if (booking) {
       setPresentIds(initPresentIds(booking));
-      setSessionActive(booking.sessionStatus === 'Active');
+      setSessionActive(
+        booking.sessionStatus === 'Active' || booking.sessionStatus === 'Checking',
+      );
       setAbsentProcessed(booking.participants.some((p) => p.attendanceStatus === 'Absent'));
     }
   }, [booking]);
@@ -189,13 +192,15 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" asChild>
+        <Button variant="ghost" size="icon" className="h-11 w-11 touch-manipulation md:h-12 md:w-12" asChild>
           <Link href={ROUTES.STAFF.POS}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Check-in {booking.tableLabel}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {sessionActive ? `Vận hành ${booking.tableLabel}` : `Check-in ${booking.tableLabel}`}
+          </h1>
           <p className="text-sm text-muted-foreground flex items-center gap-1">
             <Clock className="h-3.5 w-3.5" />
             {formatTime(booking.scheduledAt)}
@@ -204,81 +209,83 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
         {sessionActive && <Badge className="ml-auto bg-green-600">Đang chơi</Badge>}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Điểm danh thành viên</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <AttendeeChecklist
-              participants={booking.participants}
-              presentIds={presentIds}
-              onToggle={handleToggle}
-              disabled={sessionActive || markAbsent.isPending}
-            />
-
-            {absentIds.length > 0 && !sessionActive && (
-              <div className="mt-4 flex justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="border-rose-200 text-rose-700 hover:bg-rose-50"
-                  disabled={markAbsent.isPending || absentProcessed}
-                  onClick={() => void handleProcessAbsent()}
-                >
-                  {markAbsent.isPending ? (
-                    <Spinner className="mr-2 h-4 w-4" />
-                  ) : (
-                    <UserX className="mr-2 h-4 w-4" />
-                  )}
-                  Xử lý vắng mặt ({absentIds.length})
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Game đã đặt</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-muted">
-              <Image
-                src={booking.bookedGame.imageUrl}
-                alt={booking.bookedGame.name}
-                fill
-                className="object-cover"
-                sizes="320px"
-                unoptimized
+      {sessionActive ? (
+        <SessionOpsPanel booking={booking} />
+      ) : (
+        <div className="grid gap-6 md:grid-cols-[1fr_340px] md:items-start">
+          <Card>
+            <CardHeader>
+              <CardTitle>Điểm danh thành viên</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AttendeeChecklist
+                participants={booking.participants}
+                presentIds={presentIds}
+                onToggle={handleToggle}
+                disabled={sessionActive || markAbsent.isPending}
               />
-            </div>
-            <div>
-              <h3 className="font-semibold">{booking.bookedGame.name}</h3>
-              <p className="text-sm text-muted-foreground">
-                {booking.bookedGame.minPlayers}–{booking.bookedGame.maxPlayers} người
-              </p>
-            </div>
 
-            <div className="rounded-lg bg-muted/60 p-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Có mặt</span>
-                <span className="font-medium">{presentCount} người</span>
-              </div>
-              <div className="mt-1 flex justify-between">
-                <span className="text-muted-foreground">Yêu cầu tối thiểu</span>
-                <span
-                  className={`font-medium ${needsAlternative ? 'text-rose-600' : 'text-green-600'}`}
-                >
-                  {booking.bookedGame.minPlayers} người
-                </span>
-              </div>
-            </div>
+              {absentIds.length > 0 && (
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 min-w-[180px] touch-manipulation border-rose-200 text-base text-rose-700 hover:bg-rose-50 md:h-14"
+                    disabled={markAbsent.isPending || absentProcessed}
+                    onClick={() => void handleProcessAbsent()}
+                  >
+                    {markAbsent.isPending ? (
+                      <Spinner className="mr-2 h-4 w-4" />
+                    ) : (
+                      <UserX className="mr-2 h-4 w-4" />
+                    )}
+                    Xử lý vắng mặt ({absentIds.length})
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-            {!sessionActive && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Game đã đặt</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-muted">
+                <Image
+                  src={booking.bookedGame.imageUrl}
+                  alt={booking.bookedGame.name}
+                  fill
+                  className="object-cover"
+                  sizes="320px"
+                  unoptimized
+                />
+              </div>
+              <div>
+                <h3 className="font-semibold">{booking.bookedGame.name}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {booking.bookedGame.minPlayers}–{booking.bookedGame.maxPlayers} người
+                </p>
+              </div>
+
+              <div className="rounded-lg bg-muted/60 p-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Có mặt</span>
+                  <span className="font-medium">{presentCount} người</span>
+                </div>
+                <div className="mt-1 flex justify-between">
+                  <span className="text-muted-foreground">Yêu cầu tối thiểu</span>
+                  <span
+                    className={`font-medium ${needsAlternative ? 'text-rose-600' : 'text-green-600'}`}
+                  >
+                    {booking.bookedGame.minPlayers} người
+                  </span>
+                </div>
+              </div>
+
               <Button
                 type="button"
-                className="w-full"
+                className="h-12 w-full touch-manipulation text-base md:h-14"
                 size="lg"
                 disabled={activateSession.isPending || presentCount === 0}
                 onClick={handleCheckIn}
@@ -290,10 +297,10 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
                 )}
                 Xác nhận Check-in và Mở phiên
               </Button>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <UnderstaffedAlertDialog
         open={alertOpen}

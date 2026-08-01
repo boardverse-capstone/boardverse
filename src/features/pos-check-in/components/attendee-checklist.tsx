@@ -51,17 +51,21 @@ export function AttendeeChecklist({
           return (
             <li
               key={participant.id}
-              className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
+              className="flex min-h-[52px] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 md:min-h-[56px] md:px-5 md:py-4"
             >
               <Checkbox
                 id={checkboxId}
                 checked={isPresent}
                 disabled={disabled || participant.attendanceStatus === 'Absent'}
                 onCheckedChange={(checked) => onToggle(participant.id, checked === true)}
+                className="size-5 md:size-[22px]"
               />
-              <Label htmlFor={checkboxId} className="flex flex-1 cursor-pointer items-center justify-between">
+              <Label
+                htmlFor={checkboxId}
+                className="flex flex-1 cursor-pointer items-center justify-between gap-3 text-base"
+              >
                 <span className="font-medium">{participant.displayName}</span>
-                <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground md:text-sm">
                   Cọc: {formatCurrency(participant.depositAmount)}
                   {participant.attendanceStatus === 'Absent' && (
                     <Badge variant="destructive" className="text-[10px]">

@@ -16,8 +16,8 @@ export function CafeFloorPlan({ tables, selectedTableId, onSelectTable }: CafeFl
   const zones = [...new Set(tables.map((t) => t.zone))];
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-3 text-xs">
+    <div className="space-y-4 md:space-y-5">
+      <div className="flex flex-wrap gap-3 text-xs md:text-sm">
         {Object.entries(TABLE_STATUS_COLORS).map(([status, style]) => (
           <div key={status} className="flex items-center gap-1.5">
             <span
@@ -37,8 +37,8 @@ export function CafeFloorPlan({ tables, selectedTableId, onSelectTable }: CafeFl
         const zoneTables = tables.filter((t) => t.zone === zone);
         return (
           <div key={zone}>
-            <p className="mb-2 text-sm font-semibold text-muted-foreground">{zone}</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:gap-3">
+            <p className="mb-2 text-sm font-semibold text-muted-foreground md:text-base">{zone}</p>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-3 md:gap-3 lg:grid-cols-4">
               {zoneTables.map((table) => {
                 const colors = TABLE_STATUS_COLORS[table.status];
                 const isSelected = selectedTableId === table.id;
@@ -50,7 +50,7 @@ export function CafeFloorPlan({ tables, selectedTableId, onSelectTable }: CafeFl
                     type="button"
                     onClick={() => onSelectTable(table)}
                     className={cn(
-                      'relative flex min-h-[88px] flex-col items-center justify-center rounded-xl border-2 p-3 text-center transition-all',
+                      'relative flex min-h-[96px] touch-manipulation flex-col items-center justify-center rounded-xl border-2 p-3 text-center transition-all active:scale-[0.98] md:min-h-[112px] md:p-4',
                       colors.bg,
                       isSelected && 'ring-2 ring-primary ring-offset-2',
                       table.status === 'Available' && 'cursor-default opacity-80',
@@ -59,7 +59,7 @@ export function CafeFloorPlan({ tables, selectedTableId, onSelectTable }: CafeFl
                   >
                     <span
                       className={cn(
-                        'text-sm font-bold',
+                        'text-sm font-bold md:text-base',
                         isOccupied ? 'text-white' : 'text-foreground',
                       )}
                     >
@@ -80,7 +80,7 @@ export function CafeFloorPlan({ tables, selectedTableId, onSelectTable }: CafeFl
                       <div className="mt-2 flex flex-col items-center gap-0.5">
                         <SessionTimer
                           startedAt={table.startedAt}
-                          className="font-mono text-lg font-bold text-white tabular-nums"
+                          className="font-mono text-lg font-bold text-white tabular-nums md:text-xl"
                         />
                         {table.gameName && (
                           <span className="max-w-full truncate text-[10px] text-red-100">

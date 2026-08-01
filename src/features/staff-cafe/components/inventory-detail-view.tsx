@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowLeft, Package, Timer, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -62,9 +63,20 @@ export function InventoryDetailView({ cafeId, inventoryId }: InventoryDetailView
       <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
         <Card className="overflow-hidden">
           <div className="relative aspect-[4/3] bg-muted">
-            <div className="flex size-full items-center justify-center">
-              <Package className="h-16 w-16 text-muted-foreground/40" />
-            </div>
+            {data.gameTemplate.imageUrl ? (
+              <Image
+                src={data.gameTemplate.imageUrl}
+                alt={data.gameTemplate.title}
+                fill
+                className="object-cover"
+                sizes="280px"
+                priority
+              />
+            ) : (
+              <div className="flex size-full items-center justify-center">
+                <Package className="h-16 w-16 text-muted-foreground/40" />
+              </div>
+            )}
           </div>
           <CardContent className="space-y-3 pt-4">
             <div>

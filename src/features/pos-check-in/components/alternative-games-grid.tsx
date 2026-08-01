@@ -38,14 +38,14 @@ export function AlternativeGamesGrid({
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-3 sm:grid-cols-2 md:gap-4">
       {games.map((game) => {
         const isSelected = selectedInventoryId === game.inventoryId;
 
         return (
           <article
             key={game.inventoryId}
-            className={`flex gap-3 rounded-xl border p-3 transition-all ${
+            className={`flex touch-manipulation gap-3 rounded-xl border p-3 transition-all active:scale-[0.99] md:p-4 ${
               isSelected
                 ? 'border-primary bg-primary/5 ring-2 ring-primary/30'
                 : 'border-border bg-card hover:border-primary/40'
@@ -76,9 +76,9 @@ export function AlternativeGamesGrid({
 
               <Button
                 type="button"
-                size="sm"
+                size="lg"
                 variant={isSelected ? 'default' : 'outline'}
-                className="w-full"
+                className="h-11 w-full touch-manipulation text-sm md:h-12"
                 onClick={() => onSelect(game)}
               >
                 {isSelected ? 'Đã chọn' : 'Đổi sang game này'}

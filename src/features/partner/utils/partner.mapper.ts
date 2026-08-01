@@ -10,6 +10,8 @@ import type {
 
   ApplicationStatus,
 
+  ApproveRegistrationResult,
+
   BillingModel,
 
   OperationalStatus,
@@ -208,6 +210,75 @@ function normalizeBillingModel(value?: string | null): BillingModel {
 
 
 
+export function normalizePartnerMutationResponse(raw: unknown): PartnerApplication {
+  if (!isRecord(raw)) {
+    throw new Error('Phản hồi xử lý đơn không hợp lệ.');
+  }
+
+  if (isRecord(raw.application)) {
+    return mapApiPartnerApplication(raw.application as RawCafePartnerApplication);
+  }
+
+  if (raw.id || raw.cafeName || raw.CafeName) {
+    return mapApiPartnerApplication(raw as RawCafePartnerApplication);
+  }
+
+  if (isRecord(raw.basicInfo)) {
+    return mapRegistrationToPartnerApplication(raw as unknown as Registration);
+  }
+
+  const nested = raw.data;
+  if (isRecord(nested)) {
+    return normalizePartnerMutationResponse(nested);
+  }
+
+  throw new Error('Phản hồi xử lý đơn không hợp lệ.');
+}
+
+export function normalizeApproveRegistrationResponse(raw: unknown): ApproveRegistrationResult {
+  if (!isRecord(raw)) {
+    throw new Error('Phản hồi duyệt đơn không hợp lệ.');
+  }
+
+  const application = normalizePartnerMutationResponse(
+    raw.application ?? raw.registration ?? raw,
+  );
+
+  const managerAccountRecord = isRecord(raw.managerAccount) ? raw.managerAccount : null;
+
+  const managerEmail = pickString(
+    raw.managerEmail as string | undefined,
+    managerAccountRecord?.email as string | undefined,
+    application.representativeEmail,
+  );
+
+  const managerUserId = pickString(
+    raw.managerUserId as string | undefined,
+    managerAccountRecord?.username as string | undefined,
+    application.createdManagerUserId ?? undefined,
+  );
+
+  const temporaryPassword = pickString(
+    raw.temporaryPassword as string | undefined,
+    managerAccountRecord?.temporaryPassword as string | undefined,
+  );
+
+  const cafeId = pickString(
+    raw.cafeId as string | undefined,
+    application.createdCafeId ?? undefined,
+  );
+
+  return {
+    application,
+    managerAccount: {
+      userId: managerUserId,
+      email: managerEmail,
+      temporaryPassword: temporaryPassword || undefined,
+    },
+    cafeId,
+  };
+}
+
 export function normalizePartnerDetailResponse(raw: unknown): PartnerApplication {
   if (!isRecord(raw)) {
     throw new Error('Phản hồi chi tiết đơn không hợp lệ.');
@@ -235,7 +306,7 @@ export function mapApiPartnerApplication(raw: RawCafePartnerApplication): Partne
 
     address: pickString(raw.address),
 
-    hotline: pickString(raw.hotline),
+    hotline: pickString(raw.hotline, raw.phoneNumber),
 
     representativeEmail: pickString(raw.representativeEmail),
 

@@ -46,3 +46,22 @@ export function useAlternativeGames(cafeId: string | undefined, playerCount: num
     staleTime: 30_000,
   });
 }
+
+export function useActiveSession(bookingId: string, enabled = true) {
+  return useQuery({
+    queryKey: [POS_QUERY_KEYS.activeSession, bookingId],
+    queryFn: () => PosCheckInService.getActiveSessionByBookingId(bookingId),
+    enabled: enabled && Boolean(bookingId),
+    staleTime: 5_000,
+  });
+}
+
+/** GET /api/cafes/{cafeId}/sessions/{sessionId} */
+export function useCafeSession(cafeId?: string, sessionId?: string, enabled = true) {
+  return useQuery({
+    queryKey: [POS_QUERY_KEYS.session, cafeId, sessionId],
+    queryFn: () => PosCheckInService.getSession(cafeId!, sessionId!),
+    enabled: enabled && Boolean(cafeId) && Boolean(sessionId),
+    staleTime: 5_000,
+  });
+}

@@ -44,9 +44,9 @@ export function DashboardLayout({
       />
       <SidebarInset>
         {/* Top bar */}
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b">
-          <div className="flex items-center gap-2 px-4">
-            <SidebarTrigger className="-ms-1" />
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b md:h-16">
+          <div className="flex items-center gap-2 px-3 md:px-4">
+            <SidebarTrigger className="-ms-1 size-10 touch-manipulation md:size-11" />
             <Separator
               orientation="vertical"
               className="me-2 data-vertical:h-4 data-vertical:self-auto"
@@ -64,7 +64,9 @@ export function DashboardLayout({
         </header>
 
         {/* Page content */}
-        <main className="flex flex-1 flex-col gap-4 p-3 pt-4 sm:p-4 sm:pt-6 md:p-6">{children}</main>
+        <main className="flex flex-1 flex-col gap-4 p-3 pt-4 sm:p-4 sm:pt-6 md:gap-5 md:p-5 lg:p-6">
+          {children}
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );

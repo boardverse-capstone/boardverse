@@ -14,9 +14,8 @@ import {
 } from '@/components/ui/select';
 import { INVENTORY_STATUS_FILTERS } from '@/core/constants/inventory';
 import { InventoryListTable } from './inventory-list-table';
-import { NearbyCafesPanel } from './nearby-cafes-panel';
 import { useInventoryList } from '../hooks/useInventoryList';
-import { useNearbyCafes, useStaffWorkingCafe } from '../hooks/useStaffCafe';
+import { useStaffWorkingCafe } from '../hooks/useStaffCafe';
 import { useSelectedCafeId } from '../hooks/useSelectedCafeId';
 
 const DEFAULT_LIMIT = 10;
@@ -26,10 +25,7 @@ export function InventoryWorkspace() {
   const queryCafeId = searchParams.get('cafeId') ?? undefined;
 
   const { data: workingCafe } = useStaffWorkingCafe();
-  const { data: nearbyCafes } = useNearbyCafes();
-  const { cafeId, setCafeId } = useSelectedCafeId(
-    queryCafeId ?? workingCafe?.id ?? nearbyCafes?.[0]?.id,
-  );
+  const { cafeId, setCafeId } = useSelectedCafeId(queryCafeId ?? workingCafe?.id);
 
   useEffect(() => {
     if (queryCafeId) setCafeId(queryCafeId);
@@ -41,10 +37,7 @@ export function InventoryWorkspace() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
 
-  const selectedCafe = useMemo(() => {
-    const list = nearbyCafes ?? [];
-    return list.find((cafe) => cafe.id === cafeId) ?? workingCafe;
-  }, [nearbyCafes, cafeId, workingCafe]);
+  const selectedCafe = useMemo(() => workingCafe, [workingCafe]);
 
   const { data, isLoading, isError, refetch } = useInventoryList(cafeId, {
     page,
@@ -69,8 +62,7 @@ export function InventoryWorkspace() {
         }
       />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
-        <div className="space-y-4">
+      <div className="space-y-4">
           <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
             <Input
               placeholder="Tìm theo tên game hoặc barcode..."
@@ -130,15 +122,6 @@ export function InventoryWorkspace() {
               )}
             </>
           )}
-        </div>
-
-        <NearbyCafesPanel
-          selectedCafeId={cafeId}
-          onSelectCafe={(cafe) => {
-            setCafeId(cafe.id);
-            setPage(1);
-          }}
-        />
       </div>
     </div>
   );

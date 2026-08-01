@@ -188,6 +188,8 @@ export interface RawCafePartnerApplication {
 
   hotline?: string;
 
+  phoneNumber?: string;
+
   representativeEmail?: string;
 
   workingHours?: WorkingHours | null;
@@ -410,13 +412,53 @@ export interface PartnerRegistrationRequest {
 
 
 
-export interface ApproveRegistrationResponse {
+/** Phản hồi thô POST .../approve (sau khi unwrap envelope) */
 
-  registration: Registration;
+export interface RawApproveRegistrationResponse {
+
+  application?: RawCafePartnerApplication;
+
+  managerUserId?: string;
+
+  managerEmail?: string;
+
+  cafeId?: string;
+
+  temporaryPassword?: string;
+
+  /** Legacy mock */
+
+  registration?: Registration;
 
   managerAccount?: ManagerAccount;
 
 }
+
+
+
+export interface ApproveRegistrationResult {
+
+  application: PartnerApplication;
+
+  managerAccount: {
+
+    userId: string;
+
+    email: string;
+
+    temporaryPassword?: string;
+
+  };
+
+  cafeId: string;
+
+}
+
+
+
+/** @deprecated Dùng ApproveRegistrationResult */
+
+export type ApproveRegistrationResponse = RawApproveRegistrationResponse;
 
 
 

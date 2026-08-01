@@ -36,3 +36,10 @@ export const TABLE_STATUS_COLORS = {
 } as const;
 
 export const QR_BOOKING_PREFIX = 'BV:';
+export const QR_PAYMENT_PREFIX = 'BV:PAY:';
+
+/** Phí chơi theo giờ (mock / mặc định quán) */
+export const DEFAULT_HOURLY_RATE_VND = 50_000;
+
+/** Làm tròn tính giờ theo block 30 phút */
+export const BILLING_BLOCK_MINUTES = 30;

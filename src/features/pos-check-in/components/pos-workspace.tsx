@@ -59,12 +59,19 @@ export function PosWorkspace() {
     [],
   );
 
+  const handleSessionCompleted = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.floorPlan] });
+    setSelectedBookingId(null);
+    setResolvedBooking(null);
+    setSelectedTableId(undefined);
+    setSelectedTableLabel(undefined);
+  }, [queryClient]);
+
   const handleSessionActivated = useCallback(
     (_session: ActivatedSession) => {
       queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.floorPlan] });
-      setSelectedBookingId(null);
-      setResolvedBooking(null);
-      setSelectedTableLabel(undefined);
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.bookings] });
+      // Giữ bàn đang chọn để staff tiếp tục vận hành phiên
     },
     [queryClient],
   );
@@ -87,21 +94,21 @@ export function PosWorkspace() {
   const tables = floorPlan?.tables ?? [];
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-4 md:space-y-5">
       <PageHeader
         title="Web POS"
         description={`${cafe?.name ?? 'Quán'} · Tạo mã QR cho khách quét, điểm danh và điều khiển sơ đồ bàn`}
       />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,400px)] lg:items-start">
-        <Card className="min-h-[360px] lg:min-h-[480px]">
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] md:items-start xl:grid-cols-[minmax(0,1fr)_420px]">
+        <Card className="min-h-[320px] md:min-h-[420px]">
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
               <LayoutGrid className="h-5 w-5 shrink-0" />
               Sơ đồ mặt bằng
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pb-4 md:pb-6">
             {floorLoading ? (
               <div className="flex justify-center py-16">
                 <Spinner className="h-6 w-6" />
@@ -116,7 +123,7 @@ export function PosWorkspace() {
           </CardContent>
         </Card>
 
-        <div className="space-y-4">
+        <div className="space-y-4 md:sticky md:top-4 md:max-h-[calc(100dvh-6rem)] md:overflow-y-auto md:overscroll-contain md:pr-1">
           <QrScanPanel
             onResolved={handleQrResolved}
             presetCode={presetQr}
@@ -130,11 +137,12 @@ export function PosWorkspace() {
               initialBooking={resolvedBooking?.booking}
               onClose={handleCloseReception}
               onSessionActivated={handleSessionActivated}
+              onSessionCompleted={handleSessionCompleted}
             />
           ) : (
             <Card className="border-dashed">
-              <CardContent className="py-8 text-center text-sm text-muted-foreground sm:py-10">
-                Tạo mã QR cho khách hoặc chọn bàn vàng (Đã đặt) trên sơ đồ để bắt đầu check-in.
+              <CardContent className="py-10 text-center text-sm text-muted-foreground md:py-12 md:text-base">
+                Tạo mã QR cho khách, chọn bàn vàng (Đã đặt) để check-in, hoặc bàn đỏ (Đang chơi) để vận hành phiên / thanh toán.
               </CardContent>
             </Card>
           )}

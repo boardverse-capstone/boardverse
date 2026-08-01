@@ -159,6 +159,7 @@ export const StaffCafeMockService = {
         gameTemplateId: item.gameTemplateId,
         title: item.name,
         description: `Mô tả demo cho ${item.name}.`,
+        imageUrl: item.imageUrl,
         minPlayers: item.name === 'Scythe' ? 4 : 2,
         maxPlayers: item.name === 'Codenames' ? 8 : item.name === 'Scythe' ? 5 : 4,
         playingTime: item.name === 'Scythe' ? 115 : 60,

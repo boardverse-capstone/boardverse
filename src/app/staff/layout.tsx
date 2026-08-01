@@ -4,13 +4,11 @@ import type { ReactNode } from 'react';
 import { Suspense } from 'react';
 import {
   IconLayoutDashboard,
-  IconChecklist,
   IconCalendar,
   IconClipboard,
   IconHelp,
   IconDeviceDesktop,
   IconPackage,
-  IconMapPin,
 } from '@tabler/icons-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { RoleGuard } from '@/features/auth/components/role-guard';
@@ -33,20 +31,6 @@ const STAFF_NAV: NavItem[] = [
     title: 'Kho game',
     url: '/staff/inventory',
     icon: <IconPackage />,
-  },
-  {
-    title: 'Quán gần đây',
-    url: '/staff/cafes/nearby',
-    icon: <IconMapPin />,
-  },
-  {
-    title: 'Công việc',
-    url: '/staff/tasks',
-    icon: <IconChecklist />,
-    items: [
-      { title: 'Danh sách việc', url: '/staff/tasks' },
-      { title: 'Đã hoàn thành', url: '/staff/tasks/completed' },
-    ],
   },
   {
     title: 'Lịch làm việc',

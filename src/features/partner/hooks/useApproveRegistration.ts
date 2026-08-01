@@ -4,7 +4,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { APPLICATION_STATUS_LABELS } from '@/core/constants/partner-registration';
 import { PartnerService, PARTNER_QUERY_KEYS } from '../services/partner.service';
-import { mapRegistrationToPartnerApplication } from '../utils/partner.mapper';
 import { syncPartnerInPendingCaches } from '../utils/partner-cache.util';
 
 export function useApproveRegistration() {
@@ -20,15 +19,17 @@ export function useApproveRegistration() {
       return { previousQueries };
     },
     onSuccess: (data) => {
-      const application = mapRegistrationToPartnerApplication(data.registration);
+      const { application, managerAccount } = data;
 
       toast.success(
         `${application.cafeName} → ${APPLICATION_STATUS_LABELS[application.applicationStatus]}`,
       );
 
-      if (data.managerAccount) {
+      if (managerAccount.email) {
         toast.message('Đã cấp tài khoản CAFE_MANAGER', {
-          description: `Email đăng nhập: ${data.managerAccount.email}`,
+          description: managerAccount.temporaryPassword
+            ? `Email: ${managerAccount.email}\nMật khẩu tạm: ${managerAccount.temporaryPassword}`
+            : `Email đăng nhập: ${managerAccount.email}`,
         });
       }
 

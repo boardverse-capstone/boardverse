@@ -1,9 +1,13 @@
-import { QR_BOOKING_PREFIX } from '@/core/constants/pos-check-in';
+import { QR_BOOKING_PREFIX, QR_PAYMENT_PREFIX, DEFAULT_HOURLY_RATE_VND, BILLING_BLOCK_MINUTES } from '@/core/constants/pos-check-in';
 import type {
+  ActiveSessionDetail,
   AlternativeGame,
   CafeTable,
+  CompleteSessionResult,
   FloorPlan,
+  PaymentCode,
   QrResolveResult,
+  SessionBill,
   StaffCafe,
   TableBooking,
 } from '../types/pos-check-in.interface';
@@ -79,8 +83,49 @@ const INVENTORY: AlternativeGame[] = [
   },
 ];
 
+interface StoredSession extends ActiveSessionDetail {
+  bill?: SessionBill;
+  paymentCode?: PaymentCode;
+}
+
+const DEMO_SESSION_STARTED_AT = new Date(Date.now() - 95 * 60_000).toISOString();
+
+let activeSessions: Record<string, StoredSession> = {
+  'session-demo-001': {
+    sessionId: 'session-demo-001',
+    bookingId: 'booking-003',
+    tableId: 'table-t01',
+    tableLabel: 'Bàn T-01',
+    cafeId: MOCK_CAFE.id,
+    game: {
+      id: 'game-catan',
+      inventoryId: 'inv-001',
+      name: 'Catan',
+      imageUrl: 'https://picsum.photos/seed/catan/400/300',
+      minPlayers: 3,
+      maxPlayers: 4,
+    },
+    startedAt: DEMO_SESSION_STARTED_AT,
+    presentCount: 3,
+    depositCreditTotal: 120_000,
+    billingModel: 'BY_HOUR',
+  },
+};
+
 let tables: CafeTable[] = [
-  { id: 'table-t01', label: 'T-01', zone: 'Khu A', seats: 4, position: { row: 0, col: 0 }, status: 'Available' },
+  {
+    id: 'table-t01',
+    label: 'T-01',
+    zone: 'Khu A',
+    seats: 4,
+    position: { row: 0, col: 0 },
+    status: 'Occupied',
+    bookingId: 'booking-003',
+    sessionId: 'session-demo-001',
+    startedAt: DEMO_SESSION_STARTED_AT,
+    gameName: 'Catan',
+    presentCount: 3,
+  },
   { id: 'table-t02', label: 'T-02', zone: 'Khu A', seats: 4, position: { row: 0, col: 1 }, status: 'Available' },
   { id: 'table-t03', label: 'T-03', zone: 'Khu A', seats: 6, position: { row: 0, col: 2 }, status: 'Available' },
   { id: 'table-t04', label: 'T-04', zone: 'Khu A', seats: 4, position: { row: 0, col: 3 }, status: 'Available' },
@@ -156,6 +201,29 @@ let bookings: TableBooking[] = [
     ],
     sessionStatus: 'Pending',
   },
+  {
+    id: 'booking-003',
+    cafeId: MOCK_CAFE.id,
+    tableId: 'table-t01',
+    tableLabel: 'Bàn T-01',
+    qrCode: `${QR_BOOKING_PREFIX}booking-003`,
+    scheduledAt: new Date(Date.now() - 120 * 60_000).toISOString(),
+    bookedGame: {
+      id: 'game-catan',
+      inventoryId: 'inv-001',
+      name: 'Catan',
+      imageUrl: 'https://picsum.photos/seed/catan/400/300',
+      minPlayers: 3,
+      maxPlayers: 4,
+    },
+    participants: [
+      { id: 'p8', userId: 'u8', displayName: 'Huyền Trang', depositAmount: 40000, isPresent: true, attendanceStatus: 'Present' },
+      { id: 'p9', userId: 'u9', displayName: 'Văn Kiệt', depositAmount: 40000, isPresent: true, attendanceStatus: 'Present' },
+      { id: 'p10', userId: 'u10', displayName: 'Mai Phương', depositAmount: 40000, isPresent: true, attendanceStatus: 'Present' },
+    ],
+    sessionStatus: 'Active',
+    sessionId: 'session-demo-001',
+  },
 ];
 
 function parseQrPayload(raw: string): string | null {
@@ -183,9 +251,17 @@ function syncTableFromBooking(booking: TableBooking) {
   const table = tables.find((t) => t.id === booking.tableId);
   if (!table) return;
 
-  if (booking.sessionStatus === 'Active') {
+  if (booking.sessionStatus === 'Active' || booking.sessionStatus === 'Checking') {
     table.status = 'Occupied';
     table.bookingId = booking.id;
+    if (booking.sessionId) table.sessionId = booking.sessionId;
+  } else if (booking.sessionStatus === 'Completed') {
+    table.status = 'Available';
+    table.bookingId = undefined;
+    table.sessionId = undefined;
+    table.startedAt = undefined;
+    table.gameName = undefined;
+    table.presentCount = undefined;
   } else if (booking.sessionStatus === 'Pending') {
     table.status = 'Reserved';
     table.bookingId = booking.id;
@@ -194,6 +270,93 @@ function syncTableFromBooking(booking: TableBooking) {
     table.gameName = undefined;
     table.presentCount = undefined;
   }
+}
+
+function findSessionByBookingId(bookingId: string): StoredSession | undefined {
+  return Object.values(activeSessions).find((session) => session.bookingId === bookingId);
+}
+
+function findSessionById(sessionId: string): StoredSession | undefined {
+  return activeSessions[sessionId];
+}
+
+function roundBillableHours(durationMinutes: number): number {
+  const blocks = Math.max(1, Math.ceil(durationMinutes / BILLING_BLOCK_MINUTES));
+  return (blocks * BILLING_BLOCK_MINUTES) / 60;
+}
+
+function buildHourlyBill(session: StoredSession, endedAt = new Date()): SessionBill {
+  const startedMs = new Date(session.startedAt).getTime();
+  const durationMinutes = Math.max(1, Math.round((endedAt.getTime() - startedMs) / 60_000));
+  const billableHours = roundBillableHours(durationMinutes);
+  const playAmount = Math.round(billableHours * DEFAULT_HOURLY_RATE_VND);
+
+  const lineItems: SessionBill['lineItems'] = [
+    {
+      id: 'play-fee',
+      label: `Phí chơi (${billableHours} giờ × ${DEFAULT_HOURLY_RATE_VND.toLocaleString('vi-VN')}đ)`,
+      quantity: billableHours,
+      unitPrice: DEFAULT_HOURLY_RATE_VND,
+      amount: playAmount,
+    },
+  ];
+
+  const subtotal = playAmount;
+  const totalDue = Math.max(0, subtotal - session.depositCreditTotal);
+
+  return {
+    sessionId: session.sessionId,
+    bookingId: session.bookingId,
+    billingModel: session.billingModel,
+    durationMinutes,
+    lineItems,
+    depositCreditTotal: session.depositCreditTotal,
+    subtotal,
+    totalDue,
+    currency: 'VND',
+    calculatedAt: endedAt.toISOString(),
+  };
+}
+
+function buildDrinkBill(session: StoredSession, endedAt = new Date()): SessionBill {
+  const startedMs = new Date(session.startedAt).getTime();
+  const durationMinutes = Math.max(1, Math.round((endedAt.getTime() - startedMs) / 60_000));
+
+  const lineItems: SessionBill['lineItems'] = [
+    { id: 'drink-1', label: 'Trà đào', quantity: 2, unitPrice: 35_000, amount: 70_000 },
+    { id: 'drink-2', label: 'Cà phê sữa', quantity: 1, unitPrice: 40_000, amount: 40_000 },
+    { id: 'drink-3', label: 'Nước suối', quantity: 3, unitPrice: 15_000, amount: 45_000 },
+  ];
+
+  const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
+  const totalDue = Math.max(0, subtotal - session.depositCreditTotal);
+
+  return {
+    sessionId: session.sessionId,
+    bookingId: session.bookingId,
+    billingModel: session.billingModel,
+    durationMinutes,
+    lineItems,
+    depositCreditTotal: session.depositCreditTotal,
+    subtotal,
+    totalDue,
+    currency: 'VND',
+    calculatedAt: endedAt.toISOString(),
+  };
+}
+
+function createPaymentCode(session: StoredSession, bill: SessionBill): PaymentCode {
+  const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const code = `BV-PAY-${suffix}`;
+  const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
+
+  return {
+    code,
+    qrPayload: `${QR_PAYMENT_PREFIX}${session.sessionId}:${code}`,
+    amount: bill.totalDue,
+    expiresAt,
+    status: 'Pending',
+  };
 }
 
 function getTableForBooking(bookingId: string): CafeTable | undefined {
@@ -292,6 +455,7 @@ export const PosCheckInMockService = {
       ...bookings[index],
       bookedGame: game,
       sessionStatus: 'Active',
+      sessionId,
       participants: bookings[index].participants.map((p) => ({
         ...p,
         isPresent: presentParticipantIds.includes(p.id),
@@ -310,6 +474,19 @@ export const PosCheckInMockService = {
       table.presentCount = presentParticipantIds.length;
     }
 
+    activeSessions[sessionId] = {
+      sessionId,
+      bookingId,
+      tableId: bookings[index].tableId,
+      tableLabel: bookings[index].tableLabel,
+      cafeId: bookings[index].cafeId,
+      game,
+      startedAt,
+      presentCount: presentParticipantIds.length,
+      depositCreditTotal,
+      billingModel: 'BY_HOUR',
+    };
+
     return {
       sessionId,
       bookingId,
@@ -327,6 +504,78 @@ export const PosCheckInMockService = {
     bookings
       .filter((b) => b.sessionStatus === 'Pending')
       .map((b) => ({ bookingId: b.id, qrCode: b.qrCode, tableLabel: b.tableLabel })),
+
+  getActiveSessionByBookingId: async (bookingId: string): Promise<ActiveSessionDetail> => {
+    await delay(200);
+    const session = findSessionByBookingId(bookingId);
+    if (!session) throw new Error('Không tìm thấy phiên chơi đang hoạt động.');
+    return structuredClone(session);
+  },
+
+  getSessionById: async (sessionId: string): Promise<ActiveSessionDetail> => {
+    await delay(200);
+    const session = findSessionById(sessionId);
+    if (!session) throw new Error('Không tìm thấy phiên chơi.');
+    return structuredClone(session);
+  },
+
+  calculateBill: async (sessionId: string): Promise<SessionBill> => {
+    await delay(400);
+    const session = findSessionById(sessionId);
+    if (!session) throw new Error('Không tìm thấy phiên chơi.');
+
+    const bill =
+      session.billingModel === 'PER_DRINK'
+        ? buildDrinkBill(session)
+        : buildHourlyBill(session);
+
+    session.bill = bill;
+    return structuredClone(bill);
+  },
+
+  generatePaymentCode: async (sessionId: string): Promise<PaymentCode> => {
+    await delay(350);
+    const session = findSessionById(sessionId);
+    if (!session) throw new Error('Không tìm thấy phiên chơi.');
+
+    const bill = session.bill ?? (session.billingModel === 'PER_DRINK' ? buildDrinkBill(session) : buildHourlyBill(session));
+    session.bill = bill;
+
+    const paymentCode = createPaymentCode(session, bill);
+    session.paymentCode = paymentCode;
+    return structuredClone(paymentCode);
+  },
+
+  completeSession: async (sessionId: string): Promise<CompleteSessionResult> => {
+    await delay(500);
+    const session = findSessionById(sessionId);
+    if (!session) throw new Error('Không tìm thấy phiên chơi.');
+
+    const bill = session.bill ?? (session.billingModel === 'PER_DRINK' ? buildDrinkBill(session) : buildHourlyBill(session));
+    const paymentCode =
+      session.paymentCode ?? createPaymentCode(session, bill);
+
+    const completedAt = new Date().toISOString();
+    const bookingIndex = bookings.findIndex((b) => b.id === session.bookingId);
+    if (bookingIndex !== -1) {
+      bookings[bookingIndex] = {
+        ...bookings[bookingIndex],
+        sessionStatus: 'Completed',
+      };
+      syncTableFromBooking(bookings[bookingIndex]);
+    }
+
+    delete activeSessions[sessionId];
+
+    return {
+      sessionId,
+      bookingId: session.bookingId,
+      tableId: session.tableId,
+      bill,
+      paymentCode: { ...paymentCode, status: 'Paid' },
+      completedAt,
+    };
+  },
 };
 
 export { getTableForBooking, MOCK_CAFE };
