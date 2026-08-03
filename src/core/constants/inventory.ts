@@ -1,14 +1,16 @@
 export const INVENTORY_STATUS_FILTERS = [
   { value: 'all', label: 'Tất cả' },
-  { value: 'AVAILABLE', label: 'Sẵn sàng' },
-  { value: 'RENTED', label: 'Đang cho thuê' },
-  { value: 'MAINTENANCE', label: 'Bảo trì' },
-  { value: 'DAMAGED', label: 'Hư hỏng' },
+  { value: 'Available', label: 'Sẵn sàng' },
+  { value: 'InUse', label: 'Đang dùng' },
+  { value: 'Damaged', label: 'Hư hỏng' },
+  { value: 'Maintenance', label: 'Bảo trì' },
 ] as const;
 
 export const INVENTORY_STATUS_LABELS: Record<string, string> = {
   AVAILABLE: 'Sẵn sàng',
   Available: 'Sẵn sàng',
+  INUSE: 'Đang dùng',
+  InUse: 'Đang dùng',
   RENTED: 'Đang cho thuê',
   Rented: 'Đang cho thuê',
   MAINTENANCE: 'Bảo trì',
@@ -20,6 +22,8 @@ export const INVENTORY_STATUS_LABELS: Record<string, string> = {
 export const INVENTORY_STATUS_COLORS: Record<string, string> = {
   AVAILABLE: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   Available: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  INUSE: 'bg-sky-100 text-sky-800 border-sky-200',
+  InUse: 'bg-sky-100 text-sky-800 border-sky-200',
   RENTED: 'bg-sky-100 text-sky-800 border-sky-200',
   Rented: 'bg-sky-100 text-sky-800 border-sky-200',
   MAINTENANCE: 'bg-amber-100 text-amber-800 border-amber-200',

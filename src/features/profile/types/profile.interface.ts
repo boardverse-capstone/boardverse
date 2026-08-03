@@ -71,3 +71,35 @@ export interface ProfileProgressUpdateRequest {
 export interface ProfileAvatarUpdateRequest {
   avatarUrl: string;
 }
+
+/** Nguồn vị trí — PUT /api/UserProfile/me/location */
+export type PlayerLocationSource = 'Gps' | 'Manual';
+
+/** Payload cập nhật vị trí — PUT /api/UserProfile/me/location */
+export interface UpdatePlayerLocationRequest {
+  latitude: number;
+  longitude: number;
+  source?: PlayerLocationSource;
+}
+
+/** Response GET/PUT /api/UserProfile/me/location */
+export interface PlayerLocation {
+  latitude: number | null;
+  longitude: number | null;
+  updatedAt: string | null;
+  source: PlayerLocationSource | string | null;
+  hasLocation: boolean;
+}
+
+export interface RawPlayerLocation {
+  latitude?: number | null;
+  Latitude?: number | null;
+  longitude?: number | null;
+  Longitude?: number | null;
+  updatedAt?: string | null;
+  UpdatedAt?: string | null;
+  source?: string | null;
+  Source?: string | null;
+  hasLocation?: boolean;
+  HasLocation?: boolean;
+}

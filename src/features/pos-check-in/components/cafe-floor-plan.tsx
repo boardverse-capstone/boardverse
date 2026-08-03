@@ -33,7 +33,14 @@ export function CafeFloorPlan({ tables, selectedTableId, onSelectTable }: CafeFl
         ))}
       </div>
 
-      {zones.map((zone) => {
+      {tables.length === 0 ? (
+        <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-16 text-center text-sm text-muted-foreground">
+          Chưa có bàn trên sơ đồ quán.
+          <br />
+          Manager cần đồng bộ bàn (POS tables), hoặc sẽ hiện từ booking đã gắn bàn.
+        </div>
+      ) : (
+        zones.map((zone) => {
         const zoneTables = tables.filter((t) => t.zone === zone);
         return (
           <div key={zone}>
@@ -99,7 +106,8 @@ export function CafeFloorPlan({ tables, selectedTableId, onSelectTable }: CafeFl
             </div>
           </div>
         );
-      })}
+      })
+      )}
     </div>
   );
 }

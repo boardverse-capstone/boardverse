@@ -41,7 +41,17 @@ export function createInventoryColumns(cafeId: string): ColumnDef<InventoryListI
           </div>
           <div className="min-w-0">
             <div className="truncate font-semibold">{row.original.name}</div>
-            <div className="truncate text-xs text-muted-foreground">{row.original.barcode ?? '—'}</div>
+            <div className="truncate text-xs text-muted-foreground">
+              {row.original.minPlayers > 0
+                ? `${row.original.minPlayers}–${row.original.maxPlayers} người`
+                : null}
+              {row.original.boxQuantity > 0
+                ? `${row.original.minPlayers > 0 ? ' · ' : ''}${row.original.boxQuantity} hộp`
+                : null}
+              {!row.original.minPlayers && !row.original.boxQuantity
+                ? (row.original.barcode ?? '—')
+                : null}
+            </div>
           </div>
         </div>
       ),
@@ -52,12 +62,19 @@ export function createInventoryColumns(cafeId: string): ColumnDef<InventoryListI
       cell: ({ row }) => <InventoryStatusBadge status={row.original.status} />,
     },
     {
-      accessorKey: 'condition',
+      id: 'tinhTrang',
       header: 'Tình trạng',
       cell: ({ row }) => {
         const condition = row.original.condition;
-        if (!condition) return <span className="text-muted-foreground">—</span>;
-        return INVENTORY_CONDITION_LABELS[condition] ?? condition;
+        if (condition) {
+          return INVENTORY_CONDITION_LABELS[condition] ?? condition;
+        }
+        // API inventory hiện không trả condition — dùng isActive
+        return row.original.isActive ? (
+          <span className="text-emerald-700">Đang hoạt động</span>
+        ) : (
+          <span className="text-muted-foreground">Ngưng</span>
+        );
       },
     },
     {

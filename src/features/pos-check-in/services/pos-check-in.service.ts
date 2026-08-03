@@ -24,16 +24,89 @@ import type {
   TableBooking,
 } from '../types/pos-check-in.interface';
 import {
+  buildFloorPlanFromBookings,
   mapApiActivatedSession,
+  mapApiBoardGame,
   mapApiBookingList,
   mapApiCompleteSession,
+  mapApiFloorPlan,
   mapApiPaymentCode,
   mapApiSession,
   mapApiSessionBill,
+  isPendingCheckInBooking,
 } from '../utils/pos-check-in.mapper';
 import { PosCheckInMockService } from './pos-check-in.mock';
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_POS_API !== 'false';
+
+const boardGameCache = new Map<string, BookedGame>();
+
+/** GET /api/v1/board-games/{gameId} — hydrate tên/ảnh khi booking.gameName null */
+async function fetchBoardGame(gameId: string): Promise<BookedGame | null> {
+  if (!gameId) return null;
+  const cached = boardGameCache.get(gameId);
+  if (cached) return cached;
+
+  try {
+    const raw = await apiClient.get<never, unknown>(`/api/v1/board-games/${gameId}`);
+    const game = mapApiBoardGame(raw, gameId);
+    if (game.name && game.name !== 'Chưa có tên game') {
+      boardGameCache.set(gameId, game);
+    }
+    return game;
+  } catch {
+    return null;
+  }
+}
+
+function needsGameHydration(game: BookedGame): boolean {
+  return Boolean(game.id) && (!game.name || game.name === 'Chưa có tên game');
+}
+
+async function enrichBookingsWithGames(bookings: TableBooking[]): Promise<TableBooking[]> {
+  const ids = [
+    ...new Set(
+      bookings
+        .filter((b) => needsGameHydration(b.bookedGame))
+        .map((b) => b.bookedGame.id)
+        .filter(Boolean),
+    ),
+  ];
+
+  if (ids.length === 0) return bookings;
+
+  const entries = await Promise.all(
+    ids.map(async (id) => [id, await fetchBoardGame(id)] as const),
+  );
+  const byId = new Map(entries.filter(([, game]) => Boolean(game)));
+
+  return bookings.map((booking) => {
+    if (!needsGameHydration(booking.bookedGame)) return booking;
+    const game = byId.get(booking.bookedGame.id);
+    if (!game) return booking;
+    return {
+      ...booking,
+      bookedGame: {
+        ...booking.bookedGame,
+        name: game.name,
+        imageUrl: game.imageUrl,
+        minPlayers: game.minPlayers,
+        maxPlayers: game.maxPlayers,
+      },
+    };
+  });
+}
+
+function mapStaffCafe(raw: unknown): StaffCafe | null {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const id = String(r.id ?? r.cafeId ?? r.Id ?? r.CafeId ?? '');
+  if (!id) return null;
+  return {
+    id,
+    name: String(r.name ?? r.cafeName ?? r.Name ?? 'Quán'),
+    address: r.address != null ? String(r.address) : r.Address != null ? String(r.Address) : undefined,
+  };
+}
 
 export const POS_QUERY_KEYS = {
   cafe: 'pos-staff-cafe',
@@ -72,26 +145,72 @@ export const PosCheckInService = {
     if (USE_MOCK) return PosCheckInMockService.getStaffCafe();
 
     try {
-      const raw = await apiClient.get<never, StaffCafe[] | { data: StaffCafe[] }>(
-        '/api/staff/my-cafes',
-      );
-      const cafes = Array.isArray(raw) ? raw : (raw as { data?: StaffCafe[] }).data ?? [];
-      if (!cafes.length) return PosCheckInMockService.getStaffCafe();
-      return cafes[0];
+      const raw = await apiClient.get<never, unknown>('/api/staff/my-cafes');
+      const list = Array.isArray(raw)
+        ? raw
+        : Array.isArray((raw as { data?: unknown[] })?.data)
+          ? ((raw as { data: unknown[] }).data)
+          : [];
+      for (const item of list) {
+        const cafe = mapStaffCafe(item);
+        if (cafe) return cafe;
+      }
     } catch {
-      return PosCheckInMockService.getStaffCafe();
+      // fallback mock
     }
+
+    return PosCheckInMockService.getStaffCafe();
   },
 
+  /** GET /api/cafes/{cafeId}/pos/tables */
   getFloorPlan: async (cafeId: string): Promise<FloorPlan> => {
     if (USE_MOCK) return PosCheckInMockService.getFloorPlan(cafeId);
-    // Floor-plan API chưa có trong CafeStaff — giữ mock
-    return PosCheckInMockService.getFloorPlan(cafeId);
+
+    try {
+      const raw = await apiClient.get<never, unknown>(`/api/cafes/${cafeId}/pos/tables`);
+      const plan = mapApiFloorPlan(raw, cafeId);
+      if (plan.tables.length > 0) return plan;
+    } catch {
+      // fallback từ bookings
+    }
+
+    try {
+      const bookings = await PosCheckInService.getCafeBookings(cafeId);
+      return buildFloorPlanFromBookings(cafeId, bookings);
+    } catch {
+      return { cafeId, tables: [] };
+    }
   },
 
   resolveQrOrBookingId: async (payload: string): Promise<QrResolveResult> => {
     if (USE_MOCK) return PosCheckInMockService.resolveQrOrBookingId(payload);
-    return PosCheckInMockService.resolveQrOrBookingId(payload);
+
+    const cafe = await PosCheckInService.getStaffCafe();
+    const bookings = await PosCheckInService.getCafeBookings(cafe.id);
+    const trimmed = payload.trim();
+    const found = bookings.find(
+      (b) =>
+        b.id === trimmed ||
+        b.qrCode === trimmed ||
+        b.qrCode.toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (!found) throw new Error('Không tìm thấy booking từ mã QR.');
+
+    return {
+      booking: found,
+      table: {
+        id: found.tableId,
+        label: found.tableLabel,
+        zone: '',
+        seats: found.playerQuantity ?? found.participants.length,
+        position: { row: 0, col: 0 },
+        status: found.sessionStatus === 'Active' ? 'Occupied' : 'Reserved',
+        bookingId: found.id,
+        sessionId: found.sessionId,
+        gameName: found.bookedGame.name,
+        presentCount: found.participants.length,
+      },
+    };
   },
 
   /** GET /api/bookings/cafe/{cafeId} */
@@ -99,7 +218,8 @@ export const PosCheckInService = {
     if (USE_MOCK) return PosCheckInMockService.getPendingBookings();
 
     const raw = await apiClient.get<never, unknown>(`/api/bookings/cafe/${cafeId}`);
-    return mapApiBookingList(raw);
+    const bookings = mapApiBookingList(raw);
+    return enrichBookingsWithGames(bookings);
   },
 
   getPendingBookings: async (cafeId: string): Promise<TableBooking[]> => {
@@ -107,7 +227,7 @@ export const PosCheckInService = {
 
     try {
       const bookings = await PosCheckInService.getCafeBookings(cafeId);
-      return bookings.filter((b) => b.sessionStatus === 'Pending');
+      return bookings.filter(isPendingCheckInBooking);
     } catch {
       return PosCheckInMockService.getPendingBookings();
     }
@@ -116,14 +236,11 @@ export const PosCheckInService = {
   getBookingById: async (id: string, cafeId?: string): Promise<TableBooking> => {
     if (USE_MOCK) return PosCheckInMockService.getBookingById(id);
 
-    if (cafeId) {
-      const bookings = await PosCheckInService.getCafeBookings(cafeId);
-      const found = bookings.find((b) => b.id === id);
-      if (found) return found;
-      throw new Error('Không tìm thấy đơn đặt bàn.');
-    }
-
-    return PosCheckInMockService.getBookingById(id);
+    const resolvedCafeId = cafeId ?? (await PosCheckInService.getStaffCafe()).id;
+    const bookings = await PosCheckInService.getCafeBookings(resolvedCafeId);
+    const found = bookings.find((b) => b.id === id);
+    if (found) return found;
+    throw new Error('Không tìm thấy đơn đặt bàn.');
   },
 
   getAlternativeGames: async (cafeId: string, playerCount: number): Promise<AlternativeGame[]> => {

@@ -11,10 +11,36 @@ export function useStaffWorkingCafe() {
   });
 }
 
-export function useNearbyCafes() {
+export function useNearbyCafes(params?: {
+  gameTemplateId?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  radiusKm?: number;
+  enabled?: boolean;
+}) {
+  const gameTemplateId = params?.gameTemplateId;
+  const latitude = params?.latitude ?? undefined;
+  const longitude = params?.longitude ?? undefined;
+  const radiusKm = params?.radiusKm ?? 15;
+  const enabled = params?.enabled ?? true;
+
   return useQuery({
-    queryKey: [STAFF_CAFE_QUERY_KEYS.nearbyCafes],
-    queryFn: () => StaffCafeService.getNearbyCafes(),
-    staleTime: 60_000,
+    queryKey: [
+      STAFF_CAFE_QUERY_KEYS.nearbyCafes,
+      gameTemplateId,
+      latitude,
+      longitude,
+      radiusKm,
+    ],
+    queryFn: () =>
+      StaffCafeService.getNearbyCafes({
+        gameTemplateId: gameTemplateId!,
+        latitude: latitude ?? undefined,
+        longitude: longitude ?? undefined,
+        radiusKm,
+      }),
+    enabled: enabled && Boolean(gameTemplateId),
+    staleTime: 30_000,
+    retry: 1,
   });
 }

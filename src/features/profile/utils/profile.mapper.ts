@@ -1,4 +1,9 @@
-import type { RawUserProfile, UserProfile } from '../types/profile.interface';
+import type {
+  PlayerLocation,
+  RawPlayerLocation,
+  RawUserProfile,
+  UserProfile,
+} from '../types/profile.interface';
 
 function pickString(...values: (string | null | undefined)[]): string {
   for (const value of values) {
@@ -34,6 +39,31 @@ export function mapApiUserProfile(raw: RawUserProfile): UserProfile {
     level: pickNumber(raw.level, raw.Level) ?? 0,
     updatedAt: parseApiDate(raw.updatedAt ?? raw.UpdatedAt),
     hasProfile: raw.hasProfile ?? raw.HasProfile ?? false,
+  };
+}
+
+export function mapApiPlayerLocation(raw: RawPlayerLocation | null | undefined): PlayerLocation {
+  if (!raw) {
+    return {
+      latitude: null,
+      longitude: null,
+      updatedAt: null,
+      source: null,
+      hasLocation: false,
+    };
+  }
+
+  const latitude = pickNumber(raw.latitude, raw.Latitude) ?? null;
+  const longitude = pickNumber(raw.longitude, raw.Longitude) ?? null;
+  const hasLocation =
+    raw.hasLocation ?? raw.HasLocation ?? (latitude != null && longitude != null);
+
+  return {
+    latitude,
+    longitude,
+    updatedAt: parseApiDate(raw.updatedAt ?? raw.UpdatedAt),
+    source: raw.source ?? raw.Source ?? null,
+    hasLocation: Boolean(hasLocation),
   };
 }
 

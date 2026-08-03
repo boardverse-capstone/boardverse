@@ -27,9 +27,16 @@ export function InventoryWorkspace() {
   const { data: workingCafe } = useStaffWorkingCafe();
   const { cafeId, setCafeId } = useSelectedCafeId(queryCafeId ?? workingCafe?.id);
 
+  // Ưu tiên cafe từ query / quán staff API — ghi đè localStorage mock cũ (cafe-demo-*)
   useEffect(() => {
-    if (queryCafeId) setCafeId(queryCafeId);
-  }, [queryCafeId, setCafeId]);
+    if (queryCafeId) {
+      setCafeId(queryCafeId);
+      return;
+    }
+    if (workingCafe?.id) {
+      setCafeId(workingCafe.id);
+    }
+  }, [queryCafeId, workingCafe?.id, setCafeId]);
 
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);

@@ -18,6 +18,17 @@ export interface TableBookingParticipant {
 
 export type BookingSessionStatus = 'Pending' | 'Active' | 'Checking' | 'Completed' | 'Cancelled';
 
+/** Status gốc từ backend (vd: PendingDeposit) */
+export type CafeBookingApiStatus =
+  | 'PendingDeposit'
+  | 'Confirmed'
+  | 'CheckedIn'
+  | 'Active'
+  | 'Checking'
+  | 'Completed'
+  | 'Cancelled'
+  | string;
+
 export interface TableBooking {
   id: string;
   cafeId: string;
@@ -30,6 +41,15 @@ export interface TableBooking {
   sessionStatus: BookingSessionStatus;
   /** Có khi booking đã check-in / đang chơi */
   sessionId?: string;
+  /** Fields từ GET /api/bookings/cafe/{cafeId} */
+  lobbyId?: string;
+  scheduledEndAt?: string;
+  apiStatus?: CafeBookingApiStatus;
+  statusText?: string;
+  playerQuantity?: number;
+  hostId?: string;
+  depositAmount?: number;
+  checkedInAt?: string | null;
 }
 
 export type TableStatus = 'Available' | 'Reserved' | 'Occupied';

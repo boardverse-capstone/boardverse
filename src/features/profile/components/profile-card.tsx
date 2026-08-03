@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Mail, Phone, Gamepad2, Star, TrendingUp, Sparkles, Pencil, Trash2, BarChart3, Camera } from 'lucide-react';
+import { Mail, Phone, Gamepad2, Star, TrendingUp, Sparkles, Pencil, Trash2, BarChart3, Camera, KeyRound } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,14 +9,16 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GAMER_TIER_COLORS } from '@/core/constants/user-management';
 import { cn } from '@/lib/utils';
+import { ChangePasswordDialog } from '@/features/auth/components/change-password-dialog';
+import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useMyProfile } from '../hooks/useMyProfile';
 import { ProfileCreateForm } from './profile-create-form';
 import { ProfileUpdateDialog } from './profile-update-dialog';
 import { ProfileDeleteDialog } from './profile-delete-dialog';
 import { ProfileProgressDialog } from './profile-progress-dialog';
 import { ProfileAvatarDialog } from './profile-avatar-dialog';
+import { ProfileLocationSection } from './profile-location-section';
 import { useDeleteProfile } from '../hooks/useDeleteProfile';
-import { useAuthStore } from '@/features/auth/store/auth.store';
 import { formatProfileDate } from '../utils/profile.mapper';
 
 function ProfileSkeleton() {
@@ -65,6 +67,7 @@ export function ProfileCard() {
   const [progressOpen, setProgressOpen] = useState(false);
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const deleteMutation = useDeleteProfile();
 
   if (isLoading) return <ProfileSkeleton />;
@@ -122,38 +125,49 @@ export function ProfileCard() {
             )}
           </div>
         </div>
-        {profile?.hasProfile && (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setUpdateOpen(true)}
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              Chỉnh sửa
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setProgressOpen(true)}
-            >
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Tiến trình
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="text-destructive hover:text-destructive"
-              onClick={() => setDeleteOpen(true)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Vô hiệu hóa hồ sơ
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setChangePasswordOpen(true)}
+          >
+            <KeyRound className="mr-2 h-4 w-4" />
+            Đổi mật khẩu
+          </Button>
+          {profile?.hasProfile && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setUpdateOpen(true)}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Chỉnh sửa
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setProgressOpen(true)}
+              >
+                <BarChart3 className="mr-2 h-4 w-4" />
+                Tiến trình
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Vô hiệu hóa hồ sơ
+              </Button>
+            </>
+          )}
+        </div>
       </CardHeader>
 
       {isError ? (
@@ -183,6 +197,8 @@ export function ProfileCard() {
           {profile.bio && (
             <InfoLine icon={Gamepad2} label="Giới thiệu" value={profile.bio} />
           )}
+
+          <ProfileLocationSection />
 
           <InfoLine icon={Sparkles} label="Karma" value={profile.karmaPoints.toLocaleString('vi-VN')} />
 
@@ -242,6 +258,8 @@ export function ProfileCard() {
           onOpenChange={setAvatarOpen}
         />
       )}
+
+      <ChangePasswordDialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
     </Card>
   );
 }

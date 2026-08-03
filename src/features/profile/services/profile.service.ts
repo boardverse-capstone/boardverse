@@ -1,13 +1,16 @@
 import apiClient from '@/core/api/client';
 import type {
+  PlayerLocation,
   ProfileAvatarUpdateRequest,
   ProfileCreateRequest,
   ProfileProgressUpdateRequest,
   ProfileUpdateRequest,
+  RawPlayerLocation,
   RawUserProfile,
+  UpdatePlayerLocationRequest,
   UserProfile,
 } from '../types/profile.interface';
-import { mapApiUserProfile } from '../utils/profile.mapper';
+import { mapApiPlayerLocation, mapApiUserProfile } from '../utils/profile.mapper';
 
 export const ProfileService = {
   /** GET /api/UserProfile — hồ sơ user đang đăng nhập */
@@ -49,6 +52,27 @@ export const ProfileService = {
       payload,
     );
     return raw ? mapApiUserProfile(raw) : null;
+  },
+
+  /** GET /api/UserProfile/me/location */
+  getMyLocation: async (): Promise<PlayerLocation> => {
+    const raw = await apiClient.get<never, RawPlayerLocation>('/api/UserProfile/me/location');
+    return mapApiPlayerLocation(raw);
+  },
+
+  /** PUT /api/UserProfile/me/location */
+  updateMyLocation: async (payload: UpdatePlayerLocationRequest): Promise<PlayerLocation> => {
+    const raw = await apiClient.put<never, RawPlayerLocation>('/api/UserProfile/me/location', {
+      latitude: payload.latitude,
+      longitude: payload.longitude,
+      source: payload.source ?? 'Gps',
+    });
+    return mapApiPlayerLocation(raw);
+  },
+
+  /** DELETE /api/UserProfile/me/location */
+  clearMyLocation: async (): Promise<void> => {
+    await apiClient.delete('/api/UserProfile/me/location');
   },
 
   getKarmaHistory: async (): Promise<unknown> => {
