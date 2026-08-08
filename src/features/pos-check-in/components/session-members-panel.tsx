@@ -10,7 +10,7 @@ import { Spinner } from '@/components/ui/spinner';
 import {
   useAddGuestSlots,
   useAddSessionMembers,
-  useCheckOutBooking,
+  useCheckoutSession,
   useMergeSessions,
   usePartialCheckout,
 } from '../hooks/usePosMutations';
@@ -39,12 +39,12 @@ export function SessionMembersPanel({
   const addMembers = useAddSessionMembers(cafeId, session.sessionId);
   const mergeSessions = useMergeSessions(cafeId, session.sessionId);
   const partialCheckout = usePartialCheckout(cafeId, session.sessionId);
-  const checkOutBooking = useCheckOutBooking(cafeId);
+  const checkoutSession = useCheckoutSession(cafeId, session.sessionId);
 
-  const [guestCount, setGuestCount] = useState(1);
+  const [guestName, setGuestName] = useState('');
   const [memberUserIds, setMemberUserIds] = useState('');
   const [targetSessionId, setTargetSessionId] = useState('');
-  const [mergeMemberIds, setMergeMemberIds] = useState<Set<string>>(new Set());
+  const [mergeMemberId, setMergeMemberId] = useState('');
   const [partialMemberIds, setPartialMemberIds] = useState<Set<string>>(new Set());
 
   const otherSessions = useMemo(
@@ -66,11 +66,17 @@ export function SessionMembersPanel({
   };
 
   const handleAddGuests = async () => {
+    const displayName = guestName.trim();
+    if (!displayName) {
+      toast.error('Nhập tên khách vô danh.');
+      return;
+    }
     try {
-      await addGuests.mutateAsync({ guestCount });
-      toast.success(`Đã thêm ${guestCount} khách vô danh.`);
-    } catch {
-      toast.error('Không thể thêm khách vô danh.');
+      await addGuests.mutateAsync({ displayName });
+      setGuestName('');
+      toast.success(`Đã thêm khách "${displayName}".`);
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Không thể thêm khách vô danh.');
     }
   };
 
@@ -97,19 +103,19 @@ export function SessionMembersPanel({
       toast.error('Chọn phiên đích để gộp.');
       return;
     }
-    if (mergeMemberIds.size === 0) {
-      toast.error('Chọn ít nhất 1 thành viên để chuyển.');
+    if (!mergeMemberId) {
+      toast.error('Chọn 1 thành viên để chuyển.');
       return;
     }
     try {
       await mergeSessions.mutateAsync({
         targetSessionId,
-        memberIds: Array.from(mergeMemberIds),
+        memberUserId: mergeMemberId,
       });
-      setMergeMemberIds(new Set());
-      toast.success('Đã gộp/chuyển thành viên sang phiên khác.');
-    } catch {
-      toast.error('Không thể gộp phiên.');
+      setMergeMemberId('');
+      toast.success('Đã chuyển thành viên sang phiên khác.');
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Không thể gộp phiên.');
     }
   };
 
@@ -120,24 +126,25 @@ export function SessionMembersPanel({
     }
     try {
       const bill = await partialCheckout.mutateAsync({
-        memberIds: Array.from(partialMemberIds),
+        memberUserIds: Array.from(partialMemberIds),
+        applyDeposit: true,
       });
       setPartialMemberIds(new Set());
       toast.success(
         `Đã thanh toán một phần · ${formatCurrency(bill.totalDue)} cho ${partialMemberIds.size} người.`,
       );
-    } catch {
-      toast.error('Không thể thanh toán một phần.');
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Không thể thanh toán một phần.');
     }
   };
 
   const handleBookingCheckout = async () => {
     try {
-      await checkOutBooking.mutateAsync(booking.id);
-      toast.success('Đã check-out booking.');
+      await checkoutSession.mutateAsync();
+      toast.success('Đã hoàn tất thanh toán & check-out phiên chơi.');
       onCheckoutBooking?.();
     } catch {
-      toast.error('Không thể check-out booking.');
+      toast.error('Không thể check-out phiên chơi.');
     }
   };
 
@@ -146,7 +153,7 @@ export function SessionMembersPanel({
     addMembers.isPending ||
     mergeSessions.isPending ||
     partialCheckout.isPending ||
-    checkOutBooking.isPending;
+    checkoutSession.isPending;
 
   return (
     <div className="space-y-4">
@@ -157,14 +164,12 @@ export function SessionMembersPanel({
         </p>
         <div className="flex items-end gap-2">
           <div className="flex-1 space-y-1.5">
-            <Label htmlFor="guest-count">Số khách</Label>
+            <Label htmlFor="guest-name">Tên hiển thị</Label>
             <Input
-              id="guest-count"
-              type="number"
-              min={1}
-              max={20}
-              value={guestCount}
-              onChange={(e) => setGuestCount(Math.max(1, Number(e.target.value) || 1))}
+              id="guest-name"
+              value={guestName}
+              onChange={(e) => setGuestName(e.target.value)}
+              placeholder="Khách A"
             />
           </div>
           <Button type="button" disabled={busy} onClick={() => void handleAddGuests()}>
@@ -222,13 +227,14 @@ export function SessionMembersPanel({
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Thành viên chuyển đi</Label>
+              <Label>Thành viên chuyển đi (1 người)</Label>
               {booking.participants.map((p) => (
                 <label key={p.id} className="flex items-center gap-2 text-sm">
                   <input
-                    type="checkbox"
-                    checked={mergeMemberIds.has(p.id)}
-                    onChange={() => setMergeMemberIds((prev) => toggleId(prev, p.id))}
+                    type="radio"
+                    name="merge-member"
+                    checked={mergeMemberId === (p.userId || p.id)}
+                    onChange={() => setMergeMemberId(p.userId || p.id)}
                   />
                   {p.displayName}
                 </label>
@@ -278,12 +284,12 @@ export function SessionMembersPanel({
         disabled={busy}
         onClick={() => void handleBookingCheckout()}
       >
-        {checkOutBooking.isPending ? (
+        {checkoutSession.isPending ? (
           <Spinner className="mr-2 h-4 w-4" />
         ) : (
           <LogOut className="mr-2 h-4 w-4" />
         )}
-        Check-out booking
+        Check-out phiên chơi
       </Button>
     </div>
   );

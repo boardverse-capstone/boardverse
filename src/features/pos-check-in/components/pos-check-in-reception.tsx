@@ -2,18 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { Clock, Play, UserX, X } from 'lucide-react';
+import { Clock, Play, ScanBarcode, UserX, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { NO_SHOW_KARMA_PENALTY } from '@/core/constants/pos-check-in';
 import { AttendeeChecklist } from './attendee-checklist';
 import { SessionOpsPanel } from './session-ops-panel';
 import { UnderstaffedAlertDialog } from './understaffed-alert-dialog';
-import { useAlternativeGames, useTableBooking } from '../hooks/usePosCheckIn';
-import { useActivateSession, useMarkAbsent } from '../hooks/usePosMutations';
+import { useActiveSession, useAlternativeGames, useTableBooking } from '../hooks/usePosCheckIn';
+import { useMarkAbsent, usePosCheckIn } from '../hooks/usePosMutations';
+import { resolvePosCheckInCode } from '../utils/pos-check-in.mapper';
 import type {
   ActivatedSession,
   AlternativeGame,
@@ -71,14 +73,33 @@ export function PosCheckInReception({
 }: PosCheckInReceptionProps) {
   const { data: fetchedBooking, isLoading, refetch } = useTableBooking(bookingId);
   const booking = fetchedBooking ?? initialBooking;
+  const { data: activeSession } = useActiveSession(bookingId, Boolean(bookingId));
   const markAbsent = useMarkAbsent(bookingId);
-  const activateSession = useActivateSession(bookingId);
+  const posCheckIn = usePosCheckIn(booking?.cafeId, bookingId);
 
   const [presentIds, setPresentIds] = useState<Set<string>>(new Set());
   const [absentProcessed, setAbsentProcessed] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<AlternativeGame | null>(null);
   const [sessionActive, setSessionActive] = useState(false);
+  const [checkInCode, setCheckInCode] = useState('');
+  const [barcode, setBarcode] = useState('');
+
+  const displayGame = useMemo(() => {
+    if (activeSession?.game?.name && activeSession.game.name !== 'Chưa có tên game') {
+      return activeSession.game;
+    }
+    if (booking?.bookedGame?.name && booking.bookedGame.name !== 'Chưa có tên game') {
+      return booking.bookedGame;
+    }
+    return activeSession?.game ?? booking?.bookedGame ?? {
+      id: '',
+      name: 'Chưa có tên game',
+      imageUrl: 'https://picsum.photos/seed/game/400/300',
+      minPlayers: 2,
+      maxPlayers: 4,
+    };
+  }, [activeSession?.game, booking?.bookedGame]);
 
   useEffect(() => {
     if (booking) {
@@ -89,6 +110,7 @@ export function PosCheckInReception({
           booking.sessionStatus === 'Completed',
       );
       setAbsentProcessed(booking.participants.some((p) => p.attendanceStatus === 'Absent'));
+      setCheckInCode(resolvePosCheckInCode(booking));
     }
   }, [booking]);
 
@@ -129,7 +151,9 @@ export function PosCheckInReception({
       const result = await markAbsent.mutateAsync(absentIds);
       setAbsentProcessed(true);
       toast.success(
-        `Đã xử lý ${result.processed} người vắng — tịch thu ${formatCurrency(result.depositForfeitedTotal)}, -${NO_SHOW_KARMA_PENALTY} Karma.`,
+        result.depositForfeitedTotal > 0
+          ? `Đã xử lý ${result.processed} người vắng — tịch thu ${formatCurrency(result.depositForfeitedTotal)}, -${NO_SHOW_KARMA_PENALTY} Karma.`
+          : `Đã đánh dấu ${result.processed} người vắng (local). No-show/forfeit do player vote sau checkout.`,
       );
       refetch();
     } catch {
@@ -137,23 +161,39 @@ export function PosCheckInReception({
     }
   };
 
-  const doActivate = async (game: BookedGame) => {
+  const doActivate = async (_game?: BookedGame) => {
     if (!booking) return;
 
-    const presentParticipantIds = booking.participants
-      .filter((p) => presentIds.has(p.id))
-      .map((p) => p.id);
+    const code = checkInCode.trim();
+    const boxBarcode = barcode.trim();
+    if (!code) {
+      toast.error('Vui lòng nhập / quét mã check-in (QR).');
+      return;
+    }
+    if (!booking.tableId) {
+      toast.error('Booking chưa gắn bàn.');
+      return;
+    }
+    if (!boxBarcode) {
+      toast.error('Vui lòng quét barcode hộp game.');
+      return;
+    }
 
     try {
-      const session = await activateSession.mutateAsync({ game, presentParticipantIds });
+      const session = await posCheckIn.mutateAsync({
+        code,
+        cafeTableId: booking.tableId,
+        barcode: boxBarcode,
+        idempotencyKey: `pos-checkin:${code}`,
+      });
       setSessionActive(true);
       setAlertOpen(false);
       onSessionActivated?.(session);
       toast.success(
-        `${booking.tableLabel} → Occupied · ${game.name} · Cọc ghi Credit: ${formatCurrency(session.depositCreditTotal)} · Mobile: "Đang chơi tại quán".`,
+        `${booking.tableLabel} → Occupied · ${session.game.name} · Cọc ghi Credit: ${formatCurrency(session.depositCreditTotal)} · Mobile: "Đang chơi tại quán".`,
       );
-    } catch {
-      toast.error('Không thể kích hoạt phiên chơi.');
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Không thể kích hoạt phiên chơi.');
     }
   };
 
@@ -161,6 +201,10 @@ export function PosCheckInReception({
     if (!booking || sessionActive) return;
     if (presentCount === 0) {
       toast.error('Cần ít nhất 1 thành viên có mặt.');
+      return;
+    }
+    if (!barcode.trim()) {
+      toast.error('Vui lòng quét barcode hộp game trước khi check-in.');
       return;
     }
     if (needsAlternative) {
@@ -210,8 +254,8 @@ export function PosCheckInReception({
         <div className="flex gap-3 rounded-lg border bg-muted/30 p-3 md:p-4">
           <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md md:h-20 md:w-20">
             <Image
-              src={booking.bookedGame.imageUrl}
-              alt={booking.bookedGame.name}
+              src={displayGame.imageUrl}
+              alt={displayGame.name}
               fill
               className="object-cover"
               sizes="64px"
@@ -220,9 +264,9 @@ export function PosCheckInReception({
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Game đã chọn</p>
-            <p className="font-semibold">{booking.bookedGame.name}</p>
+            <p className="font-semibold">{displayGame.name}</p>
             <p className="text-xs text-muted-foreground">
-              {booking.bookedGame.minPlayers}–{booking.bookedGame.maxPlayers} người ·{' '}
+              {displayGame.minPlayers}–{displayGame.maxPlayers} người ·{' '}
               {booking.participants.length} đăng ký
             </p>
           </div>
@@ -239,6 +283,34 @@ export function PosCheckInReception({
           />
         ) : (
           <>
+            <div className="space-y-3 rounded-lg border p-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Mã check-in (QR / ReservationCode / BookingCode)
+                </label>
+                <Input
+                  value={checkInCode}
+                  onChange={(e) => setCheckInCode(e.target.value)}
+                  placeholder="ABC234XY hoặc BV…"
+                  className="font-mono"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <ScanBarcode className="h-3.5 w-3.5" />
+                  Barcode hộp game *
+                </label>
+                <Input
+                  value={barcode}
+                  onChange={(e) => setBarcode(e.target.value)}
+                  placeholder="VD: BV-CATAN-001"
+                  className="font-mono"
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+
             <AttendeeChecklist
               participants={booking.participants}
               presentIds={presentIds}
@@ -255,7 +327,11 @@ export function PosCheckInReception({
                 disabled={markAbsent.isPending || absentProcessed}
                 onClick={() => void handleProcessAbsent()}
               >
-                {markAbsent.isPending ? <Spinner className="mr-2 h-4 w-4" /> : <UserX className="mr-2 h-4 w-4" />}
+                {markAbsent.isPending ? (
+                  <Spinner className="mr-2 h-4 w-4" />
+                ) : (
+                  <UserX className="mr-2 h-4 w-4" />
+                )}
                 Xử lý vắng mặt ({absentIds.length})
               </Button>
             )}
@@ -263,7 +339,9 @@ export function PosCheckInReception({
             <div className="rounded-lg bg-muted/60 p-3 text-sm md:p-4 md:text-base">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Có mặt</span>
-                <span className="font-medium">{presentCount}/{booking.participants.length}</span>
+                <span className="font-medium">
+                  {presentCount}/{booking.participants.length}
+                </span>
               </div>
               {allPresent && !sessionActive && (
                 <p className="mt-2 text-xs text-green-700">✓ Đủ người — sẵn sàng mở phiên</p>
@@ -274,10 +352,10 @@ export function PosCheckInReception({
               type="button"
               className="h-12 w-full touch-manipulation text-base md:h-14"
               size="lg"
-              disabled={activateSession.isPending || presentCount === 0}
+              disabled={posCheckIn.isPending || presentCount === 0 || !barcode.trim()}
               onClick={handleCheckIn}
             >
-              {activateSession.isPending ? (
+              {posCheckIn.isPending ? (
                 <Spinner className="mr-2 h-4 w-4" />
               ) : (
                 <Play className="mr-2 h-4 w-4" />
@@ -299,7 +377,7 @@ export function PosCheckInReception({
         selectedGame={selectedGame}
         onSelectGame={setSelectedGame}
         onConfirm={() => selectedGame && void doActivate(toBookedGame(selectedGame))}
-        isConfirming={activateSession.isPending}
+        isConfirming={posCheckIn.isPending}
       />
     </Card>
   );

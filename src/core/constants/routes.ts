@@ -19,6 +19,8 @@ export const ROUTES = {
     USERS: '/admin/users',
     USER_CREATE: '/admin/users/new',
     USER_DETAIL: (id: string) => `/admin/users/${id}`,
+    WALLETS: '/admin/wallets',
+    WALLET_DETAIL: (userId: string) => `/admin/wallets/${userId}`,
     KARMA_LOGS: '/admin/karma-logs',
     BEHAVIOR_WARNINGS: '/admin/behavior-warnings',
     SETTINGS: '/admin/settings',
@@ -29,8 +31,11 @@ export const ROUTES = {
   },
   STAFF: {
     POS: '/staff/pos',
+    /** Legacy path — redirects to inventory boxes tab */
+    POS_BOXES: '/staff/inventory?tab=boxes',
     POS_CHECK_IN: (bookingId: string) => `/staff/pos/${bookingId}`,
     INVENTORY: '/staff/inventory',
+    INVENTORY_BOXES: '/staff/inventory?tab=boxes',
     INVENTORY_DETAIL: (cafeId: string, inventoryId: string) =>
       `/staff/inventory/${inventoryId}?cafeId=${cafeId}`,
   },

@@ -37,11 +37,26 @@ interface PosBookingListProps {
   onSelectBooking?: (booking: TableBooking) => void;
 }
 
+function queryErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return fallback;
+}
+
 export function PosBookingList({ embedded = false, onSelectBooking }: PosBookingListProps) {
-  const { data: cafe, isLoading: cafeLoading } = useStaffCafe();
-  const { data: bookings = [], isLoading: bookingsLoading, isError, refetch } = usePendingBookings(
-    cafe?.id,
-  );
+  const {
+    data: cafe,
+    isLoading: cafeLoading,
+    isError: cafeError,
+    error: cafeLoadError,
+    refetch: refetchCafe,
+  } = useStaffCafe();
+  const {
+    data: bookings = [],
+    isLoading: bookingsLoading,
+    isError: bookingsError,
+    error: bookingsLoadError,
+    refetch: refetchBookings,
+  } = usePendingBookings(cafe?.id);
 
   if (cafeLoading || bookingsLoading) {
     return (
@@ -51,11 +66,22 @@ export function PosBookingList({ embedded = false, onSelectBooking }: PosBooking
     );
   }
 
-  if (isError) {
+  if (cafeError) {
     return (
       <div className="text-sm text-rose-600">
-        Không thể tải danh sách booking.{' '}
-        <button type="button" className="underline" onClick={() => refetch()}>
+        {queryErrorMessage(cafeLoadError, 'Không thể tải thông tin quán.')}{' '}
+        <button type="button" className="underline" onClick={() => refetchCafe()}>
+          Thử lại
+        </button>
+      </div>
+    );
+  }
+
+  if (bookingsError) {
+    return (
+      <div className="text-sm text-rose-600">
+        {queryErrorMessage(bookingsLoadError, 'Không thể tải danh sách booking.')}{' '}
+        <button type="button" className="underline" onClick={() => refetchBookings()}>
           Thử lại
         </button>
       </div>

@@ -17,6 +17,8 @@ export const INVENTORY_STATUS_LABELS: Record<string, string> = {
   Maintenance: 'Bảo trì',
   DAMAGED: 'Hư hỏng',
   Damaged: 'Hư hỏng',
+  RETIRED: 'Ngưng dùng',
+  Retired: 'Ngưng dùng',
 };
 
 export const INVENTORY_STATUS_COLORS: Record<string, string> = {
@@ -30,6 +32,8 @@ export const INVENTORY_STATUS_COLORS: Record<string, string> = {
   Maintenance: 'bg-amber-100 text-amber-800 border-amber-200',
   DAMAGED: 'bg-rose-100 text-rose-800 border-rose-200',
   Damaged: 'bg-rose-100 text-rose-800 border-rose-200',
+  RETIRED: 'bg-slate-100 text-slate-700 border-slate-200',
+  Retired: 'bg-slate-100 text-slate-700 border-slate-200',
 };
 
 export const INVENTORY_CONDITION_LABELS: Record<string, string> = {

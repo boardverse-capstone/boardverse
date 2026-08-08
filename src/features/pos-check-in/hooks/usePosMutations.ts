@@ -17,6 +17,8 @@ import type {
   PaymentCode,
   ReportInventoryLossPayload,
   SessionBill,
+  UpdatePosTablePayload,
+  CreateCheckInTokenPayload,
 } from '../types/pos-check-in.interface';
 
 function invalidateSessionQueries(
@@ -71,6 +73,45 @@ export function useActivateSession(bookingId: string) {
       invalidateSessionQueries(queryClient, { bookingId });
       queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.bookings] });
       queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.floorPlan] });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.activeSessions] });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.boxes] });
+    },
+  });
+}
+
+/** POST /api/cafes/{cafeId}/pos/check-in — canonical */
+export function usePosCheckIn(cafeId?: string, bookingId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: import('../types/pos-check-in.interface').PosCheckInPayload) => {
+      if (!cafeId) throw new Error('Chưa xác định quán.');
+      return PosCheckInService.posCheckIn(cafeId, payload);
+    },
+    onSuccess: (_session: ActivatedSession) => {
+      invalidateSessionQueries(queryClient, { bookingId, cafeId });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.bookings] });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.floorPlan] });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.activeSessions] });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.boxes] });
+    },
+  });
+}
+
+/** POST /api/cafes/{cafeId}/pos/sessions — walk-in */
+export function useCreatePosSession(cafeId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: import('../types/pos-check-in.interface').CreatePosSessionPayload) => {
+      if (!cafeId) throw new Error('Chưa xác định quán.');
+      return PosCheckInService.createPosSession(cafeId, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.floorPlan] });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.activeSessions] });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.boxes] });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.bookings] });
     },
   });
 }
@@ -120,6 +161,19 @@ export function useEndGame(cafeId: string, sessionId: string) {
   return useMutation({
     mutationFn: () => PosCheckInService.endGame(cafeId, sessionId),
     onSuccess: () => invalidateSessionQueries(queryClient, { cafeId, sessionId }),
+  });
+}
+
+export function useCheckoutSession(cafeId: string, sessionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => PosCheckInService.checkoutSession(cafeId, sessionId),
+    onSuccess: () => {
+      invalidateSessionQueries(queryClient, { cafeId, sessionId });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.bookings] });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.floorPlan] });
+    },
   });
 }
 
@@ -193,6 +247,31 @@ export function usePartialCheckout(cafeId: string, sessionId: string) {
     mutationFn: (payload: PartialCheckoutPayload) =>
       PosCheckInService.partialCheckout(cafeId, sessionId, payload),
     onSuccess: () => invalidateSessionQueries(queryClient, { cafeId, sessionId }),
+  });
+}
+
+export function useUpdatePosTable(cafeId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ tableId, payload }: { tableId: string; payload: UpdatePosTablePayload }) => {
+      if (!cafeId) throw new Error('Chưa xác định quán.');
+      return PosCheckInService.updatePosTable(cafeId, tableId, payload);
+    },
+    onSuccess: () => {
+      if (cafeId) {
+        queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.floorPlan, cafeId] });
+      }
+    },
+  });
+}
+
+export function useCreateCheckInToken(cafeId?: string) {
+  return useMutation({
+    mutationFn: (payload?: CreateCheckInTokenPayload) => {
+      if (!cafeId) throw new Error('Chưa xác định quán.');
+      return PosCheckInService.createCheckInToken(cafeId, payload);
+    },
   });
 }
 

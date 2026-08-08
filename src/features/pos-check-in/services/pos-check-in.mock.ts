@@ -2,10 +2,17 @@ import { QR_BOOKING_PREFIX, QR_PAYMENT_PREFIX, DEFAULT_HOURLY_RATE_VND, BILLING_
 import type {
   ActiveSessionDetail,
   AlternativeGame,
+  CafeSessionDetail,
   CafeTable,
   CompleteSessionResult,
   FloorPlan,
   PaymentCode,
+  PosActiveSessionsParams,
+  PosBoxesParams,
+  PosCheckInPayload,
+  CreatePosSessionPayload,
+  CafeSettlementPending,
+  PosGameBox,
   QrResolveResult,
   SessionBill,
   StaffCafe,
@@ -80,6 +87,45 @@ const INVENTORY: AlternativeGame[] = [
     maxPlayers: 5,
     boxQuantity: 1,
     status: 'Available',
+  },
+];
+
+const MOCK_BOXES: PosGameBox[] = [
+  {
+    id: '33333333-3333-3333-3333-cccccccc0001',
+    barcode: 'BV-CATAN-001',
+    status: 'Available',
+    gameTemplateId: '11111111-1111-1111-1111-111111111111',
+    gameName: 'Catan',
+    inventoryId: '22222222-2222-2222-2222-bbbbbbb00001',
+    cafeId: MOCK_CAFE.id,
+  },
+  {
+    id: 'box-catan-002',
+    barcode: 'BV-CATAN-002',
+    status: 'InUse',
+    gameTemplateId: '11111111-1111-1111-1111-111111111111',
+    gameName: 'Catan',
+    inventoryId: '22222222-2222-2222-2222-bbbbbbb00001',
+    cafeId: MOCK_CAFE.id,
+  },
+  {
+    id: 'box-azul-001',
+    barcode: 'BV-AZUL-001',
+    status: 'Available',
+    gameTemplateId: 'game-azul',
+    gameName: 'Azul',
+    inventoryId: 'inv-002',
+    cafeId: MOCK_CAFE.id,
+  },
+  {
+    id: 'box-scythe-001',
+    barcode: 'BV-SCYTHE-001',
+    status: 'Damaged',
+    gameTemplateId: 'game-scythe',
+    gameName: 'Scythe',
+    inventoryId: 'inv-006',
+    cafeId: MOCK_CAFE.id,
   },
 ];
 
@@ -375,6 +421,114 @@ export const PosCheckInMockService = {
     return { cafeId, tables: structuredClone(tables) };
   },
 
+  getPosBoxes: async (params: PosBoxesParams): Promise<PosGameBox[]> => {
+    await delay(200);
+    return MOCK_BOXES.filter((box) => {
+      if (params.cafeId && box.cafeId && box.cafeId !== params.cafeId) return false;
+      if (params.gameTemplateId && box.gameTemplateId !== params.gameTemplateId) return false;
+      return true;
+    }).map((box) => structuredClone(box));
+  },
+
+  getPosBoxByBarcode: async (cafeId: string, barcode: string): Promise<PosGameBox> => {
+    await delay(200);
+    const found = MOCK_BOXES.find(
+      (box) =>
+        box.barcode.toLowerCase() === barcode.trim().toLowerCase() &&
+        (!box.cafeId || box.cafeId === cafeId),
+    );
+    if (!found) throw new Error('Không tìm thấy hộp game với barcode này.');
+    return structuredClone(found);
+  },
+
+  getActiveSessions: async (params: PosActiveSessionsParams): Promise<CafeSessionDetail[]> => {
+    await delay(200);
+    return Object.values(activeSessions)
+      .filter((session) => {
+        if (params.cafeId && session.cafeId && session.cafeId !== params.cafeId) return false;
+        if (params.gameTemplateId && session.game.id !== params.gameTemplateId) return false;
+        return true;
+      })
+      .map((session) =>
+        structuredClone({
+          ...session,
+          status: 'Active' as const,
+        }),
+      );
+  },
+
+  createPosSession: async (cafeId: string, payload: CreatePosSessionPayload) => {
+    await delay(400);
+    const table = tables.find((t) => t.id === payload.cafeTableId);
+    if (!table) throw new Error('Không tìm thấy bàn.');
+    if (table.status === 'Occupied') throw new Error('Bàn đang có phiên chơi.');
+
+    const box = MOCK_BOXES.find(
+      (b) => b.barcode.toLowerCase() === payload.barcode.trim().toLowerCase(),
+    );
+    if (!box) throw new Error('Không tìm thấy hộp game với barcode này.');
+    if (box.status !== 'Available') {
+      throw new Error(`Hộp game đang ở trạng thái ${box.status}.`);
+    }
+
+    const bookingId = payload.bookingId || `walkin-${Date.now()}`;
+    const sessionId = `session-walkin-${Date.now()}`;
+    const startedAt = new Date().toISOString();
+    const game = {
+      id: box.gameTemplateId || 'game',
+      inventoryId: box.inventoryId || undefined,
+      name: box.gameName || 'Game',
+      imageUrl: 'https://picsum.photos/seed/walkin/400/300',
+      minPlayers: 1,
+      maxPlayers: 8,
+    };
+
+    box.status = 'InUse';
+    table.status = 'Occupied';
+    table.sessionId = sessionId;
+    table.bookingId = bookingId;
+    table.gameName = game.name;
+    table.startedAt = startedAt;
+    table.presentCount = payload.initialMemberUserIds?.length || 1;
+
+    activeSessions[sessionId] = {
+      sessionId,
+      bookingId,
+      tableId: table.id,
+      tableLabel: table.label,
+      cafeId,
+      game,
+      startedAt,
+      presentCount: table.presentCount,
+      depositCreditTotal: 0,
+      billingModel: 'BY_HOUR',
+    };
+
+    return {
+      sessionId,
+      bookingId,
+      tableId: table.id,
+      tableLabel: table.label,
+      game,
+      startedAt,
+      presentCount: table.presentCount,
+      depositCreditTotal: 0,
+    };
+  },
+
+  getPendingSettlements: async (_cafeId: string): Promise<CafeSettlementPending[]> => {
+    await delay(200);
+    return [
+      {
+        id: 'settle-demo-001',
+        status: 'Pending',
+        depositAmount: 50_000,
+        netTransferAmount: 50_000,
+        createdAt: new Date(Date.now() - 3600_000).toISOString(),
+      },
+    ];
+  },
+
   resolveQrOrBookingId: async (payload: string): Promise<QrResolveResult> => {
     await delay(350);
     const bookingId = parseQrPayload(payload);
@@ -497,6 +651,58 @@ export const PosCheckInMockService = {
       presentCount: presentParticipantIds.length,
       depositCreditTotal,
     };
+  },
+
+  /** POST /api/cafes/{cafeId}/pos/check-in */
+  posCheckIn: async (cafeId: string, payload: PosCheckInPayload) => {
+    await delay(400);
+    const code = payload.code.trim();
+    const booking =
+      bookings.find(
+        (b) =>
+          b.cafeId === cafeId &&
+          (b.id === code ||
+            b.qrCode === code ||
+            b.qrCode === `${QR_BOOKING_PREFIX}${code}` ||
+            (b.qrCode?.endsWith(code) ?? false)),
+      ) ??
+      bookings.find((b) => b.cafeId === cafeId && b.tableId === payload.cafeTableId && b.sessionStatus === 'Pending');
+
+    if (!booking) throw new Error('Không tìm thấy booking / reservation với mã này.');
+
+    const box = MOCK_BOXES.find(
+      (b) => b.barcode.toLowerCase() === payload.barcode.trim().toLowerCase(),
+    );
+    if (!box) throw new Error('Không tìm thấy hộp game với barcode này.');
+    if (box.status !== 'Available' && box.status !== 'InUse') {
+      throw new Error(`Hộp game đang ở trạng thái ${box.status}, không thể giao.`);
+    }
+
+    if (payload.cafeTableId && booking.tableId !== payload.cafeTableId) {
+      const idx = bookings.findIndex((b) => b.id === booking.id);
+      if (idx >= 0) {
+        bookings[idx] = { ...bookings[idx], tableId: payload.cafeTableId };
+      }
+    }
+
+    box.status = 'InUse';
+
+    const presentIds = booking.participants
+      .filter((p) => p.attendanceStatus !== 'Absent')
+      .map((p) => p.id);
+
+    const game = {
+      ...booking.bookedGame,
+      id: box.gameTemplateId || booking.bookedGame.id,
+      inventoryId: box.inventoryId || booking.bookedGame.inventoryId,
+      name: box.gameName || booking.bookedGame.name,
+    };
+
+    return PosCheckInMockService.activateSession(
+      booking.id,
+      game,
+      presentIds.length > 0 ? presentIds : booking.participants.map((p) => p.id),
+    );
   },
 
   /** Demo helper — mã QR mẫu cho nhân viên test */

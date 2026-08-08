@@ -5,21 +5,19 @@ const positiveInt = z.coerce.number().int('Phải là số nguyên').positive('P
 
 const nonNegativeInt = z.coerce.number().int('Phải là số nguyên').min(0, 'Không được âm');
 
+const signedInt = z.coerce.number().int('Phải là số nguyên');
+
 export const MasterSettingsSchema = z.object({
   elo: z.object({
-    strategyK: positiveInt,
-    partyK: positiveInt,
-    competitiveK: positiveInt,
-    casualK: positiveInt,
+    kFactor: positiveInt,
   }),
   karma: z.object({
-    noShowPenalty: positiveInt,
-    lateCancelPenalty: positiveInt,
-    kickedPenalty: positiveInt,
+    cancelPenalty: signedInt,
+    noShowPenalty: signedInt,
   }),
   matchmaking: z.object({
-    searchRadiusKm: positiveInt,
-    maxEloDifference: positiveInt,
+    eloDiff: positiveInt,
+    radiusKm: positiveInt,
   }),
   platformFee: z.object({
     commissionPercent: z.coerce.number().min(0, 'Tối thiểu 0%').max(100, 'Tối đa 100%'),

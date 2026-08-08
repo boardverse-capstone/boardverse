@@ -2,17 +2,19 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import QRCode from 'react-qr-code';
-import { QrCode, Search } from 'lucide-react';
+import { QrCode, RefreshCw, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { QR_BOOKING_PREFIX } from '@/core/constants/pos-check-in';
-import { useResolveBookingQr } from '../hooks/usePosMutations';
+import { useCreateCheckInToken, useResolveBookingQr } from '../hooks/usePosMutations';
 import type { QrResolveResult } from '../types/pos-check-in.interface';
 
 interface QrScanPanelProps {
+  cafeId?: string;
+  reservationId?: string;
   onResolved: (result: QrResolveResult) => void;
   presetCode?: string;
   presetLabel?: string;
@@ -28,21 +30,43 @@ function normalizeQrValue(raw: string): string {
 }
 
 export function QrScanPanel({
+  cafeId,
+  reservationId,
   onResolved,
   presetCode,
   presetLabel,
   sampleCodes = [],
 }: QrScanPanelProps) {
   const [manualCode, setManualCode] = useState('');
+  const [serverTokenPayload, setServerTokenPayload] = useState<{ token: string; qrPayload: string } | null>(null);
   const resolveQr = useResolveBookingQr();
+  const createToken = useCreateCheckInToken(cafeId);
 
   useEffect(() => {
     if (presetCode) {
       setManualCode(presetCode);
+      setServerTokenPayload(null);
     }
   }, [presetCode]);
 
-  const qrValue = useMemo(() => normalizeQrValue(manualCode), [manualCode]);
+  const handleGenerateServerToken = () => {
+    if (!cafeId) return;
+    const targetReservationId = reservationId || (presetCode ? presetCode.replace(/^BV:/i, '') : undefined);
+    createToken.mutate(
+      { reservationId: targetReservationId, ttlMinutes: 30 },
+      {
+        onSuccess: (res) => {
+          setServerTokenPayload(res);
+          setManualCode(res.token);
+        },
+      },
+    );
+  };
+
+  const qrValue = useMemo(() => {
+    if (serverTokenPayload?.qrPayload) return serverTokenPayload.qrPayload;
+    return normalizeQrValue(manualCode);
+  }, [serverTokenPayload, manualCode]);
 
   const submitManual = () => {
     if (!qrValue) return;
@@ -52,17 +76,39 @@ export function QrScanPanel({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-          <QrCode className="h-5 w-5 shrink-0" />
-          Mã QR check-in
+        <CardTitle className="flex items-center justify-between text-base md:text-lg">
+          <span className="flex items-center gap-2">
+            <QrCode className="h-5 w-5 shrink-0" />
+            Mã QR check-in
+          </span>
+          {cafeId ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={handleGenerateServerToken}
+              disabled={createToken.isPending}
+            >
+              {createToken.isPending ? (
+                <Spinner className="h-3.5 w-3.5" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              Tạo QR Server (App scan)
+            </Button>
+          ) : null}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 md:space-y-5">
         <div className="flex flex-col gap-2 md:flex-row md:gap-3">
           <Input
-            placeholder={`VD: ${QR_BOOKING_PREFIX}booking-001`}
+            placeholder={`VD: ${QR_BOOKING_PREFIX}booking-001 hoặc Token`}
             value={manualCode}
-            onChange={(e) => setManualCode(e.target.value)}
+            onChange={(e) => {
+              setManualCode(e.target.value);
+              setServerTokenPayload(null);
+            }}
             onKeyDown={(e) => e.key === 'Enter' && submitManual()}
             disabled={resolveQr.isPending}
             className="min-h-12 min-w-0 flex-1 text-base md:min-h-14"
@@ -91,6 +137,11 @@ export function QrScanPanel({
                 ? `Khách quét mã QR tại ${presetLabel} để check-in`
                 : 'Khách quét mã QR bên dưới để check-in'}
             </p>
+            {serverTokenPayload ? (
+              <Badge variant="secondary" className="text-xs text-green-700 bg-green-50 border-green-200">
+                ✓ Mã Token từ Server: {serverTokenPayload.token} (Hạn 30 phút)
+              </Badge>
+            ) : null}
             <div className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-border md:p-4">
               <QRCode value={qrValue} size={180} className="h-auto max-w-full md:hidden" />
               <QRCode value={qrValue} size={220} className="hidden h-auto max-w-full md:block" />
@@ -109,26 +160,6 @@ export function QrScanPanel({
           <p className="text-xs text-rose-600">
             {(resolveQr.error as Error)?.message ?? 'Không thể xác thực mã.'}
           </p>
-        )}
-
-        {sampleCodes.length > 0 && (
-          <div className="space-y-2 rounded-lg bg-muted/50 p-3">
-            <p className="text-xs font-medium text-muted-foreground">Mã demo (bấm để tạo QR):</p>
-            <div className="flex flex-wrap gap-2">
-              {sampleCodes.map((item) => (
-                <button
-                  key={item.bookingId}
-                  type="button"
-                  className="touch-manipulation rounded-md active:scale-[0.98]"
-                  onClick={() => setManualCode(item.qrCode)}
-                >
-                  <Badge variant="outline" className="min-h-10 cursor-pointer px-3 py-2 text-sm hover:bg-background md:min-h-11">
-                    {item.tableLabel}
-                  </Badge>
-                </button>
-              ))}
-            </div>
-          </div>
         )}
       </CardContent>
     </Card>

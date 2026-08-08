@@ -38,7 +38,7 @@ function NumberField({
 }
 
 export function MasterSettingsPortal() {
-  const { data, isLoading, isError } = useMasterSettings();
+  const { data, isLoading, isError, error, refetch } = useMasterSettings();
   const updateMutation = useUpdateMasterSettings();
 
   const {
@@ -56,7 +56,7 @@ export function MasterSettingsPortal() {
   }, [data, reset]);
 
   const onSubmit = (values: MasterSettingsFormValues) => {
-    updateMutation.mutate({ ...values, updatedAt: new Date().toISOString() });
+    updateMutation.mutate({ ...values });
   };
 
   if (isLoading) {
@@ -64,53 +64,42 @@ export function MasterSettingsPortal() {
   }
 
   if (isError) {
-    return <div className="p-4 text-sm text-rose-600">Không thể tải cấu hình hệ thống.</div>;
+    return (
+      <div className="p-4 text-sm text-rose-600">
+        {(error as Error)?.message || 'Không thể tải cấu hình hệ thống.'}{' '}
+        <button type="button" className="underline" onClick={() => void refetch()}>
+          Thử lại
+        </button>
+      </div>
+    );
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="relative space-y-6 pb-20">
       <Tabs defaultValue="elo" className="space-y-4">
         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 lg:grid-cols-4">
-          <TabsTrigger value="elo">Công thức Elo</TabsTrigger>
-          <TabsTrigger value="karma">Trọng số Karma</TabsTrigger>
+          <TabsTrigger value="elo">Elo</TabsTrigger>
+          <TabsTrigger value="karma">Karma</TabsTrigger>
           <TabsTrigger value="matchmaking">Matchmaking</TabsTrigger>
-          <TabsTrigger value="fee">Biểu phí nền tảng</TabsTrigger>
+          <TabsTrigger value="fee">Biểu phí</TabsTrigger>
         </TabsList>
 
         <TabsContent value="elo">
           <Card>
             <CardHeader>
-              <CardTitle>Hệ số K theo thể loại</CardTitle>
-              <CardDescription>Điều chỉnh độ nhạy Elo cho từng nhóm game đối kháng.</CardDescription>
+              <CardTitle>Hệ số Elo K</CardTitle>
+              <CardDescription>
+                Key API: <span className="font-mono">elo_k_factor</span>
+              </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-2">
+            <CardContent className="max-w-sm">
               <NumberField
-                id="strategyK"
-                label="Strategy K"
-                error={errors.elo?.strategyK?.message}
+                id="kFactor"
+                label="Elo K Factor"
+                description="Độ nhạy Elo khi cập nhật điểm."
+                error={errors.elo?.kFactor?.message}
                 disabled={updateMutation.isPending}
-                {...register('elo.strategyK', { valueAsNumber: true })}
-              />
-              <NumberField
-                id="partyK"
-                label="Party K"
-                error={errors.elo?.partyK?.message}
-                disabled={updateMutation.isPending}
-                {...register('elo.partyK', { valueAsNumber: true })}
-              />
-              <NumberField
-                id="competitiveK"
-                label="Competitive K"
-                error={errors.elo?.competitiveK?.message}
-                disabled={updateMutation.isPending}
-                {...register('elo.competitiveK', { valueAsNumber: true })}
-              />
-              <NumberField
-                id="casualK"
-                label="Casual K"
-                error={errors.elo?.casualK?.message}
-                disabled={updateMutation.isPending}
-                {...register('elo.casualK', { valueAsNumber: true })}
+                {...register('elo.kFactor', { valueAsNumber: true })}
               />
             </CardContent>
           </Card>
@@ -119,30 +108,26 @@ export function MasterSettingsPortal() {
         <TabsContent value="karma">
           <Card>
             <CardHeader>
-              <CardTitle>Trọng số trừ Karma tự động</CardTitle>
-              <CardDescription>Số điểm uy tín bị trừ theo loại hành vi vi phạm.</CardDescription>
+              <CardTitle>Phạt Karma</CardTitle>
+              <CardDescription>
+                Key API: <span className="font-mono">karma_penalty_cancel</span>,{' '}
+                <span className="font-mono">karma_penalty_noshow</span>. Giá trị thường là số âm.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-3">
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <NumberField
+                id="cancelPenalty"
+                label="Phạt hủy (cancel)"
+                error={errors.karma?.cancelPenalty?.message}
+                disabled={updateMutation.isPending}
+                {...register('karma.cancelPenalty', { valueAsNumber: true })}
+              />
               <NumberField
                 id="noShowPenalty"
-                label="No-show"
+                label="Phạt no-show"
                 error={errors.karma?.noShowPenalty?.message}
                 disabled={updateMutation.isPending}
                 {...register('karma.noShowPenalty', { valueAsNumber: true })}
-              />
-              <NumberField
-                id="lateCancelPenalty"
-                label="Hủy cọc muộn"
-                error={errors.karma?.lateCancelPenalty?.message}
-                disabled={updateMutation.isPending}
-                {...register('karma.lateCancelPenalty', { valueAsNumber: true })}
-              />
-              <NumberField
-                id="kickedPenalty"
-                label="Bị kích khỏi phòng"
-                error={errors.karma?.kickedPenalty?.message}
-                disabled={updateMutation.isPending}
-                {...register('karma.kickedPenalty', { valueAsNumber: true })}
               />
             </CardContent>
           </Card>
@@ -151,23 +136,26 @@ export function MasterSettingsPortal() {
         <TabsContent value="matchmaking">
           <Card>
             <CardHeader>
-              <CardTitle>Thuật toán Matchmaking</CardTitle>
-              <CardDescription>Giới hạn bán kính và chênh lệch Elo khi ghép trận.</CardDescription>
+              <CardTitle>Matchmaking</CardTitle>
+              <CardDescription>
+                Key API: <span className="font-mono">matchmaking_radius_km</span>,{' '}
+                <span className="font-mono">matchmaking_elo_diff</span>
+              </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <NumberField
-                id="searchRadiusKm"
-                label="Bán kính tìm phòng (km)"
-                error={errors.matchmaking?.searchRadiusKm?.message}
+                id="radiusKm"
+                label="Bán kính tìm (km)"
+                error={errors.matchmaking?.radiusKm?.message}
                 disabled={updateMutation.isPending}
-                {...register('matchmaking.searchRadiusKm', { valueAsNumber: true })}
+                {...register('matchmaking.radiusKm', { valueAsNumber: true })}
               />
               <NumberField
-                id="maxEloDifference"
+                id="eloDiff"
                 label="Chênh lệch Elo tối đa"
-                error={errors.matchmaking?.maxEloDifference?.message}
+                error={errors.matchmaking?.eloDiff?.message}
                 disabled={updateMutation.isPending}
-                {...register('matchmaking.maxEloDifference', { valueAsNumber: true })}
+                {...register('matchmaking.eloDiff', { valueAsNumber: true })}
               />
             </CardContent>
           </Card>
@@ -177,7 +165,11 @@ export function MasterSettingsPortal() {
           <Card>
             <CardHeader>
               <CardTitle>Biểu phí nền tảng</CardTitle>
-              <CardDescription>Tỷ lệ chiết khấu doanh thu đặt bàn thành công (0–100%).</CardDescription>
+              <CardDescription>
+                Nhập % trên UI; khi lưu sẽ gửi{' '}
+                <span className="font-mono">platform_commission_rate</span> dạng tỉ lệ (vd. 15% →
+                0.15).
+              </CardDescription>
             </CardHeader>
             <CardContent className="max-w-sm">
               <NumberField
@@ -196,12 +188,7 @@ export function MasterSettingsPortal() {
       </Tabs>
 
       <div className="fixed bottom-6 right-6 z-10">
-        <Button
-          type="submit"
-          size="lg"
-          className="shadow-lg"
-          disabled={updateMutation.isPending}
-        >
+        <Button type="submit" size="lg" className="shadow-lg" disabled={updateMutation.isPending}>
           {updateMutation.isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

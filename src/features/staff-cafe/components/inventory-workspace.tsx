@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/common/page-header';
 import { CommonPagination } from '@/components/common/pagination';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { INVENTORY_STATUS_FILTERS } from '@/core/constants/inventory';
+import { PosBoxesPanel } from '@/features/pos-check-in/components/pos-boxes-panel';
 import { InventoryListTable } from './inventory-list-table';
 import { useInventoryList } from '../hooks/useInventoryList';
 import { useStaffWorkingCafe } from '../hooks/useStaffCafe';
@@ -20,14 +22,23 @@ import { useSelectedCafeId } from '../hooks/useSelectedCafeId';
 
 const DEFAULT_LIMIT = 10;
 
+type InventoryTab = 'titles' | 'boxes';
+
+function resolveTab(value: string | null): InventoryTab {
+  return value === 'boxes' ? 'boxes' : 'titles';
+}
+
 export function InventoryWorkspace() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryCafeId = searchParams.get('cafeId') ?? undefined;
+  const activeTab = resolveTab(searchParams.get('tab'));
 
   const { data: workingCafe } = useStaffWorkingCafe();
   const { cafeId, setCafeId } = useSelectedCafeId(queryCafeId ?? workingCafe?.id);
 
-  // Ưu tiên cafe từ query / quán staff API — ghi đè localStorage mock cũ (cafe-demo-*)
+  // Ưu tiên cafe từ query / working staff API — ghi đè localStorage mock cũ (cafe-demo-*)
   useEffect(() => {
     if (queryCafeId) {
       setCafeId(queryCafeId);
@@ -58,6 +69,14 @@ export function InventoryWorkspace() {
     setPage(1);
   };
 
+  const setTab = (tab: string) => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (tab === 'boxes') next.set('tab', 'boxes');
+    else next.delete('tab');
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
+
   return (
     <div className="space-y-4 md:space-y-6">
       <PageHeader
@@ -65,11 +84,17 @@ export function InventoryWorkspace() {
         description={
           selectedCafe
             ? `${selectedCafe.name}${selectedCafe.address ? ` · ${selectedCafe.address}` : ''}`
-            : 'Quản lý inventory board game của quán (Full Mode cho CafeStaff).'
+            : 'Tựa game trong kho và hộp vật lý (barcode).'
         }
       />
 
-      <div className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="titles">Tựa game</TabsTrigger>
+          <TabsTrigger value="boxes">Hộp vật lý</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="titles" className="mt-4 space-y-4">
           <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
             <Input
               placeholder="Tìm theo tên game hoặc barcode..."
@@ -129,7 +154,12 @@ export function InventoryWorkspace() {
               )}
             </>
           )}
-      </div>
+        </TabsContent>
+
+        <TabsContent value="boxes" className="mt-4">
+          <PosBoxesPanel cafeId={cafeId} embedded />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

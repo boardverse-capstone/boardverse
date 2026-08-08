@@ -81,7 +81,7 @@ export function SessionOpsPanel({ booking, onCompleted }: SessionOpsPanelProps) 
 
         <TabsContent value="games" className="mt-0">
           <SessionGamesPanel
-            cafeId={session.cafeId}
+            cafeId={session.cafeId || booking.cafeId}
             session={session}
             presentCount={session.presentCount}
             onEnded={() => setTab('checkout')}

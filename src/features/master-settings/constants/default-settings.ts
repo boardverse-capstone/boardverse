@@ -2,21 +2,17 @@ import type { MasterSettings } from '../types/master-settings.interface';
 
 export const DEFAULT_MASTER_SETTINGS: MasterSettings = {
   elo: {
-    strategyK: 32,
-    partyK: 28,
-    competitiveK: 40,
-    casualK: 24,
+    kFactor: 32,
   },
   karma: {
-    noShowPenalty: 15,
-    lateCancelPenalty: 8,
-    kickedPenalty: 12,
+    cancelPenalty: -3,
+    noShowPenalty: -5,
   },
   matchmaking: {
-    searchRadiusKm: 10,
-    maxEloDifference: 200,
+    eloDiff: 200,
+    radiusKm: 15,
   },
   platformFee: {
-    commissionPercent: 12,
+    commissionPercent: 15,
   },
 };

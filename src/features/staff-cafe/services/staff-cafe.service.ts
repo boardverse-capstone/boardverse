@@ -34,17 +34,27 @@ function unwrapList<T>(raw: T[] | { data?: T[] } | null | undefined): T[] {
   return Array.isArray(raw.data) ? raw.data : [];
 }
 
+let cachedCafeId = '';
+
 export const StaffCafeService = {
+  getCachedCafeId: (): string => cachedCafeId,
+
   /** Quán staff đang gán */
   getStaffWorkingCafe: async (): Promise<StaffWorkingCafe> => {
-    if (USE_MOCK) return StaffCafeMockService.getStaffWorkingCafe();
+    if (USE_MOCK) {
+      const cafe = await StaffCafeMockService.getStaffWorkingCafe();
+      cachedCafeId = cafe.id;
+      return cafe;
+    }
 
     const raw = await apiClient.get<never, unknown>('/api/staff/my-cafes');
     const cafes = unwrapList(raw as StaffWorkingCafe[] | { data?: StaffWorkingCafe[] });
     if (cafes.length === 0) {
       throw new Error('Staff chưa được gán quán nào.');
     }
-    return mapApiStaffWorkingCafe(cafes[0] as unknown as Record<string, unknown>);
+    const cafe = mapApiStaffWorkingCafe(cafes[0] as unknown as Record<string, unknown>);
+    cachedCafeId = cafe.id;
+    return cafe;
   },
 
   /**

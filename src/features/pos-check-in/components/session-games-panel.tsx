@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertTriangle, ClipboardCheck, PackagePlus, Square } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ClipboardCheck, PackagePlus, Square } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,14 +9,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Spinner } from '@/components/ui/spinner';
-import { useAlternativeGames } from '../hooks/usePosCheckIn';
+import {
+  useAlternativeGames,
+  useStaffCafe,
+} from '../hooks/usePosCheckIn';
 import {
   useAssignSessionGames,
   useCheckSessionGames,
   useEndGame,
   useReportInventoryLoss,
 } from '../hooks/usePosMutations';
-import type { ActiveSessionDetail, InventoryLossType } from '../types/pos-check-in.interface';
+import type { ActiveSessionDetail } from '../types/pos-check-in.interface';
 
 interface SessionGamesPanelProps {
   cafeId: string;
@@ -28,103 +31,101 @@ interface SessionGamesPanelProps {
 export function SessionGamesPanel({
   cafeId,
   session,
-  presentCount,
   onEnded,
 }: SessionGamesPanelProps) {
-  const { data: games = [], isLoading: loadingGames } = useAlternativeGames(
-    cafeId,
-    Math.max(presentCount, 1),
-    true,
-  );
+  const { data: cafe } = useStaffCafe();
+  const effectiveCafeId = cafeId || session.cafeId || cafe?.id || '';
+  const assignGames = useAssignSessionGames(effectiveCafeId, session.sessionId);
+  const checkGames = useCheckSessionGames(effectiveCafeId, session.sessionId);
+  const reportLoss = useReportInventoryLoss(effectiveCafeId, session.sessionId);
+  const endGame = useEndGame(effectiveCafeId, session.sessionId);
 
-  const assignGames = useAssignSessionGames(cafeId, session.sessionId);
-  const checkGames = useCheckSessionGames(cafeId, session.sessionId);
-  const reportLoss = useReportInventoryLoss(cafeId, session.sessionId);
-  const endGame = useEndGame(cafeId, session.sessionId);
-
-  const [selectedInventoryIds, setSelectedInventoryIds] = useState<Set<string>>(new Set());
+  const [assignBarcode, setAssignBarcode] = useState('');
   const [expectedQty, setExpectedQty] = useState(1);
   const [actualQty, setActualQty] = useState(1);
-  const [checkInventoryId, setCheckInventoryId] = useState(
-    session.game.inventoryId ?? '',
-  );
-  const [lossInventoryId, setLossInventoryId] = useState(session.game.inventoryId ?? '');
+  const [componentTemplateId, setComponentTemplateId] = useState('');
+  const [sessionGameId, setSessionGameId] = useState(session.game.inventoryId ?? session.sessionId);
   const [lossQty, setLossQty] = useState(1);
-  const [lossType, setLossType] = useState<InventoryLossType>('Lost');
+  const [lossComponentId, setLossComponentId] = useState('');
   const [lossNote, setLossNote] = useState('');
 
-  const toggleInventory = (id: string) => {
-    setSelectedInventoryIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const isAlreadyChecking = session.status === 'Checking' || session.status === 'Completed';
 
   const handleAssign = async () => {
-    if (selectedInventoryIds.size === 0) {
-      toast.error('Chọn ít nhất 1 game để gán.');
+    const barcode = assignBarcode.trim();
+    if (!barcode) {
+      toast.error('Quét / nhập barcode hộp game cần gán.');
       return;
     }
     try {
-      await assignGames.mutateAsync({ inventoryIds: Array.from(selectedInventoryIds) });
-      setSelectedInventoryIds(new Set());
+      await assignGames.mutateAsync({ barcode });
+      setAssignBarcode('');
       toast.success('Đã gán thêm game vào phiên.');
-    } catch {
-      toast.error('Không thể gán game.');
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Không thể gán game.');
     }
   };
 
   const handleCheck = async () => {
-    const inventoryId = checkInventoryId || session.game.inventoryId;
-    if (!inventoryId) {
-      toast.error('Chọn inventory để kiểm kê.');
-      return;
-    }
     try {
       await checkGames.mutateAsync({
+        sessionId: session.sessionId,
+        sessionGameId: sessionGameId || undefined,
         items: [
           {
-            inventoryId,
+            sessionGameId: sessionGameId || undefined,
+            componentTemplateId: componentTemplateId || undefined,
+            inventoryId: session.game.inventoryId,
             expectedQuantity: expectedQty,
             actualQuantity: actualQty,
           },
         ],
       });
       toast.success('Đã ghi nhận kiểm kê linh kiện.');
-    } catch {
-      toast.error('Không thể kiểm kê.');
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Không thể kiểm kê.');
     }
   };
 
   const handleLoss = async () => {
-    const inventoryId = lossInventoryId || session.game.inventoryId;
-    if (!inventoryId) {
-      toast.error('Chọn inventory để ghi mất mát.');
+    if (!sessionGameId.trim()) {
+      toast.error('Nhập sessionGameId để ghi hao hụt.');
+      return;
+    }
+    if (!lossComponentId.trim()) {
+      toast.error('Nhập componentTemplateId bị thiếu.');
       return;
     }
     try {
       await reportLoss.mutateAsync({
-        inventoryId,
-        quantity: lossQty,
-        lossType,
-        note: lossNote || undefined,
+        sessionGameId: sessionGameId.trim(),
+        missingComponents: [
+          {
+            componentTemplateId: lossComponentId.trim(),
+            missingQuantity: lossQty,
+          },
+        ],
+        notes: lossNote || undefined,
       });
       setLossNote('');
-      toast.success('Đã ghi nhận mất mát / hư hỏng.');
-    } catch {
-      toast.error('Không thể ghi nhận mất mát.');
+      toast.success('Đã ghi nhận hao hụt linh kiện.');
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Không thể ghi nhận mất mát.');
     }
   };
 
   const handleEndGame = async () => {
+    if (isAlreadyChecking) {
+      toast.info('Phiên chơi đã ở bước Checking. Chuyển sang Tab Thanh toán...');
+      onEnded?.();
+      return;
+    }
     try {
       await endGame.mutateAsync();
-      toast.success('Đã nhận lại game · phiên chuyển sang CHECKING.');
+      toast.success('Đã nhận lại game thành công · Phiên chuyển sang trạng thái Checking.');
       onEnded?.();
-    } catch {
-      toast.error('Không thể kết thúc game.');
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Không thể kết thúc game.');
     }
   };
 
@@ -140,52 +141,47 @@ export function SessionGamesPanel({
         <div className="flex items-center justify-between gap-2">
           <p className="flex items-center gap-2 text-sm font-medium">
             <PackagePlus className="h-4 w-4" />
-            Gán thêm board game
+            Gán thêm hộp (barcode)
           </p>
           <Badge variant="secondary">{session.game.name}</Badge>
         </div>
-        {loadingGames ? (
-          <div className="flex justify-center py-6">
-            <Spinner className="h-5 w-5" />
-          </div>
-        ) : (
-          <div className="max-h-48 space-y-2 overflow-y-auto">
-            {games.map((game) => (
-              <label
-                key={game.inventoryId}
-                className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted/40"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedInventoryIds.has(game.inventoryId)}
-                  onChange={() => toggleInventory(game.inventoryId)}
-                />
-                <span className="flex-1">{game.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {game.minPlayers}–{game.maxPlayers}p
-                </span>
-              </label>
-            ))}
-          </div>
-        )}
+        <div className="space-y-1.5">
+          <Label htmlFor="assign-barcode">Barcode hộp</Label>
+          <Input
+            id="assign-barcode"
+            value={assignBarcode}
+            onChange={(e) => setAssignBarcode(e.target.value)}
+            placeholder="VD: BV-CATAN-002"
+            className="font-mono"
+            autoComplete="off"
+          />
+        </div>
         <Button type="button" className="w-full" disabled={busy} onClick={() => void handleAssign()}>
           {assignGames.isPending ? <Spinner className="mr-2 h-4 w-4" /> : null}
-          Gán game đã chọn
+          Gán hộp vào phiên
         </Button>
       </section>
 
       <Button
         type="button"
-        className="h-11 w-full bg-amber-600 text-white hover:bg-amber-700"
+        className={`h-11 w-full text-white ${
+          isAlreadyChecking
+            ? 'bg-emerald-600 hover:bg-emerald-700'
+            : 'bg-amber-600 hover:bg-amber-700'
+        }`}
         disabled={busy}
         onClick={() => void handleEndGame()}
       >
         {endGame.isPending ? (
           <Spinner className="mr-2 h-4 w-4" />
+        ) : isAlreadyChecking ? (
+          <CheckCircle2 className="mr-2 h-4 w-4" />
         ) : (
           <Square className="mr-2 h-4 w-4" />
         )}
-        Nhận lại game · End game (CHECKING)
+        {isAlreadyChecking
+          ? '✓ Đã nhận lại game (Chuyển sang Thanh toán)'
+          : 'Nhận lại game · Kết thúc phiên chơi'}
       </Button>
 
       <section className="space-y-3 rounded-lg border bg-background p-3 md:p-4">
@@ -194,12 +190,21 @@ export function SessionGamesPanel({
           Kiểm kê linh kiện
         </p>
         <div className="space-y-1.5">
-          <Label htmlFor="check-inv">Inventory ID</Label>
+          <Label htmlFor="session-game-id">Session game ID</Label>
           <Input
-            id="check-inv"
-            value={checkInventoryId}
-            onChange={(e) => setCheckInventoryId(e.target.value)}
-            placeholder={session.game.inventoryId ?? 'inv-xxx'}
+            id="session-game-id"
+            value={sessionGameId}
+            onChange={(e) => setSessionGameId(e.target.value)}
+            className="font-mono text-xs"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="comp-id">Component template ID (tuỳ chọn)</Label>
+          <Input
+            id="comp-id"
+            value={componentTemplateId}
+            onChange={(e) => setComponentTemplateId(e.target.value)}
+            className="font-mono text-xs"
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -224,75 +229,54 @@ export function SessionGamesPanel({
             />
           </div>
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          className="w-full"
-          disabled={busy}
-          onClick={() => void handleCheck()}
-        >
+        <Button type="button" className="w-full" disabled={busy} onClick={() => void handleCheck()}>
           {checkGames.isPending ? <Spinner className="mr-2 h-4 w-4" /> : null}
-          Lưu kiểm kê
+          Submit kiểm kê
         </Button>
       </section>
 
-      <section className="space-y-3 rounded-lg border border-rose-200 bg-rose-50/40 p-3 md:p-4">
-        <p className="flex items-center gap-2 text-sm font-medium text-rose-800">
+      <section className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/40 p-3 md:p-4">
+        <p className="flex items-center gap-2 text-sm font-medium text-amber-900">
           <AlertTriangle className="h-4 w-4" />
-          Ghi nhận mất mát / hư hỏng
+          Hao hụt trước phiên
         </p>
         <div className="space-y-1.5">
-          <Label htmlFor="loss-inv">Inventory ID</Label>
+          <Label htmlFor="loss-comp">Component template ID</Label>
           <Input
-            id="loss-inv"
-            value={lossInventoryId}
-            onChange={(e) => setLossInventoryId(e.target.value)}
-            placeholder={session.game.inventoryId ?? 'inv-xxx'}
+            id="loss-comp"
+            value={lossComponentId}
+            onChange={(e) => setLossComponentId(e.target.value)}
+            className="font-mono text-xs"
           />
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="loss-qty">Số lượng</Label>
-            <Input
-              id="loss-qty"
-              type="number"
-              min={1}
-              value={lossQty}
-              onChange={(e) => setLossQty(Math.max(1, Number(e.target.value) || 1))}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="loss-type">Loại</Label>
-            <select
-              id="loss-type"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
-              value={lossType}
-              onChange={(e) => setLossType(e.target.value as InventoryLossType)}
-            >
-              <option value="Lost">Mất</option>
-              <option value="Damaged">Hỏng</option>
-            </select>
-          </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="loss-qty">Số lượng thiếu</Label>
+          <Input
+            id="loss-qty"
+            type="number"
+            min={1}
+            value={lossQty}
+            onChange={(e) => setLossQty(Math.max(1, Number(e.target.value) || 1))}
+          />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="loss-note">Ghi chú</Label>
           <Textarea
             id="loss-note"
-            rows={2}
             value={lossNote}
             onChange={(e) => setLossNote(e.target.value)}
-            placeholder="Mô tả linh kiện bị mất/hỏng..."
+            rows={2}
           />
         </div>
         <Button
           type="button"
-          variant="destructive"
-          className="w-full"
+          variant="outline"
+          className="w-full border-amber-300"
           disabled={busy}
           onClick={() => void handleLoss()}
         >
           {reportLoss.isPending ? <Spinner className="mr-2 h-4 w-4" /> : null}
-          Ghi nhận mất mát
+          Ghi nhận hao hụt
         </Button>
       </section>
     </div>

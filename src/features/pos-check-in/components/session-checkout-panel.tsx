@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
-import { useActiveSession } from '../hooks/usePosCheckIn';
+import { useActiveSession, useStaffCafe } from '../hooks/usePosCheckIn';
 import {
   useCalculateBill,
   useCompleteSession,
@@ -41,11 +41,12 @@ function formatExpiry(iso: string) {
 }
 
 export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckoutPanelProps) {
+  const { data: cafe } = useStaffCafe();
   const { data: session, isLoading, isError } = useActiveSession(bookingId);
-  const cafeId = session?.cafeId;
-  const calculateBill = useCalculateBill(session?.sessionId ?? '', cafeId);
-  const generatePaymentCode = useGeneratePaymentCode(session?.sessionId ?? '', cafeId);
-  const completeSession = useCompleteSession(bookingId, cafeId);
+  const effectiveCafeId = session?.cafeId || cafe?.id || '';
+  const calculateBill = useCalculateBill(session?.sessionId ?? '', effectiveCafeId);
+  const generatePaymentCode = useGeneratePaymentCode(session?.sessionId ?? '', effectiveCafeId);
+  const completeSession = useCompleteSession(bookingId, effectiveCafeId);
 
   const [bill, setBill] = useState<SessionBill | null>(null);
   const [paymentCode, setPaymentCode] = useState<PaymentCode | null>(null);
@@ -68,7 +69,7 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
         const calculated = await calculateBill.mutateAsync();
         setBill(calculated);
       }
-      const code = await generatePaymentCode.mutateAsync({ paymentMethod: 'QR' });
+      const code = await generatePaymentCode.mutateAsync({ paymentMethod: 'SePay' });
       setPaymentCode(code);
       toast.success('Đã tạo mã thanh toán cho khách.');
     } catch {
@@ -113,35 +114,35 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
     calculateBill.isPending || generatePaymentCode.isPending || completeSession.isPending;
 
   return (
-    <div className="space-y-4 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 md:space-y-5 md:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="space-y-4 rounded-xl border border-emerald-200/80 bg-emerald-50/30 p-3 sm:p-4 md:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200/60 pb-3">
         <div>
-          <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900 md:text-base">
-            <Receipt className="h-4 w-4 md:h-5 md:w-5" />
-            Thanh toán sau khi chơi
+          <p className="flex items-center gap-2 text-sm font-semibold text-emerald-950 md:text-base">
+            <Receipt className="h-4 w-4 shrink-0 text-emerald-600" />
+            Thanh toán phiên chơi
           </p>
-          <p className="mt-1 text-xs text-emerald-800 md:text-sm">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {session.game.name} · {session.presentCount} người chơi
           </p>
         </div>
-        <Badge variant="secondary" className="bg-emerald-100 px-3 py-1 text-sm text-emerald-900">
+        <Badge variant="secondary" className="bg-emerald-100/80 text-emerald-900 border border-emerald-200 text-xs">
           {session.billingModel === 'BY_HOUR' ? 'Theo giờ' : 'Theo đồ uống'}
         </Badge>
       </div>
 
-      <div className="flex items-center justify-between rounded-lg bg-background/80 px-3 py-3 text-sm md:text-base">
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <Timer className="h-4 w-4 md:h-5 md:w-5" />
-          Thời gian chơi
+      <div className="flex items-center justify-between rounded-lg bg-background p-3 text-sm border shadow-sm">
+        <span className="flex items-center gap-1.5 text-muted-foreground text-xs sm:text-sm">
+          <Timer className="h-4 w-4 text-emerald-600" />
+          Thời gian đã chơi
         </span>
-        <SessionTimer startedAt={session.startedAt} className="font-mono text-base font-semibold md:text-lg" />
+        <SessionTimer startedAt={session.startedAt} className="font-mono text-base font-bold text-emerald-900" />
       </div>
 
       {!bill ? (
         <Button
           type="button"
-          className="h-12 w-full text-base md:h-14"
-          variant="secondary"
+          className="h-11 w-full text-sm font-medium"
+          variant="default"
           disabled={isPending}
           onClick={() => void handleCalculateBill()}
         >
@@ -150,37 +151,43 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
           ) : (
             <Calculator className="mr-2 h-4 w-4" />
           )}
-          Tính bill
+          Tính hóa đơn thanh toán
         </Button>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 md:items-start">
-          <div className="space-y-3 rounded-lg border bg-background p-3 md:p-4">
-            <div className="flex items-center justify-between text-sm md:text-base">
-              <span className="font-medium">Chi tiết bill</span>
-              <span className="text-muted-foreground">{formatDuration(bill.durationMinutes)}</span>
+        <div className="space-y-4">
+          <div className="space-y-3 rounded-lg border bg-background p-3 sm:p-4 shadow-sm">
+            <div className="flex items-center justify-between border-b pb-2 text-sm font-semibold">
+              <span>Chi tiết hóa đơn</span>
+              <Badge variant="outline" className="font-normal text-xs">
+                {formatDuration(bill.durationMinutes)}
+              </Badge>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 text-xs sm:text-sm">
               {bill.lineItems.map((item) => (
-                <div key={item.id} className="flex justify-between gap-3 text-sm md:text-base">
-                  <span className="text-muted-foreground">{item.label}</span>
-                  <span className="shrink-0">{formatCurrency(item.amount)}</span>
+                <div key={item.id} className="flex justify-between items-center gap-2">
+                  <span className="text-muted-foreground line-clamp-1">{item.label}</span>
+                  <span className="font-medium shrink-0">{formatCurrency(item.amount)}</span>
                 </div>
               ))}
-              <div className="flex justify-between text-sm md:text-base">
-                <span className="text-muted-foreground">Credit cọc</span>
-                <span className="text-emerald-700">-{formatCurrency(bill.depositCreditTotal)}</span>
-              </div>
+              {bill.depositCreditTotal > 0 && (
+                <div className="flex justify-between items-center text-emerald-700 font-medium">
+                  <span>Credit đã cọc trước</span>
+                  <span>-{formatCurrency(bill.depositCreditTotal)}</span>
+                </div>
+              )}
             </div>
             <Separator />
-            <div className="flex justify-between text-base font-semibold md:text-lg">
-              <span>Tổng thanh toán</span>
-              <span className="text-emerald-700">{formatCurrency(bill.totalDue)}</span>
+            <div className="flex items-center justify-between rounded-lg bg-emerald-50 p-2.5 border border-emerald-200 text-emerald-900">
+              <span className="text-sm font-bold">Tổng thanh toán</span>
+              <span className="text-base sm:text-lg font-extrabold text-emerald-700">
+                {formatCurrency(bill.totalDue)}
+              </span>
             </div>
 
-            {bill && !paymentCode && (
+            {!paymentCode && (
               <Button
                 type="button"
-                className="h-12 w-full text-base md:h-14"
+                className="h-11 w-full text-sm font-medium mt-2"
                 disabled={isPending}
                 onClick={() => void handleGeneratePaymentCode()}
               >
@@ -189,14 +196,14 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
                 ) : (
                   <Receipt className="mr-2 h-4 w-4" />
                 )}
-                Tạo mã thanh toán
+                Tạo mã VietQR / SePay
               </Button>
             )}
 
             {paymentCode && (
               <Button
                 type="button"
-                className="h-12 w-full bg-emerald-600 text-base hover:bg-emerald-700 md:h-14"
+                className="h-11 w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium mt-2"
                 disabled={isPending}
                 onClick={() => void handleCompleteSession()}
               >
@@ -205,39 +212,24 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
                 ) : (
                   <CheckCircle2 className="mr-2 h-4 w-4" />
                 )}
-                Xác nhận đã thanh toán & kết thúc phiên
+                Xác nhận đã thanh toán & Kết thúc phiên
               </Button>
             )}
           </div>
 
           {paymentCode ? (
-            <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-primary/20 bg-background p-4 text-center md:p-6">
-              <p className="text-sm font-medium md:text-base">Mã thanh toán</p>
-              <p className="font-mono text-xl font-bold tracking-wide text-primary md:text-2xl">
-                {paymentCode.code}
-              </p>
-              <div className="rounded-xl bg-white p-3 shadow-sm md:p-4">
-                <QRCode
-                  value={paymentCode.qrPayload}
-                  size={200}
-                  className="h-auto max-w-full md:hidden"
-                />
-                <QRCode
-                  value={paymentCode.qrPayload}
-                  size={240}
-                  className="hidden h-auto max-w-full md:block"
-                />
+            <div className="flex flex-col items-center gap-3 rounded-lg border border-emerald-300/70 bg-white p-4 text-center shadow-sm">
+              <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 text-xs">
+                Mã giao dịch: <span className="font-mono font-bold ml-1">{paymentCode.code}</span>
+              </Badge>
+              <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-border">
+                <QRCode value={paymentCode.qrPayload} size={180} className="h-auto max-w-full" />
               </div>
-              <p className="max-w-xs text-xs text-muted-foreground md:text-sm">
-                Khách quét mã để thanh toán {formatCurrency(paymentCode.amount)} · Hết hạn{' '}
-                {formatExpiry(paymentCode.expiresAt)}
+              <p className="text-xs text-muted-foreground">
+                Quét mã VietQR / SePay để chuyển khoản <span className="font-bold text-emerald-700">{formatCurrency(paymentCode.amount)}</span>
               </p>
             </div>
-          ) : (
-            <div className="flex min-h-[200px] items-center justify-center rounded-lg border border-dashed bg-background/60 p-6 text-center text-sm text-muted-foreground md:text-base">
-              Tạo mã thanh toán để hiển thị QR cho khách quét trên tablet hoặc điện thoại.
-            </div>
-          )}
+          ) : null}
         </div>
       )}
     </div>

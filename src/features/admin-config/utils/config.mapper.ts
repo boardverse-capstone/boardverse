@@ -1,4 +1,5 @@
 import type { MasterSettings } from '@/features/master-settings/types/master-settings.interface';
+import { ADMIN_CONFIG_KEYS } from '@/features/master-settings/types/master-settings.interface';
 import { DEFAULT_MASTER_SETTINGS } from '@/features/master-settings/constants/default-settings';
 
 export type AdminConfigMap = Record<string, string | number | boolean>;
@@ -6,8 +7,21 @@ export type AdminConfigMap = Record<string, string | number | boolean>;
 export interface RawAdminConfigEntry {
   key?: string;
   Key?: string;
+  configKey?: string;
+  ConfigKey?: string;
   value?: string | number | boolean;
   Value?: string | number | boolean;
+  configValue?: string | number | boolean;
+  ConfigValue?: string | number | boolean;
+}
+
+export interface SystemConfigUpdateItem {
+  configKey: string;
+  configValue: string;
+}
+
+export interface SystemConfigBulkUpdateRequest {
+  configs: SystemConfigUpdateItem[];
 }
 
 function pickString(...values: (string | null | undefined)[]): string {
@@ -27,25 +41,48 @@ function pickNumber(...values: (number | string | boolean | null | undefined)[])
   return undefined;
 }
 
+function rateToPercent(rate: number): number {
+  // API có thể trả 0.15 hoặc đã là 15 (lỡ lệch) — ưu tiên tỉ lệ 0–1.
+  if (rate >= 0 && rate <= 1) return Number((rate * 100).toFixed(4));
+  return rate;
+}
+
+function percentToRate(percent: number): number {
+  return Number((percent / 100).toFixed(6));
+}
+
 export function normalizeAdminConfigResponse(
-  raw: AdminConfigMap | RawAdminConfigEntry[] | { configs?: AdminConfigMap } | MasterSettings | null | undefined,
+  raw:
+    | AdminConfigMap
+    | RawAdminConfigEntry[]
+    | { configs?: AdminConfigMap | RawAdminConfigEntry[] }
+    | MasterSettings
+    | null
+    | undefined,
 ): AdminConfigMap {
   if (!raw) return {};
 
   if (Array.isArray(raw)) {
     return raw.reduce<AdminConfigMap>((acc, entry) => {
-      const key = pickString(entry.key, entry.Key);
-      const value = entry.value ?? entry.Value;
+      const key = pickString(entry.configKey, entry.ConfigKey, entry.key, entry.Key);
+      const value = entry.configValue ?? entry.ConfigValue ?? entry.value ?? entry.Value;
       if (key && value != null) acc[key] = value;
       return acc;
     }, {});
   }
 
-  if ('configs' in raw && raw.configs && typeof raw.configs === 'object') {
-    return normalizeAdminConfigResponse(raw.configs);
+  if (
+    typeof raw === 'object' &&
+    'configs' in raw &&
+    raw.configs &&
+    (Array.isArray(raw.configs) || typeof raw.configs === 'object')
+  ) {
+    return normalizeAdminConfigResponse(
+      raw.configs as AdminConfigMap | RawAdminConfigEntry[],
+    );
   }
 
-  if ('elo' in raw || 'karma' in raw) {
+  if ('elo' in raw && typeof raw.elo === 'object') {
     return masterSettingsToConfigMap(raw as MasterSettings);
   }
 
@@ -57,58 +94,61 @@ export function normalizeAdminConfigResponse(
 
 export function masterSettingsToConfigMap(settings: MasterSettings): AdminConfigMap {
   return {
-    'elo.strategyK': settings.elo.strategyK,
-    'elo.partyK': settings.elo.partyK,
-    'elo.competitiveK': settings.elo.competitiveK,
-    'elo.casualK': settings.elo.casualK,
-    'karma.noShowPenalty': settings.karma.noShowPenalty,
-    'karma.lateCancelPenalty': settings.karma.lateCancelPenalty,
-    'karma.kickedPenalty': settings.karma.kickedPenalty,
-    'matchmaking.searchRadiusKm': settings.matchmaking.searchRadiusKm,
-    'matchmaking.maxEloDifference': settings.matchmaking.maxEloDifference,
-    'platformFee.commissionPercent': settings.platformFee.commissionPercent,
-    updatedAt: settings.updatedAt ?? new Date().toISOString(),
+    [ADMIN_CONFIG_KEYS.ELO_K_FACTOR]: settings.elo.kFactor,
+    [ADMIN_CONFIG_KEYS.KARMA_PENALTY_CANCEL]: settings.karma.cancelPenalty,
+    [ADMIN_CONFIG_KEYS.KARMA_PENALTY_NOSHOW]: settings.karma.noShowPenalty,
+    [ADMIN_CONFIG_KEYS.MATCHMAKING_ELO_DIFF]: settings.matchmaking.eloDiff,
+    [ADMIN_CONFIG_KEYS.MATCHMAKING_RADIUS_KM]: settings.matchmaking.radiusKm,
+    [ADMIN_CONFIG_KEYS.PLATFORM_COMMISSION_RATE]: percentToRate(
+      settings.platformFee.commissionPercent,
+    ),
   };
 }
 
 export function configMapToMasterSettings(map: AdminConfigMap): MasterSettings {
   const base = DEFAULT_MASTER_SETTINGS;
+  const commissionRate =
+    pickNumber(
+      map[ADMIN_CONFIG_KEYS.PLATFORM_COMMISSION_RATE],
+      map.platform_commission_rate,
+    ) ?? percentToRate(base.platformFee.commissionPercent);
+
   return {
     elo: {
-      strategyK: pickNumber(map['elo.strategyK'], map['Elo.StrategyK']) ?? base.elo.strategyK,
-      partyK: pickNumber(map['elo.partyK'], map['Elo.PartyK']) ?? base.elo.partyK,
-      competitiveK:
-        pickNumber(map['elo.competitiveK'], map['Elo.CompetitiveK']) ?? base.elo.competitiveK,
-      casualK: pickNumber(map['elo.casualK'], map['Elo.CasualK']) ?? base.elo.casualK,
+      kFactor:
+        pickNumber(map[ADMIN_CONFIG_KEYS.ELO_K_FACTOR], map.elo_k_factor) ?? base.elo.kFactor,
     },
     karma: {
+      cancelPenalty:
+        pickNumber(map[ADMIN_CONFIG_KEYS.KARMA_PENALTY_CANCEL], map.karma_penalty_cancel) ??
+        base.karma.cancelPenalty,
       noShowPenalty:
-        pickNumber(map['karma.noShowPenalty'], map['Karma.NoShowPenalty']) ??
+        pickNumber(map[ADMIN_CONFIG_KEYS.KARMA_PENALTY_NOSHOW], map.karma_penalty_noshow) ??
         base.karma.noShowPenalty,
-      lateCancelPenalty:
-        pickNumber(map['karma.lateCancelPenalty'], map['Karma.LateCancelPenalty']) ??
-        base.karma.lateCancelPenalty,
-      kickedPenalty:
-        pickNumber(map['karma.kickedPenalty'], map['Karma.KickedPenalty']) ??
-        base.karma.kickedPenalty,
     },
     matchmaking: {
-      searchRadiusKm:
-        pickNumber(map['matchmaking.searchRadiusKm'], map['Matchmaking.SearchRadiusKm']) ??
-        base.matchmaking.searchRadiusKm,
-      maxEloDifference:
-        pickNumber(map['matchmaking.maxEloDifference'], map['Matchmaking.MaxEloDifference']) ??
-        base.matchmaking.maxEloDifference,
+      eloDiff:
+        pickNumber(map[ADMIN_CONFIG_KEYS.MATCHMAKING_ELO_DIFF], map.matchmaking_elo_diff) ??
+        base.matchmaking.eloDiff,
+      radiusKm:
+        pickNumber(map[ADMIN_CONFIG_KEYS.MATCHMAKING_RADIUS_KM], map.matchmaking_radius_km) ??
+        base.matchmaking.radiusKm,
     },
     platformFee: {
-      commissionPercent:
-        pickNumber(map['platformFee.commissionPercent'], map['PlatformFee.CommissionPercent']) ??
-        base.platformFee.commissionPercent,
+      commissionPercent: rateToPercent(commissionRate),
     },
-    updatedAt: pickString(String(map.updatedAt ?? '')) || new Date().toISOString(),
   };
 }
 
-export function buildAdminConfigUpdatePayload(settings: MasterSettings): AdminConfigMap {
-  return masterSettingsToConfigMap(settings);
+/** PUT /api/v1/admin/configs body: { configs: [{ configKey, configValue }] } */
+export function buildAdminConfigUpdatePayload(
+  settings: MasterSettings,
+): SystemConfigBulkUpdateRequest {
+  const map = masterSettingsToConfigMap(settings);
+  return {
+    configs: Object.entries(map).map(([configKey, value]) => ({
+      configKey,
+      configValue: String(value),
+    })),
+  };
 }
