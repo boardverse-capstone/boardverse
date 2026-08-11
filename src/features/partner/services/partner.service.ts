@@ -18,7 +18,7 @@ import {
 } from '../utils/partner.mapper';
 import { PartnerMockService } from './partner.mock';
 
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_PARTNER_API === 'true';
+const USE_MOCK = false;
 
 export const PARTNER_QUERY_KEYS = {
   pending: 'partner-pending',

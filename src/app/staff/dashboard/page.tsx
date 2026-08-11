@@ -1,6 +1,6 @@
 'use client';
 
-// src/app/staff/dashboard/page.tsx
+// Staff Dashboard Page - BoardVerse Web POS & Staff Portal
 import { Calendar, ClipboardList, Clock } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

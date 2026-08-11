@@ -19,6 +19,7 @@ import {
   useAlternativeGames,
   useTableBooking,
 } from '../hooks/usePosCheckIn';
+import { usePosBoxes } from '../hooks/usePosBoxes';
 import { useMarkAbsent, usePosCheckIn } from '../hooks/usePosMutations';
 import { resolvePosCheckInCode } from '../utils/pos-check-in.mapper';
 import type { AlternativeGame, BookedGame, TableBooking } from '../types/pos-check-in.interface';
@@ -61,6 +62,9 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
   const { data: booking, isLoading, isError, refetch } = useTableBooking(bookingId);
   const markAbsent = useMarkAbsent(bookingId);
   const posCheckIn = usePosCheckIn(booking?.cafeId, bookingId);
+  const { data: boxes = [], isLoading: boxesLoading, isError: boxesError } = usePosBoxes(
+    booking?.cafeId,
+  );
 
   const [presentIds, setPresentIds] = useState<Set<string>>(new Set());
   const [absentProcessed, setAbsentProcessed] = useState(false);
@@ -69,6 +73,54 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
   const [sessionActive, setSessionActive] = useState(false);
   const [checkInCode, setCheckInCode] = useState('');
   const [barcode, setBarcode] = useState('');
+
+  const checkInGame = useMemo(() => {
+    if (selectedGame) {
+      return { id: selectedGame.id, name: selectedGame.name };
+    }
+    return {
+      id: booking?.bookedGame?.id || '',
+      name: booking?.bookedGame?.name || '',
+    };
+  }, [selectedGame, booking?.bookedGame?.id, booking?.bookedGame?.name]);
+
+  const { availableBoxes, boxesFallback } = useMemo(() => {
+    const isSelectable = (status: string) => {
+      const s = status.toLowerCase();
+      return s === 'available' || s === '0' || s === 'held' || s === 'reserved';
+    };
+    const selectable = boxes.filter((b) => isSelectable(String(b.status || '')) && Boolean(b.barcode));
+    const gameId = (checkInGame.id || '').toLowerCase();
+    const gameName = (checkInGame.name || '').trim().toLowerCase();
+    const matched = selectable.filter((b) => {
+      if (gameId && b.gameTemplateId && b.gameTemplateId.toLowerCase() === gameId) return true;
+      const name = (b.gameName || '').trim().toLowerCase();
+      if (gameName && name === gameName) return true;
+      if (gameName && name.includes(gameName)) return true;
+      return false;
+    });
+    if (matched.length > 0) return { availableBoxes: matched, boxesFallback: false };
+    return { availableBoxes: selectable, boxesFallback: selectable.length > 0 };
+  }, [boxes, checkInGame.id, checkInGame.name]);
+
+  useEffect(() => {
+    if (!availableBoxes.length) {
+      const bookedBarcode = booking?.bookedGame?.inventoryId?.trim();
+      if (bookedBarcode) {
+        setBarcode(bookedBarcode);
+        return;
+      }
+      setBarcode('');
+      return;
+    }
+    if (barcode && availableBoxes.some((b) => b.barcode === barcode)) return;
+    const bookedBarcode = booking?.bookedGame?.inventoryId?.trim();
+    if (bookedBarcode && availableBoxes.some((b) => b.barcode === bookedBarcode)) {
+      setBarcode(bookedBarcode);
+      return;
+    }
+    setBarcode(availableBoxes[0].barcode);
+  }, [availableBoxes, barcode, booking?.bookedGame?.inventoryId]);
 
   useEffect(() => {
     if (booking) {
@@ -153,7 +205,9 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
         code,
         cafeTableId: booking.tableId,
         barcode: boxBarcode,
-        idempotencyKey: `pos-checkin:${code}`,
+        idempotencyKey: `pos-checkin:${booking.id}`,
+        bookingId: booking.id,
+        lobbyId: booking.lobbyId,
       });
       setSessionActive(true);
       setAlertOpen(false);
@@ -300,24 +354,60 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
                   </label>
                   <Input
                     value={checkInCode}
-                    onChange={(e) => setCheckInCode(e.target.value)}
-                    placeholder="ABC234XY hoặc BV…"
-                    className="font-mono"
+                    readOnly
+                    className="font-mono bg-muted/50 cursor-default"
                     autoComplete="off"
+                    title="Mã lấy từ booking — không chỉnh sửa"
                   />
                 </div>
                 <div className="space-y-1.5">
                   <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                     <ScanBarcode className="h-3.5 w-3.5" />
-                    Barcode hộp game *
+                    Hộp vật lý {checkInGame.name ? `· ${checkInGame.name}` : ''} *
                   </label>
-                  <Input
-                    value={barcode}
-                    onChange={(e) => setBarcode(e.target.value)}
-                    placeholder="VD: BV-CATAN-001"
-                    className="font-mono"
-                    autoComplete="off"
-                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Game đã chọn ở trên — chọn hộp vật lý để giao. Thêm tựa khác sau khi mở phiên
+                    (tab Game).
+                  </p>
+                  {boxesLoading ? (
+                    <div className="flex h-9 items-center gap-2 text-xs text-muted-foreground">
+                      <Spinner className="h-3.5 w-3.5" />
+                      Đang tải danh sách hộp…
+                    </div>
+                  ) : (
+                    <select
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 font-mono text-sm"
+                      value={barcode}
+                      onChange={(e) => setBarcode(e.target.value)}
+                      disabled={availableBoxes.length === 0}
+                    >
+                      <option value="">
+                        {availableBoxes.length === 0
+                          ? `Không còn hộp trong kho`
+                          : 'Chọn hộp vật lý'}
+                      </option>
+                      {availableBoxes.map((box) => (
+                        <option key={box.id || box.barcode} value={box.barcode}>
+                          {box.barcode}
+                          {box.gameName ? ` · ${box.gameName}` : ''}
+                          {box.status && String(box.status).toLowerCase() !== 'available'
+                            ? ` (${box.status})`
+                            : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {boxesError ? (
+                    <p className="text-xs text-rose-600">Không tải được danh sách hộp. Thử F5.</p>
+                  ) : boxesFallback ? (
+                    <p className="text-xs text-amber-700">
+                      Không tìm thấy hộp gắn tên “{checkInGame.name}” — đang hiện mọi hộp sẵn dùng.
+                    </p>
+                  ) : !boxesLoading && availableBoxes.length === 0 ? (
+                    <p className="text-xs text-amber-700">
+                      Kho không còn hộp Available/Held. Kiểm tra tab Hộp game.
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
@@ -340,7 +430,12 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
                 type="button"
                 className="h-12 w-full touch-manipulation text-base md:h-14"
                 size="lg"
-                disabled={posCheckIn.isPending || presentCount === 0 || !barcode.trim()}
+                disabled={
+                  posCheckIn.isPending ||
+                  boxesLoading ||
+                  presentCount === 0 ||
+                  !barcode.trim()
+                }
                 onClick={handleCheckIn}
               >
                 {posCheckIn.isPending ? (

@@ -50,6 +50,12 @@ export interface TableBooking {
   hostId?: string;
   depositAmount?: number;
   checkedInAt?: string | null;
+  /** ReservationCode 8 ký tự (BVC) — dùng cho POST /pos/check-in */
+  reservationCode?: string;
+  /** BookingCode / OrderId legacy (BV12345678) */
+  bookingCode?: string;
+  orderId?: string;
+  paymentRef?: string | null;
 }
 
 export type TableStatus = 'Available' | 'Reserved' | 'Occupied';
@@ -60,6 +66,7 @@ export interface CafeTable {
   zone: string;
   seats: number;
   position: { row: number; col: number };
+  sortOrder?: number;
   status: TableStatus;
   bookingId?: string;
   sessionId?: string;
@@ -78,6 +85,21 @@ export interface UpdatePosTablePayload {
 export interface FloorPlan {
   cafeId: string;
   tables: CafeTable[];
+}
+
+/** GET /api/cafes/{cafeId}/pos/tables */
+export type FloorPlanStatusFilter = 'all' | 'Available' | 'Reserved' | 'Occupied';
+
+export interface FloorPlanQueryParams {
+  /** Mặc định API true; POS monitor dùng false để lấy cả InUse/Reserved */
+  includeOnlyAvailable?: boolean;
+  /** true = gồm bàn soft-deleted (IsActive=false) */
+  includeInactive?: boolean;
+  /**
+   * CSV status backend — ghi đè includeOnlyAvailable.
+   * vd: InUse,Reserved,EventInProgress,Available
+   */
+  statuses?: string;
 }
 
 export interface QrResolveResult {
@@ -177,6 +199,15 @@ export interface ActiveSessionDetail extends ActivatedSession {
   billingModel: BillingModel;
   endedAt?: string;
   status?: SessionLifecycleStatus;
+  /** Thành viên / guest-slot từ GET session */
+  members?: SessionMemberRef[];
+}
+
+export interface SessionMemberRef {
+  id: string;
+  userId?: string;
+  displayName: string;
+  isGuestSlot?: boolean;
 }
 
 export interface CompleteSessionResult {
@@ -212,6 +243,9 @@ export interface PosCheckInPayload {
   barcode: string;
   idempotencyKey?: string;
   nonce?: string;
+  /** Giúp resolve ReservationCode khi `code` là verificationQR ảo */
+  bookingId?: string;
+  lobbyId?: string;
 }
 
 /** POST /api/cafes/{cafeId}/sessions/{sessionId}/guest-slots */
@@ -225,24 +259,45 @@ export interface AddSessionMembersPayload {
   userIds: string[];
 }
 
-/** POST /api/cafes/{cafeId}/sessions/{sessionId}/games — gán hộp theo barcode */
+/** POST .../pos/sessions/{sessionId}/games — AttachGameRequestDto.gameBarcode */
 export interface AssignSessionGamesPayload {
+  /** Map sang `gameBarcode` khi gọi API */
   barcode: string;
 }
 
 /** POST /api/cafes/{cafeId}/pos/sessions/component-check */
-export interface SessionGameCheckItem {
-  componentTemplateId?: string;
-  inventoryId?: string;
-  sessionGameId?: string;
-  expectedQuantity: number;
+export interface ComponentCheckResultItem {
+  componentId: string;
   actualQuantity: number;
+  responsibleMemberId?: string | null;
 }
 
 export interface CheckSessionGamesPayload {
-  sessionId?: string;
-  sessionGameId?: string;
-  items: SessionGameCheckItem[];
+  sessionGameId: string;
+  markAllValid?: boolean;
+  results?: ComponentCheckResultItem[];
+}
+
+/** GET /api/cafes/{cafeId}/pos/sessions/{sessionGameId}/component-checklist */
+export interface ComponentChecklistItem {
+  componentId: string;
+  componentName: string;
+  componentKind?: number;
+  expectedQuantity: number;
+}
+
+export interface ComponentChecklist {
+  sessionGameId: string;
+  gameTemplateId?: string;
+  gameName?: string;
+  components: ComponentChecklistItem[];
+}
+
+export interface SessionGameRef {
+  sessionGameId: string;
+  gameTemplateId?: string;
+  gameName?: string;
+  barcode?: string;
 }
 
 /** POST /api/cafes/{cafeId}/sessions/{sessionId}/inventory-loss */
@@ -271,6 +326,19 @@ export interface PartialCheckoutPayload {
   applyDeposit?: boolean;
 }
 
+/** POST /api/cafes/{cafeId}/pos/sessions/{sessionId}/checkout — CheckoutRequestDto */
+export interface CheckoutComponentItem {
+  componentId: string;
+  isMissing: boolean;
+  isDamaged: boolean;
+  penaltyFee: number;
+}
+
+export interface CheckoutSessionPayload {
+  componentsVerified: boolean;
+  components: CheckoutComponentItem[];
+}
+
 /** POST /api/cafes/{cafeId}/sessions/{sessionId}/pay */
 export interface PaySessionPenaltyItem {
   sessionMemberId: string;
@@ -280,6 +348,7 @@ export interface PaySessionPenaltyItem {
 
 export interface PaySessionPayload {
   paymentMethod?: 'SePay' | 'QR' | 'Cash' | 'Card';
+  notes?: string;
   penaltyItems?: PaySessionPenaltyItem[];
 }
 
@@ -327,6 +396,9 @@ export interface CafeSessionDetail extends ActiveSessionDetail {
   guestCount?: number;
   memberIds?: string[];
   assignedInventoryIds?: string[];
+  /** ActiveSessionGame[] — id dùng cho component-check */
+  sessionGames?: SessionGameRef[];
+  totalAmount?: number;
 }
 
 /** Trạng thái hộp vật lý — CafeGameInventoryStatus */
@@ -347,6 +419,7 @@ export interface PosGameBox {
   gameName: string | null;
   inventoryId: string | null;
   cafeId: string | null;
+  imageUrl?: string | null;
 }
 
 export interface PosBoxesParams {

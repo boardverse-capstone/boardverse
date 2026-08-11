@@ -18,8 +18,7 @@ import {
 } from '../utils/inventory.mapper';
 import { StaffCafeMockService } from './staff-cafe.mock';
 
-/** Chỉ mock khi bật tường minh — mặc định dùng API thật */
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_STAFF_CAFE_API === 'true';
+const USE_MOCK = false;
 
 export const STAFF_CAFE_QUERY_KEYS = {
   workingCafe: 'staff-working-cafe',
@@ -39,7 +38,7 @@ let cachedCafeId = '';
 export const StaffCafeService = {
   getCachedCafeId: (): string => cachedCafeId,
 
-  /** Quán staff đang gán */
+  /** Quán staff đang gán: GET /api/staff/my-cafes */
   getStaffWorkingCafe: async (): Promise<StaffWorkingCafe> => {
     if (USE_MOCK) {
       const cafe = await StaffCafeMockService.getStaffWorkingCafe();
