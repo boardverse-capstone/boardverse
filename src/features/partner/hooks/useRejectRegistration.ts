@@ -4,8 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { PartnerService, PARTNER_QUERY_KEYS } from '../services/partner.service';
 import type { PaginatedResponse } from '@/shared/types/pagination.interface';
-import type { PartnerApplication, Registration } from '../types/partner.interface';
-import { toPartnerApplication } from '../utils/partner.mapper';
+import type { PartnerApplication } from '../types/partner.interface';
 import { syncPartnerInPendingCaches } from '../utils/partner-cache.util';
 
 interface RejectVariables {
@@ -33,30 +32,40 @@ export function useRejectRegistration() {
           return {
             ...old,
             data: old.data.map((item) =>
-              item.id === id ? { ...item, status: 'REJECTED' } : item,
+              item.id === id
+                ? {
+                    ...item,
+                    applicationStatus: 'REJECTED' as const,
+                    operationalStatus: null,
+                    rejectionReason: payload.reason,
+                  }
+                : item,
             ),
           };
         },
       );
 
-      const previousDetail = queryClient.getQueryData<Registration>([
+      const previousDetail = queryClient.getQueryData<PartnerApplication>([
         PARTNER_QUERY_KEYS.detail,
         id,
       ]);
       if (previousDetail) {
         queryClient.setQueryData([PARTNER_QUERY_KEYS.detail, id], {
           ...previousDetail,
-          status: 'REJECTED',
+          applicationStatus: 'REJECTED',
+          operationalStatus: null,
           rejectionReason: payload.reason,
         });
       }
 
       return { previousQueries, previousDetail };
     },
-    onSuccess: (data) => {
-      toast.success(`Đã từ chối đơn "${data.basicInfo.cafeName}".`);
-      queryClient.setQueryData([PARTNER_QUERY_KEYS.detail, data.id], data);
-      syncPartnerInPendingCaches(queryClient, toPartnerApplication(data));
+    onSuccess: (application) => {
+      toast.success(`Đã từ chối đơn "${application.cafeName}".`);
+      queryClient.setQueryData([PARTNER_QUERY_KEYS.detail, application.id], application);
+      syncPartnerInPendingCaches(queryClient, application);
+      queryClient.invalidateQueries({ queryKey: [PARTNER_QUERY_KEYS.pending] });
+      queryClient.invalidateQueries({ queryKey: [PARTNER_QUERY_KEYS.detail, application.id] });
     },
     onError: (error: Error, { id }, context) => {
       context?.previousQueries.forEach(([queryKey, data]) => {

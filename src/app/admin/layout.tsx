@@ -8,37 +8,74 @@ import {
   IconUsers,
   IconSettings,
   IconShield,
+  IconAlertTriangle,
+  IconHistory,
+  IconBuildingStore,
+  IconCategory,
+  IconComponents,
+  IconWallet,
 } from '@tabler/icons-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { RoleGuard } from '@/features/auth/components/role-guard';
 import { AuthLoading } from '@/features/auth/components/auth-loading';
 import { UserRole } from '@/core/constants/roles';
+import { ROUTES } from '@/core/constants/routes';
 import type { NavItem } from '@/components/layout/nav-main';
 
 const ADMIN_NAV: NavItem[] = [
   {
     title: 'Dashboard',
-    url: '/admin/dashboard',
+    url: ROUTES.DASHBOARD.ADMIN,
     icon: <IconLayoutDashboard />,
   },
   {
     title: 'Đăng ký đối tác',
-    url: '/admin/registrations',
+    url: ROUTES.ADMIN.REGISTRATIONS,
     icon: <IconCoffee />,
   },
   {
+    title: 'Quản lý quán',
+    url: ROUTES.ADMIN.CAFES,
+    icon: <IconBuildingStore />,
+  },
+  {
+    title: 'Thể loại game',
+    url: ROUTES.ADMIN.CATEGORIES,
+    icon: <IconCategory />,
+  },
+  {
+    title: 'Linh kiện game',
+    url: ROUTES.ADMIN.MASTER_GAMES,
+    icon: <IconComponents />,
+  },
+  {
     title: 'Quản lý người dùng',
-    url: '/admin/users',
+    url: ROUTES.ADMIN.USERS,
     icon: <IconUsers />,
   },
   {
+    title: 'Wallets',
+    url: ROUTES.ADMIN.WALLETS,
+    icon: <IconWallet />,
+  },
+  {
+    title: 'Karma',
+    url: ROUTES.ADMIN.KARMA_LOGS,
+    icon: <IconHistory />,
+  },
+  {
+    title: 'Cảnh báo hành vi',
+    url: ROUTES.ADMIN.BEHAVIOR_WARNINGS,
+    icon: <IconAlertTriangle />,
+  },
+  {
     title: 'Bảo mật',
-    url: '/admin/security',
+    url: ROUTES.ADMIN.SECURITY,
     icon: <IconShield />,
   },
   {
     title: 'Cài đặt hệ thống',
-    url: '/admin/settings',
+    url: ROUTES.ADMIN.SETTINGS,
     icon: <IconSettings />,
   },
 ];

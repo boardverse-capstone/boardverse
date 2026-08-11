@@ -4,31 +4,34 @@ import type { ReactNode } from 'react';
 import { Suspense } from 'react';
 import {
   IconLayoutDashboard,
-  IconChecklist,
   IconCalendar,
   IconClipboard,
   IconHelp,
+  IconDeviceDesktop,
+  IconPackage,
 } from '@tabler/icons-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { RoleGuard } from '@/features/auth/components/role-guard';
 import { AuthLoading } from '@/features/auth/components/auth-loading';
 import { UserRole } from '@/core/constants/roles';
+import { ROUTES } from '@/core/constants/routes';
 import type { NavItem } from '@/components/layout/nav-main';
 
 const STAFF_NAV: NavItem[] = [
   {
     title: 'Dashboard',
-    url: '/staff/dashboard',
+    url: ROUTES.DASHBOARD.STAFF,
     icon: <IconLayoutDashboard />,
   },
   {
-    title: 'Công việc',
-    url: '/staff/tasks',
-    icon: <IconChecklist />,
-    items: [
-      { title: 'Danh sách việc', url: '/staff/tasks' },
-      { title: 'Đã hoàn thành', url: '/staff/tasks/completed' },
-    ],
+    title: 'Web POS',
+    url: ROUTES.STAFF.POS,
+    icon: <IconDeviceDesktop />,
+  },
+  {
+    title: 'Kho game',
+    url: ROUTES.STAFF.INVENTORY,
+    icon: <IconPackage />,
   },
   {
     title: 'Lịch làm việc',

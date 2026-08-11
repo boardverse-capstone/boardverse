@@ -39,7 +39,7 @@ export function UserCreateForm() {
       email: '',
       password: '',
       confirmPassword: '',
-      role: 'User',
+      role: CREATE_USER_ROLES[0].value,
     },
   });
 

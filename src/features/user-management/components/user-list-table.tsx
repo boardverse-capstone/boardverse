@@ -66,7 +66,14 @@ function createColumns({
     {
       accessorKey: 'phoneNumber',
       header: 'Số điện thoại',
-      cell: ({ row }) => row.original.phoneNumber ?? '—',
+      cell: ({ row }) => {
+        const phone = row.original.phoneNumber?.trim();
+        return phone ? (
+          phone
+        ) : (
+          <span className="text-muted-foreground">Chưa nhập</span>
+        );
+      },
     },
     {
       accessorKey: 'role',

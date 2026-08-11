@@ -1,15 +1,21 @@
 import apiClient from '@/core/api/client';
-import type { PaginatedResponse, PaginationParams } from '@/shared/types/pagination.interface';
+import type { PaginatedResponse } from '@/shared/types/pagination.interface';
 import type {
-  ApproveRegistrationResponse,
+  ApproveRegistrationResult,
   PartnerApplication,
+  PartnerApplicationListParams,
   PartnerRegistrationRequest,
-  Registration,
   RejectRegistrationRequest,
   SubmitRegistrationResponse,
   TransitionRegistrationRequest,
   TransitionRegistrationResponse,
 } from '../types/partner.interface';
+import {
+  normalizeApproveRegistrationResponse,
+  normalizePartnerDetailResponse,
+  normalizePartnerListResponse,
+  normalizePartnerMutationResponse,
+} from '../utils/partner.mapper';
 import { PartnerMockService } from './partner.mock';
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_PARTNER_API === 'true';
@@ -21,25 +27,30 @@ export const PARTNER_QUERY_KEYS = {
 
 export const PartnerService = {
   getPendingApplications: async (
-    params: PaginationParams,
+    params: PartnerApplicationListParams,
   ): Promise<PaginatedResponse<PartnerApplication>> => {
     if (USE_MOCK) return PartnerMockService.getPendingApplications(params);
 
-    return apiClient.get<never, PaginatedResponse<PartnerApplication>>(
-      '/admin/partners/pending',
-      {
-        params: {
-          page: params.page,
-          limit: params.limit,
-          q: params.search,
-        },
+    const raw = await apiClient.get('/api/admin/cafe-partner-applications', {
+      params: {
+        Search: params.search || undefined,
+        Status: params.status && params.status !== 'all' ? params.status : undefined,
+        PageNumber: params.page,
+        PageSize: params.limit,
       },
-    );
+    });
+
+    return normalizePartnerListResponse(raw, params);
   },
 
-  getRegistrationById: async (id: string): Promise<Registration> => {
+  getRegistrationById: async (id: string): Promise<PartnerApplication> => {
     if (USE_MOCK) return PartnerMockService.getRegistrationById(id);
-    return apiClient.get<never, Registration>(`/admin/partners/${id}`);
+
+    const raw = await apiClient.get<never, unknown>(
+      `/api/admin/cafe-partner-applications/${id}`,
+    );
+
+    return normalizePartnerDetailResponse(raw);
   },
 
   submitRegistration: async (
@@ -60,18 +71,33 @@ export const PartnerService = {
     );
   },
 
-  approveRegistration: async (id: string): Promise<ApproveRegistrationResponse> => {
-    if (USE_MOCK) return PartnerMockService.approveRegistration(id);
-    return apiClient.post<never, ApproveRegistrationResponse>(
-      `/admin/partners/${id}/approve`,
+  approveRegistration: async (id: string): Promise<ApproveRegistrationResult> => {
+    if (USE_MOCK) {
+      const mock = await PartnerMockService.approveRegistration(id);
+      return normalizeApproveRegistrationResponse(mock);
+    }
+
+    const raw = await apiClient.post<never, unknown>(
+      `/api/admin/cafe-partner-applications/${id}/approve`,
     );
+
+    return normalizeApproveRegistrationResponse(raw);
   },
 
   rejectRegistration: async (
     id: string,
     payload: RejectRegistrationRequest,
-  ): Promise<Registration> => {
-    if (USE_MOCK) return PartnerMockService.rejectRegistration(id, payload);
-    return apiClient.post<never, Registration>(`/admin/partners/${id}/reject`, payload);
+  ): Promise<PartnerApplication> => {
+    if (USE_MOCK) {
+      const mock = await PartnerMockService.rejectRegistration(id, payload);
+      return normalizePartnerMutationResponse(mock);
+    }
+
+    const raw = await apiClient.post<never, unknown>(
+      `/api/admin/cafe-partner-applications/${id}/reject`,
+      payload,
+    );
+
+    return normalizePartnerMutationResponse(raw);
   },
 } as const;

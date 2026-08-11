@@ -1,18 +1,26 @@
 'use client';
 
 import { use, useMemo, useState } from 'react';
+import { Settings2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { ListBackButton } from '@/components/common/list-back-button';
 import { ROUTES } from '@/core/constants/routes';
+import { UpdateOperationalStatusDialog } from '@/features/admin-cafe/components/update-operational-status-dialog';
+import { useUpdateCafeOperationalStatus } from '@/features/admin-cafe/hooks/useUpdateCafeOperationalStatus';
+import type { CafeOperationalStatusValue } from '@/core/constants/admin-cafe';
 import { RegistrationDetail } from '@/features/partner/components/registration-detail';
 import { ApproveRegistrationDialog } from '@/features/partner/components/approve-registration-dialog';
 import { RejectRegistrationDialog } from '@/features/partner/components/reject-registration-dialog';
 import { useRegistrationDetail } from '@/features/partner/hooks/useRegistrationDetail';
 import { useApproveRegistration } from '@/features/partner/hooks/useApproveRegistration';
 import { useRejectRegistration } from '@/features/partner/hooks/useRejectRegistration';
-import { useTransitionRegistration } from '@/features/partner/hooks/useTransitionRegistration';
-import type { RegistrationAction } from '@/features/partner/types/partner.interface';
-import { toPartnerApplication } from '@/features/partner/utils/partner.mapper';
-import { getPrimaryAction } from '@/features/partner/utils/registration-workflow';
+import type { ApplicationPrimaryAction } from '@/features/partner/types/partner.interface';
+import { toPartnerActionTarget } from '@/features/partner/utils/partner.mapper';
+import {
+  canActivateApplication,
+  canApproveApplication,
+  getApplicationPrimaryAction,
+} from '@/features/partner/utils/application-workflow';
 
 interface RegistrationDetailPageProps {
   params: Promise<{ id: string }>;
@@ -23,57 +31,52 @@ export default function RegistrationDetailPage({ params }: RegistrationDetailPag
   const { data, isLoading, isError } = useRegistrationDetail(id);
   const approveMutation = useApproveRegistration();
   const rejectMutation = useRejectRegistration();
-  const transitionMutation = useTransitionRegistration();
+  const updateOperationalMutation = useUpdateCafeOperationalStatus();
 
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<ApplicationPrimaryAction | null>(null);
   const [rejectOpen, setRejectOpen] = useState(false);
-  const [rejectMode, setRejectMode] = useState<'reject' | 'cancel'>('reject');
+  const [operationalDialogOpen, setOperationalDialogOpen] = useState(false);
 
   const partnerTarget = useMemo(
-    () => (data ? toPartnerApplication(data) : null),
+    () => (data ? toPartnerActionTarget(data) : null),
     [data],
   );
 
   const isActionPending =
-    approveMutation.isPending || rejectMutation.isPending || transitionMutation.isPending;
+    approveMutation.isPending ||
+    rejectMutation.isPending ||
+    updateOperationalMutation.isPending;
 
-  const handleAction = (action: RegistrationAction) => {
-    if (action === 'REJECT') {
-      setRejectMode('reject');
-      setRejectOpen(true);
-      return;
-    }
-    if (action === 'CANCEL_NEGOTIATION') {
-      setRejectMode('cancel');
-      setRejectOpen(true);
-      return;
-    }
-
-    const primary = data ? getPrimaryAction(data.status) : null;
-    if (action === primary) {
-      setConfirmOpen(true);
-      return;
-    }
-
-    transitionMutation.mutate({ id, payload: { action } });
+  const openConfirm = (action: ApplicationPrimaryAction) => {
+    setConfirmAction(action);
+    setConfirmOpen(true);
   };
 
   const handleConfirmPrimary = () => {
-    approveMutation.mutate(id, { onSuccess: () => setConfirmOpen(false) });
+    approveMutation.mutate(id, {
+      onSuccess: () => {
+        setConfirmOpen(false);
+        setConfirmAction(null);
+      },
+    });
   };
 
   const handleRejectConfirm = (reason: string) => {
-    if (rejectMode === 'cancel') {
-      transitionMutation.mutate(
-        { id, payload: { action: 'CANCEL_NEGOTIATION', reason } },
-        { onSuccess: () => setRejectOpen(false) },
-      );
-      return;
-    }
-
     rejectMutation.mutate(
       { id, payload: { reason } },
       { onSuccess: () => setRejectOpen(false) },
+    );
+  };
+
+  const handleOperationalConfirm = (payload: {
+    status: CafeOperationalStatusValue;
+    reason?: string;
+  }) => {
+    if (!data?.createdCafeId) return;
+    updateOperationalMutation.mutate(
+      { cafeId: data.createdCafeId, payload },
+      { onSuccess: () => setOperationalDialogOpen(false) },
     );
   };
 
@@ -81,16 +84,36 @@ export default function RegistrationDetailPage({ params }: RegistrationDetailPag
     <div className="space-y-6">
       <ListBackButton fallbackPath={ROUTES.ADMIN.REGISTRATIONS} />
 
+      {data?.createdCafeId && (
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={() => setOperationalDialogOpen(true)}>
+            <Settings2 className="mr-2 h-4 w-4" />
+            Cập nhật trạng thái quán
+          </Button>
+        </div>
+      )}
+
       <RegistrationDetail
-        registration={data}
+        application={data}
         isLoading={isLoading}
         isError={isError}
-        onAction={handleAction}
+        onApprove={
+          data && canApproveApplication(data)
+            ? () => openConfirm('APPROVE')
+            : undefined
+        }
+        onReject={data && data.applicationStatus === 'PENDING' ? () => setRejectOpen(true) : undefined}
+        onActivate={
+          data && canActivateApplication(data)
+            ? () => openConfirm('ACTIVATE')
+            : undefined
+        }
         isActionPending={isActionPending}
       />
 
       <ApproveRegistrationDialog
         partner={partnerTarget}
+        action={confirmAction ?? (data ? getApplicationPrimaryAction(data) : null)}
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         onConfirm={handleConfirmPrimary}
@@ -99,12 +122,23 @@ export default function RegistrationDetailPage({ params }: RegistrationDetailPag
 
       <RejectRegistrationDialog
         partner={partnerTarget}
-        mode={rejectMode}
         open={rejectOpen}
         onOpenChange={setRejectOpen}
         onConfirm={handleRejectConfirm}
         isPending={isActionPending}
       />
+
+      {data?.createdCafeId && (
+        <UpdateOperationalStatusDialog
+          open={operationalDialogOpen}
+          onOpenChange={setOperationalDialogOpen}
+          cafeId={data.createdCafeId}
+          cafeName={data.cafeName}
+          currentStatus={data.operationalStatus}
+          onConfirm={handleOperationalConfirm}
+          isPending={updateOperationalMutation.isPending}
+        />
+      )}
     </div>
   );
 }

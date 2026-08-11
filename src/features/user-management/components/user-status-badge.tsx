@@ -21,7 +21,7 @@ export function UserStatusBadge({ isActive, isBlocked, className }: UserStatusBa
   if (!isActive) {
     return (
       <Badge variant="outline" className={cn('border-slate-200 bg-slate-100 text-slate-600', className)}>
-        Vô hiệu
+        Đã xóa
       </Badge>
     );
   }

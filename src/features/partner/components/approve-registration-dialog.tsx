@@ -11,28 +11,27 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Spinner } from '@/components/ui/spinner';
-import { REGISTRATION_ACTION_LABELS } from '@/core/constants/partner-registration';
-import type { PartnerActionTarget } from '../types/partner.interface';
-import { getPrimaryAction } from '../utils/registration-workflow';
+import { APPLICATION_ACTION_LABELS } from '@/core/constants/partner-registration';
+import type { ApplicationPrimaryAction, PartnerActionTarget } from '../types/partner.interface';
+import { getApplicationPrimaryAction } from '../utils/application-workflow';
 
 interface ApproveRegistrationDialogProps {
   partner: PartnerActionTarget | null;
+  action?: ApplicationPrimaryAction | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
   isPending: boolean;
 }
 
-const ACTION_DESCRIPTIONS: Partial<Record<string, string>> = {
-  PASS_OPS_ASSESSMENT: 'Xác nhận quán đạt tiêu chuẩn thẩm định thực tế.',
-  CONFIRM_VERIFICATION: 'Xác nhận thông tin hợp pháp sau khi kiểm tra chéo.',
-  RECORD_CONTRACT_SIGNED:
-    'Ghi nhận hợp đồng điện tử đã ký và tự động cấp tài khoản CAFE_MANAGER.',
-  ACTIVATE_PARTNER: 'Kích hoạt quán hiển thị trên ứng dụng Mobile.',
+const ACTION_DESCRIPTIONS: Record<ApplicationPrimaryAction, string> = {
+  APPROVE: 'Xác nhận duyệt đơn đăng ký và tạo tài khoản quản lý quán.',
+  ACTIVATE: 'Kích hoạt quán để hiển thị trên ứng dụng Mobile.',
 };
 
 export function ApproveRegistrationDialog({
   partner,
+  action: actionOverride,
   open,
   onOpenChange,
   onConfirm,
@@ -40,10 +39,10 @@ export function ApproveRegistrationDialog({
 }: ApproveRegistrationDialogProps) {
   if (!partner) return null;
 
-  const action = getPrimaryAction(partner.status);
+  const action = actionOverride ?? getApplicationPrimaryAction(partner);
   if (!action) return null;
 
-  const title = REGISTRATION_ACTION_LABELS[action];
+  const title = APPLICATION_ACTION_LABELS[action];
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>

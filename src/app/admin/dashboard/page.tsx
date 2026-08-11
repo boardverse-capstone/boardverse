@@ -1,8 +1,8 @@
 'use client';
 
 // src/app/admin/dashboard/page.tsx
-import type { Metadata } from 'next';
 import { Shield, Users, Settings, TrendingUp } from 'lucide-react';
+import { PageHeader } from '@/components/common/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ProfileCard } from '@/features/profile/components/profile-card';
@@ -19,20 +19,15 @@ export default function AdminDashboardPage() {
   const user = useAuthStore((state) => state.user);
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">This is page Admin</h1>
-            <Badge variant="destructive" className="text-xs">
-              Admin
-            </Badge>
-          </div>
-          <p className="text-muted-foreground mt-1">
-            Chào mừng trở lại, {user?.username ?? 'Admin'}. Đây là trang quản trị hệ thống.
-          </p>
-        </div>
+    <div className="flex flex-col gap-4 sm:gap-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <PageHeader
+          title="Dashboard"
+          description={`Chào mừng trở lại, ${user?.username ?? 'Admin'}. Đây là trang quản trị hệ thống.`}
+        />
+        <Badge variant="destructive" className="w-fit text-xs">
+          Admin
+        </Badge>
       </div>
 
       {/* Stats grid */}

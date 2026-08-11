@@ -44,6 +44,12 @@ export interface ApiUserRecord {
   UpdatedAt?: string;
   LastLoginAt?: string | null;
   BlockedAt?: string | null;
+  KarmaPoints?: number;
+  GlobalElo?: number;
+  Level?: number;
+  GamerTier?: string | null;
+  AvatarUrl?: string | null;
+  Bio?: string | null;
 }
 
 /** Raw hỗn hợp PascalCase + camelCase từ các endpoint UserManagement */
@@ -78,7 +84,7 @@ export interface CreateUserRequest {
   role: string;
 }
 
-/** Body PUT /api/UserManagement/{id} — AdminUpdateUserDto */
+/** Body PUT /api/UserManagement/{id} — AdminUpdateUserDto + mở rộng karma */
 export interface UpdateUserRequest {
   username?: string;
   email?: string;
@@ -86,6 +92,8 @@ export interface UpdateUserRequest {
   role?: string;
   isActive?: boolean;
   isBlocked?: boolean;
+  karmaPoints?: number;
+  blockReason?: string;
 }
 
 export interface BlockUserRequest {

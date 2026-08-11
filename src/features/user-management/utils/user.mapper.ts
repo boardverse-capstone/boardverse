@@ -187,12 +187,12 @@ export function mapApiUser(raw: RawUserRecord | ManagedUser): ManagedUser {
       source.BlockedAt ??
       source.blockedAt ??
       null,
-    avatarUrl: source.avatarUrl ?? null,
-    bio: source.bio ?? null,
-    karmaPoints: pickNumber(source.karmaPoints),
-    gamerTier: source.gamerTier ?? null,
-    globalElo: pickNumber(source.globalElo),
-    level: pickNumber(source.level),
+    avatarUrl: source.avatarUrl ?? source.AvatarUrl ?? null,
+    bio: source.bio ?? source.Bio ?? null,
+    karmaPoints: pickNumber(source.karmaPoints, source.KarmaPoints),
+    gamerTier: source.gamerTier ?? source.GamerTier ?? null,
+    globalElo: pickNumber(source.globalElo, source.GlobalElo),
+    level: pickNumber(source.level, source.Level),
   });
 }
 

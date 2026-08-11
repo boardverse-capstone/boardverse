@@ -37,9 +37,9 @@ export function DisableUserDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Vô hiệu hóa tài khoản</AlertDialogTitle>
+          <AlertDialogTitle>Xóa tài khoản</AlertDialogTitle>
           <AlertDialogDescription>
-            Bạn sắp vô hiệu hóa tài khoản <strong>{user.username}</strong> ({roleLabel}). Tài khoản sẽ
+            Bạn sắp xóa tài khoản <strong>{user.username}</strong> ({roleLabel}). Tài khoản sẽ
             không còn hoạt động trên hệ thống.
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -53,7 +53,7 @@ export function DisableUserDialog({
                 Đang xử lý...
               </>
             ) : (
-              'Xác nhận vô hiệu hóa'
+              'Xác nhận xóa'
             )}
           </Button>
         </AlertDialogFooter>
