@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePosTables } from "../hooks/usePosTables";
 import { useActiveSessions } from "../hooks/useActiveSessions";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, QrCode, PlayCircle, LogOut, Search } from "lucide-react";
+import { RefreshCw, QrCode, PlayCircle, LogOut } from "lucide-react";
 
 interface PosTablesGridProps {
   cafeId: string;
@@ -137,7 +137,7 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
                 </div>
 
                 {/* NỘI DUNG PHIÊN HOẶC TRẠNG THÁI TRỐNG */}
-                <div className="min-h-[60px] flex flex-col justify-center">
+                <div className="min-h-60px flex flex-col justify-center">
                   {isOccupied && table.activeSession ? (
                     <div className="space-y-1">
                       <div className="text-xs font-bold text-neutral-800 truncate">

@@ -1,4 +1,3 @@
-/* eslint-disable react/no-unescaped-entities */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
@@ -6,192 +5,209 @@ import { Button } from "@/components/ui/button";
 import {
   Clock,
   Users,
-  User,
-  ClipboardCheck,
-  LogOut,
-  Flame,
-  Timer,
   Boxes,
+  ClipboardCheck,
+  CreditCard,
+  Info,
+  LogOut,
+  History,
+  ArrowRight,
 } from "lucide-react";
 
-export interface SessionMember {
-  id: string;
-  userId: string;
-  userName: string;
-  isGuestSlot: boolean;
-  joinedAt: string;
-  leftAt: string | null;
-  totalMinutesPlayed: number;
-  subtotal: number;
-  penaltyAmount: number;
-  isCheckedOut: boolean;
-  status: string;
-}
-
-export interface ActiveSession {
-  id: string;
-  hostId: string;
-  hostName: string;
-  lobbyId: string | null;
-  cafeTableId: string;
-  tableName: string;
-  defaultPlayTimeMinutes: number;
-  startedAt: string;
-  elapsedMinutes: number;
-  estimatedRemainingMinutes: number;
-  members: SessionMember[];
-  games: any[];
-}
-
-interface ActiveSessionsTabProps {
-  sessions: ActiveSession[];
+export interface ActiveSessionsTabProps {
+  sessions: any[];
   onOpenChecklist: (sessionGameId: string) => void;
   onEndSession: (sessionId: string) => void;
+  onViewDetail: (sessionId: string) => void;
+  onReturnGame?: (sessionId: string) => Promise<boolean | void>;
+  onInitiatePaymentFlow: (session: any) => void;
+  onShowBoxHistory?: (boxId: string) => void;
 }
 
 export function ActiveSessionsTab({
   sessions,
   onOpenChecklist,
   onEndSession,
+  onViewDetail,
+  onReturnGame,
+  onInitiatePaymentFlow,
+  onShowBoxHistory,
 }: ActiveSessionsTabProps) {
-  if (sessions.length === 0) {
+  const activeSessions = (sessions || []).filter(
+    (s) => s.status !== "Paid" && s.status !== "Completed",
+  );
+
+  if (!activeSessions || activeSessions.length === 0) {
     return (
-      <div className="text-center py-20 border border-dashed border-neutral-300 rounded-2xl bg-white space-y-2">
-        <div className="w-12 h-12 rounded-full bg-neutral-100 border border-neutral-200 flex items-center justify-center mx-auto text-neutral-400">
-          <Clock className="w-6 h-6" />
-        </div>
-        <h4 className="font-extrabold text-sm text-neutral-900">
-          Không có phiên chơi nào đang active
-        </h4>
-        <p className="text-xs text-neutral-400 max-w-sm mx-auto">
-          Chọn một bàn khả dụng ở Tab "Sơ đồ bàn" và gán phiên chơi mới hoặc
-          quét mã Check-in từ Booking.
+      <div className="bg-white border border-neutral-200 rounded-2xl p-12 text-center space-y-3 shadow-2xs">
+        <Users className="w-10 h-10 text-neutral-400 mx-auto" />
+        <h3 className="font-bold text-sm text-neutral-900">
+          Không có bàn nào đang hoạt động
+        </h3>
+        <p className="text-xs text-neutral-500">
+          Vào tab Sơ đồ bàn để bắt đầu gán bàn cho lượt khách mới.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* KHỐI CARD HIỂN THỊ CÁC PHIÊN ĐANG CHƠI */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {sessions.map((ses) => {
-          const playingMembers =
-            ses.members?.filter((m) => !m.isCheckedOut) || [];
-          const activeGame = ses.games?.[0];
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {activeSessions.map((ses: any) => {
+        const isUnpaid = ses.status === "Unpaid";
+        const isChecking = ses.status === "Checking";
+        const primaryGame = ses.games?.[0];
+        const isVerified = primaryGame?.checkStatus === "Verified";
 
-          return (
-            <div
-              key={ses.id}
-              className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-2xs hover:border-neutral-300 transition-all space-y-4 flex flex-col justify-between"
-            >
-              {/* HEAD CARD: BÀN & CỤM BỘ ĐẾM THỜI GIAN */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black uppercase bg-neutral-950 text-white tracking-wide">
-                      {ses.tableName || "Phiên Bàn"}
-                    </span>
-                    <span className="text-[10px] font-mono text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200">
-                      ID: {ses.id.slice(0, 8)}
-                    </span>
-                  </div>
-                  <p className="text-xs text-neutral-500 font-medium flex items-center gap-1">
-                    <User className="w-3.5 h-3.5 text-neutral-400" />
-                    Host:{" "}
-                    <strong className="text-neutral-800">
-                      {ses.hostName || "Chưa xác định"}
-                    </strong>
-                  </p>
+        return (
+          <div
+            key={ses.id}
+            className={`bg-white border rounded-2xl p-4 shadow-2xs flex flex-col justify-between space-y-4 transition-all ${
+              isUnpaid
+                ? "border-amber-300 bg-amber-50/20"
+                : "border-neutral-200 hover:border-neutral-300"
+            }`}
+          >
+            {/* HEADER PHIÊN & TRẠNG THÁI */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-extrabold text-base text-neutral-950">
+                    {ses.tableName}
+                  </h3>
+                  <span className="text-[11px] font-mono text-neutral-400">
+                    #{ses.id.slice(0, 6)}
+                  </span>
                 </div>
 
-                {/* THỜI GIAN ĐÃ CHƠI & DỰ KIẾN CÒN LẠI */}
-                <div className="text-right space-y-0.5 shrink-0 bg-amber-50/80 border border-amber-200/80 p-2.5 rounded-xl">
-                  <div className="flex items-center justify-end gap-1 text-xs font-extrabold text-amber-900 font-mono">
-                    <Timer className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Đã chơi: {ses.elapsedMinutes} phút</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase border ${
+                    isUnpaid
+                      ? "bg-amber-100 text-amber-800 border-amber-300 animate-pulse"
+                      : isChecking
+                        ? "bg-blue-50 text-blue-700 border-blue-200"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  }`}
+                >
+                  {isUnpaid
+                    ? "UNPAID"
+                    : isChecking
+                      ? "CHECKING"
+                      : ses.status || "Playing"}
+                </span>
+              </div>
+
+              {/* BƯỚC THỜI GIAN VÀ KHÁCH */}
+              <div className="grid grid-cols-2 gap-2 p-2.5 bg-neutral-50 rounded-xl border border-neutral-100 text-xs">
+                <div>
+                  <span className="text-[10px] font-bold text-neutral-400 uppercase flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> ĐÃ CHƠI
+                  </span>
+                  <div className="font-mono font-bold text-neutral-900 mt-0.5">
+                    {ses.elapsedMinutes} phút
                   </div>
-                  <div className="text-[10px] font-bold text-amber-700 font-mono">
-                    Còn lại: ~{ses.estimatedRemainingMinutes} phút
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-neutral-400 uppercase flex items-center gap-1">
+                    <Users className="w-3 h-3" /> SỐ KHÁCH
+                  </span>
+                  <div className="font-semibold text-neutral-800 mt-0.5">
+                    {ses.members?.length || 1} người
                   </div>
                 </div>
               </div>
 
-              {/* BODY: THÔNG TIN HỘP GAME DÙNG & THÀNH VIÊN TRONG BÀN */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-neutral-100 text-xs">
-                {/* Hộp Game đang mượn */}
-                <div className="bg-neutral-50 p-3 rounded-xl border border-neutral-200/80 space-y-1">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1">
-                    <Boxes className="w-3.5 h-3.5 text-neutral-500" /> Game Đang
-                    Chơi
-                  </span>
-                  {activeGame ? (
-                    <div>
-                      <div className="font-extrabold text-neutral-950 truncate">
-                        {activeGame.gameName}
-                      </div>
-                      <div className="text-[10px] font-mono text-neutral-500 truncate">
-                        {activeGame.boxBarcode}
-                      </div>
+              {/* THÔNG TIN HỘP GAME (NẾU CÓ) */}
+              {primaryGame && (
+                <div className="p-2.5 bg-neutral-50 rounded-xl border border-neutral-200/80 flex items-center justify-between text-xs">
+                  <div className="space-y-0.5 min-w-0 pr-2">
+                    <div className="font-bold text-neutral-900 truncate flex items-center gap-1">
+                      <Boxes className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                      {primaryGame.gameName}
                     </div>
-                  ) : (
-                    <div className="text-[11px] font-semibold text-neutral-400 italic">
-                      Chưa quét hộp game
+                    <div className="text-[10px] font-mono text-neutral-400">
+                      Mã: {primaryGame.boxBarcode}
                     </div>
+                  </div>
+
+                  {onShowBoxHistory && primaryGame.cafeInventoryBoxId && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        onShowBoxHistory(primaryGame.cafeInventoryBoxId)
+                      }
+                      title="Xem lịch sử kiểm kê"
+                      className="h-7 w-7 p-0 text-amber-600 hover:bg-amber-100/60 rounded-lg shrink-0"
+                    >
+                      <History className="w-4 h-4" />
+                    </Button>
                   )}
                 </div>
+              )}
+            </div>
 
-                {/* Danh sách người chơi */}
-                <div className="bg-neutral-50 p-3 rounded-xl border border-neutral-200/80 space-y-1">
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5 text-neutral-500" /> Thành
-                    Viên Bàn ({playingMembers.length})
-                  </span>
-                  <div className="flex flex-wrap gap-1 max-h-12 overflow-y-auto">
-                    {playingMembers.map((m) => (
-                      <span
-                        key={m.id}
-                        className="inline-block text-[10px] font-semibold bg-white border border-neutral-200 px-1.5 py-0.5 rounded text-neutral-800 truncate max-w-130px"
-                      >
-                        {m.userName}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
+            {/* CỤM FOOTER ACTION BUTTONS: DÙNG GRID CỐ ĐỊNH HOẶC FLEX CHUẨN ĐỂ KHÔNG BAO GIỜ ĐÈ NHAU */}
+            <div className="pt-3 border-t border-neutral-100 relative static flex items-center justify-between gap-2 w-full">
+              {/* Nút 1: Chi tiết */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onViewDetail(ses.id)}
+                className="relative static h-8 px-2.5 text-[11px] font-bold text-neutral-700 border-neutral-200 rounded-lg shrink-0 flex items-center gap-1 shadow-none"
+              >
+                <Info className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                <span>Chi tiết</span>
+              </Button>
 
-              {/* FOOTER ACTIONS */}
-              <div className="pt-3 border-t border-neutral-100 flex items-center justify-between gap-2">
-                <span className="text-[10px] text-neutral-400 font-mono flex items-center gap-1">
-                  <Flame className="w-3 h-3 text-emerald-500" /> Live billing
-                  active
-                </span>
-
-                <div className="flex items-center gap-2">
+              {/* Cụm Nút 2 & 3: Thanh toán + LogOut */}
+              <div className="relative static flex items-center gap-1.5 shrink-0">
+                {!isUnpaid && !isVerified && primaryGame && (
                   <Button
                     type="button"
-                    variant="outline"
-                    onClick={() => onOpenChecklist(activeGame?.id || ses.id)}
-                    className="h-8 px-3 border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100 text-xs font-bold rounded-lg flex items-center gap-1.5"
+                    size="sm"
+                    onClick={async () => {
+                      if (onReturnGame) await onReturnGame(ses.id);
+                      onOpenChecklist(primaryGame.id);
+                    }}
+                    className="relative static h-8 px-2.5 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold rounded-lg flex items-center gap-1 shadow-none"
                   >
-                    <ClipboardCheck className="w-3.5 h-3.5 text-amber-600" />
+                    <ClipboardCheck className="w-3.5 h-3.5 shrink-0" />
                     <span>Kiểm kê</span>
                   </Button>
+                )}
 
+                {(isVerified || isUnpaid || !primaryGame) && (
                   <Button
                     type="button"
-                    onClick={() => onEndSession(ses.id)}
-                    className="h-8 px-3 bg-neutral-950 text-white hover:bg-neutral-800 text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs"
+                    size="sm"
+                    onClick={() => onInitiatePaymentFlow(ses)}
+                    className="relative static h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-1 shadow-none"
                   >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>Trả Bàn & Kết Thúc</span>
+                    <CreditCard className="w-3.5 h-3.5 shrink-0" />
+                    <span>{isUnpaid ? "Thu Tiền" : "Thanh toán"}</span>
+                    <ArrowRight className="w-3 h-3 shrink-0" />
                   </Button>
-                </div>
+                )}
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onEndSession(ses.id)}
+                  title="Hủy / Giải phóng bàn"
+                  className="relative static h-8 w-8 p-0 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg shrink-0 flex items-center justify-center shadow-none"
+                >
+                  <LogOut className="w-3.5 h-3.5 shrink-0" />
+                </Button>
               </div>
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -2,14 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  X,
-  LogOut,
-  Clock,
-  Users,
-  AlertCircle,
-  CheckCircle2,
-} from "lucide-react";
+import { X, LogOut, Clock, Users, AlertCircle } from "lucide-react";
 import { ActiveSession } from "./active-sessions-tab";
 
 interface EndSessionModalProps {
