@@ -24,6 +24,8 @@ export function usePosDashboard() {
   const [checklistData, setChecklistData] = useState<any | null>(null);
   const [checkoutSession, setCheckoutSession] = useState<any | null>(null);
 
+  const [unpaidSessions, setUnpaidSessions] = useState<any[]>([]);
+
   // 1. Tải tất cả dữ liệu nền (Tables, Active Sessions, Boxes)
   const fetchAllData = useCallback(async (cId?: string) => {
     const currentCafeId = cId || cafeId;
@@ -212,86 +214,86 @@ export function usePosDashboard() {
     }
   };
 
-  // BƯỚC 10: POST /checkout (Chuyển trạng thái phiên chơi sang UNPAID)
-  const handleCheckoutSession = async (sessionId: string) => {
-    if (!cafeId) return false;
+const handleFetchUnpaidSessions = useCallback(
+  async (olderThanMinutes = 0) => {
+    if (!cafeId) return [];
     try {
-      const payload = {
-        components: [],
-        componentsVerified: true,
-      };
-
-      const res: any = await apiClient.post(
-        `/api/cafes/${cafeId}/pos/sessions/${sessionId}/checkout`,
-        payload
+      const res: any = await apiClient.get(
+        `/api/cafes/${cafeId}/pos/sessions/unpaid?olderThanMinutes=${olderThanMinutes}`
       );
-
-      let checkoutData = res?.data || res;
-
-      // Đồng bộ thêm chi tiết billing nếu dữ liệu trả về chưa đủ subtotal/totalAmount
-      if (
-        checkoutData &&
-        (checkoutData.subtotal === undefined || checkoutData.totalAmount === undefined)
-      ) {
-        const detailRes = await handleGetSessionDetail(sessionId);
-        if (detailRes) {
-          checkoutData = { ...detailRes, ...checkoutData };
-        }
-      }
-
-      setCheckoutSession(checkoutData);
-      await fetchAllData(cafeId);
-      return true;
+      const data = res?.data || res || [];
+      setUnpaidSessions(data);
+      return data;
     } catch (err: any) {
-      alert(err?.message || "Lỗi khi gọi API Checkout phiên chơi.");
-      return false;
+      console.error("Lỗi lấy danh sách phiên Unpaid:", err);
+      return [];
     }
-  };
+  },
+  [cafeId]
+);
+
+// BƯỚC 10: POST /checkout (Chỉ chuyển status sang UNPAID, KHÔNG tự động Pay)
+const handleCheckoutSession = async (sessionId: string) => {
+  if (!cafeId) return null;
+  try {
+    const payload = {
+      components: [],
+      componentsVerified: true,
+    };
+
+    const res: any = await apiClient.post(
+      `/api/cafes/${cafeId}/pos/sessions/${sessionId}/checkout`,
+      payload
+    );
+
+    const checkoutData = res?.data || res;
+
+    // Tải lại toàn bộ dữ liệu bàn & danh sách Unpaid
+    await fetchAllData(cafeId);
+    await handleFetchUnpaidSessions(0);
+
+    return checkoutData; // Trả về object session ở trạng thái Unpaid
+  } catch (err: any) {
+    alert(err?.message || "Lỗi khi thực hiện Checkout phiên chơi.");
+    return null;
+  }
+};
 
   // BƯỚC 11: POST /pay (Thanh toán tổng hóa đơn - PAID & Giải phóng bàn)
-  const handlePaySession = async (
-    sessionId: string,
-    payloadData?: {
-      penaltyItems?: Array<{
-        componentId: string;
-        componentName: string;
-        penaltyAmount: number;
-        responsibleMemberId?: string | null;
-      }>;
-      notes?: string;
-    }
-  ) => {
-    if (!cafeId) return false;
-    try {
-      const payload = {
-        penaltyItems: payloadData?.penaltyItems || [],
-        notes: payloadData?.notes || "Thanh toán thành công tại quầy POS",
-      };
+const handlePaySession = async (
+  sessionId: string,
+  payloadData?: { notes?: string }
+) => {
+  if (!cafeId) return false;
+  try {
+    const payload = {
+      notes: payloadData?.notes || "Thanh toán thành công tại quầy POS",
+    };
 
-      const res: any = await apiClient.post(
-        `/api/cafes/${cafeId}/pos/sessions/${sessionId}/pay`,
-        payload
-      );
+    const res: any = await apiClient.post(
+      `/api/cafes/${cafeId}/pos/sessions/${sessionId}/pay`,
+      payload
+    );
 
-      alert("Thanh toán thành công! Bàn chơi đã được giải phóng.");
+    alert("Thanh toán thành công! Bàn chơi đã được giải phóng.");
 
-      // 1. Đóng Modal ngay lập tức
-      setCheckoutSession(null);
+    // Đóng Modal Thu Tiền
+    setCheckoutSession(null);
 
-      // 2. Xóa thủ công phiên này khỏi local state trước để UI cập nhật tức thì
-      setSessions((prevSessions) =>
-        prevSessions.filter((s) => s.id !== sessionId)
-      );
+    // Xóa ngay phiên khỏi local state Unpaid & Active
+    setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+    setUnpaidSessions((prev) => prev.filter((s) => s.id !== sessionId));
 
-      // 3. Tải lại toàn bộ dữ liệu bàn & kho từ Server
-      await fetchAllData(cafeId);
+    // Tải lại toàn bộ dữ liệu POS (Tables, Sessions, Unpaid)
+    await fetchAllData(cafeId);
+    await handleFetchUnpaidSessions(0);
 
-      return res?.data || res;
-    } catch (err: any) {
-      alert(err?.message || "Không thể thanh toán phiên chơi này.");
-      return false;
-    }
-  };
+    return res?.data || res;
+  } catch (err: any) {
+    alert(err?.message || "Không thể thanh toán phiên chơi này.");
+    return false;
+  }
+};
 
   // Cập nhật thông tin từng bàn (PATCH)
   const handleUpdateTable = async (
@@ -395,16 +397,17 @@ const handleScanBarcode = async () => {
 
   // Lấy lịch sử hộp game 
 const handleFetchBoxHistory = useCallback(
-  async (boxId: string) => {
+  async (boxId: string, sessionId?: string) => {
     if (!cafeId || !boxId) return null;
     try {
-      const res: any = await apiClient.get(
-        `/api/cafes/${cafeId}/pos/boxes/${boxId}/component-history`
-      );
+      const url = sessionId
+        ? `/api/cafes/${cafeId}/pos/boxes/${boxId}/component-history?sessionId=${sessionId}`
+        : `/api/cafes/${cafeId}/pos/boxes/${boxId}/component-history`;
+
+      const res: any = await apiClient.get(url);
       return res?.data || res;
     } catch (err: any) {
       console.error("Lỗi lấy lịch sử kiểm kê hộp game:", err);
-      alert(err?.message || "Không thể lấy lịch sử kiểm kê của hộp game này.");
       return null;
     }
   },
@@ -441,7 +444,9 @@ const handleFetchBoxHistory = useCallback(
     handleOpenChecklist: handleFetchChecklist,
     handleReturnGame,
     handleComponentCheck,
-    handleCheckoutSession,
+    unpaidSessions,
+  handleFetchUnpaidSessions,
+  handleCheckoutSession,
     handlePaySession,
     handleSyncTables,
     handleUpdateTable,
