@@ -11,7 +11,7 @@ import type {
 import { mapApiUser, normalizeUserListResponse } from '../utils/user.mapper';
 import { UserManagementMockService } from './user-management.mock';
 
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_USER_API === 'true';
+const USE_MOCK = false;
 
 export const USER_QUERY_KEYS = {
   list: 'user-management-list',

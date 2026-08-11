@@ -5,7 +5,10 @@ import type { ApiResponse } from '@/shared/types/api.interface';
 import type { LoginResponse } from '@/features/auth/types/auth.interface';
 import { buildLoginUrl, saveReturnUrl } from '@/features/auth/utils/redirect.util';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
+const BASE_URL =
+  typeof window !== 'undefined' && window.location.hostname === 'localhost'
+    ? ''
+    : (process.env.NEXT_PUBLIC_API_BASE_URL ?? '');
 
 /** Axios instance chuẩn cho toàn bộ app */
 export const apiClient = axios.create({
@@ -116,9 +119,25 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Trả về message lỗi từ backend nếu có
+    // Trả về message lỗi từ backend nếu có (envelope + ProblemDetails)
+    const data = error.response?.data as
+      | (ApiResponse & { title?: string; detail?: string; errors?: unknown })
+      | undefined;
+    const fromErrors =
+      data?.errors && typeof data.errors === 'object'
+        ? Object.values(data.errors as Record<string, unknown>)
+            .flat()
+            .map(String)
+            .filter(Boolean)
+            .join('; ')
+        : '';
     const message =
-      error.response?.data?.message ?? error.message ?? 'Đã xảy ra lỗi không xác định.';
+      data?.message ||
+      data?.detail ||
+      data?.title ||
+      fromErrors ||
+      error.message ||
+      'Đã xảy ra lỗi không xác định.';
     return Promise.reject(new Error(message));
   },
 );

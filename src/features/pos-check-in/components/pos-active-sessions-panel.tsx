@@ -85,11 +85,11 @@ export function PosActiveSessionsPanel({
               <Button
                 type="button"
                 variant="outline"
-                className="w-full"
+                className="w-full font-medium border-emerald-300 text-emerald-800 hover:bg-emerald-50"
                 onClick={() => onSelectSession(session)}
               >
-                <Play className="mr-2 h-4 w-4" />
-                Mở phiên
+                <Play className="mr-2 h-4 w-4 text-emerald-600" />
+                Quản lý phiên
               </Button>
             ) : null}
           </CardContent>

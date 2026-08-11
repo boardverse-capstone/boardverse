@@ -4,10 +4,21 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { POS_QUERY_KEYS, PosCheckInService } from '../services/pos-check-in.service';
 
-export function useFloorPlan(cafeId?: string) {
+import type { FloorPlanQueryParams } from '../types/pos-check-in.interface';
+
+export function useFloorPlan(cafeId?: string, params?: FloorPlanQueryParams) {
+  const includeOnlyAvailable = params?.includeOnlyAvailable ?? false;
+  const includeInactive = params?.includeInactive ?? false;
+  const statuses = params?.statuses?.trim() || undefined;
+
   return useQuery({
-    queryKey: [POS_QUERY_KEYS.floorPlan, cafeId],
-    queryFn: () => PosCheckInService.getFloorPlan(cafeId!),
+    queryKey: [POS_QUERY_KEYS.floorPlan, cafeId, includeOnlyAvailable, includeInactive, statuses ?? ''],
+    queryFn: () =>
+      PosCheckInService.getFloorPlan(cafeId!, {
+        includeOnlyAvailable,
+        includeInactive,
+        statuses,
+      }),
     enabled: Boolean(cafeId),
     refetchInterval: 30_000,
     staleTime: 5_000,

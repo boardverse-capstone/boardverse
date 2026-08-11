@@ -81,7 +81,7 @@ export function QrScanPanel({
             <QrCode className="h-5 w-5 shrink-0" />
             Mã QR check-in
           </span>
-          {cafeId ? (
+          {/* {cafeId ? (
             <Button
               type="button"
               variant="outline"
@@ -97,7 +97,7 @@ export function QrScanPanel({
               )}
               Tạo QR Server (App scan)
             </Button>
-          ) : null}
+          ) : null} */}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 md:space-y-5">

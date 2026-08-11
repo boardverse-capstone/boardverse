@@ -21,6 +21,18 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'https://boardverse-server.onrender.com/api/:path*',
+      },
+      {
+        source: '/health/:path*',
+        destination: 'https://boardverse-server.onrender.com/health/:path*',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

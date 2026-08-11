@@ -94,7 +94,7 @@ export function PosBookingList({ embedded = false, onSelectBooking }: PosBooking
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Đặt chỗ quán</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {cafe?.name ?? 'Quán'} · Danh sách booking từ API quán
+            {cafe?.name ?? 'Quán'} · Danh sách đặt chỗ
           </p>
         </div>
       )}

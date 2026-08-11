@@ -1,4 +1,4 @@
-import { UserRole } from '@/core/constants/roles';
+import { UserRole, normalizePortalRole } from '@/core/constants/roles';
 import { ROUTES } from '@/core/constants/routes';
 
 const RETURN_URL_KEY = 'boardverse-return-url';
@@ -21,14 +21,17 @@ export function isAuthPath(pathname: string): boolean {
 }
 
 export function canAccessRoute(role: string, pathname: string): boolean {
-  if (pathname.startsWith('/admin')) return role === UserRole.Admin;
-  if (pathname.startsWith('/manager')) return role === UserRole.Manager;
-  if (pathname.startsWith('/staff')) return role === UserRole.Staff;
+  const normalized = normalizePortalRole(role);
+  if (!normalized) return false;
+  if (pathname.startsWith('/admin')) return normalized === UserRole.Admin;
+  if (pathname.startsWith('/manager')) return normalized === UserRole.Manager;
+  if (pathname.startsWith('/staff')) return normalized === UserRole.Staff;
   return false;
 }
 
 export function getDefaultDashboard(role: string): string {
-  return ROLE_DASHBOARD_MAP[role] ?? ROUTES.AUTH.LOGIN;
+  const normalized = normalizePortalRole(role);
+  return (normalized && ROLE_DASHBOARD_MAP[normalized]) ?? ROUTES.AUTH.LOGIN;
 }
 
 export function isValidReturnUrl(url: string): boolean {

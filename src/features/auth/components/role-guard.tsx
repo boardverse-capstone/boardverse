@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '../store/auth.store';
-import { UserRole } from '@/core/constants/roles';
+import { UserRole, normalizePortalRole } from '@/core/constants/roles';
 import {
   buildLoginUrl,
   getDefaultDashboard,
@@ -29,7 +29,8 @@ export function RoleGuard({ allowedRole, children }: RoleGuardProps) {
     setFullPath(window.location.pathname + window.location.search);
   }, [pathname]);
 
-  const isAuthorized = !!token && !!user && user.role === allowedRole;
+  const userRole = user?.role ? normalizePortalRole(user.role) : null;
+  const isAuthorized = !!token && !!userRole && userRole === allowedRole;
 
   useEffect(() => {
     if (!hasHydrated || hasRedirected.current) return;
@@ -41,11 +42,11 @@ export function RoleGuard({ allowedRole, children }: RoleGuardProps) {
       return;
     }
 
-    if (user.role !== allowedRole) {
+    if (userRole !== allowedRole) {
       hasRedirected.current = true;
       router.replace(getDefaultDashboard(user.role));
     }
-  }, [hasHydrated, token, user, allowedRole, fullPath, router]);
+  }, [hasHydrated, token, user, userRole, allowedRole, fullPath, router]);
 
   if (!hasHydrated || !isAuthorized) {
     return <AuthLoading message="Đang xác minh quyền truy cập..." />;

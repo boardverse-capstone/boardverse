@@ -3,17 +3,17 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, LayoutGrid, Play, Timer, Wifi, Banknote } from 'lucide-react';
+import { toast } from 'sonner';
 import { PageHeader } from '@/components/common/page-header';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { QR_BOOKING_PREFIX } from '@/core/constants/pos-check-in';
 import { POS_QUERY_KEYS } from '../services/pos-check-in.service';
-import { PosCheckInMockService } from '../services/pos-check-in.mock';
 import { useActiveSessions, useFloorPlan, usePendingBookings, useStaffCafe } from '../hooks/usePosCheckIn';
 import { usePosHub, usePosHubCleanup } from '../hooks/usePosHub';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CafeFloorPlan } from './cafe-floor-plan';
 import { PosActiveSessionsPanel } from './pos-active-sessions-panel';
 import { PosBookingList } from './pos-booking-list';
@@ -25,9 +25,19 @@ import type {
   ActivatedSession,
   CafeSessionDetail,
   CafeTable,
+  FloorPlanQueryParams,
+  FloorPlanStatusFilter,
   QrResolveResult,
   TableBooking,
 } from '../types/pos-check-in.interface';
+
+/** Query params cho sơ đồ — luôn lấy đủ bàn; status lọc trên UI sau khi merge */
+function buildFloorPlanParams(includeInactive: boolean): FloorPlanQueryParams {
+  return {
+    includeOnlyAvailable: false,
+    includeInactive,
+  };
+}
 
 function mergeTablesWithActiveSessionsAndBookings(
   baseTables: CafeTable[],
@@ -41,7 +51,16 @@ function mergeTablesWithActiveSessionsAndBookings(
   });
 
   activeSessions.forEach((session) => {
-    if (!session.sessionId) return;
+    // Server còn Active/Checking/Unpaid → luôn hiện Occupied (không tin localStorage paid)
+    const status = String(session.status || '');
+    if (
+      status === 'Completed' ||
+      status === 'Paid' ||
+      status === 'Cancelled' ||
+      !session.sessionId
+    ) {
+      return;
+    }
 
     let targetTable = session.tableId ? tableMap.get(session.tableId) : undefined;
     if (!targetTable && session.tableLabel) {
@@ -86,6 +105,14 @@ function mergeTablesWithActiveSessionsAndBookings(
   bookings.forEach((booking) => {
     if (!booking.tableId) return;
 
+    if (typeof window !== 'undefined') {
+      const isPaidBooking = booking.id && localStorage.getItem(`pos_paid_session_${booking.id}`) === 'true';
+      const isPaidTable =
+        booking.tableLabel &&
+        localStorage.getItem(`pos_paid_table_${booking.tableLabel.toLowerCase().trim()}`) === 'true';
+      if (isPaidBooking || isPaidTable) return;
+    }
+
     let targetTable = tableMap.get(booking.tableId);
     if (!targetTable && booking.tableLabel) {
       for (const t of tableMap.values()) {
@@ -125,24 +152,42 @@ function mergeTablesWithActiveSessionsAndBookings(
 export function PosWorkspace() {
   const queryClient = useQueryClient();
   const { data: cafe, isLoading: cafeLoading } = useStaffCafe();
-  const { data: floorPlan, isLoading: floorLoading } = useFloorPlan(cafe?.id);
+  const [statusFilter, setStatusFilter] = useState<FloorPlanStatusFilter>('all');
+  const [includeInactive, setIncludeInactive] = useState(false);
+  const floorPlanParams = useMemo(
+    () => buildFloorPlanParams(includeInactive),
+    [includeInactive],
+  );
+  const { data: floorPlan, isLoading: floorLoading } = useFloorPlan(cafe?.id, floorPlanParams);
   const { data: bookings = [] } = usePendingBookings(cafe?.id);
   const { data: activeSessions = [] } = useActiveSessions(cafe?.id);
   const { connected: hubConnected } = usePosHub({ enabled: Boolean(cafe?.id) });
   usePosHubCleanup(true);
 
+  const [activeTab, setActiveTab] = useState('floor-plan');
   const [focusedBooking, setFocusedBooking] = useState<TableBooking | null>(null);
   const [checkInOpen, setCheckInOpen] = useState(false);
+  const [walkInOpen, setWalkInOpen] = useState(false);
   const [selectedTableId, setSelectedTableId] = useState<string | undefined>();
   const [selectedTableLabel, setSelectedTableLabel] = useState<string | undefined>();
   const [resolvedBooking, setResolvedBooking] = useState<QrResolveResult | null>(null);
 
-  const sampleCodes = useMemo(() => PosCheckInMockService.getSampleQrCodes(), []);
+  const sampleCodes: Array<{ bookingId: string; qrCode: string; tableLabel: string }> = [];
 
-  const tables = useMemo(
-    () => mergeTablesWithActiveSessionsAndBookings(floorPlan?.tables ?? [], bookings, activeSessions),
+  const allTables = useMemo(
+    () =>
+      mergeTablesWithActiveSessionsAndBookings(
+        floorPlan?.tables ?? [],
+        bookings,
+        activeSessions,
+      ),
     [floorPlan?.tables, bookings, activeSessions],
   );
+
+  const tables = useMemo(() => {
+    if (statusFilter === 'all') return allTables;
+    return allTables.filter((t) => t.status === statusFilter);
+  }, [allTables, statusFilter]);
 
   const activeBooking = focusedBooking ?? resolvedBooking?.booking ?? null;
   const selectedBookingId = checkInOpen ? activeBooking?.id ?? null : null;
@@ -174,14 +219,17 @@ export function PosWorkspace() {
         presentCount: booking.participants.length,
       },
     });
+    setActiveTab('floor-plan');
   }, []);
 
   const handleQrResolved = useCallback((result: QrResolveResult) => {
     setResolvedBooking(result);
     setFocusedBooking(result.booking);
-    setCheckInOpen(false);
+    setCheckInOpen(true);
     setSelectedTableId(result.table.id);
     setSelectedTableLabel(result.table.label);
+    setActiveTab('floor-plan');
+    toast.success(`Đã nhận booking ${result.table.label} — tiếp tục check-in.`);
   }, []);
 
   const handleSessionCompleted = useCallback(() => {
@@ -213,6 +261,7 @@ export function PosWorkspace() {
       if (booking) {
         focusBooking(booking);
         setCheckInOpen(true);
+        setActiveTab('floor-plan');
         return;
       }
 
@@ -234,6 +283,7 @@ export function PosWorkspace() {
       };
       focusBooking(synthetic);
       setCheckInOpen(true);
+      setActiveTab('floor-plan');
     },
     [bookings, cafe?.id, focusBooking],
   );
@@ -295,6 +345,11 @@ export function PosWorkspace() {
         }
       }
 
+      if (table.status === 'Available') {
+        setWalkInOpen(true);
+        return;
+      }
+
       if (table.status === 'Reserved') {
         const booking =
           bookings.find((b) => b.id === table.bookingId) ??
@@ -302,7 +357,7 @@ export function PosWorkspace() {
 
         if (booking) {
           focusBooking(booking);
-          setCheckInOpen(false);
+          setCheckInOpen(true);
           return;
         }
       }
@@ -333,19 +388,11 @@ export function PosWorkspace() {
         SignalR /hubs/pos: {hubConnected ? 'Đã kết nối' : 'Chưa kết nối'}
       </div>
 
-      <Tabs defaultValue="floor-plan" className="w-full space-y-4">
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 bg-muted/60 p-1.5 rounded-xl md:grid-cols-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 bg-muted/60 p-1.5 rounded-xl sm:grid-cols-2">
           <TabsTrigger value="floor-plan" className="gap-2 py-2.5 text-xs font-medium sm:text-sm">
             <LayoutGrid className="h-4 w-4" />
             Sơ đồ bàn & Vận hành
-          </TabsTrigger>
-          <TabsTrigger value="active-sessions" className="gap-2 py-2.5 text-xs font-medium sm:text-sm">
-            <Timer className="h-4 w-4" />
-            Phiên đang chơi ({activeSessions.length})
-          </TabsTrigger>
-          <TabsTrigger value="bookings" className="gap-2 py-2.5 text-xs font-medium sm:text-sm">
-            <CalendarDays className="h-4 w-4" />
-            Danh sách đặt bàn ({bookings.length})
           </TabsTrigger>
           <TabsTrigger value="settlements" className="gap-2 py-2.5 text-xs font-medium sm:text-sm">
             <Banknote className="h-4 w-4" />
@@ -355,14 +402,15 @@ export function PosWorkspace() {
 
         {/* TAB 1: Sơ đồ bàn & Vận hành */}
         <TabsContent value="floor-plan" className="mt-0">
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] md:items-start xl:grid-cols-[minmax(0,1fr)_440px]">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px] md:items-start">
             <Card className="min-h-[380px] md:min-h-[480px]">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center justify-between text-base md:text-lg">
                   <span className="flex items-center gap-2">
                     <LayoutGrid className="h-5 w-5 shrink-0" />
-                    Sơ đồ mặt bằng
+                    Sơ đồ mặt bằng quán
                   </span>
+                  
                 </CardTitle>
               </CardHeader>
               <CardContent className="pb-4 md:pb-6">
@@ -375,73 +423,26 @@ export function PosWorkspace() {
                     tables={tables}
                     selectedTableId={selectedTableId}
                     onSelectTable={handleTableSelect}
+                    statusFilter={statusFilter}
+                    onStatusFilterChange={setStatusFilter}
+                    includeInactive={includeInactive}
+                    onIncludeInactiveChange={setIncludeInactive}
                   />
                 )}
               </CardContent>
             </Card>
 
-            <div className="space-y-4 md:sticky md:top-4 md:max-h-[calc(100dvh-6rem)] md:overflow-y-auto md:overscroll-contain md:pr-1">
-              {selectedBookingId && activeBooking ? (
-                <PosCheckInReception
-                  bookingId={selectedBookingId}
-                  initialBooking={activeBooking}
-                  onClose={handleCloseReception}
-                  onSessionActivated={handleSessionActivated}
-                  onSessionCompleted={handleSessionCompleted}
-                />
-              ) : (
-                <>
-                  <QrScanPanel
-                    cafeId={cafe?.id}
-                    reservationId={activeBooking?.id}
-                    onResolved={handleQrResolved}
-                    presetCode={presetQr}
-                    presetLabel={selectedTableLabel ?? activeBooking?.tableLabel}
-                    sampleCodes={sampleCodes}
-                  />
-
-                  <PosWalkInPanel
-                    cafeId={cafe?.id}
-                    tables={tables}
-                    selectedTableId={selectedTableId}
-                    onStarted={() => {
-                      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.activeSessions] });
-                    }}
-                  />
-                </>
-              )}
+            <div className="space-y-4 md:sticky md:top-4">
+              <QrScanPanel
+                cafeId={cafe?.id}
+                reservationId={activeBooking?.id}
+                onResolved={handleQrResolved}
+                presetCode={presetQr}
+                presetLabel={selectedTableLabel ?? activeBooking?.tableLabel}
+                sampleCodes={sampleCodes}
+              />
             </div>
           </div>
-        </TabsContent>
-
-        {/* TAB 2: Phiên đang chơi */}
-        <TabsContent value="active-sessions" className="mt-0">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                <Timer className="h-5 w-5 shrink-0" />
-                Danh sách phiên đang chơi ({activeSessions.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PosActiveSessionsPanel cafeId={cafe?.id} onSelectSession={handleSelectActiveSession} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* TAB 3: Danh sách đặt bàn */}
-        <TabsContent value="bookings" className="mt-0">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                <CalendarDays className="h-5 w-5 shrink-0" />
-                Danh sách đặt bàn tại quán ({bookings.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PosBookingList embedded onSelectBooking={focusBooking} />
-            </CardContent>
-          </Card>
         </TabsContent>
 
         {/* TAB 4: Giải ngân & Thanh toán */}
@@ -459,6 +460,57 @@ export function PosWorkspace() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Modal Popup Cửa sổ nổi hiển thị duy nhất nội dung của bàn được chọn */}
+      <Dialog
+        open={Boolean(selectedBookingId && activeBooking)}
+        onOpenChange={(open) => {
+          if (!open) handleCloseReception();
+        }}
+      >
+        <DialogContent className="max-w-5xl lg:max-w-6xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-2xl border-emerald-200/80 shadow-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Quản lý {selectedTableLabel || activeBooking?.tableLabel || 'Bàn'}</DialogTitle>
+          </DialogHeader>
+          {selectedBookingId && activeBooking ? (
+            <PosCheckInReception
+              bookingId={selectedBookingId}
+              initialBooking={activeBooking}
+              onClose={handleCloseReception}
+              onSessionActivated={handleSessionActivated}
+              onSessionCompleted={handleSessionCompleted}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Mở phiên chơi trực tiếp cho Bàn trống (Walk-in) */}
+      <Dialog open={walkInOpen} onOpenChange={setWalkInOpen}>
+        <DialogContent className="max-w-lg p-6 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base md:text-lg">
+              <Play className="h-5 w-5 text-emerald-600" />
+              Mở phiên chơi trực tiếp — {selectedTableLabel || 'Bàn trống'}
+            </DialogTitle>
+          </DialogHeader>
+          <PosWalkInPanel
+            cafeId={cafe?.id}
+            tables={allTables}
+            selectedTableId={selectedTableId}
+            onStarted={(session) => {
+              queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.activeSessions] });
+              queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.floorPlan] });
+              setWalkInOpen(false);
+              handleSelectActiveSession({
+                status: 'Active',
+                cafeId: cafe?.id || '',
+                billingModel: 'BY_HOUR',
+                ...session,
+              } as unknown as CafeSessionDetail);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

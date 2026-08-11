@@ -6,11 +6,13 @@ import type {
   CafeSessionDetail,
   CafeTable,
   CompleteSessionResult,
+  ComponentChecklist,
   FloorPlan,
   PaymentCode,
   PosGameBox,
   SessionBill,
   SessionLifecycleStatus,
+  SessionMemberRef,
   TableBooking,
   TableBookingParticipant,
   TableStatus,
@@ -52,6 +54,26 @@ function num(raw: Record<string, unknown>, ...keys: string[]): number {
     }
   }
   return 0;
+}
+
+/** BR-15: cộng theo từng member khi DTO không có totalAmount ở root. */
+export function sumSessionTotalFromMembers(members: unknown[]): number {
+  if (!members.length) return 0;
+  return members.reduce((sum: number, m: unknown) => {
+    const mr = asRecord(m);
+    const explicit = num(mr, 'totalAmount', 'TotalAmount', 'amountDue', 'AmountDue');
+    if (explicit > 0) return sum + explicit;
+    const subtotal = num(mr, 'subtotal', 'Subtotal');
+    const penalty = num(mr, 'penaltyAmount', 'PenaltyAmount');
+    const deposit = num(
+      mr,
+      'depositAppliedAmount',
+      'DepositAppliedAmount',
+      'depositApplied',
+      'DepositApplied',
+    );
+    return sum + Math.max(0, subtotal + penalty - deposit);
+  }, 0);
 }
 
 function mapBookedGame(raw: unknown, fallback?: Partial<BookedGame>): BookedGame {
@@ -226,7 +248,20 @@ export function mapApiBooking(raw: unknown): TableBooking {
     participants,
     sessionStatus: mapSessionStatus(apiStatus),
     sessionId: str(r, 'sessionId', 'activeSessionId', 'SessionId') || undefined,
-    lobbyId: str(r, 'lobbyId', 'LobbyId') || undefined,
+    lobbyId: str(r, 'lobbyId', 'LobbyId') || str(lobbySummary ?? {}, 'lobbyId', 'LobbyId') || undefined,
+    reservationCode:
+      str(
+        r,
+        'reservationCode',
+        'ReservationCode',
+        'lobbyShareCode',
+        'LobbyShareCode',
+      ) ||
+      str(lobbySummary ?? {}, 'reservationCode', 'lobbyShareCode', 'shareCode') ||
+      undefined,
+    bookingCode: str(r, 'bookingCode', 'BookingCode', 'orderId', 'OrderId') || undefined,
+    orderId: str(r, 'orderId', 'OrderId') || undefined,
+    paymentRef: str(r, 'paymentRef', 'PaymentRef') || null,
     apiStatus,
     statusText: str(r, 'statusText', 'StatusText') || apiStatus,
     playerQuantity: playerQuantity || participants.length || undefined,
@@ -273,13 +308,51 @@ export function isPendingCheckInBooking(booking: TableBooking): boolean {
   return booking.sessionStatus === 'Pending';
 }
 
-/** Lấy mã check-in từ booking QR / code (ReservationCode | BookingCode). */
+/** ReservationCode (8 ký tự) hoặc BookingCode legacy BV+số */
+export function isLikelyValidPosCheckInCode(code: string): boolean {
+  const c = code.trim();
+  if (!c) return false;
+  // ReservationCode / lobbyShareCode
+  if (/^[A-Za-z2-9]{8}$/.test(c)) return true;
+  // BookingCode legacy: BV12345678 (không có dấu gạch)
+  if (/^BV\d{4,}$/i.test(c)) return true;
+  // BVC order id
+  if (/^BVC-[A-Z0-9]+$/i.test(c)) return true;
+  return false;
+}
+
+function normalizeCheckInCandidate(raw: string): string {
+  let code = raw.trim();
+  if (code.startsWith(QR_BOOKING_PREFIX)) code = code.slice(QR_BOOKING_PREFIX.length).trim();
+  if (code.startsWith('BV:PAY:')) return '';
+  return code;
+}
+
+/** Lấy mã check-in từ booking — ưu tiên ReservationCode / BookingCode, không dùng verificationQR ảo. */
 export function resolvePosCheckInCode(booking: TableBooking): string {
-  const raw = (booking.qrCode || '').trim();
-  if (!raw) return booking.id;
-  if (raw.startsWith(QR_BOOKING_PREFIX)) return raw.slice(QR_BOOKING_PREFIX.length).trim();
-  if (raw.startsWith('BV:PAY:')) return booking.id;
-  return raw;
+  const candidates = [
+    booking.reservationCode,
+    booking.bookingCode,
+    booking.orderId,
+    booking.paymentRef || '',
+    booking.qrCode,
+    booking.id,
+  ];
+
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const code = normalizeCheckInCandidate(String(raw));
+    if (!code) continue;
+    if (isLikelyValidPosCheckInCode(code)) return code;
+  }
+
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const code = normalizeCheckInCandidate(String(raw));
+    if (code) return code;
+  }
+
+  return booking.id;
 }
 
 function mapPosTableStatus(value: string): TableStatus {
@@ -314,6 +387,7 @@ export function mapApiCafeTable(raw: unknown, index = 0): CafeTable {
     zone: str(r, 'zone', 'area', 'Zone') || 'Khu chính',
     seats: num(r, 'seatCount', 'seats', 'SeatCount') || 4,
     position: { row, col },
+    sortOrder: sortOrder || index,
     status,
     bookingId: str(r, 'bookingId', 'currentBookingId', 'BookingId') || undefined,
     sessionId: str(r, 'sessionId', 'activeSessionId', 'SessionId') || undefined,
@@ -366,19 +440,89 @@ export function buildFloorPlanFromBookings(cafeId: string, bookings: TableBookin
   return { cafeId, tables: Array.from(byTable.values()) };
 }
 
-function mapLifecycleStatus(value: string): SessionLifecycleStatus {
-  const normalized = value.toLowerCase().replace(/[_\s-]/g, '');
+function mapLifecycleStatus(value: string | number): SessionLifecycleStatus {
+  if (typeof value === 'number' || (/^\d+$/.test(String(value)))) {
+    const n = Number(value);
+    // ActiveSessionStatus: Active=0, Checking=1, Unpaid=2, Paid=3 (phổ biến trên backend)
+    // Bỏ qua số kiểu HTTP (200…) — không phải enum lifecycle
+    if (n >= 0 && n <= 3) {
+      if (n === 1) return 'Checking';
+      if (n === 2) return 'Paying';
+      if (n === 3) return 'Completed';
+      return 'Active';
+    }
+  }
+
+  const normalized = String(value).toLowerCase().replace(/[_\s-]/g, '');
+  if (!normalized || normalized === 'success' || normalized === 'ok') return 'Active';
   if (normalized.includes('cancel')) return 'Cancelled';
-  if (normalized.includes('complete') || normalized.includes('done')) return 'Completed';
+  if (normalized.includes('unpaid')) return 'Paying';
+  if (
+    (normalized.includes('paid') && !normalized.includes('unpaid')) ||
+    normalized.includes('complete') ||
+    normalized.includes('done')
+  ) {
+    return 'Completed';
+  }
   if (normalized.includes('pay')) return 'Paying';
   if (normalized === 'checking' || normalized.includes('checking')) return 'Checking';
   return 'Active';
 }
 
-export function mapApiSession(raw: unknown, fallback?: Partial<ActiveSessionDetail>): CafeSessionDetail {
-  const r = asRecord(raw);
+/** Ưu tiên field lifecycle rõ ràng; hỗ trợ IsCheckingInventory từ POS End */
+function pickSessionLifecycleStatus(
+  r: Record<string, unknown>,
+  fallback?: SessionLifecycleStatus,
+): SessionLifecycleStatus {
+  if (r.isCheckingInventory === true || r.IsCheckingInventory === true) {
+    return 'Checking';
+  }
 
-  const gamesArray = Array.isArray(r.games) ? r.games : Array.isArray(r.Games) ? r.Games : [];
+  const dedicated = [
+    r.sessionStatus,
+    r.SessionStatus,
+    r.activeSessionStatus,
+    r.ActiveSessionStatus,
+    r.lifecycleStatus,
+    r.LifecycleStatus,
+  ];
+
+  for (const value of dedicated) {
+    if (value == null || value === '') continue;
+    return mapLifecycleStatus(value as string | number);
+  }
+
+  // `Status` PascalCase thường là domain; `status` có thể lẫn envelope
+  if (r.Status != null && r.Status !== '') {
+    return mapLifecycleStatus(r.Status as string | number);
+  }
+  if (r.status != null && r.status !== '') {
+    const mapped = mapLifecycleStatus(r.status as string | number);
+    const raw = String(r.status).toLowerCase();
+    if (raw !== 'success' && raw !== 'ok') return mapped;
+  }
+
+  return fallback ?? 'Active';
+}
+
+export function mapApiSession(raw: unknown, fallback?: Partial<ActiveSessionDetail>): CafeSessionDetail {
+  const root = asRecord(raw);
+  // Envelope chưa unwrap / nested DTO
+  const nested = root.data ?? root.Data ?? root.session ?? root.Session;
+  const r =
+    nested && typeof nested === 'object' && !Array.isArray(nested)
+      ? { ...root, ...asRecord(nested) }
+      : root;
+
+  const gamesArray = Array.isArray(r.games)
+    ? r.games
+    : Array.isArray(r.Games)
+      ? r.Games
+      : Array.isArray(r.sessionGames)
+        ? r.sessionGames
+        : Array.isArray(r.SessionGames)
+          ? r.SessionGames
+          : [];
   const firstGameRaw = gamesArray.length > 0 ? gamesArray[0] : undefined;
   const nestedGame = r.game ?? r.bookedGame ?? r.Game ?? firstGameRaw;
 
@@ -394,8 +538,8 @@ export function mapApiSession(raw: unknown, fallback?: Partial<ActiveSessionDeta
   });
 
   const membersArray = Array.isArray(r.members) ? r.members : Array.isArray(r.Members) ? r.Members : [];
-  const presentCountFromNum = num(r, 'presentCount', 'PresentCount', 'playerCount', 'PlayerCount', 'memberCount', 'MemberCount');
-  const presentCount = presentCountFromNum || (membersArray.length > 0 ? membersArray.length : 0) || fallback?.presentCount || 0;
+  // Chỉ PresentCount — không map memberCount/playerCount (hay = sức chứa bàn/max game → 4)
+  const presentCountFromNum = num(r, 'presentCount', 'PresentCount');
 
   const guestCountFromNum = num(r, 'guestCount', 'GuestCount');
   const guestCountCalculated = membersArray.length > 0
@@ -404,6 +548,52 @@ export function mapApiSession(raw: unknown, fallback?: Partial<ActiveSessionDeta
         return mr.isGuestSlot === true || mr.IsGuestSlot === true || !mr.userId;
       }).length
     : undefined;
+
+  const sessionGames = gamesArray
+    .map((g: unknown) => {
+      const gr = asRecord(g);
+      const sessionGameId = str(
+        gr,
+        'sessionGameId',
+        'SessionGameId',
+        'activeSessionGameId',
+        'ActiveSessionGameId',
+        'id',
+        'Id',
+      );
+      if (!sessionGameId) return null;
+      return {
+        sessionGameId,
+        gameTemplateId: str(gr, 'gameTemplateId', 'GameTemplateId') || undefined,
+        gameName: str(gr, 'gameName', 'name', 'GameName', 'Name') || undefined,
+        barcode: str(gr, 'boxBarcode', 'barcode', 'Barcode') || undefined,
+      };
+    })
+    .filter((g): g is NonNullable<typeof g> => Boolean(g));
+
+  // Chỉ member API — không pad guest-slot giả theo PresentCount
+  const sessionMembers: SessionMemberRef[] = membersArray.map((m: unknown, index: number) => {
+    const mr = asRecord(m);
+    const userId = str(mr, 'userId', 'UserId') || undefined;
+    return {
+      id:
+        str(mr, 'id', 'memberId', 'sessionMemberId', 'Id', 'MemberId', 'SessionMemberId') ||
+        `member-${index}`,
+      userId,
+      displayName:
+        str(mr, 'displayName', 'DisplayName', 'fullName', 'name', 'Name') ||
+        (index === 0 ? 'Chủ bàn (Host)' : `Khách ${index + 1}`),
+      isGuestSlot:
+        mr.isGuestSlot === true ||
+        mr.IsGuestSlot === true ||
+        Boolean(!userId && index > 0),
+    };
+  });
+
+  const presentCount =
+    sessionMembers.length > 0
+      ? sessionMembers.length
+      : presentCountFromNum || fallback?.presentCount || 0;
 
   return {
     sessionId: str(r, 'sessionId', 'id', 'SessionId', 'Id') || fallback?.sessionId || '',
@@ -421,18 +611,34 @@ export function mapApiSession(raw: unknown, fallback?: Partial<ActiveSessionDeta
         ? 'PER_DRINK'
         : 'BY_HOUR',
     endedAt: str(r, 'endedAt', 'EndedAt') || undefined,
-    status: mapLifecycleStatus(str(r, 'status', 'sessionStatus', 'Status') || 'Active'),
+    status: pickSessionLifecycleStatus(r, fallback?.status),
     guestCount: guestCountFromNum || guestCountCalculated || undefined,
+    members: sessionMembers.length > 0 ? sessionMembers : undefined,
     memberIds: membersArray.length > 0
       ? membersArray.map((m: unknown) => str(asRecord(m), 'userId', 'id', 'UserId')).filter(Boolean)
       : Array.isArray(r.memberIds)
         ? r.memberIds.map(String)
         : undefined,
-    assignedInventoryIds: Array.isArray(r.assignedInventoryIds)
-      ? r.assignedInventoryIds.map(String)
-      : gamesArray.length > 0
-        ? gamesArray.map((g: unknown) => str(asRecord(g), 'boxBarcode', 'barcode', 'id')).filter(Boolean)
-        : undefined,
+    assignedInventoryIds: (() => {
+      const fromField = Array.isArray(r.assignedInventoryIds)
+        ? r.assignedInventoryIds.map(String)
+        : Array.isArray(r.AssignedInventoryIds)
+          ? (r.AssignedInventoryIds as unknown[]).map(String)
+          : [];
+      const fromSessionGames = sessionGames
+        .map((g) => g.barcode)
+        .filter((b): b is string => Boolean(b));
+      const fromGamesRaw = gamesArray
+        .map((g: unknown) => str(asRecord(g), 'boxBarcode', 'barcode', 'Barcode'))
+        .filter(Boolean);
+      const merged = Array.from(new Set([...fromField, ...fromSessionGames, ...fromGamesRaw]));
+      return merged.length > 0 ? merged : undefined;
+    })(),
+    sessionGames: sessionGames.length > 0 ? sessionGames : undefined,
+    totalAmount:
+      num(r, 'totalAmount', 'TotalAmount', 'amountDue', 'AmountDue') ||
+      sumSessionTotalFromMembers(membersArray) ||
+      undefined,
   };
 }
 
@@ -488,9 +694,32 @@ export function mapApiSessionBill(raw: unknown, sessionId = ''): SessionBill {
       : [],
     depositCreditTotal: num(r, 'depositCreditTotal', 'DepositCreditTotal'),
     subtotal: num(r, 'subtotal', 'Subtotal'),
-    totalDue: num(r, 'totalDue', 'amountDue', 'TotalDue'),
+    totalDue: num(r, 'totalDue', 'amountDue', 'TotalDue', 'totalAmount', 'TotalAmount'),
     currency: 'VND',
     calculatedAt: str(r, 'calculatedAt', 'CalculatedAt') || new Date().toISOString(),
+  };
+}
+
+export function mapApiComponentChecklist(raw: unknown, fallbackSessionGameId = ''): ComponentChecklist {
+  const r = asRecord(raw);
+  const componentsRaw = r.components ?? r.Components ?? r.items ?? [];
+  return {
+    sessionGameId: str(r, 'sessionGameId', 'SessionGameId') || fallbackSessionGameId,
+    gameTemplateId: str(r, 'gameTemplateId', 'GameTemplateId') || undefined,
+    gameName: str(r, 'gameName', 'GameName') || undefined,
+    components: Array.isArray(componentsRaw)
+      ? componentsRaw
+          .map((item) => {
+            const c = asRecord(item);
+            return {
+              componentId: str(c, 'componentId', 'ComponentId', 'id', 'Id'),
+              componentName: str(c, 'componentName', 'ComponentName', 'name', 'Name') || 'Linh kiện',
+              componentKind: num(c, 'componentKind', 'ComponentKind') || undefined,
+              expectedQuantity: num(c, 'expectedQuantity', 'ExpectedQuantity') || 0,
+            };
+          })
+          .filter((c) => Boolean(c.componentId))
+      : [],
   };
 }
 
@@ -500,7 +729,7 @@ export function mapApiPaymentCode(raw: unknown): PaymentCode {
   return {
     code: str(r, 'code', 'paymentCode', 'Code'),
     qrPayload: str(r, 'qrPayload', 'qrCode', 'QrPayload') || str(r, 'code', 'paymentCode'),
-    amount: num(r, 'amount', 'totalDue', 'Amount'),
+    amount: num(r, 'amount', 'totalAmount', 'TotalAmount', 'totalDue', 'Amount'),
     expiresAt: str(r, 'expiresAt', 'ExpiresAt'),
     status: statusRaw.includes('paid')
       ? 'Paid'
@@ -512,14 +741,43 @@ export function mapApiPaymentCode(raw: unknown): PaymentCode {
 
 export function mapApiCompleteSession(raw: unknown, sessionId: string): CompleteSessionResult {
   const r = asRecord(raw);
-  const billRaw = r.bill ?? r.Bill ?? r;
+  const billRaw = r.bill ?? r.Bill ?? r.invoice ?? r.Invoice;
   const paymentRaw = r.paymentCode ?? r.payment ?? r.PaymentCode ?? {};
 
+  let bill = mapApiSessionBill(billRaw ?? {}, sessionId);
+
+  // Checkout thường trả ActiveSessionDto — lấy totalAmount trên root nếu bill trống
+  if (!bill.totalDue) {
+    const total = num(r, 'totalAmount', 'TotalAmount', 'amountDue', 'AmountDue');
+    if (total > 0) {
+      bill = {
+        ...bill,
+        sessionId: bill.sessionId || sessionId,
+        bookingId: bill.bookingId || str(r, 'bookingId', 'BookingId'),
+        totalDue: total,
+        subtotal: total + num(r, 'depositCreditTotal', 'DepositCreditTotal'),
+        depositCreditTotal: num(r, 'depositCreditTotal', 'DepositCreditTotal'),
+        lineItems:
+          bill.lineItems.length > 0
+            ? bill.lineItems
+            : [
+                {
+                  id: 'session-total',
+                  label: 'Tổng hóa đơn phiên chơi',
+                  quantity: 1,
+                  unitPrice: total,
+                  amount: total,
+                },
+              ],
+      };
+    }
+  }
+
   return {
-    sessionId: str(r, 'sessionId', 'SessionId') || sessionId,
-    bookingId: str(r, 'bookingId', 'BookingId'),
-    tableId: str(r, 'tableId', 'TableId'),
-    bill: mapApiSessionBill(billRaw, sessionId),
+    sessionId: str(r, 'sessionId', 'SessionId', 'id', 'Id') || sessionId,
+    bookingId: str(r, 'bookingId', 'BookingId') || bill.bookingId,
+    tableId: str(r, 'tableId', 'TableId', 'cafeTableId'),
+    bill,
     paymentCode: mapApiPaymentCode(paymentRaw),
     completedAt: str(r, 'completedAt', 'CompletedAt') || new Date().toISOString(),
   };
@@ -528,6 +786,9 @@ export function mapApiCompleteSession(raw: unknown, sessionId: string): Complete
 /** CafeInventoryBoxDto — GET /api/cafes/{cafeId}/pos/boxes */
 export function mapApiPosGameBox(raw: unknown): PosGameBox {
   const r = asRecord(raw);
+  const nestedGame = asRecord(
+    r.game ?? r.Game ?? r.gameTemplate ?? r.GameTemplate ?? r.template ?? r.Template,
+  );
   return {
     id: str(
       r,
@@ -554,6 +815,28 @@ export function mapApiPosGameBox(raw: unknown): PosGameBox {
         'CafeInventoryId',
       ) || null,
     cafeId: str(r, 'cafeId', 'CafeId') || null,
+    imageUrl:
+      str(
+        r,
+        'imageUrl',
+        'ImageUrl',
+        'thumbnailUrl',
+        'ThumbnailUrl',
+        'coverUrl',
+        'CoverUrl',
+        'gameImageUrl',
+        'GameImageUrl',
+      ) ||
+      str(
+        nestedGame,
+        'imageUrl',
+        'ImageUrl',
+        'thumbnailUrl',
+        'ThumbnailUrl',
+        'coverUrl',
+        'CoverUrl',
+      ) ||
+      null,
   };
 }
 

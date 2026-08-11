@@ -25,6 +25,11 @@ function invalidateSessionQueries(
   queryClient: ReturnType<typeof useQueryClient>,
   opts: { bookingId?: string; cafeId?: string; sessionId?: string },
 ) {
+  queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.activeSessions] });
+  queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.activeSession] });
+  queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.floorPlan] });
+  queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.bookings] });
+
   if (opts.bookingId) {
     queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.booking, opts.bookingId] });
     queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.activeSession, opts.bookingId] });
@@ -32,8 +37,9 @@ function invalidateSessionQueries(
   if (opts.cafeId) {
     queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.bookings, opts.cafeId] });
     queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.floorPlan, opts.cafeId] });
+    queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.activeSessions, opts.cafeId] });
   }
-  if (opts.cafeId && opts.sessionId) {
+  if (opts.sessionId) {
     queryClient.invalidateQueries({
       queryKey: [POS_QUERY_KEYS.session, opts.cafeId, opts.sessionId],
     });
@@ -128,17 +134,24 @@ export function useCheckOutBooking(cafeId?: string) {
 }
 
 export function useCalculateBill(sessionId: string, cafeId?: string) {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: () => PosCheckInService.calculateBill(sessionId, cafeId),
+    onSuccess: () => {
+      invalidateSessionQueries(queryClient, { cafeId, sessionId });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.activeSessions] });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.floorPlan] });
+    },
   });
 }
 
 export function useGeneratePaymentCode(sessionId: string, cafeId?: string) {
   return useMutation({
-    mutationFn: (payload?: PaySessionPayload) =>
-      cafeId
-        ? PosCheckInService.paySession(cafeId, sessionId, payload)
-        : PosCheckInService.generatePaymentCode(sessionId, cafeId),
+    mutationFn: (payload?: PaySessionPayload & { bill?: SessionBill }) => {
+      if (!cafeId) throw new Error('Thiếu mã quán.');
+      return PosCheckInService.generatePaymentCode(sessionId, cafeId, payload?.bill);
+    },
   });
 }
 
@@ -146,21 +159,53 @@ export function useCompleteSession(bookingId: string, cafeId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (sessionId: string) => PosCheckInService.completeSession(sessionId, cafeId),
-    onSuccess: (_result: CompleteSessionResult, sessionId) => {
-      invalidateSessionQueries(queryClient, { bookingId, cafeId, sessionId });
+    mutationFn: (args: { sessionId: string; bill?: SessionBill }) =>
+      PosCheckInService.completeSession(args.sessionId, cafeId, args.bill),
+    onSuccess: (_result: CompleteSessionResult, args) => {
+      invalidateSessionQueries(queryClient, {
+        bookingId,
+        cafeId,
+        sessionId: args.sessionId,
+      });
       queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.bookings] });
       queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.floorPlan] });
     },
   });
 }
 
-export function useEndGame(cafeId: string, sessionId: string) {
+export function useManualConfirmPayment(cafeId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (params: { sessionId: string; amount: number; notes?: string }) =>
+      PosCheckInService.manualConfirmPayment(params),
+    onSuccess: (_void, params) => {
+      invalidateSessionQueries(queryClient, { cafeId, sessionId: params.sessionId });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.floorPlan] });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.activeSessions] });
+    },
+  });
+}
+
+export function useEndGame(cafeId: string, sessionId: string, bookingId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: () => PosCheckInService.endGame(cafeId, sessionId),
-    onSuccess: () => invalidateSessionQueries(queryClient, { cafeId, sessionId }),
+    onSuccess: (session) => {
+      const bid = bookingId || session.bookingId;
+      // Giữ đúng status server trả về (không ép Checking giả)
+      const next = {
+        ...session,
+        bookingId: bid || session.bookingId,
+      };
+      if (bid) {
+        queryClient.setQueryData([POS_QUERY_KEYS.activeSession, bid], next);
+      }
+      queryClient.setQueryData([POS_QUERY_KEYS.session, cafeId, sessionId], next);
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.activeSessions] });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.floorPlan] });
+    },
   });
 }
 
