@@ -3,8 +3,21 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { apiClient } from "@/core/api/client";
+import { UserRole, normalizePortalRole } from "@/core/constants/roles";
+import { useAuthStore } from "@/features/auth/store/auth.store";
+import { PosCheckInService } from "@/features/pos-check-in/services/pos-check-in.service";
 
-export function usePosDashboard() {
+function myCafesPath(role: UserRole | null): string {
+  if (role === UserRole.Staff) return "/api/staff/my-cafes";
+  return "/api/manager/my-cafes";
+}
+
+export function usePosDashboard(opts?: { initialBookingCode?: string }) {
+  const rawRole = useAuthStore((s) => s.user?.role);
+  const hasHydrated = useAuthStore((s) => s._hasHydrated);
+  const role = normalizePortalRole(rawRole ?? "") ?? null;
+  const canConfigureTables = role === UserRole.Manager;
+
   const [cafeId, setCafeId] = useState<string | null>(null);
   const [tables, setTables] = useState<any[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
@@ -17,7 +30,7 @@ export function usePosDashboard() {
   // States hỗ trợ Workflow POS
   const [scannedBarcode, setScannedBarcode] = useState("");
   const [scannedBox, setScannedBox] = useState<any | null>(null);
-  const [bookingCode, setBookingCode] = useState("");
+  const [bookingCode, setBookingCode] = useState(opts?.initialBookingCode ?? "");
   const [bookingPreview, setBookingPreview] = useState<any | null>(null);
 
   // States Checklist & Checkout Modal
@@ -61,16 +74,21 @@ export function usePosDashboard() {
     }
   }, [cafeId]);
 
-  // Khởi tạo ban đầu: Lấy cafeId quản lý và tải dữ liệu 1 lần duy nhất
+  // Khởi tạo: lấy cafe theo role (Manager / Staff) sau khi auth hydrate
   useEffect(() => {
+    if (!hasHydrated) return;
     if (isInitialFetched.current) return;
+    if (!role) {
+      setLoading(false);
+      return;
+    }
 
     const init = async () => {
       try {
-        const res: any = await apiClient.get("/api/manager/my-cafes");
+        const res: any = await apiClient.get(myCafesPath(role));
         const list = res?.data || res || [];
         if (list.length > 0) {
-          const cid = list[0].id;
+          const cid = list[0].id ?? list[0].Id ?? list[0].cafeId;
           setCafeId(cid);
           isInitialFetched.current = true;
           await fetchAllData(cid);
@@ -84,7 +102,7 @@ export function usePosDashboard() {
     };
 
     init();
-  }, [fetchAllData]);
+  }, [fetchAllData, role, hasHydrated]);
 
   // BƯỚC 2: Preview Đơn Đặt Chỗ (MDC)
   const handlePreviewBooking = async (code: string) => {
@@ -100,23 +118,95 @@ export function usePosDashboard() {
     }
   };
 
-  // BƯỚC 3a: Check-in Đơn Đặt Chỗ (MDC) -> ACTIVE
+  // BƯỚC 3a: Check-in — resolve bằng cafeId Manager, fallback bookingCode
   const handleBookingCheckIn = async () => {
     if (!cafeId || !bookingCode.trim()) {
       alert("Vui lòng nhập Booking Code!");
       return false;
     }
+    const code = bookingCode.trim();
     try {
-      await apiClient.post(`/api/cafes/${cafeId}/pos/check-in`, {
-        bookingCode: bookingCode.trim(),
-      });
-      alert("Check-in MDC thành công!");
+      let checkedIn = false;
+      try {
+        const preview = await PosCheckInService.previewPosBooking(cafeId, code);
+        const bookings = await PosCheckInService.getCafeBookings(cafeId);
+        const found = bookings.find(
+          (b) =>
+            b.id === code ||
+            b.reservationCode === code ||
+            b.bookingCode === code ||
+            b.qrCode === code ||
+            b.qrCode === `BV:${code}` ||
+            b.qrCode?.endsWith(code),
+        );
+        if (found && scannedBarcode.trim()) {
+          await PosCheckInService.posCheckIn(cafeId, {
+            cafeTableId: found.tableId,
+            barcode: scannedBarcode.trim(),
+            code:
+              found.reservationCode ||
+              found.bookingCode ||
+              preview.bookingCode ||
+              code,
+            bookingId: found.id,
+            lobbyId: found.lobbyId,
+          });
+          checkedIn = true;
+        }
+      } catch {
+        // fall through
+      }
+
+      if (!checkedIn) {
+        await apiClient.post(`/api/cafes/${cafeId}/pos/check-in`, {
+          bookingCode: code,
+          code,
+        });
+      }
+
+      alert("Check-in thành công!");
       setBookingCode("");
       setBookingPreview(null);
       await fetchAllData(cafeId);
       return true;
     } catch (err: any) {
-      alert(err?.message || "Check-in MDC thất bại.");
+      alert(err?.message || "Check-in thất bại.");
+      return false;
+    }
+  };
+
+  const handleAddGuest = async (sessionId: string, displayName: string) => {
+    if (!cafeId) return false;
+    try {
+      await PosCheckInService.addGuestSlots(cafeId, sessionId, { displayName });
+      await fetchAllData(cafeId);
+      return true;
+    } catch (err: any) {
+      alert(err?.message || "Không thêm được khách vãng lai.");
+      return false;
+    }
+  };
+
+  const handleManualConfirmCash = async (
+    sessionId: string,
+    amount: number,
+    notes?: string,
+  ) => {
+    if (!cafeId) return false;
+    try {
+      await PosCheckInService.manualConfirmPayment({
+        sessionId,
+        amount,
+        notes,
+        cafeId,
+      });
+      alert("Đã xác nhận thanh toán tiền mặt.");
+      setCheckoutSession(null);
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      await fetchAllData(cafeId);
+      return true;
+    } catch (err: any) {
+      alert(err?.message || "Xác nhận tiền mặt thất bại.");
       return false;
     }
   };
@@ -446,5 +536,9 @@ const handleFetchBoxHistory = useCallback(
     handleSyncTables,
     handleUpdateTable,
     handleFetchBoxHistory,
+    handleAddGuest,
+    handleManualConfirmCash,
+    canConfigureTables,
+    role,
   };
 }

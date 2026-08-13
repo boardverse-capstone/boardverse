@@ -76,8 +76,8 @@ export function AdjustKarmaDialog({ userId, username, currentKarma }: AdjustKarm
           <DialogHeader>
             <DialogTitle>Điều chỉnh Karma — {username}</DialogTitle>
             <DialogDescription>
-              Karma hiện tại: <strong>{currentKarma}</strong>. Nhập số nguyên âm hoặc dương để
-              cộng/trừ điểm (PUT /api/UserManagement/{'{id}'}).
+              Karma hiện tại: <strong>{currentKarma}</strong>. Nhập số nguyên từ ±1 đến ±100
+              cùng lý do điều chỉnh.
             </DialogDescription>
           </DialogHeader>
 

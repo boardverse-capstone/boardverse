@@ -460,11 +460,15 @@ export function normalizePartnerListResponse(
 
   if (Array.isArray(raw)) {
 
-    const data = raw.map(mapApiPartnerApplication);
+    const all = raw.map(mapApiPartnerApplication);
 
-    const totalItems = data.length;
+    const totalItems = all.length;
 
-    const totalPages = Math.max(1, Math.ceil(totalItems / params.limit));
+    const totalPages = Math.max(1, Math.ceil(totalItems / Math.max(params.limit, 1)));
+
+    const start = (Math.max(params.page, 1) - 1) * params.limit;
+
+    const data = all.slice(start, start + params.limit);
 
 
 
@@ -494,15 +498,23 @@ export function normalizePartnerListResponse(
 
 
 
-  const items = extractItems(raw).map(mapApiPartnerApplication);
+  const allItems = extractItems(raw).map(mapApiPartnerApplication);
+
+  const meta = extractMeta(raw, params, allItems.length);
+
+  // BE đôi khi trả full list dù có page — cắt theo page/limit của FE
+  const data =
+    allItems.length > meta.limit
+      ? allItems.slice((Math.max(meta.currentPage, 1) - 1) * meta.limit, meta.currentPage * meta.limit)
+      : allItems;
 
 
 
   return {
 
-    data: items,
+    data,
 
-    meta: extractMeta(raw, params, items.length),
+    meta,
 
   };
 

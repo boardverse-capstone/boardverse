@@ -1,72 +1,96 @@
-import { KARMA_WARNING_THRESHOLD } from '@/core/constants/behavior-monitoring';
-import { isPlayerRole } from '@/core/constants/user-management';
-import { UserManagementService } from '@/features/user-management/services/user-management.service';
-import type { ManagedUser } from '@/features/user-management/types/user.interface';
-import type { LowKarmaUser } from '../types/behavior.interface';
+import apiClient from '@/core/api/client';
+import type {
+  LowKarmaUser,
+  PunishUserRequest,
+  PunishUserResponse,
+} from '../types/behavior.interface';
+import { normalizeUserAlertsResponse } from '../utils/karma-log.mapper';
 
-function toLowKarmaUser(user: ManagedUser): LowKarmaUser | null {
-  if (user.karmaPoints == null) return null;
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_BEHAVIOR_API === 'true';
 
-  return {
-    id: user.id,
-    username: user.username,
-    email: user.email,
-    karmaPoints: user.karmaPoints,
-    role: user.role,
-    isBlocked: user.isBlocked,
-  };
-}
-
-async function fetchAllUsers(search?: string): Promise<ManagedUser[]> {
-  const pageSize = 100;
-  let page = 1;
-  let allUsers: ManagedUser[] = [];
-  let totalPages = 1;
-
-  do {
-    const response = await UserManagementService.getUsers({
-      page,
-      limit: pageSize,
-      search,
-    });
-    allUsers = allUsers.concat(response.data);
-    totalPages = response.meta.totalPages;
-    page += 1;
-  } while (page <= totalPages && page <= 10);
-
-  return allUsers;
-}
-
-async function enrichUsersWithKarma(users: ManagedUser[]): Promise<ManagedUser[]> {
-  const missingKarma = users.filter((user) => user.karmaPoints == null);
-  if (missingKarma.length === 0) return users;
-
-  const enriched = await Promise.all(
-    missingKarma.map(async (user) => {
-      try {
-        return await UserManagementService.getUserById(user.id);
-      } catch {
-        return user;
-      }
-    }),
-  );
-
-  const enrichedById = new Map(enriched.map((user) => [user.id, user]));
-  return users.map((user) => enrichedById.get(user.id) ?? user);
-}
+const MOCK_ALERTS: LowKarmaUser[] = [
+  {
+    id: '092bbcf3-e729-43b5-8913-898961babc99',
+    username: 'jonny',
+    email: 'jonny@example.com',
+    karmaPoints: 42,
+    role: 'Player',
+    isBlocked: false,
+    gamerTier: 'Bronze',
+  },
+  {
+    id: '74b0b478-8ca3-4557-8576-fb471c03c562',
+    username: 'test1',
+    email: 'test1@example.com',
+    karmaPoints: 35,
+    role: 'Player',
+    isBlocked: false,
+    gamerTier: 'Bronze',
+  },
+];
 
 export const BehaviorSanctionService = {
+  /** GET /api/v1/admin/users/alerts — user có Karma < 50 */
   getLowKarmaUsers: async (search?: string): Promise<LowKarmaUser[]> => {
-    const allUsers = await fetchAllUsers(search);
-    const players = allUsers.filter((user) => isPlayerRole(user.role));
-    const withKarma = await enrichUsersWithKarma(players);
+    if (USE_MOCK) {
+      const q = search?.trim().toLowerCase() ?? '';
+      if (!q) return MOCK_ALERTS;
+      return MOCK_ALERTS.filter(
+        (user) =>
+          user.username.toLowerCase().includes(q) ||
+          user.email.toLowerCase().includes(q) ||
+          user.id.toLowerCase().includes(q),
+      );
+    }
 
-    return withKarma
-      .map(toLowKarmaUser)
+    const raw = await apiClient.get<never, unknown>('/api/v1/admin/users/alerts');
+    const users = normalizeUserAlertsResponse(raw);
+    const q = search?.trim().toLowerCase() ?? '';
+    if (!q) return users.sort((a, b) => a.karmaPoints - b.karmaPoints);
+
+    return users
       .filter(
-        (user): user is LowKarmaUser =>
-          user != null && user.karmaPoints < KARMA_WARNING_THRESHOLD,
+        (user) =>
+          user.username.toLowerCase().includes(q) ||
+          user.email.toLowerCase().includes(q) ||
+          user.id.toLowerCase().includes(q),
       )
       .sort((a, b) => a.karmaPoints - b.karmaPoints);
+  },
+
+  /** POST /api/v1/admin/users/{id}/punish */
+  punishUser: async (userId: string, payload: PunishUserRequest): Promise<PunishUserResponse> => {
+    if (USE_MOCK) {
+      return {
+        userId,
+        actionType: payload.actionType,
+        accountStatus:
+          payload.actionType === 'Warning'
+            ? 'Active'
+            : payload.actionType === 'Suspend'
+              ? 'Suspended'
+              : 'Banned',
+        lockoutEndDate: null,
+        reason: payload.reason,
+      };
+    }
+
+    const body: Record<string, unknown> = {
+      actionType: payload.actionType,
+      reason: payload.reason,
+    };
+    if (payload.actionType === 'Suspend') {
+      body.durationDays = payload.durationDays;
+    }
+
+    const raw = await apiClient.post<never, PunishUserResponse | { data: PunishUserResponse }>(
+      `/api/v1/admin/users/${userId}/punish`,
+      body,
+    );
+
+    if (raw && typeof raw === 'object' && 'data' in raw && raw.data) {
+      return raw.data;
+    }
+    return raw as PunishUserResponse;
   },
 };

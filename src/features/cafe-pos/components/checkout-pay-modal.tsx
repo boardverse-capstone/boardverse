@@ -33,6 +33,12 @@ export interface CheckoutPayModalProps {
       notes?: string;
     },
   ) => Promise<any>;
+  /** Xác nhận tiền mặt qua staff flow (manual-confirm) — port từ pos-check-in */
+  onManualConfirmCash?: (
+    sessionId: string,
+    amount: number,
+    notes?: string,
+  ) => Promise<boolean>;
 }
 
 // Danh sách các trường hợp ghi chú phổ biến
@@ -50,6 +56,7 @@ export function CheckoutPayModal({
   session,
   onCheckout,
   onPay,
+  onManualConfirmCash,
 }: CheckoutPayModalProps) {
   const [selectedPreset, setSelectedPreset] =
     useState<string>("Không bị mất đồ");
@@ -158,6 +165,22 @@ export function CheckoutPayModal({
     if (result) {
       onClose();
     }
+  };
+
+  const handleManualCash = async () => {
+    if (!onManualConfirmCash || finalTotalAmount <= 0) return;
+    setLoading(true);
+    const finalNotes =
+      selectedPreset === "OTHER"
+        ? customNote.trim() || "Thanh toán tiền mặt tại quầy"
+        : selectedPreset;
+    const ok = await onManualConfirmCash(
+      session.id,
+      finalTotalAmount,
+      finalNotes,
+    );
+    setLoading(false);
+    if (ok) onClose();
   };
 
   return (
@@ -331,7 +354,7 @@ export function CheckoutPayModal({
         </div>
 
         {/* FOOTER ACTIONS */}
-        <div className="pt-3 border-t border-neutral-100 flex justify-end gap-2">
+        <div className="pt-3 border-t border-neutral-100 flex flex-wrap justify-end gap-2">
           <Button
             type="button"
             variant="outline"
@@ -340,6 +363,18 @@ export function CheckoutPayModal({
           >
             Hủy
           </Button>
+
+          {onManualConfirmCash && finalTotalAmount > 0 && (
+            <Button
+              type="button"
+              disabled={loading}
+              variant="outline"
+              onClick={() => void handleManualCash()}
+              className="h-9 border-emerald-300 text-xs font-bold text-emerald-800 rounded-lg px-3"
+            >
+              {loading ? "Đang xử lý..." : "Xác nhận tiền mặt"}
+            </Button>
+          )}
 
           <Button
             type="button"

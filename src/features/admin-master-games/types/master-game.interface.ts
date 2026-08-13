@@ -13,6 +13,31 @@ export interface CreateMasterGameComponentRequest {
 
 export interface UpdateMasterGameComponentRequest extends CreateMasterGameComponentRequest {}
 
+export interface UpdateMasterGameMetadataRequest {
+  name?: string;
+  description?: string;
+  minPlayers?: number;
+  maxPlayers?: number;
+  playTimeMinutes?: number;
+  designer?: string;
+  yearPublished?: number;
+}
+
+export interface UpdateMasterGameThumbnailRequest {
+  thumbnailUrl: string;
+}
+
+export interface SetMasterGameCategoriesRequest {
+  categoryIds: string[];
+}
+
+export interface MasterGameCategoryLink {
+  id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+}
+
 export interface RawMasterGameComponent {
   componentId?: string;
   ComponentId?: string;
@@ -20,10 +45,25 @@ export interface RawMasterGameComponent {
   Id?: string;
   name?: string;
   Name?: string;
+  componentName?: string;
+  ComponentName?: string;
   type?: string;
   Type?: string;
+  componentKind?: string | number;
+  ComponentKind?: string | number;
   defaultQuantity?: number;
   DefaultQuantity?: number;
   quantityInBox?: number;
   QuantityInBox?: number;
+}
+
+export interface RawMasterGameCategoryLink {
+  id?: string;
+  Id?: string;
+  name?: string;
+  Name?: string;
+  slug?: string;
+  Slug?: string;
+  isActive?: boolean;
+  IsActive?: boolean;
 }

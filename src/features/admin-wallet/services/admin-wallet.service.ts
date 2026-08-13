@@ -14,11 +14,19 @@ import type {
   RawAdminWalletListResponse,
   RawAdminWalletTransactionsPage,
 } from '../types/wallet.interface';
+import type {
+  AdminRefundListPage,
+  AdminRefundListParams,
+  AdminRefundRequest,
+  RawAdminRefundRequest,
+  ResolveRefundRequest,
+} from '../types/refund.interface';
 import {
   mapApiAdminWalletDetail,
   normalizeAdminWalletListResponse,
   normalizeAdminWalletTransactionsPage,
 } from '../utils/wallet.mapper';
+import { mapApiRefundRequest, normalizeRefundListResponse } from '../utils/refund.mapper';
 import { AdminWalletMockService } from './admin-wallet.mock';
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_WALLET_API === 'true';
@@ -27,6 +35,8 @@ export const ADMIN_WALLET_QUERY_KEYS = {
   list: 'admin-wallet-list',
   detail: 'admin-wallet-detail',
   transactions: 'admin-wallet-transactions',
+  refunds: 'admin-wallet-refunds',
+  refundDetail: 'admin-wallet-refund-detail',
 } as const;
 
 export const AdminWalletService = {
@@ -103,5 +113,56 @@ export const AdminWalletService = {
       '/api/v1/admin/wallet/adjust',
       payload,
     );
+  },
+
+  /** GET /api/v1/admin/wallet/refund-requests */
+  getRefundRequests: async (params: AdminRefundListParams): Promise<AdminRefundListPage> => {
+    const raw = await apiClient.get<never, unknown>('/api/v1/admin/wallet/refund-requests', {
+      params: {
+        page: params.page,
+        pageSize: params.limit,
+        status: params.status && params.status !== 'all' ? params.status : undefined,
+        userId: params.userId || undefined,
+      },
+    });
+    return normalizeRefundListResponse(raw, params);
+  },
+
+  /** GET /api/v1/admin/wallet/refund-requests/{requestId} */
+  getRefundRequestById: async (requestId: string): Promise<AdminRefundRequest> => {
+    const raw = await apiClient.get<never, RawAdminRefundRequest>(
+      `/api/v1/admin/wallet/refund-requests/${requestId}`,
+    );
+    return mapApiRefundRequest(raw);
+  },
+
+  /** POST /api/v1/admin/wallet/refund-requests/{requestId}/resolve */
+  resolveRefundRequest: async (
+    requestId: string,
+    payload: ResolveRefundRequest,
+  ): Promise<AdminRefundRequest> => {
+    const body: Record<string, unknown> = {
+      approve: payload.approve,
+      adminNote: payload.adminNote,
+    };
+    if (payload.approve) {
+      body.approvedAmountBvc = payload.approvedAmountBvc;
+    }
+
+    const idempotencyKey =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `refund-resolve-${requestId}-${Date.now()}`;
+
+    const raw = await apiClient.post<never, RawAdminRefundRequest>(
+      `/api/v1/admin/wallet/refund-requests/${requestId}/resolve`,
+      body,
+      {
+        headers: {
+          'Idempotency-Key': idempotencyKey,
+        },
+      },
+    );
+    return mapApiRefundRequest(raw);
   },
 };

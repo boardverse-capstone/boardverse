@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { X, LogOut, Clock, Users, AlertCircle } from "lucide-react";
-import { ActiveSession } from "./active-sessions-tab";
+
+type ActiveSession = {
+  id: string;
+  tableName?: string;
+  hostName?: string;
+  elapsedMinutes?: number;
+  members?: unknown[];
+};
 
 interface EndSessionModalProps {
   isOpen: boolean;

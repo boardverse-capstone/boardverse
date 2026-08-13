@@ -14,6 +14,11 @@ import {
   IconCategory,
   IconComponents,
   IconWallet,
+  IconTrophy,
+  IconChartBar,
+  IconCash,
+  IconCreditCard,
+  IconReceiptRefund,
 } from '@tabler/icons-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { RoleGuard } from '@/features/auth/components/role-guard';
@@ -57,6 +62,31 @@ const ADMIN_NAV: NavItem[] = [
     title: 'Wallets',
     url: ROUTES.ADMIN.WALLETS,
     icon: <IconWallet />,
+  },
+  {
+    title: 'Hoàn BVC',
+    url: ROUTES.ADMIN.REFUND_REQUESTS,
+    icon: <IconReceiptRefund />,
+  },
+  {
+    title: 'Giải đấu',
+    url: ROUTES.ADMIN.TOURNAMENTS,
+    icon: <IconTrophy />,
+  },
+  {
+    title: 'Báo cáo',
+    url: ROUTES.ADMIN.REPORTS,
+    icon: <IconChartBar />,
+  },
+  {
+    title: 'Settlement override',
+    url: ROUTES.ADMIN.SETTLEMENTS,
+    icon: <IconCash />,
+  },
+  {
+    title: 'SePay accounts',
+    url: ROUTES.ADMIN.SEPAY_ACCOUNTS,
+    icon: <IconCreditCard />,
   },
   {
     title: 'Karma',

@@ -116,11 +116,12 @@ export function ViolationProcessDialog({ user, open, onOpenChange }: ViolationPr
 
           {penaltyType === 'timed_block' && (
             <div className="space-y-2">
-              <Label htmlFor="blockDays">Số ngày khóa</Label>
+              <Label htmlFor="blockDays">Số ngày Suspend (1–365)</Label>
               <Input
                 id="blockDays"
                 type="number"
                 min={1}
+                max={365}
                 placeholder="Ví dụ: 7"
                 disabled={mutation.isPending}
                 {...register('blockDays', { valueAsNumber: true })}

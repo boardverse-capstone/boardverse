@@ -17,6 +17,7 @@ interface UserDetailPanelProps {
   onBlock?: () => void;
   onUnblock?: () => void;
   onDisable?: () => void;
+  onChangeRole?: () => void;
   isActionPending?: boolean;
 }
 
@@ -27,6 +28,7 @@ export function UserDetailPanel({
   onBlock,
   onUnblock,
   onDisable,
+  onChangeRole,
   isActionPending,
 }: UserDetailPanelProps) {
   const actionTarget = user ? toUserActionTarget(user) : null;
@@ -65,6 +67,17 @@ export function UserDetailPanel({
                 username={user.username}
                 currentKarma={user.karmaPoints ?? 100}
               />
+              {onChangeRole && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isActionPending}
+                  onClick={onChangeRole}
+                >
+                  <IconShield className="mr-2 h-4 w-4" />
+                  Đổi role
+                </Button>
+              )}
               {user.isBlocked ? (
                 <Button
                   size="sm"

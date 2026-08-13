@@ -47,10 +47,10 @@ export function BehaviorWarningCards() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <p className="text-sm text-muted-foreground">
-          Hiển thị tài khoản Player có Karma &lt; {KARMA_WARNING_THRESHOLD}.
+          Hiển thị tài khoản có Karma &lt; {KARMA_WARNING_THRESHOLD}.
         </p>
         <Input
-          placeholder="Lọc theo tên hoặc email..."
+          placeholder="Lọc theo tên, email hoặc ID..."
           className="w-full max-w-xs border-rose-200 md:shrink-0"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
@@ -77,7 +77,9 @@ export function BehaviorWarningCards() {
                     <ShieldAlert className="h-5 w-5 text-rose-600" />
                     {user.username}
                   </CardTitle>
-                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {user.email || user.gamerTier || user.id.slice(0, 8)}
+                  </p>
                 </div>
                 <Badge variant="destructive" className="gap-1">
                   <AlertTriangle className="h-3 w-3" />

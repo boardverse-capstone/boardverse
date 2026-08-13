@@ -8,11 +8,13 @@ import {
   IconCalendar,
   IconReport,
   IconCoffee,
+  IconDeviceDesktop,
 } from "@tabler/icons-react";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { RoleGuard } from "@/features/auth/components/role-guard";
 import { AuthLoading } from "@/features/auth/components/auth-loading";
 import { UserRole } from "@/core/constants/roles";
+import { ROUTES } from "@/core/constants/routes";
 import type { NavItem } from "@/components/layout/nav-main";
 import { Box, Coffee } from "lucide-react";
 
@@ -23,15 +25,20 @@ const MANAGER_NAV: NavItem[] = [
     icon: <IconLayoutDashboard />,
   },
   {
+    title: "Web POS",
+    url: ROUTES.MANAGER.POS,
+    icon: <IconDeviceDesktop />,
+  },
+  {
     title: "Hồ sơ vận hành",
-    url: "/manager/operational-profile",
+    url: ROUTES.MANAGER.OPERATIONAL_PROFILE,
     icon: <Coffee />,
   },
   {
-  title: 'Quản lý kho game',
-  url: '/manager/inventory',
-  icon: <Box className="h-4 w-4" />,
-},
+    title: "Quản lý kho game",
+    url: ROUTES.MANAGER.INVENTORY,
+    icon: <Box className="h-4 w-4" />,
+  },
   {
     title: "Báo cáo",
     url: "/manager/reports",

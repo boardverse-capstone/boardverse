@@ -60,4 +60,10 @@ export const AdminMasterGameMockService = {
     MOCK_COMPONENTS[gameTemplateId] = list;
     return list[index];
   },
+
+  deleteComponent: async (gameTemplateId: string, componentId: string): Promise<void> => {
+    await delay();
+    const list = MOCK_COMPONENTS[gameTemplateId] ?? MOCK_COMPONENTS.default;
+    MOCK_COMPONENTS[gameTemplateId] = list.filter((item) => item.componentId !== componentId);
+  },
 };

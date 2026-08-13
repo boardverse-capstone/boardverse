@@ -28,23 +28,26 @@ export const AdjustKarmaSchema = z.object({
   delta: z.coerce
     .number()
     .int('Phải là số nguyên')
-    .refine((value) => value !== 0, 'Điểm thay đổi không được bằng 0'),
-  reason: z.string().min(5, 'Lý do phải có ít nhất 5 ký tự').max(500, 'Tối đa 500 ký tự'),
+    .refine((value) => value !== 0, 'Điểm thay đổi không được bằng 0')
+    .refine((value) => Math.abs(value) <= 100, 'Chỉ được điều chỉnh trong khoảng ±1 đến ±100'),
+  reason: z.string().min(5, 'Lý do phải có ít nhất 5 ký tự').max(1000, 'Tối đa 1000 ký tự'),
 });
 
 export const ViolationProcessSchema = z
   .object({
     penaltyType: z.enum(['warning', 'timed_block', 'permanent_block']),
     blockDays: nonNegativeInt.optional(),
-    reason: z.string().min(5, 'Lý do kỷ luật bắt buộc').max(500, 'Tối đa 500 ký tự'),
+    reason: z.string().min(5, 'Lý do kỷ luật bắt buộc').max(1000, 'Tối đa 1000 ký tự'),
   })
   .superRefine((data, ctx) => {
-    if (data.penaltyType === 'timed_block' && (!data.blockDays || data.blockDays <= 0)) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Số ngày khóa phải là số nguyên dương',
-        path: ['blockDays'],
-      });
+    if (data.penaltyType === 'timed_block') {
+      if (!data.blockDays || data.blockDays < 1 || data.blockDays > 365) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Số ngày Suspend phải từ 1 đến 365',
+          path: ['blockDays'],
+        });
+      }
     }
   });
 

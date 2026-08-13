@@ -2,6 +2,7 @@
 "use client";
 
 import { usePosDashboard } from "../hooks/usePosDashboard";
+import { useCafePosHub } from "../hooks/useCafePosHub";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SyncTablesModal } from "./sync-tables-modal";
@@ -12,10 +13,11 @@ import { PosBoxesTab } from "./pos-boxes-tab";
 import { StartSessionModal } from "./start-session-modal";
 import {
   ActiveSessionsTab,
-  ActiveSessionsTabProps,
 } from "./active-sessions-tab";
 import { EndSessionModal } from "./end-session-modal";
 import { BoxComponentHistoryModal } from "./box-component-history-modal";
+import { PendingBookingsPanel } from "./pending-bookings-panel";
+import { SettlementsTab } from "./settlements-tab";
 import {
   RefreshCw,
   QrCode,
@@ -27,10 +29,12 @@ import {
   Settings,
   AlertTriangle,
   ShieldCheck,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { useState } from "react";
 
-export function PosFeatureContainer() {
+export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
   const {
     cafeId,
     tables,
@@ -60,13 +64,20 @@ export function PosFeatureContainer() {
     handlePaySession,
     handleSyncTables,
     handleFetchBoxHistory,
-  } = usePosDashboard();
+    handleAddGuest,
+    handleManualConfirmCash,
+    canConfigureTables,
+  } = usePosDashboard({ initialBookingCode: props?.initialBookingCode });
 
-  const [activeTab, setActiveTab] = useState<"tables" | "sessions" | "boxes">(
-    "tables",
-  );
-  const [endingSession, setEndingSession] =
-    useState<ActiveSessionsTabProps | null>(null);
+  const { connected: hubConnected } = useCafePosHub({
+    enabled: Boolean(cafeId),
+    onRefresh: refreshData,
+  });
+
+  const [activeTab, setActiveTab] = useState<
+    "tables" | "sessions" | "boxes" | "settlements"
+  >("tables");
+  const [endingSession, setEndingSession] = useState<any | null>(null);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [selectedDetailSessionId, setSelectedDetailSessionId] = useState<
     string | null
@@ -76,7 +87,6 @@ export function PosFeatureContainer() {
     name: string;
   } | null>(null);
 
-  // STATE ĐIỀU KHIỂN LUỒNG 2 BƯỚC: KIỂM TRA MẤT ĐỒ -> THU TIỀN
   const [historyModalState, setHistoryModalState] = useState<{
     isOpen: boolean;
     data: any;
@@ -87,7 +97,6 @@ export function PosFeatureContainer() {
     targetSession: null,
   });
 
-  // BƯỚC 1: Khi bấm Thu tiền -> Tải đầy đủ Detail Session và mở Modal Lịch Sử Kiểm Kê trước
   const handleInitiatePaymentFlow = async (session: any) => {
     let detailedSession = session;
     if (handleGetSessionDetail) {
@@ -121,7 +130,6 @@ export function PosFeatureContainer() {
     setCheckoutSession(detailedSession);
   };
 
-  // BƯỚC 2: Xem xong Lịch sử -> Bấm "Tiến Hành Thanh Toán" để sang CheckoutPayModal
   const handleProceedFromHistoryToPay = () => {
     const targetSession = historyModalState.targetSession;
     setHistoryModalState({ isOpen: false, data: null, targetSession: null });
@@ -130,7 +138,6 @@ export function PosFeatureContainer() {
     }
   };
 
-  // Xem lịch sử trực tiếp từ Icon History
   const handleShowBoxHistoryDirectly = async (boxId: string) => {
     if (!handleFetchBoxHistory) return;
     const historyRes = await handleFetchBoxHistory(boxId);
@@ -154,27 +161,42 @@ export function PosFeatureContainer() {
 
   return (
     <div className="space-y-6 text-neutral-900 font-sans antialiased">
-      {/* HEADER BAR */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-neutral-200 shadow-2xs">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-neutral-950">
             Web POS Center
           </h1>
-          <p className="text-xs text-neutral-500 font-medium mt-0.5">
+          <p className="text-xs text-neutral-500 font-medium mt-0.5 flex items-center gap-2">
             Luồng phục vụ bàn, kiểm kê và thu tiền tập trung.
+            <span
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${
+                hubConnected
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-neutral-200 bg-neutral-50 text-neutral-500"
+              }`}
+            >
+              {hubConnected ? (
+                <Wifi className="h-3 w-3" />
+              ) : (
+                <WifiOff className="h-3 w-3" />
+              )}
+              {hubConnected ? "Realtime" : "Offline hub"}
+            </span>
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setIsSyncModalOpen(true)}
-            className="h-9 px-3 border-neutral-200 text-xs font-bold text-neutral-700 hover:bg-neutral-50 rounded-lg flex items-center gap-1.5"
-          >
-            <Settings className="w-3.5 h-3.5" />
-            <span>Sơ đồ bàn</span>
-          </Button>
+          {canConfigureTables && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsSyncModalOpen(true)}
+              className="h-9 px-3 border-neutral-200 text-xs font-bold text-neutral-700 hover:bg-neutral-50 rounded-lg flex items-center gap-1.5"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>Sơ đồ bàn</span>
+            </Button>
+          )}
 
           <Button
             type="button"
@@ -189,10 +211,10 @@ export function PosFeatureContainer() {
           <div className="flex items-center gap-1.5 bg-neutral-50 p-1 border border-neutral-200 rounded-xl">
             <Input
               type="text"
-              placeholder="Nhập BookingCode..."
+              placeholder="Booking / QR code..."
               value={bookingCode}
               onChange={(e) => setBookingCode(e.target.value)}
-              className="h-7 w-36 text-xs bg-white border-neutral-200 rounded-lg"
+              className="h-7 w-40 text-xs bg-white border-neutral-200 rounded-lg"
             />
             <Button
               type="button"
@@ -205,9 +227,12 @@ export function PosFeatureContainer() {
         </div>
       </div>
 
-      {/* METRICS & QUICK SCAN BARCODE BAR */}
+      <PendingBookingsPanel
+        cafeId={cafeId}
+        onUseBookingCode={(code) => setBookingCode(code)}
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* KHỐI QUÉT & TRA CỨU BARCODE HỘP GAME */}
         <div className="bg-white border border-neutral-200 rounded-2xl p-4 flex flex-col justify-between shadow-2xs space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-neutral-900 flex items-center gap-1.5">
@@ -277,7 +302,6 @@ export function PosFeatureContainer() {
                 </span>
               </div>
 
-              {/* CẢNH BÁO HIỂN THỊ CÁC LINH KIỆN MẤT TRONG HỘP GAME TRƯỚC BÀN GIAO */}
               {scannedBox.missingComponents &&
               scannedBox.missingComponents.length > 0 ? (
                 <div className="p-2.5 bg-rose-50/80 border border-rose-200 rounded-lg space-y-1.5">
@@ -315,7 +339,6 @@ export function PosFeatureContainer() {
                 </div>
               )}
 
-              {/* FOOTER KHỐI BARCODE */}
               <div className="pt-2 border-t border-neutral-200/60 flex items-center justify-between">
                 <span className="text-[10px] text-neutral-400 font-mono">
                   ID: {scannedBox.id?.slice(0, 8)}...
@@ -341,7 +364,6 @@ export function PosFeatureContainer() {
           )}
         </div>
 
-        {/* Thống kê bàn sẵn sàng */}
         <div className="bg-white border border-neutral-200 rounded-2xl p-4 flex items-center justify-between shadow-2xs">
           <div className="space-y-1">
             <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
@@ -358,7 +380,6 @@ export function PosFeatureContainer() {
           <CheckCircle2 className="w-8 h-8 text-emerald-500" />
         </div>
 
-        {/* Thống kê Phiên hoạt động */}
         <div className="bg-white border border-neutral-200 rounded-2xl p-4 flex items-center justify-between shadow-2xs">
           <div className="space-y-1">
             <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
@@ -375,41 +396,30 @@ export function PosFeatureContainer() {
         </div>
       </div>
 
-      {/* TAB NAVIGATION */}
-      <div className="flex gap-2 border-b border-neutral-200 pb-px">
-        <button
-          onClick={() => setActiveTab("tables")}
-          className={`px-4 py-2 text-xs font-bold uppercase border-b-2 transition-all ${
-            activeTab === "tables"
-              ? "border-neutral-950 text-neutral-950 font-extrabold"
-              : "border-transparent text-neutral-400"
-          }`}
-        >
-          Sơ đồ bàn ({tables.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("sessions")}
-          className={`px-4 py-2 text-xs font-bold uppercase border-b-2 transition-all ${
-            activeTab === "sessions"
-              ? "border-neutral-950 text-neutral-950 font-extrabold"
-              : "border-transparent text-neutral-400"
-          }`}
-        >
-          Phiên chơi active ({sessions.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("boxes")}
-          className={`px-4 py-2 text-xs font-bold uppercase border-b-2 transition-all ${
-            activeTab === "boxes"
-              ? "border-neutral-950 text-neutral-950 font-extrabold"
-              : "border-transparent text-neutral-400"
-          }`}
-        >
-          Kho Hộp Vật Lý ({boxes.length})
-        </button>
+      <div className="flex gap-2 border-b border-neutral-200 pb-px overflow-x-auto">
+        {(
+          [
+            ["tables", `Sơ đồ bàn (${tables.length})`],
+            ["sessions", `Phiên chơi active (${sessions.length})`],
+            ["boxes", `Kho Hộp Vật Lý (${boxes.length})`],
+            ["settlements", "Giải ngân"],
+          ] as const
+        ).map(([tab, label]) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-xs font-bold uppercase border-b-2 transition-all shrink-0 ${
+              activeTab === tab
+                ? "border-neutral-950 text-neutral-950 font-extrabold"
+                : "border-transparent text-neutral-400"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      {/* TAB CONTENTS */}
       {loading ? (
         <div className="text-center py-20 border border-dashed rounded-2xl bg-white text-xs text-neutral-400">
           Đang tải dữ liệu POS...
@@ -458,7 +468,6 @@ export function PosFeatureContainer() {
           })}
         </div>
       ) : activeTab === "sessions" ? (
-        /* TAB ACTIVE SESSIONS */
         <ActiveSessionsTab
           sessions={sessions}
           onOpenChecklist={handleOpenChecklist}
@@ -473,17 +482,20 @@ export function PosFeatureContainer() {
           onInitiatePaymentFlow={handleInitiatePaymentFlow}
           onShowBoxHistory={handleShowBoxHistoryDirectly}
         />
-      ) : (
+      ) : activeTab === "boxes" ? (
         <PosBoxesTab boxes={boxes} />
+      ) : (
+        <SettlementsTab cafeId={cafeId} />
       )}
 
-      {/* MODALS PHỤ TRỢ */}
-      <SyncTablesModal
-        isOpen={isSyncModalOpen}
-        onClose={() => setIsSyncModalOpen(false)}
-        currentTables={tables}
-        onSave={handleSyncTables}
-      />
+      {canConfigureTables && (
+        <SyncTablesModal
+          isOpen={isSyncModalOpen}
+          onClose={() => setIsSyncModalOpen(false)}
+          currentTables={tables}
+          onSave={handleSyncTables}
+        />
+      )}
 
       <ComponentChecklistModal
         isOpen={!!checklistData}
@@ -492,7 +504,6 @@ export function PosFeatureContainer() {
         onSubmitCheck={handleChecklistSubmitOnly}
       />
 
-      {/* BƯỚC 1: XEM LỊCH SỬ MẤT ĐỒ TRƯỚC */}
       <BoxComponentHistoryModal
         isOpen={historyModalState.isOpen}
         onClose={() =>
@@ -510,7 +521,6 @@ export function PosFeatureContainer() {
         }
       />
 
-      {/* BƯỚC 2: THU TIỀN VÀ GIẢI PHÓNG BÀN */}
       <CheckoutPayModal
         key={checkoutSession?.id || "checkout-modal"}
         isOpen={!!checkoutSession}
@@ -518,21 +528,24 @@ export function PosFeatureContainer() {
         session={checkoutSession}
         onCheckout={handleCheckoutSession}
         onPay={handlePaySession}
+        onManualConfirmCash={handleManualConfirmCash}
       />
 
       <SessionDetailModal
         isOpen={!!selectedDetailSessionId}
         onClose={() => setSelectedDetailSessionId(null)}
         sessionId={selectedDetailSessionId}
+        cafeId={cafeId}
         onFetchDetail={handleGetSessionDetail}
         onOpenChecklist={handleOpenChecklist}
+        onAddGuest={handleAddGuest}
       />
 
       <StartSessionModal
         isOpen={!!startTable}
         onClose={() => setStartTable(null)}
         selectedTable={startTable}
-        cafeId={cafeId} // <-- TRUYỀN THÊM CAFEID VÀO ĐÂY
+        cafeId={cafeId}
         onStart={handleStartSession}
       />
 
