@@ -2,8 +2,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import {
+  formatPlayerRange,
+  mergePlayerRange,
+  readPlayerRange,
+  readPresentCount,
+} from "../lib/player-range";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import { useAuthStore } from "@/features/auth/store/auth.store";
 import {
   X,
   User,
@@ -22,6 +30,7 @@ interface SessionDetailModalProps {
   cafeId?: string | null;
   onFetchDetail: (sessionId: string) => Promise<any>;
   onOpenChecklist: (sessionGameId: string) => void;
+  onReturnTable?: (sessionId: string) => void;
   onAddGuest?: (sessionId: string, displayName: string) => Promise<boolean>;
 }
 
@@ -32,12 +41,15 @@ export function SessionDetailModal({
   cafeId,
   onFetchDetail,
   onOpenChecklist,
+  onReturnTable,
   onAddGuest,
 }: SessionDetailModalProps) {
   const [detail, setDetail] = useState<any | null>(null);
   const [fetchingId, setFetchingId] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
   const [addingGuest, setAddingGuest] = useState(false);
+  const staffId = useAuthStore((s) => s.user?.id);
+  const staffUsername = useAuthStore((s) => s.user?.username);
 
   const loading = isOpen && !!sessionId && fetchingId !== sessionId;
 
@@ -59,6 +71,21 @@ export function SessionDetailModal({
   }, [isOpen, sessionId, onFetchDetail]);
 
   if (!isOpen || !sessionId) return null;
+
+  const members = detail?.members || detail?.Members || [];
+  const guests = members.filter((m: any) => {
+    const uid = String(m.userId ?? m.UserId ?? "");
+    const name = String(
+      m.userName ?? m.UserName ?? m.username ?? "",
+    ).toLowerCase();
+    if (staffId && (uid === staffId || String(m.id ?? "") === staffId)) {
+      return false;
+    }
+    if (staffUsername && name && name === staffUsername.toLowerCase()) {
+      return false;
+    }
+    return true;
+  });
 
   const handleAddGuest = async () => {
     if (!onAddGuest || !guestName.trim()) return;
@@ -136,6 +163,29 @@ export function SessionDetailModal({
               </div>
               <div>
                 <span className="text-[10px] font-bold text-neutral-400 uppercase">
+                  Số người:
+                </span>
+                <div className="font-semibold text-neutral-800">
+                  {(() => {
+                    const present =
+                      members.length > 0
+                        ? guests.length
+                        : readPresentCount(detail);
+                    const range = mergePlayerRange(
+                      detail.games?.[0],
+                      detail.game,
+                      detail,
+                    );
+                    const parts: string[] = [];
+                    if (present != null) parts.push(`Hiện ${present}`);
+                    const rangeLabel = formatPlayerRange(range);
+                    if (rangeLabel) parts.push(rangeLabel);
+                    return parts.length > 0 ? parts.join(" · ") : "—";
+                  })()}
+                </div>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-neutral-400 uppercase">
                   Thời điểm bắt đầu:
                 </span>
                 <div className="font-mono text-neutral-600">
@@ -174,6 +224,11 @@ export function SessionDetailModal({
                           <Barcode className="w-3 h-3 text-neutral-400" />
                           <span>{g.boxBarcode}</span>
                         </div>
+                        {formatPlayerRange(readPlayerRange(g)) && (
+                          <div className="text-[11px] font-semibold text-neutral-600">
+                            {formatPlayerRange(readPlayerRange(g))}
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
@@ -192,6 +247,35 @@ export function SessionDetailModal({
                           size="sm"
                           variant="outline"
                           onClick={() => {
+                            const status = String(
+                              detail.status ??
+                                detail.Status ??
+                                detail.sessionStatus ??
+                                "",
+                            )
+                              .toLowerCase()
+                              .replace(/[_\s-]/g, "");
+                            const returned =
+                              status === "checking" ||
+                              status === "unpaid" ||
+                              status === "paid" ||
+                              Boolean(detail.isCheckingInventory);
+                            if (!returned) {
+                              toast.error(
+                                "Chưa trả bàn. Thứ tự: Trả bàn → kiểm kê → Thanh toán.",
+                                {
+                                  duration: 8000,
+                                  action: {
+                                    label: "Trả bàn",
+                                    onClick: () => {
+                                      onClose();
+                                      onReturnTable?.(sessionId);
+                                    },
+                                  },
+                                },
+                              );
+                              return;
+                            }
                             onClose();
                             onOpenChecklist(g.id || g.sessionGameId);
                           }}
@@ -209,10 +293,10 @@ export function SessionDetailModal({
             <div className="space-y-2">
               <h4 className="text-xs font-bold text-neutral-900 uppercase tracking-wider flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-neutral-600" /> Khách Tham Gia (
-                {detail.members?.length || detail.presentCount || 0})
+                {guests.length || 0})
               </h4>
               <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                {(detail.members || []).map((m: any) => (
+                {guests.map((m: any) => (
                   <span
                     key={m.id || m.userId}
                     className="inline-flex items-center gap-1 text-[11px] font-semibold bg-neutral-100 border border-neutral-200 px-2 py-1 rounded-lg text-neutral-800"
@@ -221,7 +305,7 @@ export function SessionDetailModal({
                     {m.userName || m.displayName || m.id}
                   </span>
                 ))}
-                {(detail.members?.length || 0) === 0 && (
+                {guests.length === 0 && (
                   <span className="text-[11px] text-neutral-400">
                     Chưa có thành viên / khách walk-in.
                   </span>

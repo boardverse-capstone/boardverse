@@ -728,7 +728,9 @@ export function mapApiPaymentCode(raw: unknown): PaymentCode {
   const statusRaw = str(r, 'status', 'Status').toLowerCase();
   return {
     code: str(r, 'code', 'paymentCode', 'Code'),
-    qrPayload: str(r, 'qrPayload', 'qrCode', 'QrPayload') || str(r, 'code', 'paymentCode'),
+    qrPayload:
+      str(r, 'qrPayload', 'qrCode', 'QrPayload', 'qrUrl', 'QrUrl', 'paymentUrl', 'PaymentUrl') ||
+      str(r, 'code', 'paymentCode'),
     amount: num(r, 'amount', 'totalAmount', 'TotalAmount', 'totalDue', 'Amount'),
     expiresAt: str(r, 'expiresAt', 'ExpiresAt'),
     status: statusRaw.includes('paid')

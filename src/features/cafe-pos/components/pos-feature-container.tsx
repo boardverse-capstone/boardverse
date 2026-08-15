@@ -33,8 +33,17 @@ import {
   WifiOff,
 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import {
+  formatPlayerRange,
+  mergePlayerRange,
+} from "../lib/player-range";
 
 export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
+  const [endingSession, setEndingSession] = useState<any | null>(null);
+  const [selectedDetailSessionId, setSelectedDetailSessionId] = useState<
+    string | null
+  >(null);
   const {
     cafeId,
     tables,
@@ -59,7 +68,6 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     handleGetSessionDetail,
     handleOpenChecklist,
     handleComponentCheck,
-    handleReturnGame,
     handleCheckoutSession,
     handlePaySession,
     handleSyncTables,
@@ -67,7 +75,13 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     handleAddGuest,
     handleManualConfirmCash,
     canConfigureTables,
-  } = usePosDashboard({ initialBookingCode: props?.initialBookingCode });
+  } = usePosDashboard({
+    initialBookingCode: props?.initialBookingCode,
+    onRequestReturnTable: (session) => {
+      setSelectedDetailSessionId(null);
+      setEndingSession(session);
+    },
+  });
 
   const { connected: hubConnected } = useCafePosHub({
     enabled: Boolean(cafeId),
@@ -77,14 +91,12 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
   const [activeTab, setActiveTab] = useState<
     "tables" | "sessions" | "boxes" | "settlements"
   >("tables");
-  const [endingSession, setEndingSession] = useState<any | null>(null);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
-  const [selectedDetailSessionId, setSelectedDetailSessionId] = useState<
-    string | null
-  >(null);
   const [startTable, setStartTable] = useState<{
     id: string;
     name: string;
+    minPlayers?: number | null;
+    maxPlayers?: number | null;
   } | null>(null);
 
   const [historyModalState, setHistoryModalState] = useState<{
@@ -152,11 +164,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
 
   const handleChecklistSubmitOnly = async (payload: any) => {
     const checkResult = await handleComponentCheck(payload);
-    if (checkResult) {
-      alert("Đã chốt kiểm kê linh kiện thành công!");
-      return true;
-    }
-    return false;
+    return Boolean(checkResult);
   };
 
   return (
@@ -230,6 +238,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
       <PendingBookingsPanel
         cafeId={cafeId}
         onUseBookingCode={(code) => setBookingCode(code)}
+        onOpenTables={() => setActiveTab("tables")}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -348,7 +357,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                   size="sm"
                   onClick={() => {
                     navigator.clipboard.writeText(scannedBox.barcode);
-                    alert(`Đã chép mã ${scannedBox.barcode}!`);
+                    toast.success(`Đã chép mã ${scannedBox.barcode}.`);
                   }}
                   className="h-6 px-2 bg-neutral-900 text-white text-[10px] font-bold uppercase rounded-md shadow-2xs"
                 >
@@ -428,6 +437,23 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {tables.map((table) => {
             const isAvail = table.status === "Available";
+            const session = sessions.find(
+              (s) =>
+                (s.cafeTableId || s.tableId || s.CafeTableId) === table.id,
+            );
+            const playerRange = mergePlayerRange(
+              session?.games?.[0],
+              session?.game,
+              session,
+              table,
+            );
+            const displayRange = {
+              min:
+                playerRange.min ??
+                (playerRange.max != null ? 1 : null),
+              max: playerRange.max,
+            };
+            const playerRangeLabel = formatPlayerRange(displayRange);
             return (
               <div
                 key={table.id}
@@ -444,6 +470,12 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                   <span className="text-[10px] text-neutral-400 font-mono">
                     Order: #{table.sortOrder}
                   </span>
+                  {playerRangeLabel && (
+                    <div className="mt-1.5 text-[11px] font-semibold text-neutral-700 flex items-center gap-1">
+                      <Users className="w-3 h-3 text-neutral-400 shrink-0" />
+                      <span>{playerRangeLabel}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="pt-3 border-t border-neutral-100 mt-auto">
                   {isAvail ? (
@@ -451,7 +483,12 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                       type="button"
                       size="sm"
                       onClick={() =>
-                        setStartTable({ id: table.id, name: table.name })
+                        setStartTable({
+                          id: table.id,
+                          name: table.name,
+                          minPlayers: displayRange.min,
+                          maxPlayers: displayRange.max,
+                        })
                       }
                       className="w-full h-7 bg-neutral-950 text-white text-[10px] font-bold uppercase rounded-md"
                     >
@@ -470,8 +507,6 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
       ) : activeTab === "sessions" ? (
         <ActiveSessionsTab
           sessions={sessions}
-          onOpenChecklist={handleOpenChecklist}
-          onReturnGame={handleReturnGame}
           onEndSession={(sessionId: string) => {
             const targetSes = sessions.find((s) => s.id === sessionId);
             if (targetSes) setEndingSession(targetSes);
@@ -526,6 +561,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         isOpen={!!checkoutSession}
         onClose={() => setCheckoutSession(null)}
         session={checkoutSession}
+        cafeId={cafeId}
         onCheckout={handleCheckoutSession}
         onPay={handlePaySession}
         onManualConfirmCash={handleManualConfirmCash}
@@ -537,7 +573,13 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         sessionId={selectedDetailSessionId}
         cafeId={cafeId}
         onFetchDetail={handleGetSessionDetail}
-        onOpenChecklist={handleOpenChecklist}
+        onOpenChecklist={(gameId) => {
+          void handleOpenChecklist(gameId, selectedDetailSessionId);
+        }}
+        onReturnTable={(sessionId) => {
+          const targetSes = sessions.find((s) => s.id === sessionId);
+          if (targetSes) setEndingSession(targetSes);
+        }}
         onAddGuest={handleAddGuest}
       />
 

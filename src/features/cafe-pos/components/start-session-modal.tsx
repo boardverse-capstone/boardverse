@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,15 +13,27 @@ import {
   AlertTriangle,
   ShieldCheck,
   Loader2,
+  Users,
+  UserPlus,
 } from "lucide-react";
 import { apiClient } from "@/core/api/client";
+import { formatPlayerRange, readPlayerRange } from "../lib/player-range";
 
 export interface StartSessionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedTable: { id: string; name: string } | null;
+  selectedTable: {
+    id: string;
+    name: string;
+    minPlayers?: number | null;
+    maxPlayers?: number | null;
+  } | null;
   cafeId: string | null;
-  onStart: (cafeTableId: string, barcode: string) => Promise<boolean>;
+  onStart: (
+    cafeTableId: string,
+    barcode: string,
+    walkInGuests?: string[],
+  ) => Promise<boolean>;
 }
 
 export function StartSessionModal({
@@ -33,22 +46,44 @@ export function StartSessionModal({
   const [barcode, setBarcode] = useState("");
   const [loading, setLoading] = useState(false);
   const [checkingBox, setCheckingBox] = useState(false);
+  const [guestCount, setGuestCount] = useState(1);
+  const [guestNames, setGuestNames] = useState<string[]>([""]);
 
   // State lưu kết quả kiểm tra hộp game trước khi gán bàn
   const [boxInspection, setBoxInspection] = useState<{
     gameName?: string;
     barcode?: string;
     status?: string;
+    minPlayers?: number | null;
+    maxPlayers?: number | null;
     missingComponents?: any[];
     hasChecked: boolean;
   } | null>(null);
 
   if (!isOpen || !selectedTable) return null;
 
+  const minPlayers =
+    boxInspection?.minPlayers ?? selectedTable.minPlayers ?? 1;
+  const maxPlayers =
+    boxInspection?.maxPlayers ?? selectedTable.maxPlayers ?? 8;
+
+  const syncGuestCount = (next: number) => {
+    const clamped = Math.max(
+      1,
+      Math.min(maxPlayers, Math.round(next) || 1),
+    );
+    setGuestCount(clamped);
+    setGuestNames((prev) => {
+      const names = prev.slice(0, clamped);
+      while (names.length < clamped) names.push("");
+      return names;
+    });
+  };
+
   // HÀM KIỂM TRA LINH KIỆN HỘP GAME TRƯỚC KHI GÁN BÀN
   const handleInspectBox = async () => {
     if (!cafeId || !barcode.trim()) {
-      alert("Vui lòng nhập Barcode hộp game!");
+      toast.error("Vui lòng nhập Barcode hộp game.");
       return;
     }
 
@@ -62,7 +97,7 @@ export function StartSessionModal({
       const boxData = boxRes?.data || boxRes;
 
       if (!boxData?.id) {
-        alert("Không tìm thấy hộp game với mã Barcode này.");
+        toast.error("Không tìm thấy hộp game với mã Barcode này.");
         setBoxInspection(null);
         return;
       }
@@ -82,15 +117,20 @@ export function StartSessionModal({
         console.warn("Không thể tải lịch sử kiểm kê:", err);
       }
 
+      const playerRange = readPlayerRange(boxData);
+      const nextMin = playerRange.min ?? selectedTable.minPlayers ?? 1;
       setBoxInspection({
         gameName: boxData.gameName,
         barcode: boxData.barcode,
         status: boxData.status,
+        minPlayers: playerRange.min,
+        maxPlayers: playerRange.max,
         missingComponents: missingList,
         hasChecked: true,
       });
+      syncGuestCount(Math.max(guestCount, nextMin));
     } catch (err: any) {
-      alert(err?.message || "Không tìm thấy hộp game.");
+      toast.error(err?.message || "Không tìm thấy hộp game.");
       setBoxInspection(null);
     } finally {
       setCheckingBox(false);
@@ -101,17 +141,35 @@ export function StartSessionModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!barcode.trim()) {
-      alert("Vui lòng nhập hoặc quét mã Barcode hộp game!");
+      toast.error("Vui lòng nhập hoặc quét mã Barcode hộp game!");
+      return;
+    }
+    if (guestCount < minPlayers) {
+      toast.error(`Game/bàn cần tối thiểu ${minPlayers} khách vãng lai.`);
+      return;
+    }
+    if (guestCount > maxPlayers) {
+      toast.error(`Tối đa ${maxPlayers} người.`);
       return;
     }
 
+    const walkInGuests = guestNames.map((name, idx) =>
+      name.trim() || `Khách ${idx + 1}`,
+    );
+
     setLoading(true);
-    const success = await onStart(selectedTable.id, barcode.trim());
+    const success = await onStart(
+      selectedTable.id,
+      barcode.trim(),
+      walkInGuests,
+    );
     setLoading(false);
 
     if (success) {
       setBarcode("");
       setBoxInspection(null);
+      setGuestCount(1);
+      setGuestNames([""]);
       onClose();
     }
   };
@@ -119,6 +177,8 @@ export function StartSessionModal({
   const handleCloseModal = () => {
     setBarcode("");
     setBoxInspection(null);
+    setGuestCount(1);
+    setGuestNames([""]);
     onClose();
   };
 
@@ -184,6 +244,45 @@ export function StartSessionModal({
             </div>
           </div>
 
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-neutral-800 flex items-center gap-1">
+              <Users className="w-3.5 h-3.5 text-neutral-500" /> Khách vãng lai
+            </label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={1}
+                max={maxPlayers}
+                value={guestCount}
+                onChange={(e) => syncGuestCount(Number(e.target.value))}
+                className="h-9 w-20 text-xs border-neutral-300 rounded-lg bg-neutral-50/50"
+              />
+              <span className="text-[11px] text-neutral-500 font-medium">
+                Tối thiểu {minPlayers} · Tối đa {maxPlayers} người
+              </span>
+            </div>
+            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+              {guestNames.map((name, idx) => (
+                <div key={idx} className="flex items-center gap-1.5">
+                  <UserPlus className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                  <Input
+                    type="text"
+                    placeholder={`Tên khách ${idx + 1} (để trống = Khách ${idx + 1})`}
+                    value={name}
+                    onChange={(e) =>
+                      setGuestNames((prev) =>
+                        prev.map((item, i) =>
+                          i === idx ? e.target.value : item,
+                        ),
+                      )
+                    }
+                    className="h-8 text-xs border-neutral-300 rounded-lg"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* HIỂN THỊ KẾT QUẢ KIỂM TRA TRƯỚC BÀN GIAO */}
           {boxInspection && boxInspection.hasChecked && (
             <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl space-y-2 animate-in fade-in-50 duration-150">
@@ -195,6 +294,17 @@ export function StartSessionModal({
                   {boxInspection.barcode}
                 </span>
               </div>
+              {formatPlayerRange({
+                min: boxInspection.minPlayers ?? null,
+                max: boxInspection.maxPlayers ?? null,
+              }) && (
+                <div className="text-[11px] font-semibold text-neutral-700">
+                  {formatPlayerRange({
+                    min: boxInspection.minPlayers ?? null,
+                    max: boxInspection.maxPlayers ?? null,
+                  })}
+                </div>
+              )}
 
               {/* TRƯỜNG HỢP 1: HỘP CÓ LINH KIỆN BỊ THIẾU/HỎNG */}
               {boxInspection.missingComponents &&

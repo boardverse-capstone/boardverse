@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { toast } from "sonner";
 import { apiClient } from "@/core/api/client";
 import { UserRole, normalizePortalRole } from "@/core/constants/roles";
 import { useAuthStore } from "@/features/auth/store/auth.store";
@@ -12,7 +13,101 @@ function myCafesPath(role: UserRole | null): string {
   return "/api/manager/my-cafes";
 }
 
-export function usePosDashboard(opts?: { initialBookingCode?: string }) {
+function findSessionByGameId(sessions: any[], sessionGameId: string) {
+  return sessions.find((s) =>
+    (s.games || []).some(
+      (g: any) => g.id === sessionGameId || g.sessionGameId === sessionGameId,
+    ),
+  );
+}
+
+function isAlreadyCheckedMessage(message: string) {
+  return /đã được kiểm tra|already.*check|ComponentCheckAlreadyDone/i.test(
+    message,
+  );
+}
+
+function rememberVerifiedFromSession(
+  session: any,
+  verifiedGameIds: Set<string>,
+  verifiedSessionIds: Set<string>,
+) {
+  if (!session) return;
+  const sessionId = session.id || session.sessionId;
+  const games = session.games || session.Games || [];
+  let anyVerified = false;
+  for (const g of games) {
+    const fromApi = String(g?.checkStatus || g?.CheckStatus || "")
+      .toLowerCase()
+      .replace(/[_\s-]/g, "");
+    if (fromApi !== "verified") continue;
+    anyVerified = true;
+    const gid = g.id || g.sessionGameId;
+    if (gid) verifiedGameIds.add(gid);
+  }
+  if (anyVerified && sessionId) verifiedSessionIds.add(sessionId);
+}
+
+function applyVerifiedFlags(
+  list: any[],
+  verifiedGameIds: Set<string>,
+  verifiedSessionIds: Set<string>,
+) {
+  return list.map((s) => {
+    const sessionId = s.id || s.sessionId;
+    const sessionHit = Boolean(
+      sessionId && verifiedSessionIds.has(sessionId),
+    );
+    const games = s.games || s.Games || [];
+    if (!Array.isArray(games) || games.length === 0) {
+      return sessionHit ? { ...s, checkStatus: "Verified" } : s;
+    }
+    return {
+      ...s,
+      games: games.map((g: any) => {
+        const gid = g.id || g.sessionGameId;
+        const fromApi = String(g.checkStatus || "")
+          .toLowerCase()
+          .replace(/[_\s-]/g, "");
+        const done =
+          sessionHit ||
+          (gid && verifiedGameIds.has(gid)) ||
+          fromApi === "verified";
+        if (done && gid) verifiedGameIds.add(gid);
+        return done ? { ...g, checkStatus: "Verified" } : g;
+      }),
+    };
+  });
+}
+
+function toastCheckingRequired(
+  message: string,
+  session: any | undefined,
+  onRequestReturnTable?: (session: any) => void,
+) {
+  const needsReturn = /CHECKING|trả game/i.test(message);
+  toast.error(message, {
+    duration: 8000,
+    ...(needsReturn && session && onRequestReturnTable
+      ? {
+          action: {
+            label: "Trả bàn",
+            onClick: () => onRequestReturnTable(session),
+          },
+        }
+      : {}),
+  });
+}
+
+export function usePosDashboard(opts?: {
+  initialBookingCode?: string;
+  onRequestReturnTable?: (session: any) => void;
+}) {
+  const onRequestReturnTableRef = useRef(opts?.onRequestReturnTable);
+  onRequestReturnTableRef.current = opts?.onRequestReturnTable;
+  const lastCheckSessionIdRef = useRef<string | null>(null);
+  const verifiedGameIdsRef = useRef<Set<string>>(new Set());
+  const verifiedSessionIdsRef = useRef<Set<string>>(new Set());
   const rawRole = useAuthStore((s) => s.user?.role);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
   const role = normalizePortalRole(rawRole ?? "") ?? null;
@@ -59,7 +154,44 @@ export function usePosDashboard(opts?: { initialBookingCode?: string }) {
         (s: any) => s.status !== "Paid" && s.status !== "Completed"
       );
 
-      setSessions(activeSessionsOnly);
+      const details = await Promise.all(
+        activeSessionsOnly.map(async (s: any) => {
+          const sessionId = s.id || s.sessionId;
+          if (!sessionId) return s;
+          try {
+            const detailRes: any = await apiClient.get(
+              `/api/cafes/${currentCafeId}/pos/sessions/${sessionId}`,
+            );
+            const detail = detailRes?.data || detailRes;
+            if (!detail) return s;
+            return {
+              ...s,
+              ...detail,
+              id: sessionId,
+              games: detail.games ?? detail.Games ?? s.games,
+              status: detail.status ?? detail.Status ?? s.status,
+            };
+          } catch {
+            return s;
+          }
+        }),
+      );
+
+      details.forEach((s: any) =>
+        rememberVerifiedFromSession(
+          s,
+          verifiedGameIdsRef.current,
+          verifiedSessionIdsRef.current,
+        ),
+      );
+
+      setSessions(
+        applyVerifiedFlags(
+          details,
+          verifiedGameIdsRef.current,
+          verifiedSessionIdsRef.current,
+        ),
+      );
 
       // Sắp xếp danh sách bàn theo sortOrder
       const rawTables = tablesRes?.data || tablesRes || [];
@@ -113,7 +245,7 @@ export function usePosDashboard(opts?: { initialBookingCode?: string }) {
       );
       setBookingPreview(res?.data || res);
     } catch (err: any) {
-      alert(err?.message || "Không tìm thấy thông tin Đơn đặt chỗ.");
+      toast.error(err?.message || "Không tìm thấy thông tin Đơn đặt chỗ.");
       setBookingPreview(null);
     }
   };
@@ -121,7 +253,7 @@ export function usePosDashboard(opts?: { initialBookingCode?: string }) {
   // BƯỚC 3a: Check-in — resolve bằng cafeId Manager, fallback bookingCode
   const handleBookingCheckIn = async () => {
     if (!cafeId || !bookingCode.trim()) {
-      alert("Vui lòng nhập Booking Code!");
+      toast.error("Vui lòng nhập Booking Code!");
       return false;
     }
     const code = bookingCode.trim();
@@ -164,13 +296,13 @@ export function usePosDashboard(opts?: { initialBookingCode?: string }) {
         });
       }
 
-      alert("Check-in thành công!");
+      toast.success("Check-in thành công!");
       setBookingCode("");
       setBookingPreview(null);
       await fetchAllData(cafeId);
       return true;
     } catch (err: any) {
-      alert(err?.message || "Check-in thất bại.");
+      toast.error(err?.message || "Check-in thất bại.");
       return false;
     }
   };
@@ -182,7 +314,7 @@ export function usePosDashboard(opts?: { initialBookingCode?: string }) {
       await fetchAllData(cafeId);
       return true;
     } catch (err: any) {
-      alert(err?.message || "Không thêm được khách vãng lai.");
+      toast.error(err?.message || "Không thêm được khách vãng lai.");
       return false;
     }
   };
@@ -200,19 +332,23 @@ export function usePosDashboard(opts?: { initialBookingCode?: string }) {
         notes,
         cafeId,
       });
-      alert("Đã xác nhận thanh toán tiền mặt.");
+      toast.success("Đã xác nhận thanh toán tiền mặt.");
       setCheckoutSession(null);
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
       await fetchAllData(cafeId);
       return true;
     } catch (err: any) {
-      alert(err?.message || "Xác nhận tiền mặt thất bại.");
+      toast.error(err?.message || "Xác nhận tiền mặt thất bại.");
       return false;
     }
   };
 
   // BƯỚC 3b: Bắt đầu phiên chơi mới (POST /api/cafes/{cafeId}/pos/sessions)
-  const handleStartSession = async (cafeTableId: string, barcode: string) => {
+  const handleStartSession = async (
+    cafeTableId: string,
+    barcode: string,
+    walkInGuests: string[] = [],
+  ) => {
     if (!cafeId) return false;
     try {
       const res: any = await apiClient.post(
@@ -223,11 +359,35 @@ export function usePosDashboard(opts?: { initialBookingCode?: string }) {
         }
       );
       const newSession = res?.data || res;
-      alert(`Bắt đầu phiên chơi thành công cho ${newSession?.tableName || "Bàn"}!`);
+      const sessionId = newSession?.id || newSession?.sessionId;
+
+      const names = walkInGuests.map((n) => n.trim()).filter(Boolean);
+      if (sessionId && names.length > 0) {
+        for (const displayName of names) {
+          try {
+            await PosCheckInService.addGuestSlots(cafeId, sessionId, {
+              displayName,
+            });
+          } catch (guestErr: any) {
+            toast.error(
+              guestErr?.message ||
+                `Phiên đã mở nhưng chưa thêm đủ khách vãng lai (${displayName}).`,
+            );
+            await fetchAllData(cafeId);
+            return true;
+          }
+        }
+      }
+
+      toast.success(
+        `Đã mở bàn ${newSession?.tableName || "POS"}${
+          names.length ? ` · ${names.length} khách vãng lai` : ""
+        }.`,
+      );
       await fetchAllData(cafeId);
       return true;
     } catch (err: any) {
-      alert(err?.message || "Không thể khởi tạo phiên chơi.");
+      toast.error(err?.message || "Không thể khởi tạo phiên chơi.");
       return false;
     }
   };
@@ -239,18 +399,25 @@ export function usePosDashboard(opts?: { initialBookingCode?: string }) {
       const res: any = await apiClient.post(
         `/api/cafes/${cafeId}/pos/sessions/${sessionId}/end`
       );
-      alert("Khách đã trả game! Phiên chuyển sang trạng thái CHECKING (Chờ kiểm kê).");
+      toast.success("Khách đã trả game. Phiên đang chờ kiểm kê.");
       await fetchAllData(cafeId);
       return res?.data || res;
     } catch (err: any) {
-      alert(err?.message || "Không thể kết thúc phiên chơi.");
+      toast.error(err?.message || "Không thể kết thúc phiên chơi.");
       return false;
     }
   };
 
   // BƯỚC 7: GET /component-checklist (Lấy danh sách linh kiện kiểm kê)
-  const handleFetchChecklist = async (sessionGameId: string) => {
+  const handleFetchChecklist = async (
+    sessionGameId: string,
+    sessionId?: string | null,
+  ) => {
     if (!cafeId) return null;
+    const linkedSession =
+      findSessionByGameId(sessions, sessionGameId) ||
+      sessions.find((s) => s.id === sessionId);
+    lastCheckSessionIdRef.current = linkedSession?.id ?? sessionId ?? null;
     try {
       const res: any = await apiClient.get(
         `/api/cafes/${cafeId}/pos/sessions/${sessionGameId}/component-checklist`
@@ -259,7 +426,15 @@ export function usePosDashboard(opts?: { initialBookingCode?: string }) {
       setChecklistData(data);
       return data;
     } catch (err: any) {
-      alert(err?.message || "Lỗi lấy bảng kiểm kê linh kiện.");
+      const message = err?.message || "Lỗi lấy bảng kiểm kê linh kiện.";
+      toastCheckingRequired(
+        message,
+        linkedSession,
+        (session) => {
+          setChecklistData(null);
+          onRequestReturnTableRef.current?.(session);
+        },
+      );
       return null;
     }
   };
@@ -280,6 +455,15 @@ export function usePosDashboard(opts?: { initialBookingCode?: string }) {
     }
   };
 
+  const markComponentCheckDone = (sessionGameId: string) => {
+    if (sessionGameId) verifiedGameIdsRef.current.add(sessionGameId);
+    const linked =
+      findSessionByGameId(sessions, sessionGameId) ||
+      sessions.find((s) => s.id === lastCheckSessionIdRef.current);
+    const sessionId = linked?.id || lastCheckSessionIdRef.current;
+    if (sessionId) verifiedSessionIdsRef.current.add(sessionId);
+  };
+
   // BƯỚC 9: POST /component-check (Chốt kết quả kiểm kê linh kiện)
   const handleComponentCheck = async (payload: {
     sessionGameId: string;
@@ -287,17 +471,35 @@ export function usePosDashboard(opts?: { initialBookingCode?: string }) {
     results: any[];
   }) => {
     if (!cafeId) return null;
+
+    const finishChecked = async (data: unknown = { checkStatus: "Verified" }) => {
+      markComponentCheckDone(payload.sessionGameId);
+      setChecklistData(null);
+      await fetchAllData(cafeId);
+      toast.success("Đã kiểm kê linh kiện.");
+      return data;
+    };
+
     try {
       const res: any = await apiClient.post(
         `/api/cafes/${cafeId}/pos/sessions/component-check`,
         payload
       );
-      const data = res?.data || res;
-      setChecklistData(null);
-      await fetchAllData(cafeId);
-      return data;
+      return await finishChecked(res?.data || res);
     } catch (err: any) {
-      alert(err?.message || "Xác nhận kiểm kê thất bại.");
+      const message = err?.message || "Xác nhận kiểm kê thất bại.";
+      if (isAlreadyCheckedMessage(message)) {
+        return await finishChecked();
+      }
+      toastCheckingRequired(
+        message,
+        findSessionByGameId(sessions, payload.sessionGameId) ||
+          sessions.find((s) => s.id === lastCheckSessionIdRef.current),
+        (session) => {
+          setChecklistData(null);
+          onRequestReturnTableRef.current?.(session);
+        },
+      );
       return null;
     }
   };
@@ -306,34 +508,35 @@ export function usePosDashboard(opts?: { initialBookingCode?: string }) {
   const handleCheckoutSession = async (sessionId: string) => {
     if (!cafeId) return false;
     try {
-      const payload = {
-        components: [],
-        componentsVerified: true,
-      };
-
       const res: any = await apiClient.post(
         `/api/cafes/${cafeId}/pos/sessions/${sessionId}/checkout`,
-        payload
+        { useExternalPayment: false },
       );
 
       let checkoutData = res?.data || res;
 
-      // Đồng bộ thêm chi tiết billing nếu dữ liệu trả về chưa đủ subtotal/totalAmount
-      if (
-        checkoutData &&
-        (checkoutData.subtotal === undefined || checkoutData.totalAmount === undefined)
-      ) {
+      const hasTotal =
+        Number(checkoutData?.totalAmount ?? checkoutData?.TotalAmount ?? 0) >
+          0 ||
+        Number(checkoutData?.subtotal ?? checkoutData?.Subtotal ?? 0) > 0;
+
+      if (checkoutData && !hasTotal) {
         const detailRes = await handleGetSessionDetail(sessionId);
         if (detailRes) {
           checkoutData = { ...detailRes, ...checkoutData };
         }
       }
 
-      setCheckoutSession(checkoutData);
+      setCheckoutSession((prev: any) => ({
+        ...(prev || {}),
+        ...checkoutData,
+        id: sessionId,
+        tableName: checkoutData?.tableName || prev?.tableName,
+      }));
       await fetchAllData(cafeId);
-      return true;
+      return checkoutData || true;
     } catch (err: any) {
-      alert(err?.message || "Lỗi khi gọi API Checkout phiên chơi.");
+      toast.error(err?.message || "Lỗi khi gọi API Checkout phiên chơi.");
       return false;
     }
   };
@@ -363,7 +566,7 @@ export function usePosDashboard(opts?: { initialBookingCode?: string }) {
         payload
       );
 
-      alert("Thanh toán thành công! Bàn chơi đã được giải phóng.");
+      toast.success("Thanh toán thành công. Bàn đã được giải phóng.");
 
       // 1. Đóng Modal ngay lập tức
       setCheckoutSession(null);
@@ -378,7 +581,7 @@ export function usePosDashboard(opts?: { initialBookingCode?: string }) {
 
       return res?.data || res;
     } catch (err: any) {
-      alert(err?.message || "Không thể thanh toán phiên chơi này.");
+      toast.error(err?.message || "Không thể thanh toán phiên chơi này.");
       return false;
     }
   };
@@ -403,7 +606,7 @@ export function usePosDashboard(opts?: { initialBookingCode?: string }) {
       );
       return true;
     } catch (err: any) {
-      alert(err?.message || "Cập nhật thông tin bàn thất bại.");
+      toast.error(err?.message || "Cập nhật thông tin bàn thất bại.");
       return false;
     }
   };
@@ -417,13 +620,13 @@ export function usePosDashboard(opts?: { initialBookingCode?: string }) {
       const res: any = await apiClient.put(`/api/cafes/${cafeId}/pos/tables`, {
         tables: tablesData,
       });
-      alert("Đồng bộ sơ đồ bàn thành công!");
+      toast.success("Đồng bộ sơ đồ bàn thành công.");
       setTables(
         (res?.data || res || []).sort((a: any, b: any) => a.sortOrder - b.sortOrder)
       );
       return true;
     } catch (err: any) {
-      alert(err?.message || "Lỗi đồng bộ sơ đồ bàn.");
+      toast.error(err?.message || "Lỗi đồng bộ sơ đồ bàn.");
       return false;
     }
   };
@@ -461,7 +664,7 @@ const handleScanBarcode = async () => {
 
     setScannedBox(boxData);
   } catch (err: any) {
-    alert(err?.message || "Không tìm thấy hộp game với Barcode này.");
+    toast.error(err?.message || "Không tìm thấy hộp game với Barcode này.");
     setScannedBox(null);
   }
 };
@@ -474,7 +677,26 @@ const handleScanBarcode = async () => {
         const res: any = await apiClient.get(
           `/api/cafes/${cafeId}/pos/sessions/${sessionId}`
         );
-        return res?.data || res;
+        const data = res?.data || res;
+        rememberVerifiedFromSession(
+          data,
+          verifiedGameIdsRef.current,
+          verifiedSessionIdsRef.current,
+        );
+        if (data) {
+          setSessions((prev) =>
+            applyVerifiedFlags(
+              prev.map((s) =>
+                s.id === sessionId || s.id === data.id
+                  ? { ...s, games: data.games ?? s.games }
+                  : s,
+              ),
+              verifiedGameIdsRef.current,
+              verifiedSessionIdsRef.current,
+            ),
+          );
+        }
+        return data;
       } catch (err: any) {
         console.error("Lỗi lấy chi tiết phiên chơi:", err);
         return null;
@@ -494,7 +716,7 @@ const handleFetchBoxHistory = useCallback(
       return res?.data || res;
     } catch (err: any) {
       console.error("Lỗi lấy lịch sử kiểm kê hộp game:", err);
-      alert(err?.message || "Không thể lấy lịch sử kiểm kê của hộp game này.");
+      toast.error(err?.message || "Không thể lấy lịch sử kiểm kê của hộp game này.");
       return null;
     }
   },

@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import { apiClient } from "@/core/api/client";
 
 export function useInventory() {
@@ -96,7 +97,7 @@ export function useInventory() {
       await apiClient.delete(`/api/cafes/${cafeId}/inventory/${id}`);
       await loadInventory(cafeId, searchTerm);
     } catch (err: any) {
-      alert(err.message || "Xóa thất bại");
+      toast.error(err.message || "Xóa thất bại");
     }
   };
 
@@ -106,7 +107,7 @@ export function useInventory() {
       await apiClient.post(`/api/cafes/${cafeId}/inventory/${id}/restore`);
       await loadInventory(cafeId, searchTerm);
     } catch (err: any) {
-      alert(err.message || "Khôi phục thất bại");
+      toast.error(err.message || "Khôi phục thất bại");
     }
   };
 
