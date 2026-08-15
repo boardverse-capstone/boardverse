@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { X, LogOut, Clock, Users, AlertCircle } from "lucide-react";
-import { ActiveSession } from "./active-sessions-tab";
+
+type ActiveSession = {
+  id: string;
+  tableName?: string;
+  hostName?: string;
+  elapsedMinutes?: number;
+  members?: unknown[];
+};
 
 interface EndSessionModalProps {
   isOpen: boolean;
@@ -42,13 +49,14 @@ export function EndSessionModal({
             </div>
             <div>
               <h3 className="font-bold text-base text-neutral-950">
-                Xác Nhận Trả Bàn & Kết Thúc
+                Trả bàn — kết thúc giờ chơi
               </h3>
               <p className="text-[11px] text-neutral-500 font-medium">
-                Phiên chơi:{" "}
+                Bàn{" "}
                 <strong className="text-neutral-900">
                   {session.tableName}
                 </strong>
+                : dừng tính giờ, chuyển CHECKING (chờ kiểm kê). Chưa thu tiền.
               </p>
             </div>
           </div>
@@ -96,9 +104,10 @@ export function EndSessionModal({
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-tight">
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <span>
-            Thao tác này sẽ trả lại hộp game vật lý về kho, tính thời gian chơi
-            và chuyển trạng thái <strong>{session.tableName}</strong> về sẵn
-            sàng (Available).
+            Nút <strong>Xác nhận trả bàn</strong> gọi kết thúc phiên: chốt thời
+            gian đã chơi, chuyển trạng thái sang <strong>CHECKING</strong> để
+            kiểm kê hộp. Bàn chưa trống và chưa thu tiền — bước đó làm sau khi
+            kiểm kê xong.
           </span>
         </div>
 
@@ -118,7 +127,7 @@ export function EndSessionModal({
             onClick={handleEnd}
             className="h-9 bg-rose-600 text-white hover:bg-rose-700 text-xs font-bold rounded-lg px-4 disabled:opacity-50"
           >
-            {loading ? "Đang xử lý..." : "Xác Nhận Trả Bàn"}
+            {loading ? "Đang xử lý..." : "Xác nhận trả bàn"}
           </Button>
         </div>
       </div>

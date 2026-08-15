@@ -63,12 +63,17 @@ export function UpdateOperationalStatusDialog({
   }, [open, currentStatus]);
 
   const handleSubmit = () => {
-    if (status === 'BANNED' && !reason.trim()) {
-      setError('Vui lòng nhập lý do khi cấm quán.');
+    const trimmedReason = reason.trim();
+    if (status === 'BANNED' && trimmedReason.length < 5) {
+      setError('Khi cấm quán, lý do bắt buộc và tối thiểu 5 ký tự.');
+      return;
+    }
+    if (trimmedReason.length > 500) {
+      setError('Lý do tối đa 500 ký tự.');
       return;
     }
     setError('');
-    onConfirm({ status, reason: reason.trim() || undefined });
+    onConfirm({ status, reason: trimmedReason || undefined });
   };
 
   return (
@@ -100,19 +105,23 @@ export function UpdateOperationalStatusDialog({
             </Select>
           </div>
 
-          {status === 'BANNED' && (
-            <div className="grid gap-2">
-              <Label htmlFor="ban-reason">Lý do cấm quán</Label>
-              <Textarea
-                id="ban-reason"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                placeholder="Nhập lý do cấm quán..."
-                rows={3}
-                maxLength={500}
-              />
-            </div>
-          )}
+          <div className="grid gap-2">
+            <Label htmlFor="status-reason">
+              Lý do{status === 'BANNED' ? ' (bắt buộc)' : ' (tuỳ chọn)'}
+            </Label>
+            <Textarea
+              id="status-reason"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder={
+                status === 'BANNED'
+                  ? 'Nhập lý do cấm quán (tối thiểu 5 ký tự)...'
+                  : 'Nhập lý do cập nhật trạng thái...'
+              }
+              rows={3}
+              maxLength={500}
+            />
+          </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>

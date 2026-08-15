@@ -3,6 +3,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import { apiClient } from "@/core/api/client";
 
 export interface MasterGameItem {
@@ -190,13 +191,13 @@ export function useBulkAddInventory(isOpen: boolean, cafeId: string, onClose: ()
         })
       );
       await Promise.all(requests);
-      alert(`Nhập kho thành công hàng loạt ${cart.length} tựa game!`);
+      toast.success(`Nhập kho thành công hàng loạt ${cart.length} tựa game.`);
       clearCart();
       setSearchTerm("");
       onSuccess();
       onClose();
     } catch (err: any) {
-      alert(err.message || "Nhập kho hàng loạt thất bại.");
+      toast.error(err.message || "Nhập kho hàng loạt thất bại.");
     } finally {
       setSubmitLoading(false);
     }

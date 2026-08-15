@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  HttpTransportType,
   HubConnection,
   HubConnectionBuilder,
   HubConnectionState,
@@ -9,27 +8,27 @@ import {
 } from '@microsoft/signalr';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
+function resolveHubBaseUrl(): string {
+  const env = (process.env.NEXT_PUBLIC_API_BASE_URL ?? '').replace(/\/$/, '');
+  if (env) return env;
+  // REST đi qua Next rewrite `/api`; `/hubs` không được proxy — localhost phải hit BE.
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return 'https://boardverse-server.onrender.com';
+  }
+  return '';
+}
 
 let connection: HubConnection | null = null;
 let startPromise: Promise<HubConnection> | null = null;
 
-function buildConnection(skipNegotiation = true): HubConnection {
-  const url = `${BASE_URL}/hubs/pos`;
-  const options = skipNegotiation
-    ? {
-        accessTokenFactory: () => useAuthStore.getState().token ?? '',
-        skipNegotiation: true,
-        transport: HttpTransportType.WebSockets,
-      }
-    : {
-        accessTokenFactory: () => useAuthStore.getState().token ?? '',
-      };
-
+function buildConnection(): HubConnection {
+  const url = `${resolveHubBaseUrl()}/hubs/pos`;
   return new HubConnectionBuilder()
-    .withUrl(url, options)
+    .withUrl(url, {
+      accessTokenFactory: () => useAuthStore.getState().token ?? '',
+    })
     .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
-    .configureLogging(LogLevel.Warning)
+    .configureLogging(LogLevel.None)
     .build();
 }
 
@@ -44,21 +43,14 @@ export async function getPosHubConnection(): Promise<HubConnection> {
   }
 
   if (!startPromise) {
-    connection = buildConnection(true);
+    connection = buildConnection();
     startPromise = connection
       .start()
       .then(() => connection!)
-      .catch(async () => {
-        // Fallback sang negotiate chuẩn nếu direct WebSockets thất bại
-        connection = buildConnection(false);
-        try {
-          await connection.start();
-          return connection;
-        } catch (err) {
-          startPromise = null;
-          connection = null;
-          throw err;
-        }
+      .catch((err) => {
+        startPromise = null;
+        connection = null;
+        throw err;
       });
   }
 

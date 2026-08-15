@@ -2,21 +2,24 @@
 
 import { useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Plus, Search } from 'lucide-react';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/common/page-header';
 import { PartnerDataTable } from '@/features/partner/components/partner-data-table';
 import { useMasterGameComponents } from '../hooks/useMasterGameComponents';
 import { useCreateMasterGameComponent } from '../hooks/useCreateMasterGameComponent';
 import { useUpdateMasterGameComponent } from '../hooks/useUpdateMasterGameComponent';
+import { useDeleteMasterGameComponent } from '../hooks/useDeleteMasterGameComponent';
 import type { MasterGameComponent } from '../types/master-game.interface';
 import {
   MasterGameComponentFormDialog,
   type MasterGameComponentFormValues,
 } from './master-game-component-form-dialog';
+import { MasterGameMetaPanel } from './master-game-meta-panel';
 
 export function MasterGameComponentsPanel() {
   const [gameTemplateId, setGameTemplateId] = useState('');
@@ -25,6 +28,7 @@ export function MasterGameComponentsPanel() {
   const { data = [], isLoading, isError, refetch } = useMasterGameComponents(activeGameTemplateId);
   const createMutation = useCreateMasterGameComponent(activeGameTemplateId ?? '');
   const updateMutation = useUpdateMasterGameComponent(activeGameTemplateId ?? '');
+  const deleteMutation = useDeleteMasterGameComponent(activeGameTemplateId ?? '');
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingComponent, setEditingComponent] = useState<MasterGameComponent | null>(null);
@@ -50,7 +54,7 @@ export function MasterGameComponentsPanel() {
         id: 'actions',
         header: '',
         cell: ({ row }) => (
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -62,11 +66,29 @@ export function MasterGameComponentsPanel() {
               <Pencil className="mr-1 h-4 w-4" />
               Sửa
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-rose-200 text-rose-700"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Xóa linh kiện "${row.original.name}"? Thao tác này không thể hoàn tác.`,
+                  )
+                ) {
+                  deleteMutation.mutate(row.original.componentId);
+                }
+              }}
+            >
+              <Trash2 className="mr-1 h-4 w-4" />
+              Xóa
+            </Button>
           </div>
         ),
       },
     ],
-    [],
+    [deleteMutation],
   );
 
   const handleLoadComponents = () => {
@@ -96,19 +118,20 @@ export function MasterGameComponentsPanel() {
     });
   };
 
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  const isPending =
+    createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Linh kiện game gốc"
-        description="Quản lý linh kiện theo gameTemplateId (GET/POST/PUT /api/v1/admin/master-games/{gameTemplateId}/components)."
+        title="Master game catalog"
+        description="Linh kiện, thể loại, metadata và thumbnail của game gốc."
       />
 
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Chọn tựa game gốc</CardTitle>
-          <CardDescription>Nhập UUID gameTemplateId để tải danh sách linh kiện.</CardDescription>
+          <CardDescription>Nhập UUID gameTemplateId để quản lý catalog.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="grid flex-1 gap-2">
@@ -122,38 +145,49 @@ export function MasterGameComponentsPanel() {
           </div>
           <Button onClick={handleLoadComponents} disabled={!gameTemplateId.trim()}>
             <Search className="mr-2 h-4 w-4" />
-            Tải linh kiện
+            Tải
           </Button>
         </CardContent>
       </Card>
 
       {activeGameTemplateId && (
-        <>
-          <div className="flex justify-end">
-            <Button
-              onClick={() => {
-                setEditingComponent(null);
-                setFormOpen(true);
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Thêm linh kiện
-            </Button>
-          </div>
+        <Tabs defaultValue="components">
+          <TabsList>
+            <TabsTrigger value="components">Linh kiện</TabsTrigger>
+            <TabsTrigger value="meta">Thể loại / Metadata</TabsTrigger>
+          </TabsList>
 
-          {isLoading ? (
-            <div className="p-4 text-sm text-muted-foreground">Đang tải linh kiện...</div>
-          ) : isError ? (
-            <div className="text-sm text-rose-600">
-              Không thể tải linh kiện.{' '}
-              <button type="button" className="underline" onClick={() => refetch()}>
-                Thử lại
-              </button>
+          <TabsContent value="components" className="space-y-4">
+            <div className="flex justify-end">
+              <Button
+                onClick={() => {
+                  setEditingComponent(null);
+                  setFormOpen(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Thêm linh kiện
+              </Button>
             </div>
-          ) : (
-            <PartnerDataTable columns={columns} data={data} emptyMessage="Chưa có linh kiện nào." />
-          )}
-        </>
+
+            {isLoading ? (
+              <div className="p-4 text-sm text-muted-foreground">Đang tải linh kiện...</div>
+            ) : isError ? (
+              <div className="text-sm text-rose-600">
+                Không thể tải linh kiện.{' '}
+                <button type="button" className="underline" onClick={() => refetch()}>
+                  Thử lại
+                </button>
+              </div>
+            ) : (
+              <PartnerDataTable columns={columns} data={data} emptyMessage="Chưa có linh kiện nào." />
+            )}
+          </TabsContent>
+
+          <TabsContent value="meta">
+            <MasterGameMetaPanel gameTemplateId={activeGameTemplateId} />
+          </TabsContent>
+        </Tabs>
       )}
 
       {activeGameTemplateId && (

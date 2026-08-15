@@ -129,7 +129,7 @@ export function ComponentChecklistModal({
             </div>
             <div>
               <h3 className="font-bold text-base text-neutral-950">
-                Kiểm Kê Linh Kiện (BR-12)
+                Kiểm Kê Linh Kiện
               </h3>
               <p className="text-[11px] text-neutral-500 font-medium">
                 Game:{" "}

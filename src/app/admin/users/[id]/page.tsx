@@ -4,10 +4,12 @@ import { use, useState } from 'react';
 import { ListBackButton } from '@/components/common/list-back-button';
 import { ROUTES } from '@/core/constants/routes';
 import { BlockUserDialog } from '@/features/user-management/components/block-user-dialog';
+import { ChangeRoleDialog } from '@/features/user-management/components/change-role-dialog';
 import { DisableUserDialog } from '@/features/user-management/components/disable-user-dialog';
 import { UserDetailPanel } from '@/features/user-management/components/user-detail-panel';
 import { useUserDetail } from '@/features/user-management/hooks/useUserDetail';
 import { useBlockUser } from '@/features/user-management/hooks/useBlockUser';
+import { useChangeUserRole } from '@/features/user-management/hooks/useChangeUserRole';
 import { useDisableUser } from '@/features/user-management/hooks/useDisableUser';
 import { useUnblockUser } from '@/features/user-management/hooks/useUnblockUser';
 import { toUserActionTarget } from '@/features/user-management/utils/user.mapper';
@@ -22,12 +24,17 @@ export default function UserDetailPage({ params }: UserDetailPageProps) {
   const blockMutation = useBlockUser();
   const unblockMutation = useUnblockUser();
   const disableMutation = useDisableUser();
+  const changeRoleMutation = useChangeUserRole(id);
 
   const [blockOpen, setBlockOpen] = useState(false);
   const [disableOpen, setDisableOpen] = useState(false);
+  const [roleOpen, setRoleOpen] = useState(false);
 
   const isActionPending =
-    blockMutation.isPending || unblockMutation.isPending || disableMutation.isPending;
+    blockMutation.isPending ||
+    unblockMutation.isPending ||
+    disableMutation.isPending ||
+    changeRoleMutation.isPending;
   const actionTarget = data ? toUserActionTarget(data) : null;
 
   const handleBlockConfirm = (reason: string) => {
@@ -49,6 +56,7 @@ export default function UserDetailPage({ params }: UserDetailPageProps) {
         onBlock={() => setBlockOpen(true)}
         onUnblock={() => unblockMutation.mutate(id)}
         onDisable={() => setDisableOpen(true)}
+        onChangeRole={() => setRoleOpen(true)}
       />
 
       <BlockUserDialog
@@ -71,6 +79,17 @@ export default function UserDetailPage({ params }: UserDetailPageProps) {
           );
         }}
         isPending={disableMutation.isPending}
+      />
+
+      <ChangeRoleDialog
+        open={roleOpen}
+        onOpenChange={setRoleOpen}
+        currentRole={data?.role}
+        username={data?.username}
+        isPending={changeRoleMutation.isPending}
+        onConfirm={(role) => {
+          changeRoleMutation.mutate(role, { onSuccess: () => setRoleOpen(false) });
+        }}
       />
     </div>
   );

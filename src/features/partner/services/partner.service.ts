@@ -33,10 +33,11 @@ export const PartnerService = {
 
     const raw = await apiClient.get('/api/admin/cafe-partner-applications', {
       params: {
-        Search: params.search || undefined,
-        Status: params.status && params.status !== 'all' ? params.status : undefined,
-        PageNumber: params.page,
-        PageSize: params.limit,
+        // GET /api/admin/cafe-partner-applications — query: search, status, page, pageSize
+        search: params.search || undefined,
+        status: params.status && params.status !== 'all' ? params.status : undefined,
+        page: params.page,
+        pageSize: params.limit,
       },
     });
 

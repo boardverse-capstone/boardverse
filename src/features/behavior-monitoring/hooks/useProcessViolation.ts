@@ -2,41 +2,43 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { UserManagementService, USER_QUERY_KEYS } from '@/features/user-management/services/user-management.service';
+import { USER_QUERY_KEYS } from '@/features/user-management/services/user-management.service';
+import { BehaviorSanctionService } from '../services/behavior-sanction.service';
+import { KARMA_LOG_QUERY_KEY } from '../services/karma-log.service';
+import type { ProcessViolationRequest, PunishActionType } from '../types/behavior.interface';
 import { LOW_KARMA_QUERY_KEY } from './useLowKarmaUsers';
-import type { ProcessViolationRequest } from '../types/behavior.interface';
+
+function toActionType(penaltyType: ProcessViolationRequest['penaltyType']): PunishActionType {
+  if (penaltyType === 'timed_block') return 'Suspend';
+  if (penaltyType === 'permanent_block') return 'Ban';
+  return 'Warning';
+}
 
 export function useProcessViolation() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (payload: ProcessViolationRequest) => {
-      if (payload.penaltyType === 'warning') {
-        return { type: 'warning' as const, userId: payload.userId };
-      }
+      const actionType = toActionType(payload.penaltyType);
 
-      const reasonParts = [payload.reason.trim()];
-      if (payload.penaltyType === 'timed_block' && payload.blockDays) {
-        reasonParts.unshift(`[Khóa ${payload.blockDays} ngày]`);
-      }
-      if (payload.penaltyType === 'permanent_block') {
-        reasonParts.unshift('[Khóa vĩnh viễn]');
-      }
-
-      await UserManagementService.blockUser(payload.userId, {
-        reason: reasonParts.join(' '),
+      return BehaviorSanctionService.punishUser(payload.userId, {
+        actionType,
+        durationDays: actionType === 'Suspend' ? payload.blockDays : undefined,
+        reason: payload.reason.trim(),
       });
-
-      return { type: payload.penaltyType, userId: payload.userId };
     },
     onSuccess: (result) => {
-      if (result.type === 'warning') {
-        toast.success('Đã ghi nhận cảnh báo hành vi.');
+      if (result.actionType === 'Warning') {
+        toast.success('Đã gửi cảnh báo (Warning) cho người dùng.');
+      } else if (result.actionType === 'Suspend') {
+        toast.success('Đã tạm khóa tài khoản (Suspend).');
       } else {
-        toast.success('Đã áp dụng chế tài tài khoản.');
+        toast.success('Đã cấm tài khoản (Ban).');
       }
       queryClient.invalidateQueries({ queryKey: [USER_QUERY_KEYS.list] });
+      queryClient.invalidateQueries({ queryKey: [USER_QUERY_KEYS.detail, result.userId] });
       queryClient.invalidateQueries({ queryKey: [LOW_KARMA_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [KARMA_LOG_QUERY_KEY] });
     },
     onError: (error: Error) => {
       toast.error(error.message ?? 'Xử lý vi phạm thất bại.');

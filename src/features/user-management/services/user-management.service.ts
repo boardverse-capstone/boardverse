@@ -98,4 +98,14 @@ export const UserManagementService = {
     if (USE_MOCK) return UserManagementMockService.disableUser(id);
     await apiClient.delete(`/api/UserManagement/${id}`);
   },
+
+  /** PUT /api/UserManagement/users/{id}/role */
+  changeUserRole: async (id: string, role: string): Promise<ManagedUser> => {
+    if (USE_MOCK) {
+      return UserManagementMockService.updateUser(id, { role });
+    }
+
+    await apiClient.put(`/api/UserManagement/users/${id}/role`, { role });
+    return UserManagementService.getUserById(id);
+  },
 } as const;

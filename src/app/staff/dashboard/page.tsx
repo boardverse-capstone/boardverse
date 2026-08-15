@@ -1,18 +1,18 @@
 'use client';
 
-// Staff Dashboard Page - BoardVerse Web POS & Staff Portal
-import { Calendar, ClipboardList, Clock } from 'lucide-react';
+import { BarChart3, Calendar, Coffee, TrendingUp } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ProfileCard } from '@/features/profile/components/profile-card';
-import { NearbyCafesPanel } from '@/features/staff-cafe/components/nearby-cafes-panel';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 
+/** Cùng UI dashboard Manager (branch han). */
 const STATS = [
-  { label: 'Ca làm việc', value: '—', icon: Clock, color: 'text-green-500' },
-  { label: 'Báo cáo ca', value: '—', icon: ClipboardList, color: 'text-orange-500' },
-  { label: 'Lịch tuần này', value: '—', icon: Calendar, color: 'text-purple-500' },
+  { label: 'Báo cáo tháng này', value: '—', icon: BarChart3, color: 'text-blue-500' },
+  { label: 'Lịch hôm nay', value: '—', icon: Calendar, color: 'text-green-500' },
+  { label: 'Quán đang hoạt động', value: '—', icon: Coffee, color: 'text-orange-500' },
+  { label: 'Tăng trưởng', value: '—', icon: TrendingUp, color: 'text-purple-500' },
 ];
 
 export default function StaffDashboardPage() {
@@ -23,12 +23,14 @@ export default function StaffDashboardPage() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <PageHeader
           title="Dashboard"
-          description={`Chào mừng trở lại, ${user?.username ?? 'Staff'}. Đây là trang dành cho nhân viên.`}
+          description={`Chào mừng trở lại, ${user?.username ?? 'Staff'}. Đây là trang quản lý vận hành.`}
         />
-        <Badge className="w-fit text-xs">Staff</Badge>
+        <Badge variant="secondary" className="w-fit text-xs">
+          Staff
+        </Badge>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {STATS.map((stat) => (
           <Card key={stat.label}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -48,8 +50,27 @@ export default function StaffDashboardPage() {
           <ProfileCard />
         </div>
         <div className="flex flex-col gap-2">
-          <h2 className="text-lg font-semibold">Vị trí & quán gần</h2>
-          <NearbyCafesPanel />
+          <h2 className="text-lg font-semibold">Thông tin phiên làm việc</h2>
+          <Card>
+            <CardContent className="flex flex-col gap-3 pt-6">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">User ID</span>
+                <span className="font-mono text-xs">{user?.id ?? '—'}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Username</span>
+                <span className="font-medium">{user?.username ?? '—'}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Email</span>
+                <span>{user?.email ?? '—'}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Vai trò</span>
+                <Badge variant="secondary">{user?.role ?? '—'}</Badge>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
