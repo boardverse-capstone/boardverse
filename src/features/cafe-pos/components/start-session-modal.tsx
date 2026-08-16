@@ -15,6 +15,7 @@ import {
   Loader2,
   Users,
   UserPlus,
+  Phone,
 } from "lucide-react";
 import { apiClient } from "@/core/api/client";
 import { formatPlayerRange, readPlayerRange } from "../lib/player-range";
@@ -48,6 +49,7 @@ export function StartSessionModal({
   const [checkingBox, setCheckingBox] = useState(false);
   const [guestCount, setGuestCount] = useState(1);
   const [guestNames, setGuestNames] = useState<string[]>([""]);
+  const [guestPhones, setGuestPhones] = useState<string[]>([""]);
 
   // State lưu kết quả kiểm tra hộp game trước khi gán bàn
   const [boxInspection, setBoxInspection] = useState<{
@@ -77,6 +79,11 @@ export function StartSessionModal({
       const names = prev.slice(0, clamped);
       while (names.length < clamped) names.push("");
       return names;
+    });
+    setGuestPhones((prev) => {
+      const phones = prev.slice(0, clamped);
+      while (phones.length < clamped) phones.push("");
+      return phones;
     });
   };
 
@@ -152,10 +159,30 @@ export function StartSessionModal({
       toast.error(`Tối đa ${maxPlayers} người.`);
       return;
     }
+    const primaryPhone = guestPhones[0]?.replace(/\s/g, "") || "";
+    if (!primaryPhone) {
+      toast.error("Nhập SĐT khách liên hệ (khách 1).");
+      return;
+    }
+    if (!/^0\d{8,10}$/.test(primaryPhone)) {
+      toast.error("SĐT khách 1 không hợp lệ (vd: 0912345678).");
+      return;
+    }
+    const invalidPhone = guestPhones.findIndex((raw, idx) => {
+      if (idx === 0) return false;
+      const phone = raw.replace(/\s/g, "");
+      return phone.length > 0 && !/^0\d{8,10}$/.test(phone);
+    });
+    if (invalidPhone >= 0) {
+      toast.error(`SĐT khách ${invalidPhone + 1} không hợp lệ.`);
+      return;
+    }
 
-    const walkInGuests = guestNames.map((name, idx) =>
-      name.trim() || `Khách ${idx + 1}`,
-    );
+    const walkInGuests = guestNames.map((name, idx) => {
+      const label = name.trim() || `Khách ${idx + 1}`;
+      const phone = guestPhones[idx]?.replace(/\s/g, "") || "";
+      return phone ? `${label} · ${phone}` : label;
+    });
 
     setLoading(true);
     const success = await onStart(
@@ -170,6 +197,7 @@ export function StartSessionModal({
       setBoxInspection(null);
       setGuestCount(1);
       setGuestNames([""]);
+      setGuestPhones([""]);
       onClose();
     }
   };
@@ -179,6 +207,7 @@ export function StartSessionModal({
     setBoxInspection(null);
     setGuestCount(1);
     setGuestNames([""]);
+    setGuestPhones([""]);
     onClose();
   };
 
@@ -261,23 +290,46 @@ export function StartSessionModal({
                 Tối thiểu {minPlayers} · Tối đa {maxPlayers} người
               </span>
             </div>
-            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
               {guestNames.map((name, idx) => (
-                <div key={idx} className="flex items-center gap-1.5">
-                  <UserPlus className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-                  <Input
-                    type="text"
-                    placeholder={`Tên khách ${idx + 1} (để trống = Khách ${idx + 1})`}
-                    value={name}
-                    onChange={(e) =>
-                      setGuestNames((prev) =>
-                        prev.map((item, i) =>
-                          i === idx ? e.target.value : item,
-                        ),
-                      )
-                    }
-                    className="h-8 text-xs border-neutral-300 rounded-lg"
-                  />
+                <div key={idx} className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <UserPlus className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                    <Input
+                      type="text"
+                      placeholder={`Tên khách ${idx + 1} (để trống = Khách ${idx + 1})`}
+                      value={name}
+                      onChange={(e) =>
+                        setGuestNames((prev) =>
+                          prev.map((item, i) =>
+                            i === idx ? e.target.value : item,
+                          ),
+                        )
+                      }
+                      className="h-8 text-xs border-neutral-300 rounded-lg"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 pl-5">
+                    <Phone className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                    <Input
+                      type="tel"
+                      inputMode="tel"
+                      placeholder={
+                        idx === 0
+                          ? `SĐT khách ${idx + 1} (bắt buộc)`
+                          : `SĐT khách ${idx + 1} (tuỳ chọn)`
+                      }
+                      value={guestPhones[idx] ?? ""}
+                      onChange={(e) =>
+                        setGuestPhones((prev) =>
+                          prev.map((item, i) =>
+                            i === idx ? e.target.value : item,
+                          ),
+                        )
+                      }
+                      className="h-8 text-xs border-neutral-300 rounded-lg font-mono"
+                    />
+                  </div>
                 </div>
               ))}
             </div>

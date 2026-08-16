@@ -62,6 +62,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     setCheckoutSession,
     refreshData,
     handleScanBarcode,
+    handlePreviewBooking,
     handleBookingCheckIn,
     handleStartSession,
     handleEndSession,
@@ -73,7 +74,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     handleSyncTables,
     handleFetchBoxHistory,
     handleAddGuest,
-    handleManualConfirmCash,
+    handleRefreshCheckoutPayment,
     canConfigureTables,
   } = usePosDashboard({
     initialBookingCode: props?.initialBookingCode,
@@ -175,7 +176,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
             Web POS Center
           </h1>
           <p className="text-xs text-neutral-500 font-medium mt-0.5 flex items-center gap-2">
-            Luồng phục vụ bàn, kiểm kê và thu tiền tập trung.
+            
             <span
               className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${
                 hubConnected
@@ -219,17 +220,17 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
           <div className="flex items-center gap-1.5 bg-neutral-50 p-1 border border-neutral-200 rounded-xl">
             <Input
               type="text"
-              placeholder="Booking / QR code..."
+              placeholder="ReservationCode..."
               value={bookingCode}
               onChange={(e) => setBookingCode(e.target.value)}
               className="h-7 w-40 text-xs bg-white border-neutral-200 rounded-lg"
             />
             <Button
               type="button"
-              onClick={handleBookingCheckIn}
+              onClick={() => void handlePreviewBooking(bookingCode)}
               className="h-7 px-2.5 bg-neutral-950 text-white text-[10px] font-bold uppercase rounded-lg"
             >
-              <QrCode className="w-3 h-3 mr-1" /> Check-in
+              <QrCode className="w-3 h-3 mr-1" /> Tra cứu
             </Button>
           </div>
         </div>
@@ -237,8 +238,12 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
 
       <PendingBookingsPanel
         cafeId={cafeId}
-        onUseBookingCode={(code) => setBookingCode(code)}
+        tables={tables}
+        scannedBarcode={scannedBarcode}
         onOpenTables={() => setActiveTab("tables")}
+        onConfirmCheckIn={(code, tableId, barcode) =>
+          handleBookingCheckIn(code, tableId, barcode)
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -468,7 +473,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                     {table.name}
                   </h3>
                   <span className="text-[10px] text-neutral-400 font-mono">
-                    Order: #{table.sortOrder}
+                    Thứ tự bàn: {table.sortOrder}
                   </span>
                   {playerRangeLabel && (
                     <div className="mt-1.5 text-[11px] font-semibold text-neutral-700 flex items-center gap-1">
@@ -564,7 +569,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         cafeId={cafeId}
         onCheckout={handleCheckoutSession}
         onPay={handlePaySession}
-        onManualConfirmCash={handleManualConfirmCash}
+        onRefreshPayment={handleRefreshCheckoutPayment}
       />
 
       <SessionDetailModal

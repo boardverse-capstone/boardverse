@@ -40,13 +40,9 @@ const MANAGER_NAV: NavItem[] = [
     icon: <Box className="h-4 w-4" />,
   },
   {
-    title: "Báo cáo",
-    url: "/manager/reports",
+    title: "Báo cáo ca",
+    url: ROUTES.MANAGER.REPORTS,
     icon: <IconReport />,
-    items: [
-      { title: "Tổng quan", url: "/manager/reports" },
-      { title: "Doanh thu", url: "/manager/reports/revenue" },
-    ],
   },
   {
     title: "Lịch biểu",

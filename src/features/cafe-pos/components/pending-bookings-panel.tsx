@@ -1,16 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { CalendarClock, RefreshCw, QrCode, DoorOpen } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CalendarClock, RefreshCw, QrCode, DoorOpen, Search } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { apiClient } from "@/core/api/client";
 import { PosCheckInService } from "@/features/pos-check-in/services/pos-check-in.service";
-import type { TableBooking } from "@/features/pos-check-in/types/pos-check-in.interface";
+import type { PosBookingPreview } from "@/features/pos-check-in/types/pos-check-in.interface";
 
 interface PendingBookingsPanelProps {
   cafeId: string | null;
-  onUseBookingCode: (code: string) => void;
+  tables?: Array<{ id?: string; name?: string; status?: string }>;
+  scannedBarcode?: string;
   onOpenTables?: () => void;
+  onConfirmCheckIn?: (
+    code: string,
+    cafeTableId: string,
+    barcode: string,
+  ) => Promise<boolean>;
 }
 
 interface WalkInWindowDto {
@@ -22,6 +30,12 @@ interface WalkInWindowDto {
   availableSeats?: number;
   status?: string;
   expiresAt?: string;
+}
+
+interface ReservedTable {
+  id: string;
+  name: string;
+  status: string;
 }
 
 function formatTime(iso?: string | null) {
@@ -57,39 +71,69 @@ function parseWalkInWindows(raw: unknown): WalkInWindowDto[] {
   return [];
 }
 
-/** Quá 30 phút sau giờ hẹn — ngoài early-grace, job BE sẽ NoShow + mất cọc nếu không check-in. */
-function isPastArrivalGrace(scheduledAt?: string | null) {
-  if (!scheduledAt) return false;
-  const start = new Date(scheduledAt).getTime();
-  if (Number.isNaN(start)) return false;
-  return Date.now() > start + 30 * 60 * 1000;
+function parseTables(raw: unknown): ReservedTable[] {
+  const list = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object"
+      ? ((raw as Record<string, unknown>).data as unknown[]) || []
+      : [];
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item) => {
+      const r = item as Record<string, unknown>;
+      return {
+        id: String(r.id ?? r.Id ?? ""),
+        name: String(r.name ?? r.Name ?? "Bàn"),
+        status: String(r.status ?? r.Status ?? ""),
+      };
+    })
+    .filter((t) => t.id);
 }
 
 export function PendingBookingsPanel({
   cafeId,
-  onUseBookingCode,
+  tables = [],
+  scannedBarcode = "",
   onOpenTables,
+  onConfirmCheckIn,
 }: PendingBookingsPanelProps) {
-  const [bookings, setBookings] = useState<TableBooking[]>([]);
+  const [code, setCode] = useState("");
+  const [preview, setPreview] = useState<PosBookingPreview | null>(null);
+  const [tableId, setTableId] = useState("");
+  const [barcode, setBarcode] = useState("");
+  const [reserved, setReserved] = useState<ReservedTable[]>([]);
   const [windows, setWindows] = useState<WalkInWindowDto[]>([]);
   const [loading, setLoading] = useState(false);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [checkingIn, setCheckingIn] = useState(false);
+
+  const assignableTables = useMemo(() => {
+    const fromProp = tables.filter((t) => {
+      const st = String(t.status || "").toLowerCase();
+      return t.id && (st === "available" || st === "reserved" || !st);
+    });
+    if (fromProp.length > 0) return fromProp;
+    return reserved;
+  }, [tables, reserved]);
 
   const load = useCallback(async () => {
     if (!cafeId) return;
     setLoading(true);
     try {
-      const pending = await PosCheckInService.getPendingBookings(cafeId).catch(
-        () => [] as TableBooking[],
-      );
-      const walkInRaw = await apiClient
-        .get("/api/v1/reservations/walkin/windows", {
-          params: { cafeId, date: todayIsoDate() },
-        })
-        .catch(() => null);
-      setBookings(pending);
+      const [tablesRaw, walkInRaw] = await Promise.all([
+        apiClient
+          .get(`/api/cafes/${cafeId}/pos/tables`, {
+            params: { includeOnlyAvailable: false, statuses: "Reserved" },
+          })
+          .catch(() => null),
+        apiClient
+          .get("/api/v1/reservations/walkin/windows", {
+            params: { cafeId, date: todayIsoDate() },
+          })
+          .catch(() => null),
+      ]);
+      setReserved(parseTables(tablesRaw));
       setWindows(parseWalkInWindows(walkInRaw));
-    } catch {
-      setBookings([]);
     } finally {
       setLoading(false);
     }
@@ -101,6 +145,10 @@ export function PendingBookingsPanel({
     return () => window.clearInterval(id);
   }, [load]);
 
+  useEffect(() => {
+    if (scannedBarcode.trim()) setBarcode(scannedBarcode.trim());
+  }, [scannedBarcode]);
+
   if (!cafeId) return null;
 
   const openWindows = windows.filter((w) => {
@@ -108,13 +156,57 @@ export function PendingBookingsPanel({
     return !st || st === "available" || st === "partial";
   });
 
+  const handleLookup = async () => {
+    const trimmed = code.trim();
+    if (!trimmed) {
+      toast.error("Nhập ReservationCode (8 ký tự) hoặc BookingCode BV…");
+      return;
+    }
+    setLookingUp(true);
+    try {
+      const data = await PosCheckInService.previewPosBooking(cafeId, trimmed);
+      setPreview(data);
+      if (!data.canCheckIn) {
+        toast.error("Đơn chưa sẵn sàng check-in (chưa Confirmed hoặc ngoài khung giờ).");
+      }
+    } catch (err: unknown) {
+      setPreview(null);
+      toast.error(
+        err instanceof Error ? err.message : "Không tìm thấy đơn đặt chỗ.",
+      );
+    } finally {
+      setLookingUp(false);
+    }
+  };
+
+  const handleCheckIn = async () => {
+    const trimmed = (preview?.bookingCode || code).trim();
+    if (!onConfirmCheckIn || !trimmed) return;
+    if (!tableId) {
+      toast.error("Chọn bàn để nhận khách.");
+      return;
+    }
+    if (!barcode.trim()) {
+      toast.error("Quét barcode hộp game trước khi check-in.");
+      return;
+    }
+    setCheckingIn(true);
+    const ok = await onConfirmCheckIn(trimmed, tableId, barcode.trim());
+    setCheckingIn(false);
+    if (ok) {
+      setPreview(null);
+      setCode("");
+      await load();
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="space-y-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-2xs">
         <div className="flex items-center justify-between gap-2">
           <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-neutral-900">
             <CalendarClock className="h-4 w-4 text-neutral-600" />
-            Booking chờ check-in ({bookings.length})
+            Khách đặt chỗ — check-in
           </h3>
           <Button
             type="button"
@@ -129,59 +221,115 @@ export function PendingBookingsPanel({
           </Button>
         </div>
 
-        {loading && bookings.length === 0 ? (
-          <p className="py-4 text-center text-[11px] text-neutral-400">Đang tải...</p>
-        ) : bookings.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-neutral-200 py-6 text-center text-[11px] text-neutral-400">
-            Không có booking đang chờ.
-          </p>
-        ) : (
-          <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
-            {bookings.map((booking) => {
-              const code =
-                booking.reservationCode ||
-                booking.bookingCode ||
-                booking.qrCode ||
-                booking.id;
-              const late = isPastArrivalGrace(booking.scheduledAt);
-              return (
-                <div
-                  key={booking.id}
-                  className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2.5 ${
-                    late
-                      ? "border-amber-300 bg-amber-50/70"
-                      : "border-neutral-200 bg-neutral-50/60"
-                  }`}
-                >
-                  <div className="min-w-0 space-y-0.5">
-                    <p className="truncate text-xs font-bold text-neutral-950">
-                      {booking.tableLabel || "Bàn"} ·{" "}
-                      {booking.bookedGame?.name || "Booking"}
-                    </p>
-                    <p className="font-mono text-[10px] text-neutral-500">
-                      {formatTime(booking.scheduledAt)} · {code}
-                    </p>
-                    {late && (
-                      <p className="text-[10px] font-semibold text-amber-800">
-                        Đã quá 30 phút sau giờ hẹn. Nếu không check-in, BE tự
-                        NoShow — hủy bàn và mất cọc.
-                      </p>
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => onUseBookingCode(String(code))}
-                    className="h-7 bg-neutral-950 px-2 text-[10px] font-bold uppercase text-white"
-                  >
-                    <QrCode className="mr-1 h-3 w-3" />
-                    Dùng mã
-                  </Button>
-                </div>
-              );
-            })}
+        <p className="text-[10px] text-neutral-500">
+          Tra cứu bằng ReservationCode 8 ký tự trên QR khách (hoặc BookingCode legacy
+          BV…). Không dùng API booking cũ.
+        </p>
+
+        <div className="flex flex-wrap gap-2">
+          <Input
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void handleLookup();
+              }
+            }}
+            placeholder="VD: K7H3NP9X"
+            className="h-8 min-w-[160px] flex-1 font-mono text-xs"
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={lookingUp}
+            onClick={() => void handleLookup()}
+            className="h-8 text-[10px] font-bold"
+          >
+            <Search className="mr-1 h-3 w-3" />
+            {lookingUp ? "Đang tìm..." : "Tra cứu"}
+          </Button>
+        </div>
+
+        {preview && (
+          <div className="space-y-2 rounded-xl border border-neutral-200 bg-neutral-50/80 p-3">
+            <p className="text-xs font-bold text-neutral-950">
+              {preview.gameName || "Đặt chỗ"} · {preview.hostName || "Host"}
+            </p>
+            <p className="font-mono text-[10px] text-neutral-500">
+              {formatTime(preview.scheduledStartTime)} · {preview.bookingCode} ·{" "}
+              {preview.registeredMemberCount} khách
+              {preview.depositStatus ? ` · cọc ${preview.depositStatus}` : ""}
+            </p>
+            <p className="text-[10px] font-semibold">
+              {preview.canCheckIn ? (
+                <span className="text-emerald-700">Sẵn sàng check-in</span>
+              ) : (
+                <span className="text-amber-700">Chưa thể check-in</span>
+              )}
+            </p>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              <select
+                value={tableId}
+                onChange={(e) => setTableId(e.target.value)}
+                className="h-8 min-w-[140px] flex-1 rounded-md border border-neutral-200 bg-white px-2 text-xs"
+              >
+                <option value="">Chọn bàn</option>
+                {assignableTables.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                    {t.status ? ` · ${t.status}` : ""}
+                  </option>
+                ))}
+              </select>
+              <Input
+                value={barcode}
+                onChange={(e) => setBarcode(e.target.value)}
+                placeholder="Barcode hộp game"
+                className="h-8 min-w-[160px] flex-1 font-mono text-xs"
+              />
+              <Button
+                type="button"
+                size="sm"
+                disabled={checkingIn || !preview.canCheckIn}
+                onClick={() => void handleCheckIn()}
+                className="h-8 bg-neutral-950 px-3 text-[10px] font-bold text-white"
+              >
+                <QrCode className="mr-1 h-3 w-3" />
+                {checkingIn ? "Đang check-in..." : "Xác nhận check-in"}
+              </Button>
+            </div>
           </div>
         )}
+
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+            Bàn đang giữ chỗ ({reserved.length})
+          </p>
+          {loading && reserved.length === 0 ? (
+            <p className="text-[11px] text-neutral-400">Đang tải...</p>
+          ) : reserved.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-neutral-200 py-4 text-center text-[11px] text-neutral-400">
+              Không có bàn Reserved. Nhập mã khách phía trên để check-in.
+            </p>
+          ) : (
+            <div className="max-h-40 space-y-2 overflow-y-auto pr-1">
+              {reserved.map((table) => (
+                <div
+                  key={table.id}
+                  className="flex items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50/60 px-3 py-2"
+                >
+                  <p className="text-xs font-bold text-neutral-950">{table.name}</p>
+                  <span className="text-[10px] font-bold uppercase text-amber-700">
+                    {table.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-4 shadow-2xs">
@@ -189,10 +337,6 @@ export function PendingBookingsPanel({
           <DoorOpen className="h-4 w-4" />
           Slot walk-in (no-show / trả sớm) ({openWindows.length})
         </h3>
-        <p className="text-[10px] leading-relaxed text-emerald-800/80">
-          Job BE hủy bàn + mất cọc khi khách không tới. Slot bung hiện ở đây —
-          mở bàn walk-in trên sơ đồ (không cọc, thu lúc thanh toán).
-        </p>
         {openWindows.length === 0 ? (
           <p className="rounded-xl border border-dashed border-emerald-200 py-4 text-center text-[11px] text-emerald-800/60">
             Chưa có cửa sổ walk-in hôm nay.

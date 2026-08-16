@@ -143,7 +143,9 @@ export function usePosDashboard(opts?: {
       // GET /api/cafes/{cafeId}/pos/sessions/active (Chuẩn Endpoint Active Sessions)
       const [sessionsRes, tablesRes, boxesRes]: any = await Promise.all([
         apiClient.get(`/api/cafes/${currentCafeId}/pos/sessions/active`),
-        apiClient.get(`/api/cafes/${currentCafeId}/pos/tables`),
+        apiClient.get(`/api/cafes/${currentCafeId}/pos/tables`, {
+          params: { includeOnlyAvailable: false },
+        }),
         apiClient.get(`/api/cafes/${currentCafeId}/pos/boxes`),
       ]);
 
@@ -250,51 +252,44 @@ export function usePosDashboard(opts?: {
     }
   };
 
-  // BƯỚC 3a: Check-in — resolve bằng cafeId Manager, fallback bookingCode
-  const handleBookingCheckIn = async () => {
-    if (!cafeId || !bookingCode.trim()) {
-      toast.error("Vui lòng nhập Booking Code!");
+  // BƯỚC 3a: Check-in khách đặt chỗ — GET preview rồi POST /pos/check-in (code + bàn + barcode)
+  const handleBookingCheckIn = async (
+    overrideCode?: string,
+    cafeTableId?: string,
+    barcode?: string,
+  ) => {
+    if (!cafeId) {
+      toast.error("Thiếu mã quán.");
       return false;
     }
-    const code = bookingCode.trim();
+    const code = (overrideCode ?? bookingCode).trim();
+    const tableId = (cafeTableId ?? "").trim();
+    const boxBarcode = (barcode ?? scannedBarcode).trim();
+    if (!code) {
+      toast.error("Nhập ReservationCode (8 ký tự) hoặc BookingCode BV…");
+      return false;
+    }
+    if (!tableId) {
+      toast.error("Chọn bàn trước khi check-in.");
+      return false;
+    }
+    if (!boxBarcode) {
+      toast.error("Quét barcode hộp game trước khi check-in.");
+      return false;
+    }
     try {
-      let checkedIn = false;
-      try {
-        const preview = await PosCheckInService.previewPosBooking(cafeId, code);
-        const bookings = await PosCheckInService.getCafeBookings(cafeId);
-        const found = bookings.find(
-          (b) =>
-            b.id === code ||
-            b.reservationCode === code ||
-            b.bookingCode === code ||
-            b.qrCode === code ||
-            b.qrCode === `BV:${code}` ||
-            b.qrCode?.endsWith(code),
-        );
-        if (found && scannedBarcode.trim()) {
-          await PosCheckInService.posCheckIn(cafeId, {
-            cafeTableId: found.tableId,
-            barcode: scannedBarcode.trim(),
-            code:
-              found.reservationCode ||
-              found.bookingCode ||
-              preview.bookingCode ||
-              code,
-            bookingId: found.id,
-            lobbyId: found.lobbyId,
-          });
-          checkedIn = true;
-        }
-      } catch {
-        // fall through
+      const preview = await PosCheckInService.previewPosBooking(cafeId, code);
+      setBookingPreview(preview);
+      if (!preview.canCheckIn) {
+        toast.error("Đơn chưa sẵn sàng check-in.");
+        return false;
       }
-
-      if (!checkedIn) {
-        await apiClient.post(`/api/cafes/${cafeId}/pos/check-in`, {
-          bookingCode: code,
-          code,
-        });
-      }
+      await apiClient.post(`/api/cafes/${cafeId}/pos/check-in`, {
+        code: preview.bookingCode || code,
+        cafeTableId: tableId,
+        barcode: boxBarcode,
+        idempotencyKey: `pos-checkin:${(preview.bookingCode || code).toLowerCase()}`,
+      });
 
       toast.success("Check-in thành công!");
       setBookingCode("");
@@ -541,7 +536,7 @@ export function usePosDashboard(opts?: {
     }
   };
 
-  // BƯỚC 11: POST /pay (Thanh toán tổng hóa đơn - PAID & Giải phóng bàn)
+  // BƯỚC 11: POST /pay — thanh toán thủ công (Swagger: body chỉ { notes })
   const handlePaySession = async (
     sessionId: string,
     payloadData?: {
@@ -556,17 +551,12 @@ export function usePosDashboard(opts?: {
   ) => {
     if (!cafeId) return false;
     try {
-      const payload = {
-        penaltyItems: payloadData?.penaltyItems || [],
-        notes: payloadData?.notes || "Thanh toán thành công tại quầy POS",
-      };
-
       const res: any = await apiClient.post(
         `/api/cafes/${cafeId}/pos/sessions/${sessionId}/pay`,
-        payload
+        { notes: payloadData?.notes || "Thanh toán thủ công tại quầy POS" },
       );
 
-      toast.success("Thanh toán thành công. Bàn đã được giải phóng.");
+      toast.success("Thanh toán thủ công thành công. Bàn đã được giải phóng.");
 
       // 1. Đóng Modal ngay lập tức
       setCheckoutSession(null);
@@ -705,6 +695,26 @@ const handleScanBarcode = async () => {
     [cafeId]
   );
 
+  /** Poll GET session — không có webhook SePay nên staff bấm Reload sau khi khách CK. */
+  const handleRefreshCheckoutPayment = async (sessionId: string) => {
+    if (!cafeId) return null;
+    const detail = await handleGetSessionDetail(sessionId);
+    await fetchAllData(cafeId);
+    if (detail) {
+      setCheckoutSession((prev: any) =>
+        prev?.id === sessionId
+          ? {
+              ...(prev || {}),
+              ...detail,
+              id: sessionId,
+              tableName: detail.tableName || prev?.tableName,
+            }
+          : prev,
+      );
+    }
+    return detail;
+  };
+
   // Lấy lịch sử hộp game 
 const handleFetchBoxHistory = useCallback(
   async (boxId: string) => {
@@ -760,6 +770,7 @@ const handleFetchBoxHistory = useCallback(
     handleFetchBoxHistory,
     handleAddGuest,
     handleManualConfirmCash,
+    handleRefreshCheckoutPayment,
     canConfigureTables,
     role,
   };

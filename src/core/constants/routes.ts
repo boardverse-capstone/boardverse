@@ -36,6 +36,7 @@ export const ROUTES = {
     POS: '/manager/pos',
     INVENTORY: '/manager/inventory',
     OPERATIONAL_PROFILE: '/manager/operational-profile',
+    REPORTS: '/manager/reports',
   },
   PARTNER: {
     REGISTER: '/partner/register',
@@ -49,5 +50,6 @@ export const ROUTES = {
     INVENTORY_BOXES: '/staff/inventory?tab=boxes',
     INVENTORY_DETAIL: (cafeId: string, inventoryId: string) =>
       `/staff/inventory/${inventoryId}?cafeId=${cafeId}`,
+    REPORTS: '/staff/reports',
   },
 } as const;

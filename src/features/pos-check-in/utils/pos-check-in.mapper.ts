@@ -241,9 +241,17 @@ export function mapApiBooking(raw: unknown): TableBooking {
       'bookedAt',
       'ScheduledStartTime',
       'ScheduledAt',
+      'playDate',
+      'PlayDate',
     ),
     scheduledEndAt:
-      str(r, 'scheduleEndTime', 'scheduledEndTime', 'ScheduleEndTime') || undefined,
+      str(
+        r,
+        'scheduleEndTime',
+        'scheduledEndTime',
+        'ScheduleEndTime',
+        'ScheduledEndTime',
+      ) || undefined,
     bookedGame,
     participants,
     sessionStatus: mapSessionStatus(apiStatus),
@@ -725,14 +733,36 @@ export function mapApiComponentChecklist(raw: unknown, fallbackSessionGameId = '
 
 export function mapApiPaymentCode(raw: unknown): PaymentCode {
   const r = asRecord(raw);
-  const statusRaw = str(r, 'status', 'Status').toLowerCase();
+  const nested =
+    r.data && typeof r.data === 'object' ? asRecord(r.data) : r;
+  const statusRaw = str(nested, 'status', 'Status').toLowerCase();
   return {
-    code: str(r, 'code', 'paymentCode', 'Code'),
+    code: str(
+      nested,
+      'orderId',
+      'OrderId',
+      'transferContent',
+      'TransferContent',
+      'code',
+      'paymentCode',
+      'Code',
+    ),
     qrPayload:
-      str(r, 'qrPayload', 'qrCode', 'QrPayload', 'qrUrl', 'QrUrl', 'paymentUrl', 'PaymentUrl') ||
-      str(r, 'code', 'paymentCode'),
-    amount: num(r, 'amount', 'totalAmount', 'TotalAmount', 'totalDue', 'Amount'),
-    expiresAt: str(r, 'expiresAt', 'ExpiresAt'),
+      str(
+        nested,
+        'qrImageUrl',
+        'QrImageUrl',
+        'qrImage',
+        'paymentUrl',
+        'PaymentUrl',
+        'qrUrl',
+        'QrUrl',
+        'qrPayload',
+        'qrCode',
+        'QrPayload',
+      ) || str(nested, 'orderId', 'code', 'paymentCode'),
+    amount: num(nested, 'amount', 'totalAmount', 'TotalAmount', 'totalDue', 'Amount'),
+    expiresAt: str(nested, 'expiresAt', 'ExpiresAt'),
     status: statusRaw.includes('paid')
       ? 'Paid'
       : statusRaw.includes('expir')
