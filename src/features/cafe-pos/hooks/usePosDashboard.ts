@@ -342,7 +342,7 @@ export function usePosDashboard(opts?: {
   const handleStartSession = async (
     cafeTableId: string,
     barcode: string,
-    walkInGuests: string[] = [],
+    walkInGuests: Array<{ displayName: string; phoneNumber?: string }> = [],
   ) => {
     if (!cafeId) return false;
     try {
@@ -356,17 +356,18 @@ export function usePosDashboard(opts?: {
       const newSession = res?.data || res;
       const sessionId = newSession?.id || newSession?.sessionId;
 
-      const names = walkInGuests.map((n) => n.trim()).filter(Boolean);
-      if (sessionId && names.length > 0) {
-        for (const displayName of names) {
+      const guests = walkInGuests.filter((g) => g.displayName.trim());
+      if (sessionId && guests.length > 0) {
+        for (const guest of guests) {
           try {
             await PosCheckInService.addGuestSlots(cafeId, sessionId, {
-              displayName,
+              displayName: guest.displayName.trim(),
+              phoneNumber: guest.phoneNumber?.trim() || undefined,
             });
           } catch (guestErr: any) {
             toast.error(
               guestErr?.message ||
-                `Phiên đã mở nhưng chưa thêm đủ khách vãng lai (${displayName}).`,
+                `Phiên đã mở nhưng chưa thêm đủ khách vãng lai (${guest.displayName}).`,
             );
             await fetchAllData(cafeId);
             return true;
@@ -376,7 +377,7 @@ export function usePosDashboard(opts?: {
 
       toast.success(
         `Đã mở bàn ${newSession?.tableName || "POS"}${
-          names.length ? ` · ${names.length} khách vãng lai` : ""
+          guests.length ? ` · ${guests.length} khách vãng lai` : ""
         }.`,
       );
       await fetchAllData(cafeId);

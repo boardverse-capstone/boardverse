@@ -1098,18 +1098,24 @@ export const PosCheckInService = {
     return sessionResult;
   },
 
-  /** POST .../guest-slots — body: { displayName } */
+  /** POST .../guest-slots — body: displayName + phoneNumber (Swagger) */
   addGuestSlots: async (
     cafeId: string,
     sessionId: string,
     payload: AddGuestSlotsPayload,
   ): Promise<CafeSessionDetail> => {
-    
+    const displayName = payload.displayName.trim();
+    const phoneNumber = payload.phoneNumber?.replace(/\s/g, "") || "";
+    const body: Record<string, string> = { displayName };
+    if (phoneNumber) body.phoneNumber = phoneNumber;
+    if (payload.username?.trim() && !displayName) {
+      body.username = payload.username.trim();
+    }
 
     try {
       const raw = await apiClient.post<never, unknown>(
         posSessionPath(cafeId, sessionId, '/guest-slots'),
-        { displayName: payload.displayName.trim() },
+        body,
       );
       return mapApiSession(raw);
     } catch (err) {
@@ -1117,7 +1123,7 @@ export const PosCheckInService = {
         try {
           const raw = await apiClient.post<never, unknown>(
             sessionPath(cafeId, sessionId, '/guest-slots'),
-            { displayName: payload.displayName.trim() },
+            body,
           );
           return mapApiSession(raw);
         } catch {

@@ -31,6 +31,7 @@ import {
   ShieldCheck,
   Wifi,
   WifiOff,
+  Loader2,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -435,8 +436,11 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 border border-dashed rounded-2xl bg-white text-xs text-neutral-400">
-          Đang tải dữ liệu POS...
+        <div className="flex flex-col items-center justify-center gap-3 py-20 border border-dashed rounded-2xl bg-white">
+          <Loader2 className="h-8 w-8 animate-spin text-neutral-500" />
+          <p className="text-xs font-semibold text-neutral-400">
+            Đang tải dữ liệu POS...
+          </p>
         </div>
       ) : activeTab === "tables" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">

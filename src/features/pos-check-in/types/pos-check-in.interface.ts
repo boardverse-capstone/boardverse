@@ -248,10 +248,14 @@ export interface PosCheckInPayload {
   lobbyId?: string;
 }
 
-/** POST /api/cafes/{cafeId}/sessions/{sessionId}/guest-slots */
+/** POST /api/cafes/{cafeId}/pos/sessions/{sessionId}/guest-slots */
 export interface AddGuestSlotsPayload {
-  /** Docs: displayName — khách vô danh */
+  /** Tên hiển thị khách vô danh */
   displayName: string;
+  /** Alias cũ — BE ưu tiên displayName nếu gửi cả hai */
+  username?: string;
+  /** SĐT liên hệ (Swagger AddGuestSlotRequestDto) */
+  phoneNumber?: string;
 }
 
 /** POST /api/cafes/{cafeId}/sessions/{sessionId}/members/add */
