@@ -1,546 +1,829 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useTournamentPos } from "../hooks/useTournamentPos";
 import {
-  TournamentStatusFilter,
   TournamentMatch,
+  TournamentParticipant,
 } from "../types/tournament.types";
-import { TournamentBracketCanvas } from "./tournament-bracket-canvas";
+import { MatchResultModal } from "./match-result-modal";
 import { TournamentCreateModal } from "./tournament-create-modal";
-import { TournamentEditModal } from "./tournament-edit-modal";
 import { TournamentWalkInModal } from "./tournament-walkin-modal";
-import { TournamentPairingPreviewModal } from "./tournament-pairing-preview-modal";
-import { TournamentMatchResultModal } from "./tournament-match-result-modal";
-import { TournamentMatchCancelModal } from "./tournament-match-cancel-modal";
+import { TournamentPairingStudioModal } from "./tournament-pairing-studio-modal";
+import { TournamentParticipantsTable } from "./tournament-participants-table";
+import { apiClient } from "@/core/api/client";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Trophy,
-  Plus,
+  Swords,
   Play,
   CheckCircle2,
   XCircle,
-  Swords,
+  Plus,
   ChevronRight,
-  Filter,
-  Clock,
-  Gamepad2,
-  Edit3,
   UserPlus,
-  Eye,
+  Users,
+  RefreshCw,
+  Lock,
+  LayoutGrid,
 } from "lucide-react";
-
-const STATUS_FILTERS: Array<{ label: string; value: TournamentStatusFilter }> =
-  [
-    { label: "Tất cả trạng thái", value: "ALL" },
-    { label: "Draft (Bản nháp)", value: "Draft" },
-    { label: "Mở đăng ký (Open)", value: "RegistrationOpen" },
-    { label: "Đóng đăng ký (Closed)", value: "RegistrationClosed" },
-    { label: "Đang diễn ra (OnGoing)", value: "OnGoing" },
-    { label: "Hoàn thành (Completed)", value: "Completed" },
-    { label: "Đã hủy (Cancelled)", value: "Cancelled" },
-  ];
 
 export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
   const {
     tournaments,
-    loading,
     activeTournament,
-    handleSelectTournament,
-    selectedStatus,
-    setSelectedStatus,
+    setActiveTournament,
+    loading,
     fetchTournaments,
-    pairingPreview,
-    pairingPreviewLoading,
-    fetchPairingsPreview,
     handleCreateTournament,
-    handleUpdateTournament,
-    handleToggleRegistration,
-    handleReopenRegistration,
-    handleExtendRegistration,
-    handleAddWalkInParticipant,
+    handleOpenRegistration,
+    handleCloseRegistration,
     handleStartTournament,
     handleAdvanceRound,
     handleCompleteTournament,
     handleCancelTournament,
+    handleCheckInParticipant,
+    handleNoShowParticipant,
+    handleStartMatch,
     handleRecordMatchResult,
-    handleUpdateMatchResult,
     handleCancelMatch,
   } = useTournamentPos(cafeId);
 
-  // States quản lý Modal & View
+  // States
+  const [participants, setParticipants] = useState<TournamentParticipant[]>([]);
+  const [loadingParticipants, setLoadingParticipants] = useState(false);
+  const [matches, setMatches] = useState<TournamentMatch[]>([]);
+  const [loadingMatches, setLoadingMatches] = useState(false);
+
+  // Tab View khi OnGoing: Xem Bàn Đấu (MATCHES) hoặc Xem Bảng Quản Lý Tuyển Thủ (ROSTER)
+  const [mainView, setMainView] = useState<"MATCHES" | "ROSTER">("MATCHES");
+
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [showWalkInModal, setShowWalkInModal] = useState(false);
-  const [showPairingPreviewModal, setShowPairingPreviewModal] = useState(false);
+  const [showPairingStudio, setShowPairingStudio] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<TournamentMatch | null>(
     null,
   );
-  const activeTournamentId = activeTournament?.id;
-  const activeTournamentStatus = activeTournament?.status;
-  const activeTournamentRound = activeTournament?.currentRound;
-  const [cancelMatchTarget, setCancelMatchTarget] =
-    useState<TournamentMatch | null>(null);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
-  // 1. Fetch danh sách giải đấu khi đổi filter hoặc cafeId
-  useEffect(() => {
-    if (cafeId) {
-      fetchTournaments(selectedStatus);
+  // Refresh danh sách VĐV
+  const refreshParticipants = useCallback(async (tournamentId: string) => {
+    try {
+      setLoadingParticipants(true);
+      const res: unknown = await apiClient.get(
+        `/api/v1/pos/tournaments/${tournamentId}/participants`,
+      );
+      const resData = res as { data?: TournamentParticipant[] };
+      const list = resData?.data || (res as TournamentParticipant[]) || [];
+      setParticipants(list);
+    } catch {
+      setParticipants([]);
+    } finally {
+      setLoadingParticipants(false);
     }
-  }, [cafeId, selectedStatus, fetchTournaments]);
+  }, []);
 
-  // 2. Tự động nạp bảng ghép cặp (Pairings preview) khi giải đấu đang OnGoing hoặc RegistrationClosed
+  // Fetch danh sách Bàn đấu
+  const refreshMatches = useCallback(
+    async (tournamentId: string, currentRound: number) => {
+      try {
+        setLoadingMatches(true);
+        const endpoint =
+          currentRound > 0
+            ? `/api/v1/pos/tournaments/${tournamentId}/matches/round/${currentRound}`
+            : `/api/v1/pos/tournaments/${tournamentId}/matches`;
+
+        const res: unknown = await apiClient.get(endpoint);
+        const resData = res as { data?: any[] };
+        const list: any[] = resData?.data || (res as any[]) || [];
+
+        setMatches(list);
+      } catch {
+        setMatches([]);
+      } finally {
+        setLoadingMatches(false);
+      }
+    },
+    [],
+  );
+
+  // Fetch Tournament ban đầu
   useEffect(() => {
-    if (
-      activeTournamentId &&
-      (activeTournamentStatus === "OnGoing" ||
-        activeTournamentStatus === "RegistrationClosed")
-    ) {
-      const targetRound =
-        activeTournamentRound === 0 ? 1 : (activeTournamentRound ?? 1);
-      fetchPairingsPreview(activeTournamentId, targetRound);
-    }
-  }, [
-    activeTournamentId,
-    activeTournamentStatus,
-    activeTournamentRound,
-    fetchPairingsPreview,
-  ]);
+    if (!cafeId) return;
+    let isMounted = true;
+    const loadTournaments = async () => {
+      try {
+        await fetchTournaments();
+      } catch {}
+    };
+    if (isMounted) void loadTournaments();
+    return () => {
+      isMounted = false;
+    };
+  }, [cafeId, fetchTournaments]);
 
-  const handleFilterChange = (status: TournamentStatusFilter) => {
-    setSelectedStatus(status);
-  };
+  // Load VĐV & Bàn đấu khi activeTournament thay đổi
+  useEffect(() => {
+    const tournamentId = activeTournament?.id;
+    const currentRound = activeTournament?.currentRound || 0;
+    const isOngoing = activeTournament?.status === "OnGoing";
+    let isMounted = true;
 
-  const renderStatusBadge = (status: string) => {
-    const config: Record<string, { bg: string; text: string; border: string }> =
-      {
-        Draft: {
-          bg: "bg-neutral-100",
-          text: "text-neutral-700",
-          border: "border-neutral-200",
-        },
-        RegistrationOpen: {
-          bg: "bg-emerald-50",
-          text: "text-emerald-700",
-          border: "border-emerald-200",
-        },
-        RegistrationClosed: {
-          bg: "bg-amber-50",
-          text: "text-amber-700",
-          border: "border-amber-200",
-        },
-        OnGoing: {
-          bg: "bg-blue-50",
-          text: "text-blue-700",
-          border: "border-blue-200",
-        },
-        Completed: {
-          bg: "bg-purple-50",
-          text: "text-purple-700",
-          border: "border-purple-200",
-        },
-        Cancelled: {
-          bg: "bg-rose-50",
-          text: "text-rose-700",
-          border: "border-rose-200",
-        },
+    if (!tournamentId) {
+      const clearTimer = setTimeout(() => {
+        if (isMounted) {
+          setParticipants([]);
+          setMatches([]);
+        }
+      }, 0);
+      return () => {
+        isMounted = false;
+        clearTimeout(clearTimer);
       };
+    }
 
-    const style = config[status] || {
-      bg: "bg-neutral-50",
-      text: "text-neutral-600",
-      border: "border-neutral-200",
+    const loadParticipants = async () => {
+      try {
+        setLoadingParticipants(true);
+        const res: unknown = await apiClient.get(
+          `/api/v1/pos/tournaments/${tournamentId}/participants`,
+        );
+        const resData = res as { data?: TournamentParticipant[] };
+        const list = resData?.data || (res as TournamentParticipant[]) || [];
+        if (isMounted) setParticipants(list);
+      } catch {
+        if (isMounted) setParticipants([]);
+      } finally {
+        if (isMounted) setLoadingParticipants(false);
+      }
     };
 
-    return (
-      <span
-        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${style.bg} ${style.text} ${style.border}`}
-      >
-        {status}
-      </span>
-    );
-  };
+    const loadMatches = async () => {
+      if (!isOngoing) {
+        if (isMounted) setMatches([]);
+        return;
+      }
+      try {
+        setLoadingMatches(true);
+        const endpoint =
+          currentRound > 0
+            ? `/api/v1/pos/tournaments/${tournamentId}/matches/round/${currentRound}`
+            : `/api/v1/pos/tournaments/${tournamentId}/matches`;
+        const res: unknown = await apiClient.get(endpoint);
+        const resData = res as { data?: any[] };
+        const list: any[] = resData?.data || (res as any[]) || [];
+        if (isMounted) setMatches(list);
+      } catch {
+        if (isMounted) setMatches([]);
+      } finally {
+        if (isMounted) setLoadingMatches(false);
+      }
+    };
 
-  // Mở popup xem chi tiết bảng ghép cặp
-  const handleOpenPairingPreviewModal = async () => {
+    void loadParticipants();
+    void loadMatches();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    activeTournament?.id,
+    activeTournament?.status,
+    activeTournament?.currentRound,
+  ]);
+
+  const onStartMatch = async (matchId: string) => {
     if (!activeTournament) return;
-    const targetRound =
-      activeTournament.currentRound === 0 ? 1 : activeTournament.currentRound;
-    setShowPairingPreviewModal(true);
-    await fetchPairingsPreview(activeTournament.id, targetRound);
+    const ok = await handleStartMatch(matchId);
+    if (ok)
+      await refreshMatches(activeTournament.id, activeTournament.currentRound);
   };
 
-  // Kéo thả xếp VĐV vào bàn đấu ở vòng trong
-  const handleAdvancePlayer = (
-    targetMatchId: string,
-    player: { userId: string; userName: string },
-  ) => {
-    alert(
-      `Đã xếp VĐV "${player.userName}" vào Bàn đấu #${targetMatchId.slice(0, 6)} thành công!`,
-    );
+  const onSaveMatchResult = async (dto: any) => {
+    if (!activeTournament) return false;
+    const ok = await handleRecordMatchResult(dto);
+    if (ok) {
+      await refreshMatches(activeTournament.id, activeTournament.currentRound);
+      await refreshParticipants(activeTournament.id);
+    }
+    return ok;
   };
+
+  const onCancelMatch = async (matchId: string, reason: string) => {
+    if (!activeTournament) return;
+    const ok = await handleCancelMatch(matchId, reason);
+    if (ok)
+      await refreshMatches(activeTournament.id, activeTournament.currentRound);
+  };
+
+  const handleAddWalkIn = async (dto: {
+    displayName: string;
+    phoneNumber?: string;
+  }) => {
+    if (!activeTournament) return false;
+    try {
+      await apiClient.post(
+        `/api/v1/pos/tournaments/${activeTournament.id}/walk-in`,
+        dto,
+      );
+      toast.success("Đã thêm khách vãng lai!");
+      await refreshParticipants(activeTournament.id);
+      await fetchTournaments();
+      return true;
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      toast.error(error?.message || "Lỗi thêm khách vãng lai.");
+      return false;
+    }
+  };
+
+  const handleKickParticipant = async (
+    participantId: string,
+    reason: string,
+  ) => {
+    if (!activeTournament) return;
+    setActionLoadingId(participantId);
+    try {
+      await apiClient.post(
+        `/api/v1/pos/tournaments/${activeTournament.id}/participants/${participantId}/kick`,
+        { reason },
+      );
+      toast.success("Đã loại tuyển thủ khỏi giải đấu.");
+      await refreshParticipants(activeTournament.id);
+      await fetchTournaments();
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      toast.error(error?.message || "Lỗi loại tuyển thủ.");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const onCheckIn = async (participantId: string) => {
+    if (!activeTournament) return;
+    setActionLoadingId(participantId);
+    try {
+      const ok = await handleCheckInParticipant(
+        activeTournament.id,
+        participantId,
+      );
+      if (ok) await refreshParticipants(activeTournament.id);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const onNoShow = async (participantId: string) => {
+    if (!activeTournament) return;
+    setActionLoadingId(participantId);
+    try {
+      const ok = await handleNoShowParticipant(
+        activeTournament.id,
+        participantId,
+      );
+      if (ok) await refreshParticipants(activeTournament.id);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  if (loading && !activeTournament) {
+    return (
+      <div className="h-96 flex flex-col items-center justify-center space-y-3">
+        <div className="w-8 h-8 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin" />
+        <span className="text-xs text-neutral-400 font-bold">
+          Đang nạp dữ liệu giải đấu...
+        </span>
+      </div>
+    );
+  }
+
+  const isAnyMatchStarted = matches.some(
+    (m) => m.status === "OnGoing" || m.status === "Completed",
+  );
 
   return (
-    <div className="space-y-6 text-neutral-900 font-sans antialiased max-w-[1650px] mx-auto pb-12">
-      {/* 1. HEADER CHÍNH & BỘ LỌC GIẢI ĐẤU */}
-      <div className="bg-white p-5 rounded-2xl border border-neutral-200/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-4 max-w-7xl mx-auto pb-10">
+      {/* Header Bar */}
+      <div className="bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-2xs flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-amber-50 text-amber-600 border border-amber-200/80 rounded-xl shrink-0">
+          <div className="p-2.5 bg-amber-500 text-white rounded-2xl shadow-xs">
             <Trophy className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-lg font-black tracking-tight text-neutral-950">
-              Quản Lý Giải Đấu (Tournament POS)
+            <h1 className="text-base font-black text-neutral-950">
+              Tournament Command Center
             </h1>
-            <p className="text-xs text-neutral-500 font-medium mt-0.5">
-              Sơ đồ phân nhánh Bracket trực quan • Điều phối & ghi nhận kết quả
-              tại quầy.
+            <p className="text-xs text-neutral-500">
+              Quản lý và điều phối giải đấu Splendor tại quầy
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-neutral-50 px-3 py-1.5 rounded-xl border border-neutral-200">
-            <Filter className="w-4 h-4 text-neutral-500" />
-            <span className="text-xs font-bold text-neutral-600">Lọc:</span>
+        <div className="flex items-center gap-2">
+          {tournaments.length > 1 && (
             <select
-              value={selectedStatus}
-              onChange={(e) =>
-                handleFilterChange(e.target.value as TournamentStatusFilter)
-              }
-              className="text-xs font-bold bg-transparent text-neutral-800 outline-none cursor-pointer"
+              value={activeTournament?.id || ""}
+              onChange={(e) => {
+                const found = tournaments.find((t) => t.id === e.target.value);
+                if (found) setActiveTournament(found);
+              }}
+              className="h-9 px-3 rounded-xl border bg-neutral-50 text-xs font-bold text-neutral-800"
             >
-              {STATUS_FILTERS.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
+              {tournaments.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.title} ({t.status})
                 </option>
               ))}
             </select>
-          </div>
+          )}
 
           <Button
             onClick={() => setShowCreateModal(true)}
-            className="h-9 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold rounded-xl px-4 flex items-center gap-2 shadow-2xs"
+            className="h-9 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold rounded-xl px-4 flex items-center gap-1.5"
           >
-            <Plus className="w-4 h-4" />
-            <span>Tạo Giải Mới</span>
+            <Plus className="w-4 h-4" /> Tạo Giải Mới
           </Button>
         </div>
       </div>
 
-      {/* 2. CAROUSEL DANH SÁCH THẺ GIẢI ĐẤU */}
-      <div className="flex gap-3.5 overflow-x-auto pb-1 scrollbar-thin">
-        {tournaments.length > 0 ? (
-          tournaments.map((t) => {
-            const isSelected = activeTournament?.id === t.id;
-            return (
-              <button
-                key={t.id}
-                onClick={() => handleSelectTournament(t)}
-                className={`p-3.5 rounded-2xl border text-left shrink-0 w-64 space-y-2.5 transition-all ${
-                  isSelected
-                    ? "bg-white border-amber-400 ring-2 ring-amber-400/20 shadow-md"
-                    : "bg-white border-neutral-200/80 hover:bg-neutral-50/80 shadow-2xs"
-                }`}
-              >
-                <div className="flex justify-between items-start gap-2">
-                  <span className="text-xs font-black text-neutral-950 line-clamp-1">
-                    {t.title}
+      {/* Hero Tournament Card */}
+      {activeTournament ? (
+        <div className="space-y-4">
+          <div className="bg-white p-5 rounded-3xl border border-neutral-200 shadow-2xs space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
+                    {activeTournament.status}
                   </span>
-                  {renderStatusBadge(t.status)}
+                  <h2 className="text-lg font-black text-neutral-950">
+                    {activeTournament.title}
+                  </h2>
                 </div>
+                <p className="text-xs text-neutral-500 font-medium mt-1">
+                  Trò chơi:{" "}
+                  <strong>{activeTournament.gameName || "Splendor"}</strong> •
+                  Bắt đầu:{" "}
+                  <strong>
+                    {new Date(activeTournament.startTime).toLocaleString(
+                      "vi-VN",
+                    )}
+                  </strong>
+                </p>
+              </div>
 
-                <div className="text-[11px] text-neutral-600 flex items-center gap-1.5 font-medium">
-                  <Gamepad2 className="w-3.5 h-3.5 text-neutral-400" />
-                  <span>{t.gameName || "Splendor"}</span>
-                </div>
-
-                <div className="flex justify-between items-center text-[10px] text-neutral-500 font-mono pt-1.5 border-t border-neutral-100">
-                  <span className="font-bold text-neutral-700">
-                    VĐV: {t.registeredCount || 0}/{t.maxParticipants}
-                  </span>
-                  <span className="text-emerald-600 font-bold">
-                    Check-in: {t.checkedInCount || 0}
-                  </span>
-                </div>
-              </button>
-            );
-          })
-        ) : (
-          <div className="w-full p-6 text-center text-xs text-neutral-400 border border-dashed border-neutral-200 rounded-2xl bg-white font-medium">
-            Không tìm thấy giải đấu nào phù hợp với trạng thái đã lọc.
-          </div>
-        )}
-      </div>
-
-      {/* 3. TOOLBAR ĐIỀU HÀNH THU GỌN THEO TRẠNG THÁI */}
-      {activeTournament && (
-        <div className="bg-white border border-neutral-200/80 rounded-2xl p-4 shadow-2xs flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="space-y-0.5">
+              {/* Action Buttons */}
               <div className="flex items-center gap-2">
-                {renderStatusBadge(activeTournament.status)}
-                <span className="font-black text-base text-neutral-950">
-                  {activeTournament.title}
+                {activeTournament.status === "Draft" && (
+                  <Button
+                    onClick={() => handleOpenRegistration(activeTournament.id)}
+                    className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl px-4"
+                  >
+                    <Play className="w-3.5 h-3.5 mr-1" /> Mở Đăng Ký
+                  </Button>
+                )}
+
+                {activeTournament.status === "RegistrationOpen" && (
+                  <>
+                    <Button
+                      onClick={() => setShowPairingStudio(true)}
+                      variant="outline"
+                      className="h-9 border-neutral-300 text-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5"
+                    >
+                      <Swords className="w-3.5 h-3.5" /> Xếp Bảng Cặp R1
+                    </Button>
+                    <Button
+                      onClick={() => setShowWalkInModal(true)}
+                      variant="outline"
+                      className="h-9 border-neutral-300 text-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" /> Thêm Walk-in
+                    </Button>
+                    <Button
+                      onClick={() =>
+                        handleCloseRegistration(activeTournament.id)
+                      }
+                      className="h-9 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl px-4"
+                    >
+                      Đóng Đăng Ký
+                    </Button>
+                  </>
+                )}
+
+                {activeTournament.status === "RegistrationClosed" && (
+                  <>
+                    <Button
+                      onClick={() => setShowPairingStudio(true)}
+                      variant="outline"
+                      className="h-9 border-neutral-300 text-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5"
+                    >
+                      <Swords className="w-3.5 h-3.5" /> Xếp Bảng Cặp R1
+                    </Button>
+                    <Button
+                      onClick={() => setShowWalkInModal(true)}
+                      variant="outline"
+                      className="h-9 border-neutral-300 text-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" /> Thêm Walk-in
+                    </Button>
+                    <Button
+                      onClick={() => handleStartTournament(activeTournament.id)}
+                      className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl px-5 shadow-xs"
+                    >
+                      <Swords className="w-4 h-4 mr-1.5" /> Bắt Đầu Giải (Start
+                      R1)
+                    </Button>
+                  </>
+                )}
+
+                {activeTournament.status === "OnGoing" && (
+                  <>
+                    <Button
+                      onClick={() => handleAdvanceRound(activeTournament.id)}
+                      className="h-9 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl px-4"
+                    >
+                      <ChevronRight className="w-4 h-4 mr-1" /> Chuyển Vòng Tiếp
+                    </Button>
+                    <Button
+                      onClick={() =>
+                        handleCompleteTournament(activeTournament.id)
+                      }
+                      className="h-9 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl px-4"
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-1" /> Hoàn Thành Giải
+                    </Button>
+                  </>
+                )}
+
+                {activeTournament.status !== "OnGoing" &&
+                  activeTournament.status !== "Completed" &&
+                  activeTournament.status !== "Cancelled" && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const reason = prompt("Lý do hủy giải đấu:");
+                        if (reason?.trim()) {
+                          void handleCancelTournament(
+                            activeTournament.id,
+                            reason.trim(),
+                          );
+                        }
+                      }}
+                      className="h-9 border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold rounded-xl"
+                    >
+                      <XCircle className="w-3.5 h-3.5 mr-1" /> Hủy Giải
+                    </Button>
+                  )}
+              </div>
+            </div>
+
+            {/* Quick Specs Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="p-3 bg-neutral-50 rounded-2xl border">
+                <span className="text-neutral-400 font-bold text-[10px] uppercase block">
+                  Tiến độ vòng
                 </span>
-                <span className="text-xs text-neutral-400 font-mono">
-                  #{activeTournament.id.slice(0, 8)}
+                <span className="font-mono font-black text-neutral-900 text-sm">
+                  #{activeTournament.currentRound}/
+                  {activeTournament.totalRounds || 4}
                 </span>
               </div>
-              <div className="flex items-center gap-3 text-xs text-neutral-500 font-medium">
-                <span>
-                  Trò chơi:{" "}
-                  <strong>{activeTournament.gameName || "Splendor"}</strong>
+
+              <div className="p-3 bg-neutral-50 rounded-2xl border">
+                <span className="text-neutral-400 font-bold text-[10px] uppercase block">
+                  Sĩ số VĐV
                 </span>
-                <span>•</span>
-                <span>
-                  Vòng:{" "}
-                  <strong className="text-amber-600 font-mono">
-                    #{activeTournament.currentRound || 0}/
-                    {activeTournament.totalRounds || 4}
-                  </strong>
+                <span className="font-mono font-black text-neutral-900 text-sm">
+                  {participants.length}/{activeTournament.maxParticipants}
                 </span>
-                <span>•</span>
-                <span>
-                  VĐV:{" "}
-                  <strong className="text-emerald-600 font-mono">
-                    {activeTournament.checkedInCount || 0}/
-                    {activeTournament.registeredCount || 0} (Max:{" "}
-                    {activeTournament.maxParticipants})
-                  </strong>
+              </div>
+
+              <div className="p-3 bg-neutral-50 rounded-2xl border">
+                <span className="text-neutral-400 font-bold text-[10px] uppercase block">
+                  Đã Check-in
+                </span>
+                <span className="font-mono font-black text-emerald-700 text-sm">
+                  {
+                    participants.filter(
+                      (p) => p.status === "CheckedIn" || p.status === "Active",
+                    ).length
+                  }{" "}
+                  VĐV
+                </span>
+              </div>
+
+              <div className="p-3 bg-neutral-50 rounded-2xl border">
+                <span className="text-neutral-400 font-bold text-[10px] uppercase block">
+                  Thời lượng ván
+                </span>
+                <span className="font-mono font-black text-neutral-900 text-sm">
+                  {activeTournament.roundDurationMinutes} phút
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {/* TRẠNG THÁI DRAFT */}
-            {activeTournament.status === "Draft" && (
-              <>
-                <Button
-                  onClick={() => setShowEditModal(true)}
-                  variant="outline"
-                  className="h-9 border-neutral-200 text-neutral-700 text-xs font-bold rounded-xl"
-                >
-                  <Edit3 className="w-3.5 h-3.5 mr-1" /> Sửa Giải
-                </Button>
-                <Button
-                  onClick={() =>
-                    handleToggleRegistration(activeTournament.id, true)
-                  }
-                  className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl px-4"
-                >
-                  <Play className="w-3.5 h-3.5 mr-1" /> Mở Đăng Ký
-                </Button>
-              </>
-            )}
+          {/* Thanh điều hướng Tab khi giải OnGoing */}
+          {activeTournament.status === "OnGoing" && (
+            <div className="flex items-center gap-2 bg-neutral-100/70 p-1.5 rounded-2xl w-fit">
+              <button
+                onClick={() => setMainView("MATCHES")}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                  mainView === "MATCHES"
+                    ? "bg-white text-neutral-950 shadow-xs"
+                    : "text-neutral-500 hover:text-neutral-900"
+                }`}
+              >
+                <LayoutGrid className="w-4 h-4" /> Bàn Đấu Vòng #
+                {activeTournament.currentRound} ({matches.length})
+              </button>
 
-            {/* TRẠNG THÁI REGISTRATION OPEN */}
-            {activeTournament.status === "RegistrationOpen" && (
-              <>
-                <Button
-                  onClick={() =>
-                    handleToggleRegistration(activeTournament.id, false)
-                  }
-                  className="h-9 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl px-3"
-                >
-                  Đóng Đăng Ký
-                </Button>
-                <Button
-                  onClick={() => handleExtendRegistration(activeTournament.id)}
-                  variant="outline"
-                  className="h-9 border-blue-600 text-blue-700 text-xs font-bold rounded-xl"
-                >
-                  <Clock className="w-3.5 h-3.5 mr-1" /> Gia Hạn
-                </Button>
-                <Button
-                  onClick={() => setShowWalkInModal(true)}
-                  variant="outline"
-                  className="h-9 border-emerald-600 text-emerald-700 text-xs font-bold rounded-xl"
-                >
-                  <UserPlus className="w-3.5 h-3.5 mr-1" /> Thêm Walk-in
-                </Button>
-              </>
-            )}
+              <button
+                onClick={() => setMainView("ROSTER")}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                  mainView === "ROSTER"
+                    ? "bg-white text-neutral-950 shadow-xs"
+                    : "text-neutral-500 hover:text-neutral-900"
+                }`}
+              >
+                <Users className="w-4 h-4" /> Danh Sách Tuyển Thủ (
+                {participants.length})
+              </button>
+            </div>
+          )}
 
-            {/* TRẠNG THÁI REGISTRATION CLOSED */}
-            {activeTournament.status === "RegistrationClosed" && (
-              <>
-                <Button
-                  onClick={handleOpenPairingPreviewModal}
-                  variant="outline"
-                  className="h-9 border-blue-600 text-blue-700 hover:bg-blue-50 text-xs font-bold rounded-xl flex items-center gap-1.5"
-                >
-                  <Eye className="w-3.5 h-3.5" /> Xem Chi Tiết Bảng Cặp (Preview
-                  R1)
-                </Button>
-                <Button
-                  onClick={() => handleStartTournament(activeTournament.id)}
-                  className="h-9 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl px-4"
-                >
-                  <Swords className="w-3.5 h-3.5 mr-1" /> Bắt Đầu Giải (Start
-                  R1)
-                </Button>
-                <Button
-                  onClick={() => handleReopenRegistration(activeTournament.id)}
-                  variant="outline"
-                  className="h-9 border-emerald-600 text-emerald-700 text-xs font-bold rounded-xl"
-                >
-                  Mở Lại Đăng Ký
-                </Button>
-                <Button
-                  onClick={() => setShowWalkInModal(true)}
-                  variant="outline"
-                  className="h-9 border-emerald-600 text-emerald-700 text-xs font-bold rounded-xl"
-                >
-                  <UserPlus className="w-3.5 h-3.5 mr-1" /> Thêm Walk-in
-                </Button>
-              </>
-            )}
+          {/* Khu vực nội dung chính */}
+          {activeTournament.status === "OnGoing" && mainView === "MATCHES" ? (
+            /* 1. ARENA BÀN ĐẤU */
+            <div className="bg-white p-5 rounded-3xl border border-neutral-200 shadow-2xs space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+                <div className="flex items-center gap-2">
+                  <Swords className="w-5 h-5 text-amber-600" />
+                  <h3 className="font-black text-sm text-neutral-950">
+                    Bàn Đấu Vòng #{activeTournament.currentRound} (
+                    {matches.length} bàn)
+                  </h3>
+                </div>
 
-            {/* TRẠNG THÁI ONGOING */}
-            {activeTournament.status === "OnGoing" && (
-              <>
-                <Button
-                  onClick={handleOpenPairingPreviewModal}
-                  variant="outline"
-                  className="h-9 border-blue-600 text-blue-700 hover:bg-blue-50 text-xs font-bold rounded-xl flex items-center gap-1.5"
-                >
-                  <Eye className="w-3.5 h-3.5" /> Xem Ghép Cặp
-                </Button>
-                <Button
-                  onClick={() => handleAdvanceRound(activeTournament.id)}
-                  className="h-9 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl px-4"
-                >
-                  <ChevronRight className="w-3.5 h-3.5 mr-1" /> Chuyển Vòng Tiếp
-                  Theo
-                </Button>
-                <Button
-                  onClick={() => handleCompleteTournament(activeTournament.id)}
-                  className="h-9 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl px-4"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Hoàn Thành Giải
-                  (Apply Elo)
-                </Button>
-                {activeTournament.currentRound <= 1 && (
+                <div className="flex items-center gap-2">
+                  {!isAnyMatchStarted ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowPairingStudio(true)}
+                      className="h-8 text-xs font-bold rounded-xl border-amber-300 bg-amber-50/60 text-amber-900 hover:bg-amber-100 flex items-center gap-1.5"
+                    >
+                      <Swords className="w-3.5 h-3.5 text-amber-600" /> Xếp Lại
+                      Bảng Cặp
+                    </Button>
+                  ) : (
+                    <span className="text-[11px] font-bold text-neutral-500 bg-neutral-100 border border-neutral-200 px-2.5 py-1 rounded-xl flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-neutral-400" /> Đã khóa ghép
+                      cặp
+                    </span>
+                  )}
+
                   <Button
-                    onClick={() => setShowWalkInModal(true)}
+                    size="sm"
                     variant="outline"
-                    className="h-9 border-emerald-600 text-emerald-700 text-xs font-bold rounded-xl"
-                  >
-                    <UserPlus className="w-3.5 h-3.5 mr-1" /> Thêm Walk-in
-                  </Button>
-                )}
-              </>
-            )}
-
-            {/* NÚT HỦY GIẢI ĐẤU */}
-            {activeTournament.status !== "Completed" &&
-              activeTournament.status !== "Cancelled" && (
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    const reason = prompt(
-                      "Nhập lý do hủy giải đấu (Audit Log):",
-                    );
-                    if (reason && reason.trim()) {
-                      handleCancelTournament(
+                    onClick={() =>
+                      refreshMatches(
                         activeTournament.id,
-                        reason.trim(),
-                      );
+                        activeTournament.currentRound,
+                      )
                     }
-                  }}
-                  className="h-9 border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold rounded-xl"
-                >
-                  <XCircle className="w-3.5 h-3.5 mr-1" /> Hủy Giải
-                </Button>
+                    disabled={loadingMatches}
+                    className="h-8 text-xs font-bold rounded-xl border-neutral-300 flex items-center gap-1"
+                  >
+                    <RefreshCw
+                      className={`w-3 h-3 ${loadingMatches ? "animate-spin" : ""}`}
+                    />{" "}
+                    Làm mới bàn đấu
+                  </Button>
+                </div>
+              </div>
+
+              {loadingMatches ? (
+                <div className="text-center py-16 text-xs text-neutral-400 font-bold">
+                  Đang tải danh sách bàn đấu...
+                </div>
+              ) : matches.length === 0 ? (
+                <div className="text-center py-16 border border-dashed rounded-2xl bg-neutral-50/50 p-6 space-y-2">
+                  <Swords className="w-8 h-8 text-neutral-300 mx-auto" />
+                  <p className="text-xs text-neutral-500 font-medium">
+                    Chưa có bàn đấu nào được khởi tạo cho vòng #
+                    {activeTournament.currentRound}.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {matches.map((match: any) => {
+                    const slotIndices = [1, 2, 3, 4] as const;
+                    const tablePlayers = slotIndices
+                      .map((slot) => {
+                        const pId = match[`player${slot}Id`];
+                        if (!pId) return null;
+
+                        const participantInfo = participants.find(
+                          (p) => p.userId === pId || p.id === pId,
+                        );
+
+                        return {
+                          slot,
+                          userId: pId,
+                          userName:
+                            participantInfo?.walkInDisplayName ||
+                            participantInfo?.username ||
+                            `VĐV #${pId.slice(0, 4)}`,
+                          avatarUrl: participantInfo?.avatarUrl,
+                          currentElo:
+                            participantInfo?.currentElo ||
+                            participantInfo?.initialElo ||
+                            1200,
+                          score: match[`player${slot}Score`],
+                          cardsBought: match[`player${slot}CardsBought`],
+                          isWinner: match.winnerPlayerId === pId,
+                        };
+                      })
+                      .filter(Boolean);
+
+                    return (
+                      <div
+                        key={match.id}
+                        className="p-4 rounded-3xl border border-neutral-200/90 bg-white space-y-3.5 shadow-2xs flex flex-col justify-between overflow-hidden"
+                      >
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-black text-sm text-neutral-950">
+                              {match.tableName ||
+                                `Bàn #${match.matchNumber || match.tableNumber || match.id.slice(0, 6)}`}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${
+                                match.status === "Completed"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : match.status === "OnGoing"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-neutral-100 text-neutral-600"
+                              }`}
+                            >
+                              {match.status}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            {tablePlayers.map((p: any) => (
+                              <div
+                                key={p.userId}
+                                className={`flex items-center justify-between text-xs px-3 py-2 rounded-2xl border transition-colors ${
+                                  p.isWinner
+                                    ? "bg-amber-50/80 border-amber-300 font-bold"
+                                    : "bg-neutral-50/60 border-neutral-100"
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                                  {p.isWinner && (
+                                    <Trophy className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                  )}
+                                  <span className="text-neutral-900 truncate font-bold text-xs">
+                                    {p.userName}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-neutral-400 shrink-0">
+                                    ({p.currentElo})
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0 font-mono text-xs">
+                                  {p.score !== null && p.score !== undefined ? (
+                                    <span className="font-black text-neutral-900">
+                                      {p.score}đ
+                                    </span>
+                                  ) : (
+                                    <span className="text-neutral-300">--</span>
+                                  )}
+                                  {p.cardsBought !== null &&
+                                    p.cardsBought !== undefined && (
+                                      <span className="text-neutral-400 text-[10px]">
+                                        ({p.cardsBought} thẻ)
+                                      </span>
+                                    )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-neutral-100 flex flex-wrap items-center justify-end gap-1.5">
+                          {match.status !== "Completed" &&
+                            match.status !== "Cancelled" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  const reason = prompt(
+                                    "Nhập lý do hủy bàn đấu:",
+                                  );
+                                  if (reason?.trim())
+                                    onCancelMatch(match.id, reason.trim());
+                                }}
+                                className="h-8 px-2.5 border-rose-200 text-rose-600 hover:bg-rose-50 text-[11px] font-bold rounded-xl"
+                              >
+                                Hủy Bàn
+                              </Button>
+                            )}
+
+                          {match.status === "Scheduled" && (
+                            <Button
+                              size="sm"
+                              onClick={() => onStartMatch(match.id)}
+                              className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-xl shadow-2xs"
+                            >
+                              Bắt Đầu Bàn
+                            </Button>
+                          )}
+
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setSelectedMatch({
+                                ...match,
+                                players: tablePlayers,
+                              });
+                            }}
+                            className="h-8 px-3.5 bg-neutral-950 hover:bg-neutral-800 text-white text-[11px] font-bold rounded-xl shadow-2xs"
+                          >
+                            {match.status === "Completed"
+                              ? "Sửa Điểm"
+                              : "Ghi Kết Quả"}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
-          </div>
+            </div>
+          ) : (
+            /* 2. BẢNG QUẢN LÝ TUYỂN THỦ (Dùng chung cho cả Sảnh chờ và Trong lúc thi đấu) */
+            <TournamentParticipantsTable
+              participants={participants}
+              loading={loadingParticipants}
+              onCheckIn={onCheckIn}
+              onNoShow={onNoShow}
+              onKick={handleKickParticipant}
+              actionLoadingId={actionLoadingId}
+              onAddWalkInClick={() => setShowWalkInModal(true)}
+            />
+          )}
+        </div>
+      ) : (
+        <div className="text-center py-20 bg-white border border-dashed rounded-3xl p-6">
+          <p className="text-xs text-neutral-400 font-medium">
+            Chưa có giải đấu nào được chọn hoặc tạo mới.
+          </p>
         </div>
       )}
 
-      {/* 4. BRACKET & PAIRINGS CANVAS TOÀN TRANG */}
-      {loading ? (
-        <div className="p-24 text-center text-xs text-neutral-400 border border-dashed border-neutral-200 rounded-3xl bg-white font-medium">
-          Đang tải dữ liệu giải đấu...
-        </div>
-      ) : activeTournament ? (
-        <TournamentBracketCanvas
-          matches={activeTournament.matches || []}
-          participants={activeTournament.participants || []}
-          pairingPreview={pairingPreview}
-          currentRound={activeTournament.currentRound || 1}
-          totalRounds={activeTournament.totalRounds || 4}
-          onSelectMatch={(m) => setSelectedMatch(m)}
-          onAdvancePlayer={handleAdvancePlayer}
-          onConfirmPairings={
-            activeTournament.status === "RegistrationClosed"
-              ? () => handleStartTournament(activeTournament.id)
-              : () => handleAdvanceRound(activeTournament.id)
-          }
-        />
-      ) : null}
+      {/* Các Modal Vệ Tinh */}
+      <MatchResultModal
+        isOpen={!!selectedMatch}
+        onClose={() => setSelectedMatch(null)}
+        match={selectedMatch}
+        onSaveResult={onSaveMatchResult}
+      />
 
-      {/* 5. MODAL SUITE */}
-
-      {/* Modal Tạo Giải Draft */}
       <TournamentCreateModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateTournament}
       />
 
-      {/* Modal Chỉnh Sửa Giải Draft */}
-      <TournamentEditModal
-        key={activeTournament?.id || "edit-modal"}
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        tournament={activeTournament}
-        onSubmit={handleUpdateTournament}
+      <TournamentWalkInModal
+        isOpen={showWalkInModal}
+        onClose={() => setShowWalkInModal(false)}
+        onSubmit={handleAddWalkIn}
       />
 
-      {/* Modal Đăng Ký Khách Vãng Lai (Walk-in) */}
       {activeTournament && (
-        <TournamentWalkInModal
-          isOpen={showWalkInModal}
-          onClose={() => setShowWalkInModal(false)}
+        <TournamentPairingStudioModal
+          isOpen={showPairingStudio}
+          onClose={() => setShowPairingStudio(false)}
           tournamentId={activeTournament.id}
-          onSubmit={handleAddWalkInParticipant}
+          roundNumber={activeTournament.currentRound || 1}
+          onPairingSaved={() => {
+            void fetchTournaments();
+            if (activeTournament.status === "OnGoing") {
+              void refreshMatches(
+                activeTournament.id,
+                activeTournament.currentRound,
+              );
+            }
+          }}
         />
       )}
-
-      {/* Modal Xem Trước Bảng Ghép Cặp (Popup Preview) */}
-      <TournamentPairingPreviewModal
-        isOpen={showPairingPreviewModal}
-        onClose={() => setShowPairingPreviewModal(false)}
-        previewData={pairingPreview}
-        loading={pairingPreviewLoading}
-        participants={activeTournament?.participants || []}
-        onConfirmStart={
-          activeTournament?.status === "RegistrationClosed"
-            ? () => handleStartTournament(activeTournament.id)
-            : undefined
-        }
-      />
-
-      {/* Modal Ghi Nhận / Sửa Kết Quả Bàn Đấu (POST / PATCH) */}
-      <TournamentMatchResultModal
-        key={selectedMatch?.id || "match-result-modal"}
-        isOpen={!!selectedMatch}
-        onClose={() => setSelectedMatch(null)}
-        match={selectedMatch}
-        onSaveResult={handleRecordMatchResult}
-        onUpdateResult={handleUpdateMatchResult}
-      />
-
-      {/* Modal Hủy Bàn Đấu */}
-      <TournamentMatchCancelModal
-        key={cancelMatchTarget?.id || "match-cancel-modal"}
-        isOpen={!!cancelMatchTarget}
-        onClose={() => setCancelMatchTarget(null)}
-        match={cancelMatchTarget}
-        onCancelMatch={handleCancelMatch}
-      />
     </div>
   );
 }

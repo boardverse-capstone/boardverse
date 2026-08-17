@@ -1,6 +1,4 @@
-// các trạng thái filter danh sách tournament từ API
-export type TournamentStatusFilter =
-  | "ALL"
+export type TournamentStatus =
   | "Draft"
   | "RegistrationOpen"
   | "RegistrationClosed"
@@ -8,173 +6,176 @@ export type TournamentStatusFilter =
   | "Completed"
   | "Cancelled";
 
-// Trạng thái bàn đấu
+export type ParticipantStatus =
+  | "Registered"
+  | "CheckedIn"
+  | "Active"
+  | "NoShow"
+  | "Eliminated"
+  | "Finished"
+  | "Withdrawn"
+  | "Kicked"
+  | string;
+
 export type MatchStatus = "Scheduled" | "OnGoing" | "Completed" | "Cancelled";
 
-// VĐV tham gia giải đấu
-export interface TournamentParticipant {
-  id: string;
-  tournamentId: string;
-  userId: string | null;
-  username?: string | null;
-  avatarUrl?: string | null;
-  walkInDisplayName?: string | null;
-  walkInPhoneNumber?: string | null;
-  isWalkIn?: boolean;
-  joinedRoundNumber?: number;
-  registeredAt?: string;
-  karmaAtRegistration?: number;
-  checkedInAt?: string | null;
-  checkedInByStaffId?: string | null;
-  registeredByStaffId?: string | null;
-  status: "Registered" | "CheckedIn" | "NoShow" | "Active" | "Finished" | "Withdrawn"; // <--- BỔ SUNG Withdrawn
-  totalPrestigePoints?: number;
-  totalCardsBought?: number;
-  finalRank?: number | null;
-  initialElo?: number;
-  currentElo?: number;
-  eloDelta?: number;
-  finalElo?: number;
-  swissWins?: number;
-  swissDraws?: number;
-  swissLosses?: number;
-  swissScore?: number;
-  isWaitlisted?: boolean;
-  waitlistPosition?: number | null;
-}
-// Kết quả người chơi trong 1 bàn đấu (Splendor)
-export interface MatchPlayerResult {
+export interface ParticipantScoreItem {
   userId: string;
   userName?: string;
   score: number;
   cardsBought?: number;
 }
 
-// Chi tiết 1 bàn đấu
-export interface TournamentMatch {
+export interface TournamentParticipant {
   id: string;
   tournamentId: string;
-  roundNumber: number;
-  tableNumber: number;
-  status: MatchStatus;
-  actualStartTime?: string;
-  winnerUserId?: string;
-  notes?: string;
-  results?: MatchPlayerResult[];
+  userId: string | null;
+  username: string | null;
+  avatarUrl: string | null;
+  walkInDisplayName: string | null;
+  walkInPhoneNumber: string | null;
+  isWalkIn: boolean;
+  joinedRoundNumber: number;
+  registeredAt: string;
+  karmaAtRegistration: number;
+  checkedInAt: string | null;
+  checkedInByStaffId: string | null;
+  registeredByStaffId: string | null;
+  status: ParticipantStatus;
+  totalPrestigePoints: number;
+  totalCardsBought: number;
+  finalRank: number | null;
+  initialElo: number;
+  currentElo: number;
+  eloDelta: number;
+  finalElo: number;
+  swissWins: number;
+  swissDraws: number;
+  swissLosses: number;
+  swissScore: number;
+  isWaitlisted: boolean;
+  waitlistPosition: number | null;
 }
 
-// Object Giải đấu (Tournament) khớp 100% với JSON Response API GET
-export interface Tournament {
+export interface AddWalkInDto {
+  displayName: string;
+  phoneNumber?: string;
+}
+
+export interface StartWithOptionsDto {
+  allowPartialStart: boolean;
+  reducedRounds?: number;
+  autoShortenMode?: string;
+  reason?: string;
+}
+
+export interface TournamentMatchPlayer {
+  userId: string;
+  userName: string;
+  avatarUrl?: string;
+  score?: number;
+  cardsBought?: number;
+  isWinner?: boolean;
+}
+
+export interface TournamentMatch {
+  id: string;
+  roundNumber: number;
+  tableNumber?: number;
+  tableName?: string;
+  status: MatchStatus;
+  actualStartTime?: string | null;
+  endTime?: string | null;
+  winnerUserId?: string | null;
+  winnerName?: string | null;
+  players: TournamentMatchPlayer[];
+  notes?: string | null;
+}
+
+export interface TournamentDetail {
   id: string;
   cafeId: string;
-  cafeName?: string;
-  createdByManagerId?: string;
   title: string;
-  description?: string | null;
+  description?: string;
   gameTemplateId?: string;
-  gameName?: string;
+  gameName: string;
   startTime: string;
-  registrationDeadline?: string | null;
+  registrationDeadline: string;
   roundDurationMinutes: number;
   minParticipants: number;
   maxParticipants: number;
-  entryFee: number;
-  totalRounds: number;
-  preliminaryRounds: number;
-  finalistCount: number;
-  hasThirdPlaceMatch: boolean;
-  currentRound: number;
-  startedAt?: string | null;
-  minKarmaRequirement: number;
-  minEloRequirement: number;
-  maxEloRequirement: number;
-  noShowKarmaPenalty: number;
+  minKarmaRequirement?: number;
   winnerKarmaBonus: number;
   finalistKarmaBonus: number;
-  cancellationReason?: string | null;
-  cancelledAt?: string | null;
-  status: TournamentStatusFilter;
+  noShowKarmaPenalty: number;
+  currentRound: number;
+  totalRounds: number;
+  preliminaryRounds: number;
+  status: TournamentStatus;
   registeredCount: number;
   checkedInCount: number;
-  createdAt: string;
-  updatedAt: string;
-  currentUserRegistered?: boolean;
-  currentUserParticipantStatus?: string | null;
-  pairingMode?: "Auto" | "Manual";
-  manualPairings?: {
-    round1Set: boolean;
-    round2Set: boolean;
-    round3Set: boolean;
-    finalSet: boolean;
-  };
+  cancellationReason?: string | null;
   participants?: TournamentParticipant[];
   matches?: TournamentMatch[];
 }
 
-// DTO Payload gửi lên khi gọi API POST tạo giải đấu
-export interface CreateTournamentPayload {
+export interface CreateTournamentDto {
   title: string;
   description?: string;
   gameTemplateId?: string;
   startTime: string;
-  registrationDeadline?: string;
-  roundDurationMinutes?: number;
+  registrationDeadline: string;
+  roundDurationMinutes: number;
+  minParticipants: number;
   maxParticipants: number;
-  minParticipants?: number;
   minKarmaRequirement?: number;
   minEloRequirement?: number;
   maxEloRequirement?: number;
   noShowKarmaPenalty?: number;
   pairingMode?: "Auto" | "Manual";
   hasThirdPlaceMatch?: boolean;
+  winnerKarmaBonus?: number;
+  finalistKarmaBonus?: number;
 }
 
-export interface UpdateTournamentPayload {
-  title?: string;
-  description?: string;
-  startTime?: string;
-  registrationDeadline?: string;
-  roundDurationMinutes?: number;
-  maxParticipants?: number;
-  minKarmaRequirement?: number;
-  minEloRequirement?: number;
-  maxEloRequirement?: number;
-  noShowKarmaPenalty?: number;
-  autoExtendOnShortage?: boolean;
-  maxExtensionCount?: number;
-  extensionMinutesPerAttempt?: number;
-  preliminaryRounds?: number;
-}
-
-export interface MatchPlayerResultPayload {
+export interface MatchPlayerResultItem {
   userId: string;
   score: number;
   cardsBought?: number;
 }
 
-export interface RecordMatchResultPayload {
+export interface RecordMatchResultDto {
   matchId: string;
   winnerUserId: string;
   recordedByStaffId?: string;
   notes?: string;
-  results: MatchPlayerResultPayload[];
+  results: MatchPlayerResultItem[];
+}
+export interface PairingTablePreview {
+  tableNumber: number;
+  tableName?: string;
+  playerUserIds: string[];
+  players: {
+    userId: string;
+    userName: string;
+    avatarUrl?: string | null;
+    currentElo?: number;
+    swissScore?: number;
+  }[];
 }
 
-export interface UpdateMatchResultPayload {
-  winnerUserId: string;
-  recordedByStaffId?: string;
-  notes?: string;
-  results: MatchPlayerResultPayload[];
-}
-export interface PairingMatchPreview {
-  matchNumber: number;
-  playerIds: string[];
-}
-
-export interface TournamentPairingPreview {
+export interface RoundPairingPreviewResponse {
   tournamentId: string;
   roundNumber: number;
-  source: string; // "Auto (suggested)" | "Manual"
-  pairings: PairingMatchPreview[];
-  warnings?: string[];
+  pairingMode: "Auto" | "Manual";
+  isManualOverride: boolean;
+  tables: PairingTablePreview[];
+}
+
+export interface SaveManualPairingDto {
+  roundNumber: number;
+  pairings: {
+    tableNumber: number;
+    playerUserIds: string[];
+  }[];
 }
