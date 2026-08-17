@@ -44,7 +44,6 @@ import {
   mapApiActivatedSession,
   mapApiBoardGame,
   mapApiBooking,
-  mapApiBookingList,
   mapApiCompleteSession,
   mapApiComponentChecklist,
   mapApiFloorPlan,
@@ -829,25 +828,10 @@ export const PosCheckInService = {
     };
   },
 
-  /** GET /api/bookings/cafe/{cafeId} */
-  getCafeBookings: async (cafeId: string): Promise<TableBooking[]> => {
-    
-    const trimmedCafeId = cafeId.trim();
-    if (!trimmedCafeId) {
-      throw new Error('Thiếu mã quán để tải danh sách booking.');
-    }
-
-    const raw = await apiClient.get<never, unknown>(
-      `/api/bookings/cafe/${encodeURIComponent(trimmedCafeId)}`,
-    );
-    const bookings = mapApiBookingList(raw);
-
-    try {
-      return await enrichBookingsWithGames(bookings);
-    } catch {
-      // Hydrate tên game thất bại → vẫn trả list đã map
-      return bookings;
-    }
+  /** Không còn GET /api/bookings/cafe (deprecated). List POS: bàn Reserved + tra cứu mã. */
+  getCafeBookings: async (_cafeId: string): Promise<TableBooking[]> => {
+    void _cafeId;
+    return [];
   },
 
   getPendingBookings: async (cafeId: string): Promise<TableBooking[]> => {
@@ -1485,28 +1469,34 @@ export const PosCheckInService = {
   },
 
   /**
-   * POST /api/payments/session-payment — BE tự lấy TotalAmount từ session (chỉ cần sessionId).
+   * POST /api/payments/session-payment
+   * Body sống (Swagger): sessionId + notes (+ customerEmail). BE lấy TotalAmount từ session UNPAID.
    */
   createSessionPayment: async (
     cafeId: string,
     sessionId: string,
-    params: { totalAmount: number; depositAppliedAmount?: number; notes?: string },
+    params: {
+      totalAmount?: number;
+      depositAppliedAmount?: number;
+      notes?: string;
+      customerEmail?: string;
+    },
   ): Promise<PaymentCode> => {
-    
+    void cafeId;
+    void params.depositAppliedAmount;
 
-    const uiAmount = Math.round(Number(params.totalAmount));
-    if (!Number.isFinite(uiAmount) || uiAmount <= 0) {
-      throw new Error('Tổng tiền thanh toán phải lớn hơn 0.');
+    const body: Record<string, unknown> = { sessionId };
+    if (params.notes?.trim()) body.notes = params.notes.trim();
+    if (params.customerEmail?.includes('@')) {
+      body.customerEmail = params.customerEmail.trim();
     }
-
-    const body = {
-      sessionId,
-      notes: params.notes ?? `POS VietQR · ${uiAmount.toLocaleString('vi-VN')} VND`,
-    };
 
     try {
       const raw = await apiClient.post<never, unknown>('/api/payments/session-payment', body);
       const code = mapApiPaymentCode(raw);
+      if (!code.qrPayload) {
+        throw new Error('BE không trả qrImageUrl / paymentUrl.');
+      }
       if (code.amount > 0) writeServerCheckoutTotal(sessionId, code.amount);
       return code;
     } catch (err) {

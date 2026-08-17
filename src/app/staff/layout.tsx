@@ -40,7 +40,7 @@ const STAFF_NAV: NavItem[] = [
   },
   {
     title: 'Báo cáo ca',
-    url: '/staff/reports',
+    url: ROUTES.STAFF.REPORTS,
     icon: <IconClipboard />,
   },
   {

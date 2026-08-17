@@ -18,6 +18,7 @@ import {
   Tag,
   PenTool,
   QrCode,
+  RefreshCw,
 } from "lucide-react";
 
 function pickAmount(source: any, ...keys: string[]): number {
@@ -55,6 +56,8 @@ export interface CheckoutPayModalProps {
     amount: number,
     notes?: string,
   ) => Promise<boolean>;
+  /** GET session lại sau khi khách CK (không có webhook). */
+  onRefreshPayment?: (sessionId: string) => Promise<any | null>;
 }
 
 // Danh sách các trường hợp ghi chú phổ biến
@@ -73,7 +76,7 @@ export function PayConfirmModal({
   cafeId,
   onCheckout,
   onPay,
-  onManualConfirmCash,
+  onRefreshPayment,
 }: CheckoutPayModalProps) {
   const [selectedPreset, setSelectedPreset] =
     useState<string>("Không bị mất đồ");
@@ -81,6 +84,7 @@ export function PayConfirmModal({
   const [loading, setLoading] = useState(false);
   const [qrPayload, setQrPayload] = useState<string | null>(null);
   const [qrAmount, setQrAmount] = useState(0);
+  const [qrOrderId, setQrOrderId] = useState("");
 
   useEffect(() => {
     if (!isOpen || !session?.id || !onCheckout) return;
@@ -113,8 +117,28 @@ export function PayConfirmModal({
     if (!isOpen) {
       setQrPayload(null);
       setQrAmount(0);
+      setQrOrderId("");
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !qrPayload || !onRefreshPayment || !session?.id) return;
+    let stopped = false;
+    const tick = async () => {
+      if (stopped) return;
+      const fresh = await onRefreshPayment(session.id);
+      const status = String(fresh?.status || fresh?.Status || "").toLowerCase();
+      if (status === "paid") {
+        toast.success("Đã nhận chuyển khoản QR. Bàn đã giải phóng.");
+        onClose();
+      }
+    };
+    const id = window.setInterval(() => void tick(), 5000);
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+    };
+  }, [isOpen, qrPayload, onRefreshPayment, session?.id, onClose]);
 
   if (!isOpen || !session) return null;
 
@@ -201,10 +225,6 @@ export function PayConfirmModal({
       toast.error("Thiếu mã quán để tạo QR.");
       return;
     }
-    if (finalTotalAmount <= 0) {
-      toast.error("Hóa đơn 0đ — chốt checkout trước hoặc kiểm tra giá giờ chơi trên BE.");
-      return;
-    }
     setLoading(true);
     try {
       const status = String(session.status || session.Status || "").toLowerCase();
@@ -216,19 +236,22 @@ export function PayConfirmModal({
         cafeId,
         session.id,
         {
-          totalAmount: finalTotalAmount,
-          depositAppliedAmount: depositApplied,
           notes: finalNotes,
         },
       );
       const payload = code.qrPayload || code.code;
       if (!payload) {
-        toast.error("BE không trả QR payload / qrUrl.");
+        toast.error("BE không trả qrImageUrl / paymentUrl.");
         return;
       }
       setQrPayload(payload);
+      setQrOrderId(code.code || "");
       setQrAmount(code.amount > 0 ? code.amount : finalTotalAmount);
-      toast.success("Đã tạo QR VietQR / SePay.");
+      toast.success(
+        code.amount > 0
+          ? `Đã tạo QR VietQR · ${code.amount.toLocaleString("vi-VN")}đ. Chờ khách quét.`
+          : "Đã tạo QR VietQR. Chờ khách quét.",
+      );
     } catch (err: any) {
       toast.error(err?.message || "Không tạo được QR thanh toán.");
     } finally {
@@ -245,7 +268,9 @@ export function PayConfirmModal({
         ? customNote.trim() || "Thanh toán thành công tại quầy POS"
         : selectedPreset;
 
-    const result = await onPay(session.id, { notes: finalNotes });
+    const result = await onPay(session.id, {
+      notes: finalNotes,
+    });
 
     setLoading(false);
     if (result) {
@@ -253,20 +278,29 @@ export function PayConfirmModal({
     }
   };
 
-  const handleManualCash = async () => {
-    if (!onManualConfirmCash || finalTotalAmount <= 0) return;
+  const handleReloadPayment = async () => {
+    if (!onRefreshPayment) return;
     setLoading(true);
-    const finalNotes =
-      selectedPreset === "OTHER"
-        ? customNote.trim() || "Thanh toán tiền mặt tại quầy"
-        : selectedPreset;
-    const ok = await onManualConfirmCash(
-      session.id,
-      finalTotalAmount,
-      finalNotes,
-    );
-    setLoading(false);
-    if (ok) onClose();
+    try {
+      const fresh = await onRefreshPayment(session.id);
+      if (!fresh) {
+        toast.error("Không tải được trạng thái phiên.");
+        return;
+      }
+      const status = String(fresh?.status || fresh?.Status || "").toLowerCase();
+      if (status === "paid") {
+        toast.success("Đã ghi nhận chuyển khoản. Bàn đã giải phóng.");
+        onClose();
+        return;
+      }
+      toast.message(
+        "Vẫn UNPAID — BE chưa ghi nhận CK (chưa có webhook). Đợi thêm hoặc xác nhận tiền mặt.",
+      );
+    } catch (err: any) {
+      toast.error(err?.message || "Không tải được trạng thái thanh toán.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -438,11 +472,16 @@ export function PayConfirmModal({
         {qrPayload && (
           <div className="flex flex-col items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 shrink-0">
             <p className="text-xs font-bold text-emerald-800 text-center">
-              Quét QR VietQR / SePay
+              Quét QR VietQR
               {qrAmount > 0
                 ? ` · ${qrAmount.toLocaleString("vi-VN")}đ`
                 : ""}
             </p>
+            {qrOrderId ? (
+              <p className="font-mono text-[10px] text-neutral-500 text-center">
+                ND CK: {qrOrderId}
+              </p>
+            ) : null}
             {/^https?:\/\//i.test(qrPayload) &&
             /vietqr|\.png|\.jpg|qr/i.test(qrPayload) ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -471,40 +510,39 @@ export function PayConfirmModal({
             Hủy
           </Button>
 
-          <Button
-            type="button"
-            disabled={loading || finalTotalAmount <= 0}
-            variant="outline"
-            onClick={() => void handleCreateQr()}
-            className="h-9 border-emerald-300 text-xs font-bold text-emerald-800 rounded-lg px-3"
-          >
-            <QrCode className="mr-1 h-3.5 w-3.5" />
-            {loading ? "Đang xử lý..." : qrPayload ? "Tạo lại QR" : "Thanh toán QR"}
-          </Button>
-
-          {qrPayload && onManualConfirmCash && finalTotalAmount > 0 && (
+          {onRefreshPayment && (
             <Button
               type="button"
               disabled={loading}
               variant="outline"
-              onClick={() => void handleManualCash()}
+              onClick={() => void handleReloadPayment()}
               className="h-9 border-emerald-300 text-xs font-bold text-emerald-800 rounded-lg px-3"
             >
-              {loading ? "Đang xử lý..." : "Xác nhận tiền mặt"}
+              <RefreshCw className={`mr-1 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+              Reload
             </Button>
           )}
 
-          {!qrPayload && (
-            <Button
-              type="button"
-              disabled={loading}
-              onClick={handleConfirmPay}
-              className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg px-4 flex items-center gap-1.5 shadow-2xs"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{loading ? "Đang xử lý..." : "Xác Nhận Đã Thu Tiền"}</span>
-            </Button>
-          )}
+          <Button
+            type="button"
+            disabled={loading}
+            onClick={() => void handleCreateQr()}
+            className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg px-3"
+          >
+            <QrCode className="mr-1 h-3.5 w-3.5" />
+            {loading ? "Đang tạo QR..." : qrPayload ? "Tạo lại QR" : "Tạo QR thanh toán"}
+          </Button>
+
+          <Button
+            type="button"
+            disabled={loading}
+            variant="outline"
+            onClick={handleConfirmPay}
+            className="h-9 text-xs font-bold rounded-lg px-4 flex items-center gap-1.5"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            <span>{loading ? "Đang xử lý..." : "Thanh toán thủ công"}</span>
+          </Button>
         </div>
       </div>
     </div>
