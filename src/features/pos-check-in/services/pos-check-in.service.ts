@@ -22,6 +22,7 @@ import type {
   PaymentCode,
   PosActiveSessionsParams,
   PosBookingPreview,
+  CafeReservationListItem,
   PosBoxesParams,
   PosCheckInPayload,
   CafeSettlementPending,
@@ -40,10 +41,8 @@ import type {
   PosCheckInTokenDto,
 } from '../types/pos-check-in.interface';
 import {
-  buildFloorPlanFromBookings,
   mapApiActivatedSession,
   mapApiBoardGame,
-  mapApiBooking,
   mapApiCompleteSession,
   mapApiComponentChecklist,
   mapApiFloorPlan,
@@ -74,21 +73,26 @@ async function resolveReservationCheckInCode(params: {
     if (v && !candidates.includes(v)) candidates.push(v);
   };
 
-  // Chi tiết booking — paymentRef / orderId thường là BookingCode thật
-  if (params.bookingId) {
+  // Chi tiết reservation của quán — không dùng /api/bookings
+  if (params.cafeId && params.bookingId) {
     try {
       const raw = await apiClient.get<never, unknown>(
-        `/api/bookings/${encodeURIComponent(params.bookingId)}`,
+        `/api/cafes/${params.cafeId}/reservations`,
+        {
+          params: { pageNumber: 1, Page: 1, pageSize: 50, PageSize: 50 },
+        },
       );
-      const r = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
-      const nested =
-        r.data && typeof r.data === 'object' ? (r.data as Record<string, unknown>) : r;
-      push(String(nested.paymentRef ?? nested.PaymentRef ?? ''));
-      push(String(nested.orderId ?? nested.OrderId ?? nested.bookingCode ?? nested.BookingCode ?? ''));
-      push(String(nested.reservationCode ?? nested.ReservationCode ?? ''));
-      push(String(nested.lobbyShareCode ?? nested.LobbyShareCode ?? ''));
-      const lobbyId = String(nested.lobbyId ?? nested.LobbyId ?? params.lobbyId ?? '');
-      if (lobbyId && !params.lobbyId) params.lobbyId = lobbyId;
+      const items = parseCafeReservationList(raw);
+      const found = items.find(
+        (item) =>
+          item.id === params.bookingId ||
+          item.lobbyId === params.bookingId ||
+          item.reservationCode.toUpperCase() === params.fallbackCode.toUpperCase(),
+      );
+      if (found) {
+        push(found.reservationCode);
+        if (found.lobbyId && !params.lobbyId) params.lobbyId = found.lobbyId;
+      }
     } catch {
       // ignore
     }
@@ -421,6 +425,113 @@ function isNotFoundError(err: unknown): boolean {
   return false;
 }
 
+function mapCafeReservationListItem(raw: unknown): CafeReservationListItem | null {
+  const r = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null;
+  if (!r) return null;
+  const id = String(r.id ?? r.Id ?? r.reservationId ?? r.ReservationId ?? '');
+  const reservationCode = String(r.reservationCode ?? r.ReservationCode ?? '').trim();
+  if (!id) return null;
+  return {
+    id,
+    cafeId: String(r.cafeId ?? r.CafeId ?? ''),
+    gameId: String(r.gameId ?? r.GameId ?? r.gameTemplateId ?? r.GameTemplateId ?? ''),
+    gameName: String(r.gameName ?? r.GameName ?? 'Game'),
+    playDate: String(r.playDate ?? r.PlayDate ?? ''),
+    timeSlot: String(r.timeSlot ?? r.TimeSlot ?? ''),
+    currentPlayers: Number(r.currentPlayers ?? r.CurrentPlayers ?? 0),
+    maxPlayers: Number(r.maxPlayers ?? r.MaxPlayers ?? 0),
+    status: String(r.status ?? r.Status ?? ''),
+    depositAmount: Number(
+      r.depositAmount ?? r.DepositAmount ?? r.depositAmountBvc ?? r.DepositAmountBvc ?? 0,
+    ),
+    lobbyId: r.lobbyId != null ? String(r.lobbyId) : r.LobbyId != null ? String(r.LobbyId) : null,
+    lobbyStatus:
+      r.lobbyStatus != null
+        ? String(r.lobbyStatus)
+        : r.LobbyStatus != null
+          ? String(r.LobbyStatus)
+          : null,
+    reservationCode,
+    scheduledStartTime:
+      r.scheduledStartTime != null
+        ? String(r.scheduledStartTime)
+        : r.ScheduledStartTime != null
+          ? String(r.ScheduledStartTime)
+          : null,
+    scheduledEndTime:
+      r.scheduledEndTime != null
+        ? String(r.scheduledEndTime)
+        : r.ScheduledEndTime != null
+          ? String(r.ScheduledEndTime)
+          : null,
+    tableNumber:
+      r.tableNumber != null
+        ? String(r.tableNumber)
+        : r.TableNumber != null
+          ? String(r.TableNumber)
+          : null,
+  };
+}
+
+function parseCafeReservationList(raw: unknown): CafeReservationListItem[] {
+  const root = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const nested =
+    root.items == null &&
+    root.Items == null &&
+    !Array.isArray(root.data) &&
+    root.data &&
+    typeof root.data === 'object'
+      ? (root.data as Record<string, unknown>)
+      : root;
+  const items = Array.isArray(nested.items)
+    ? nested.items
+    : Array.isArray(nested.Items)
+      ? nested.Items
+      : Array.isArray(nested.data)
+        ? nested.data
+        : Array.isArray(raw)
+          ? raw
+          : [];
+  return items
+    .map(mapCafeReservationListItem)
+    .filter((item): item is CafeReservationListItem => Boolean(item));
+}
+
+function cafeReservationToTableBooking(item: CafeReservationListItem): TableBooking {
+  const status = item.status.toLowerCase();
+  const sessionStatus: TableBooking['sessionStatus'] =
+    status.includes('check')
+      ? 'Active'
+      : status.includes('cancel') || status.includes('noshow')
+        ? 'Cancelled'
+        : status.includes('complete')
+          ? 'Completed'
+          : 'Pending';
+  return {
+    id: item.id,
+    cafeId: item.cafeId,
+    tableId: '',
+    tableLabel: item.tableNumber || '',
+    qrCode: item.reservationCode,
+    scheduledAt: item.scheduledStartTime || item.playDate,
+    bookedGame: {
+      id: item.gameId,
+      name: item.gameName,
+      imageUrl: '',
+      minPlayers: 0,
+      maxPlayers: item.maxPlayers,
+    },
+    participants: [],
+    sessionStatus,
+    lobbyId: item.lobbyId || undefined,
+    scheduledEndAt: item.scheduledEndTime || undefined,
+    apiStatus: item.status,
+    playerQuantity: item.currentPlayers,
+    depositAmount: item.depositAmount,
+    reservationCode: item.reservationCode,
+  };
+}
+
 function mapPosBookingPreview(raw: unknown, fallbackCode = ''): PosBookingPreview {
   const r =
     raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : ({} as Record<string, unknown>);
@@ -430,7 +541,9 @@ function mapPosBookingPreview(raw: unknown, fallbackCode = ''): PosBookingPrevie
     r.lobby && typeof r.lobby === 'object' ? (r.lobby as Record<string, unknown>) : undefined;
 
   return {
-    bookingCode: String(r.bookingCode ?? r.code ?? r.BookingCode ?? fallbackCode),
+    bookingCode: String(
+      r.bookingCode ?? r.code ?? r.BookingCode ?? r.reservationCode ?? r.ReservationCode ?? fallbackCode,
+    ),
     depositStatus: r.depositStatus != null ? String(r.depositStatus) : null,
     depositAmount: Number(r.depositAmount ?? r.DepositAmount ?? 0),
     scheduledStartTime:
@@ -633,18 +746,7 @@ export const PosCheckInService = {
         },
       });
       const plan = mapApiFloorPlan(raw, cafeId);
-      if (plan.tables.length > 0) return plan;
-      // API trả rỗng hợp lệ (vd. lọc statuses không khớp) — không fallback bookings
-      if (statuses || includeOnlyAvailable || includeInactive) {
-        return plan;
-      }
-    } catch {
-      // fallback từ bookings
-    }
-
-    try {
-      const bookings = await PosCheckInService.getCafeBookings(cafeId);
-      return buildFloorPlanFromBookings(cafeId, bookings);
+      return plan;
     } catch {
       return { cafeId, tables: [] };
     }
@@ -729,7 +831,7 @@ export const PosCheckInService = {
     const raw = await apiClient.post<never, unknown>(`/api/cafes/${cafeId}/pos/sessions`, {
       cafeTableId,
       barcode,
-      bookingId: payload.bookingId || undefined,
+      reservationId: payload.bookingId || undefined,
       lobbyId: payload.lobbyId || undefined,
       initialMemberUserIds: payload.initialMemberUserIds?.length
         ? payload.initialMemberUserIds
@@ -782,35 +884,61 @@ export const PosCheckInService = {
     return mapPosBookingPreview(raw, code);
   },
 
+  /**
+   * GET /api/cafes/{cafeId}/reservations
+   * Danh sách reservation của quán — Manager / CafeStaff.
+   */
+  getCafeReservations: async (params: {
+    cafeId: string;
+    playDate?: string;
+    statuses?: string[];
+    page?: number;
+    pageSize?: number;
+  }): Promise<CafeReservationListItem[]> => {
+    const raw = await apiClient.get<never, unknown>(
+      `/api/cafes/${params.cafeId}/reservations`,
+      {
+        params: {
+          playDate: params.playDate || undefined,
+          PlayDate: params.playDate || undefined,
+          pageNumber: params.page ?? 1,
+          Page: params.page ?? 1,
+          pageSize: params.pageSize ?? 50,
+          PageSize: params.pageSize ?? 50,
+          status: params.statuses?.[0],
+          Statuses: params.statuses?.length ? params.statuses : undefined,
+        },
+        paramsSerializer: {
+          indexes: null,
+        },
+      },
+    );
+    return parseCafeReservationList(raw);
+  },
+
   resolveQrOrBookingId: async (payload: string): Promise<QrResolveResult> => {
     
     const cafe = await PosCheckInService.getStaffCafe();
     const trimmed = payload.trim().replace(/^BV:/i, '');
 
-    // Ưu tiên preview canonical
-    try {
-      const preview = await PosCheckInService.previewPosBooking(cafe.id, trimmed);
-      if (!preview.canCheckIn) {
-        throw new Error('Booking chưa sẵn sàng check-in.');
-      }
-    } catch (err) {
-      // Preview có thể 404 — tiếp tục resolve qua list bookings
-      if (err instanceof Error && err.message.includes('sẵn sàng')) throw err;
-    }
+    const reservations = await PosCheckInService.getCafeReservations({
+      cafeId: cafe.id,
+      page: 1,
+      pageSize: 50,
+    });
+    const foundItem = reservations.find((item) => {
+      const code = item.reservationCode.toUpperCase();
+      const needle = trimmed.toUpperCase();
+      return (
+        item.id === trimmed ||
+        item.id === payload.trim() ||
+        code === needle ||
+        item.lobbyId === trimmed
+      );
+    });
+    if (!foundItem) throw new Error('Không tìm thấy reservation từ mã QR.');
 
-    const bookings = await PosCheckInService.getCafeBookings(cafe.id);
-    const found = bookings.find(
-      (b) =>
-        b.id === trimmed ||
-        b.id === payload.trim() ||
-        b.qrCode === trimmed ||
-        b.qrCode === payload.trim() ||
-        b.qrCode === `BV:${trimmed}` ||
-        b.qrCode?.toLowerCase() === trimmed.toLowerCase() ||
-        b.qrCode?.endsWith(trimmed),
-    );
-    if (!found) throw new Error('Không tìm thấy booking từ mã QR.');
-
+    const found = cafeReservationToTableBooking(foundItem);
     return {
       booking: found,
       table: {
@@ -828,10 +956,14 @@ export const PosCheckInService = {
     };
   },
 
-  /** Không còn GET /api/bookings/cafe (deprecated). List POS: bàn Reserved + tra cứu mã. */
-  getCafeBookings: async (_cafeId: string): Promise<TableBooking[]> => {
-    void _cafeId;
-    return [];
+  /** GET /api/cafes/{cafeId}/reservations — hàng đợi POS (không còn /api/bookings/cafe). */
+  getCafeBookings: async (cafeId: string): Promise<TableBooking[]> => {
+    const items = await PosCheckInService.getCafeReservations({
+      cafeId,
+      page: 1,
+      pageSize: 50,
+    });
+    return items.map(cafeReservationToTableBooking);
   },
 
   getPendingBookings: async (cafeId: string): Promise<TableBooking[]> => {
@@ -841,19 +973,11 @@ export const PosCheckInService = {
   },
 
   getBookingById: async (id: string, cafeId?: string): Promise<TableBooking> => {
-    
-    try {
-      const raw = await apiClient.get<never, unknown>(`/api/bookings/${encodeURIComponent(id)}`);
-      return mapApiBooking(raw);
-    } catch {
-      // fallthrough → list cafe
-    }
-
     const resolvedCafeId = cafeId ?? (await PosCheckInService.getStaffCafe()).id;
     const bookings = await PosCheckInService.getCafeBookings(resolvedCafeId);
-    const found = bookings.find((b) => b.id === id);
+    const found = bookings.find((b) => b.id === id || b.reservationCode === id || b.lobbyId === id);
     if (found) return found;
-    throw new Error('Không tìm thấy đơn đặt bàn.');
+    throw new Error('Không tìm thấy reservation.');
   },
 
   getAlternativeGames: async (cafeId: string, playerCount: number): Promise<AlternativeGame[]> => {
@@ -886,19 +1010,18 @@ export const PosCheckInService = {
     };
   },
 
-  /** POST /api/bookings/{bookingId}/check-in — legacy; ưu tiên posCheckIn */
+  /** Đã bỏ POST /api/bookings/{id}/check-in — dùng posCheckIn. */
   checkInBooking: async (
     bookingId: string,
-    payload: CheckInBookingPayload,
-    game?: BookedGame,
+    _payload: CheckInBookingPayload,
+    _game?: BookedGame,
   ): Promise<ActivatedSession> => {
-    
-
-    const raw = await apiClient.post<never, unknown>(
-      `/api/bookings/${bookingId}/check-in`,
-      payload,
+    void bookingId;
+    void _payload;
+    void _game;
+    throw new Error(
+      'Check-in reservation dùng POST /api/cafes/{cafeId}/pos/check-in (ReservationCode + bàn + barcode).',
     );
-    return mapApiActivatedSession(raw);
   },
 
   /**
@@ -994,11 +1117,13 @@ export const PosCheckInService = {
     };
   },
 
-  /** POST /api/bookings/{bookingId}/check-out */
+  /** Kết phiên POS — không còn POST /api/bookings/{id}/check-out. */
   checkOutBooking: async (bookingId: string): Promise<void> => {
-    
-
-    await apiClient.post(`/api/bookings/${bookingId}/check-out`);
+    const cafe = await PosCheckInService.getStaffCafe();
+    const session = await PosCheckInService.getActiveSessionByBookingId(bookingId);
+    const sessionId = session.sessionId;
+    if (!sessionId) throw new Error('Không tìm thấy phiên POS để kết thúc.');
+    await apiClient.post(`/api/cafes/${cafe.id}/pos/sessions/${sessionId}/end`);
   },
 
   activateSession: async (

@@ -7,11 +7,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiClient } from "@/core/api/client";
 import { PosCheckInService } from "@/features/pos-check-in/services/pos-check-in.service";
-import type { PosBookingPreview } from "@/features/pos-check-in/types/pos-check-in.interface";
+import type {
+  CafeReservationListItem,
+  PosBookingPreview,
+} from "@/features/pos-check-in/types/pos-check-in.interface";
 
 interface PendingBookingsPanelProps {
   cafeId: string | null;
   tables?: Array<{ id?: string; name?: string; status?: string }>;
+  boxes?: Array<{
+    id: string;
+    barcode: string;
+    status: string;
+    gameTemplateId: string | null;
+    gameName: string | null;
+  }>;
   scannedBarcode?: string;
   onOpenTables?: () => void;
   onConfirmCheckIn?: (
@@ -48,6 +58,43 @@ function formatTime(iso?: string | null) {
     day: "2-digit",
     month: "2-digit",
   });
+}
+
+function reservationToPreview(
+  item: CafeReservationListItem,
+): PosBookingPreview {
+  const canCheckIn = item.status.trim().toLowerCase() === "confirmed";
+  return {
+    bookingCode: item.reservationCode,
+    depositStatus: item.status,
+    depositAmount: item.depositAmount,
+    scheduledStartTime: item.scheduledStartTime,
+    registeredMemberCount: item.currentPlayers,
+    canCheckIn,
+    hostName: null,
+    gameName: item.gameName,
+    lobbyId: item.lobbyId,
+    raw: item,
+  };
+}
+
+function getCheckInStatusMessage(status?: string | null) {
+  switch (status?.trim().toLowerCase()) {
+    case "confirmed":
+      return "Sẵn sàng check-in";
+    case "expired":
+      return "Đã hết hạn — không thể check-in";
+    case "holding":
+      return "Chưa đủ điều kiện check-in";
+    case "checkedin":
+      return "Reservation đã được check-in";
+    case "cancelled":
+    case "cancelledbycafe":
+    case "cancelledbyplayer":
+      return "Reservation đã bị hủy";
+    default:
+      return "Trạng thái hiện tại chưa cho phép check-in";
+  }
 }
 
 function todayIsoDate() {
@@ -93,6 +140,7 @@ function parseTables(raw: unknown): ReservedTable[] {
 export function PendingBookingsPanel({
   cafeId,
   tables = [],
+  boxes = [],
   scannedBarcode = "",
   onOpenTables,
   onConfirmCheckIn,
@@ -102,6 +150,7 @@ export function PendingBookingsPanel({
   const [tableId, setTableId] = useState("");
   const [barcode, setBarcode] = useState("");
   const [reserved, setReserved] = useState<ReservedTable[]>([]);
+  const [reservations, setReservations] = useState<CafeReservationListItem[]>([]);
   const [windows, setWindows] = useState<WalkInWindowDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
@@ -116,11 +165,30 @@ export function PendingBookingsPanel({
     return reserved;
   }, [tables, reserved]);
 
+  const selectedReservation = useMemo(
+    () =>
+      reservations.find(
+        (item) =>
+          item.reservationCode.toUpperCase() === code.trim().toUpperCase(),
+      ),
+    [code, reservations],
+  );
+
+  const availableBoxes = useMemo(() => {
+    const available = boxes.filter(
+      (box) => box.status.toLowerCase() === "available" && box.barcode,
+    );
+    if (!selectedReservation?.gameId) return available;
+    return available.filter(
+      (box) => box.gameTemplateId === selectedReservation.gameId,
+    );
+  }, [boxes, selectedReservation]);
+
   const load = useCallback(async () => {
     if (!cafeId) return;
     setLoading(true);
     try {
-      const [tablesRaw, walkInRaw] = await Promise.all([
+      const [tablesRaw, walkInRaw, cafeReservations] = await Promise.all([
         apiClient
           .get(`/api/cafes/${cafeId}/pos/tables`, {
             params: { includeOnlyAvailable: false, statuses: "Reserved" },
@@ -131,9 +199,16 @@ export function PendingBookingsPanel({
             params: { cafeId, date: todayIsoDate() },
           })
           .catch(() => null),
+        PosCheckInService.getCafeReservations({
+          cafeId,
+          playDate: todayIsoDate(),
+          page: 1,
+          pageSize: 50,
+        }).catch(() => [] as CafeReservationListItem[]),
       ]);
       setReserved(parseTables(tablesRaw));
       setWindows(parseWalkInWindows(walkInRaw));
+      setReservations(cafeReservations);
     } finally {
       setLoading(false);
     }
@@ -149,6 +224,15 @@ export function PendingBookingsPanel({
     if (scannedBarcode.trim()) setBarcode(scannedBarcode.trim());
   }, [scannedBarcode]);
 
+  useEffect(() => {
+    if (
+      barcode &&
+      !availableBoxes.some((box) => box.barcode === barcode)
+    ) {
+      setBarcode("");
+    }
+  }, [availableBoxes, barcode]);
+
   if (!cafeId) return null;
 
   const openWindows = windows.filter((w) => {
@@ -159,24 +243,32 @@ export function PendingBookingsPanel({
   const handleLookup = async () => {
     const trimmed = code.trim();
     if (!trimmed) {
-      toast.error("Nhập ReservationCode (8 ký tự) hoặc BookingCode BV…");
+      toast.error("Nhập ReservationCode 8 ký tự.");
       return;
     }
     setLookingUp(true);
-    try {
-      const data = await PosCheckInService.previewPosBooking(cafeId, trimmed);
-      setPreview(data);
-      if (!data.canCheckIn) {
-        toast.error("Đơn chưa sẵn sàng check-in (chưa Confirmed hoặc ngoài khung giờ).");
-      }
-    } catch (err: unknown) {
+    const item = reservations.find(
+      (reservation) =>
+        reservation.reservationCode.toUpperCase() === trimmed.toUpperCase(),
+    );
+    if (item) {
+      setPreview(reservationToPreview(item));
+      setCode(item.reservationCode.toUpperCase());
+    } else {
       setPreview(null);
-      toast.error(
-        err instanceof Error ? err.message : "Không tìm thấy đơn đặt chỗ.",
-      );
-    } finally {
-      setLookingUp(false);
+      toast.error("Không tìm thấy ReservationCode trong danh sách của quán.");
     }
+    setLookingUp(false);
+  };
+
+  const handleSelectReservation = (item: CafeReservationListItem) => {
+    const nextCode = item.reservationCode.trim();
+    if (!nextCode) {
+      toast.error("Đơn này chưa có ReservationCode.");
+      return;
+    }
+    setCode(nextCode.toUpperCase());
+    setPreview(reservationToPreview(item));
   };
 
   const handleCheckIn = async () => {
@@ -222,8 +314,7 @@ export function PendingBookingsPanel({
         </div>
 
         <p className="text-[10px] text-neutral-500">
-          Tra cứu bằng ReservationCode 8 ký tự trên QR khách (hoặc BookingCode legacy
-          BV…). Không dùng API booking cũ.
+          Chọn đơn hôm nay hoặc nhập ReservationCode 8 ký tự trên QR khách.
         </p>
 
         <div className="flex flex-wrap gap-2">
@@ -260,49 +351,111 @@ export function PendingBookingsPanel({
             <p className="font-mono text-[10px] text-neutral-500">
               {formatTime(preview.scheduledStartTime)} · {preview.bookingCode} ·{" "}
               {preview.registeredMemberCount} khách
-              {preview.depositStatus ? ` · cọc ${preview.depositStatus}` : ""}
+              {preview.depositStatus
+                ? ` · trạng thái ${preview.depositStatus}`
+                : ""}
             </p>
             <p className="text-[10px] font-semibold">
               {preview.canCheckIn ? (
                 <span className="text-emerald-700">Sẵn sàng check-in</span>
               ) : (
-                <span className="text-amber-700">Chưa thể check-in</span>
+                <span className="text-amber-700">
+                  {getCheckInStatusMessage(preview.depositStatus)}
+                </span>
               )}
             </p>
 
-            <div className="flex flex-wrap gap-2 pt-1">
-              <select
-                value={tableId}
-                onChange={(e) => setTableId(e.target.value)}
-                className="h-8 min-w-[140px] flex-1 rounded-md border border-neutral-200 bg-white px-2 text-xs"
-              >
-                <option value="">Chọn bàn</option>
-                {assignableTables.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                    {t.status ? ` · ${t.status}` : ""}
-                  </option>
-                ))}
-              </select>
-              <Input
-                value={barcode}
-                onChange={(e) => setBarcode(e.target.value)}
-                placeholder="Barcode hộp game"
-                className="h-8 min-w-[160px] flex-1 font-mono text-xs"
-              />
-              <Button
-                type="button"
-                size="sm"
-                disabled={checkingIn || !preview.canCheckIn}
-                onClick={() => void handleCheckIn()}
-                className="h-8 bg-neutral-950 px-3 text-[10px] font-bold text-white"
-              >
-                <QrCode className="mr-1 h-3 w-3" />
-                {checkingIn ? "Đang check-in..." : "Xác nhận check-in"}
-              </Button>
-            </div>
+            {preview.canCheckIn && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                <select
+                  value={tableId}
+                  onChange={(e) => setTableId(e.target.value)}
+                  className="h-8 min-w-[140px] flex-1 rounded-md border border-neutral-200 bg-white px-2 text-xs"
+                >
+                  <option value="">Chọn bàn</option>
+                  {assignableTables.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                      {t.status ? ` · ${t.status}` : ""}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={barcode}
+                  onChange={(e) => setBarcode(e.target.value)}
+                  className="h-8 min-w-[180px] flex-1 rounded-md border border-neutral-200 bg-white px-2 font-mono text-xs"
+                >
+                  <option value="">Chọn hộp game</option>
+                  {availableBoxes.map((box) => (
+                    <option key={box.id} value={box.barcode}>
+                      {box.gameName ||
+                        selectedReservation?.gameName ||
+                        "Hộp game"}{" "}
+                      · {box.barcode}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={checkingIn}
+                  onClick={() => void handleCheckIn()}
+                  className="h-8 bg-neutral-950 px-3 text-[10px] font-bold text-white"
+                >
+                  <QrCode className="mr-1 h-3 w-3" />
+                  {checkingIn ? "Đang check-in..." : "Xác nhận check-in"}
+                </Button>
+              </div>
+            )}
           </div>
         )}
+
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+            Reservation hôm nay ({reservations.length})
+          </p>
+          {loading && reservations.length === 0 ? (
+            <p className="text-[11px] text-neutral-400">Đang tải...</p>
+          ) : reservations.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-neutral-200 py-4 text-center text-[11px] text-neutral-400">
+              Không có reservation ngày hôm nay.
+            </p>
+          ) : (
+            <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+              {reservations.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleSelectReservation(item)}
+                  aria-pressed={selectedReservation?.id === item.id}
+                  className={`flex w-full items-start justify-between gap-2 rounded-xl border bg-neutral-50/60 px-3 py-2 text-left transition ${
+                    selectedReservation?.id === item.id
+                      ? "border-2 border-emerald-500 bg-emerald-50/60 ring-2 ring-emerald-200"
+                      : "border-neutral-200 hover:border-neutral-400"
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-bold text-neutral-950">
+                      {item.gameName} · {item.timeSlot}
+                    </p>
+                    <p className="font-mono text-[10px] text-neutral-500">
+                      {item.reservationCode || "—"} · {item.currentPlayers}/
+                      {item.maxPlayers} · {item.status}
+                      {item.tableNumber ? ` · Bàn ${item.tableNumber}` : ""}
+                    </p>
+                    <p className="text-[10px] text-neutral-400">
+                      {formatTime(item.scheduledStartTime)} →{" "}
+                      {formatTime(item.scheduledEndTime)}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[10px] font-bold uppercase text-neutral-600">
+                    Check-in
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="space-y-1.5">
           <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">

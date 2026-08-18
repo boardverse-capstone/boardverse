@@ -38,6 +38,11 @@ export interface MasterGameCategoryLink {
   isActive: boolean;
 }
 
+export interface MasterGameCatalogOption {
+  id: string;
+  name: string;
+}
+
 export interface RawMasterGameComponent {
   componentId?: string;
   ComponentId?: string;

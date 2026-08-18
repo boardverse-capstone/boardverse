@@ -19,6 +19,7 @@ import {
   IconCash,
   IconCreditCard,
   IconReceiptRefund,
+  IconActivity,
 } from '@tabler/icons-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { RoleGuard } from '@/features/auth/components/role-guard';
@@ -82,6 +83,11 @@ const ADMIN_NAV: NavItem[] = [
     title: 'Settlement override',
     url: ROUTES.ADMIN.SETTLEMENTS,
     icon: <IconCash />,
+  },
+  {
+    title: 'Vận hành Reservation',
+    url: ROUTES.ADMIN.OPERATIONS,
+    icon: <IconActivity />,
   },
   {
     title: 'SePay accounts',

@@ -33,14 +33,36 @@ import {
   WifiOff,
   Loader2,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   formatPlayerRange,
   mergePlayerRange,
 } from "../lib/player-range";
 
+type PosTab = "tables" | "sessions" | "boxes" | "settlements";
+
+function parsePosTab(raw: string | null): PosTab {
+  if (raw === "sessions" || raw === "boxes" || raw === "settlements") return raw;
+  return "tables";
+}
+
 export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeTab = parsePosTab(searchParams.get("tab"));
+  const setActiveTab = useCallback(
+    (tab: PosTab) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (tab === "tables") params.delete("tab");
+      else params.set("tab", tab);
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
   const [endingSession, setEndingSession] = useState<any | null>(null);
   const [selectedDetailSessionId, setSelectedDetailSessionId] = useState<
     string | null
@@ -90,9 +112,6 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     onRefresh: refreshData,
   });
 
-  const [activeTab, setActiveTab] = useState<
-    "tables" | "sessions" | "boxes" | "settlements"
-  >("tables");
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [startTable, setStartTable] = useState<{
     id: string;
@@ -240,6 +259,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
       <PendingBookingsPanel
         cafeId={cafeId}
         tables={tables}
+        boxes={boxes}
         scannedBarcode={scannedBarcode}
         onOpenTables={() => setActiveTab("tables")}
         onConfirmCheckIn={(code, tableId, barcode) =>
