@@ -1,4 +1,9 @@
-import type { GameCategory, RawGameCategory } from '../types/category.interface';
+import type {
+  CreateCategoryRequest,
+  GameCategory,
+  RawGameCategory,
+  UpdateCategoryRequest,
+} from '../types/category.interface';
 
 function pickString(...values: (string | null | undefined)[]): string {
   for (const value of values) {
@@ -19,8 +24,24 @@ export function mapApiCategory(raw: RawGameCategory): GameCategory {
     id: pickString(raw.id, raw.Id),
     name: pickString(raw.name, raw.Name),
     slug: pickString(raw.slug, raw.Slug),
-    displayOrder: pickNumber(raw.displayOrder, raw.DisplayOrder),
+    displayOrder: pickNumber(
+      raw.sortOrder,
+      raw.SortOrder,
+      raw.displayOrder,
+      raw.DisplayOrder,
+    ),
     isActive: raw.isActive ?? raw.IsActive ?? true,
+  };
+}
+
+export function mapCategoryToApiPayload(
+  payload: CreateCategoryRequest | UpdateCategoryRequest,
+) {
+  return {
+    name: payload.name,
+    slug: payload.slug,
+    sortOrder: payload.displayOrder,
+    isActive: payload.isActive,
   };
 }
 

@@ -5,7 +5,9 @@ import { toast } from 'sonner';
 import { AdminOperationsService } from '../services/admin-operations.service';
 import type {
   OverrideReservationRefundRequest,
+  ReleaseSessionDepositPayload,
   RunReservationJobPayload,
+  SystemJobType,
 } from '../types/admin-operations.interface';
 
 export function useRunReservationJob() {
@@ -17,6 +19,32 @@ export function useRunReservationJob() {
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Không thể chạy reservation job.');
+    },
+  });
+}
+
+export function useRunSystemJob() {
+  return useMutation({
+    mutationFn: (job: SystemJobType) =>
+      AdminOperationsService.runSystemJob(job),
+    onSuccess: () => {
+      toast.success('Tác vụ hệ thống đã chạy xong.');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Không thể chạy tác vụ hệ thống.');
+    },
+  });
+}
+
+export function useReleaseSessionDeposit() {
+  return useMutation({
+    mutationFn: (payload: ReleaseSessionDepositPayload) =>
+      AdminOperationsService.releaseSessionDeposit(payload),
+    onSuccess: (result) => {
+      toast.success(`Settlement đã chuyển sang ${result.status}.`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Không thể retry chuyển settlement.');
     },
   });
 }

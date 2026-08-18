@@ -13,7 +13,7 @@ export interface CreateCategoryRequest {
   isActive: boolean;
 }
 
-export interface UpdateCategoryRequest extends CreateCategoryRequest {}
+export type UpdateCategoryRequest = CreateCategoryRequest;
 
 export interface CategoryListParams {
   includeInactive?: boolean;
@@ -26,6 +26,8 @@ export interface RawGameCategory {
   Name?: string;
   slug?: string;
   Slug?: string;
+  sortOrder?: number;
+  SortOrder?: number;
   displayOrder?: number;
   DisplayOrder?: number;
   isActive?: boolean;

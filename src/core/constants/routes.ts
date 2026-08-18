@@ -22,6 +22,7 @@ export const ROUTES = {
     WALLETS: '/admin/wallets',
     WALLET_DETAIL: (userId: string) => `/admin/wallets/${userId}`,
     REFUND_REQUESTS: '/admin/refund-requests',
+    FRIEND_REPORTS: '/admin/friend-reports',
     KARMA_LOGS: '/admin/karma-logs',
     BEHAVIOR_WARNINGS: '/admin/behavior-warnings',
     TOURNAMENTS: '/admin/tournaments',

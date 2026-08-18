@@ -96,7 +96,7 @@ export function PosCheckInReception({
   /** Game template đang giao: booking / game đổi (understaffed) */
   const checkInGame = useMemo(() => {
     if (selectedGame) {
-      return { id: selectedGame.id, name: selectedGame.name };
+      return { id: selectedGame.gameTemplateId, name: selectedGame.name };
     }
     return {
       id: booking?.bookedGame?.id || '',

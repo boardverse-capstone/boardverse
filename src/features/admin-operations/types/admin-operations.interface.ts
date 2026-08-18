@@ -13,6 +13,35 @@ export interface ReservationJobResult {
   processed: number;
 }
 
+export type SystemJobType =
+  | 'deposits/process-expired'
+  | 'wallet/expire-pending-topups'
+  | 'tournaments/auto-close-expired-registrations'
+  | 'tournaments/send-reminders'
+  | 'tournaments/auto-mark-no-shows'
+  | 'friends/expire-old-pending-requests'
+  | 'config/invalidate-cache';
+
+export interface SystemJobResult {
+  processed?: number | boolean;
+  totalMarked?: number;
+  totalKarmaPenalty?: number;
+  cleared?: boolean;
+}
+
+export interface ReleaseSessionDepositPayload {
+  cafeId: string;
+  sessionId: string;
+  activeSessionId: string;
+}
+
+export interface ReleaseSessionDepositResult {
+  status: string;
+  cafeId: string;
+  sessionId: string;
+  releasedAt: string;
+}
+
 export interface OverrideReservationRefundRequest {
   refundAmount: number;
   reason: string;

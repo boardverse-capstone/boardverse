@@ -261,7 +261,7 @@ export function mapCafePerformanceItem(raw: unknown): CafePerformanceItem {
     totalSessions: pickNumber(source.totalSessions, source.totalBookings, source.completedBookings),
     totalMembers: pickNumber(source.totalMembers),
     averageSessionDuration: pickNumber(source.averageSessionDuration),
-    averageRating: pickNumber(source.averageRating, source.failureRate),
+    averageRating: pickNumber(source.averageRating),
     totalReviews: pickNumber(source.totalReviews, source.failedLobbies),
     activeLobbies: pickNumber(source.activeLobbies, source.totalLobbies),
     lobbySuccessRate: pickNumber(source.lobbySuccessRate, source.completionRate),
@@ -301,12 +301,10 @@ export function normalizeCafePerformanceResponse(
     averageSessionRevenue: pickNumber(
       isRecord(source.summary) ? source.summary.averageSessionRevenue : undefined,
       source.averageSessionRevenue,
-      source.averageCompletionRate,
     ),
     averageRating: pickNumber(
       isRecord(source.summary) ? source.summary.averageRating : undefined,
       source.averageRating,
-      source.averageFailureRate,
     ),
   };
 

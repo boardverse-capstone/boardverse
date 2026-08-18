@@ -16,10 +16,10 @@ import {
   IconWallet,
   IconTrophy,
   IconChartBar,
-  IconCash,
   IconCreditCard,
   IconReceiptRefund,
   IconActivity,
+  IconFlag,
 } from '@tabler/icons-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { RoleGuard } from '@/features/auth/components/role-guard';
@@ -80,12 +80,7 @@ const ADMIN_NAV: NavItem[] = [
     icon: <IconChartBar />,
   },
   {
-    title: 'Settlement override',
-    url: ROUTES.ADMIN.SETTLEMENTS,
-    icon: <IconCash />,
-  },
-  {
-    title: 'Vận hành Reservation',
+    title: 'Vận hành hệ thống',
     url: ROUTES.ADMIN.OPERATIONS,
     icon: <IconActivity />,
   },
@@ -103,6 +98,11 @@ const ADMIN_NAV: NavItem[] = [
     title: 'Cảnh báo hành vi',
     url: ROUTES.ADMIN.BEHAVIOR_WARNINGS,
     icon: <IconAlertTriangle />,
+  },
+  {
+    title: 'Báo cáo bạn bè',
+    url: ROUTES.ADMIN.FRIEND_REPORTS,
+    icon: <IconFlag />,
   },
   {
     title: 'Bảo mật',

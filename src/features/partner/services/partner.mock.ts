@@ -50,7 +50,7 @@ let registrations: Registration[] = [
     basicInfo: {
       cafeName: 'The Board Room Cafe',
       address: '123 Nguyen Dinh Chieu, Phuong 4, Quan 3, TP. Ho Chi Minh',
-      phoneNumber: '0908123456',
+      hotline: '0908123456',
       representativeEmail: 'contact@theboardroom.vn',
       businessLicense: '0312345678',
       businessLicenseImage: '/uploads/license1.jpg',
@@ -77,7 +77,7 @@ let registrations: Registration[] = [
     basicInfo: {
       cafeName: 'Meeples & More',
       address: '456 Xo Viet Nghe Tinh, Quan Binh Thanh, TP. Ho Chi Minh',
-      phoneNumber: '0987654321',
+      hotline: '0987654321',
       representativeEmail: 'hello@meeples.com',
       businessLicense: '0311122333',
       businessLicenseImage: '/uploads/license2.jpg',
@@ -111,7 +111,7 @@ let registrations: Registration[] = [
     basicInfo: {
       cafeName: 'Dice & Coffee',
       address: '789 Nguyen Hue, Quan 1, TP. Ho Chi Minh',
-      phoneNumber: '0911223344',
+      hotline: '0911223344',
       representativeEmail: 'info@dicecoffee.vn',
       businessLicense: '0399887766',
       businessLicenseImage: '/uploads/license3.jpg',
@@ -148,7 +148,7 @@ let registrations: Registration[] = [
     basicInfo: {
       cafeName: 'Tabletop Haven',
       address: '12 Le Loi, Quan Hai Chau, Da Nang',
-      phoneNumber: '0933445566',
+      hotline: '0933445566',
       representativeEmail: 'ops@tabletophaven.vn',
       businessLicense: '0400111222',
       businessLicenseImage: '/uploads/license4.jpg',
@@ -213,7 +213,7 @@ function createSeedRegistration(index: number): Registration {
     basicInfo: {
       cafeName,
       address: `${100 + index} Duong Nguyen Van Linh, Quan 7, TP. Ho Chi Minh`,
-      phoneNumber: `09${String(10000000 + index).slice(0, 8)}`,
+      hotline: `09${String(10000000 + index).slice(0, 8)}`,
       representativeEmail: `contact@${cafeName.toLowerCase().replace(/[^a-z0-9]+/g, '')}.vn`,
       businessLicense: `03${String(10000000 + index).slice(0, 8)}`,
       businessLicenseImage: `/uploads/license${index}.jpg`,
@@ -322,7 +322,7 @@ function detectDuplicateOnSubmit(payload: PartnerRegistrationRequest): {
   const license = normalizeText(payload.basicInfo.businessLicense);
   const address = normalizeText(payload.basicInfo.address);
   const cafeName = normalizeText(payload.basicInfo.cafeName);
-  const phoneNumber = normalizeText(payload.basicInfo.phoneNumber);
+  const phoneNumber = normalizeText(payload.basicInfo.hotline);
 
   const activeOrPending = registrations.filter(
     (item) => !['REJECTED', 'CANCELLED', 'EXPIRED_CANCELLED'].includes(item.status),
@@ -348,7 +348,7 @@ function detectDuplicateOnSubmit(payload: PartnerRegistrationRequest): {
   );
 
   const phoneDuplicate = activeOrPending.find(
-    (item) => normalizeText(item.basicInfo.phoneNumber) === phoneNumber &&
+    (item) => normalizeText(item.basicInfo.hotline) === phoneNumber &&
       normalizeText(item.basicInfo.cafeName) !== cafeName,
   );
 

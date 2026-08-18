@@ -6,7 +6,11 @@ import type {
   RawGameCategory,
   UpdateCategoryRequest,
 } from '../types/category.interface';
-import { mapApiCategory, normalizeCategoryList } from '../utils/category.mapper';
+import {
+  mapApiCategory,
+  mapCategoryToApiPayload,
+  normalizeCategoryList,
+} from '../utils/category.mapper';
 import { AdminCategoryMockService } from './admin-category.mock';
 
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_ADMIN_CATEGORY_API === 'true';
@@ -39,7 +43,10 @@ export const AdminCategoryService = {
   createCategory: async (payload: CreateCategoryRequest): Promise<GameCategory> => {
     if (USE_MOCK) return AdminCategoryMockService.createCategory(payload);
 
-    const raw = await apiClient.post<never, RawGameCategory>('/api/v1/admin/categories', payload);
+    const raw = await apiClient.post<never, RawGameCategory>(
+      '/api/v1/admin/categories',
+      mapCategoryToApiPayload(payload),
+    );
     return mapApiCategory(raw);
   },
 
@@ -49,7 +56,7 @@ export const AdminCategoryService = {
 
     const raw = await apiClient.put<never, RawGameCategory>(
       `/api/v1/admin/categories/${id}`,
-      payload,
+      mapCategoryToApiPayload(payload),
     );
     return mapApiCategory(raw);
   },

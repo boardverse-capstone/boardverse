@@ -76,7 +76,7 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
 
   const checkInGame = useMemo(() => {
     if (selectedGame) {
-      return { id: selectedGame.id, name: selectedGame.name };
+      return { id: selectedGame.gameTemplateId, name: selectedGame.name };
     }
     return {
       id: booking?.bookedGame?.id || '',
