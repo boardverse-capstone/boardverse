@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarClock, RefreshCw, QrCode, DoorOpen, Search } from "lucide-react";
+import QRCode from "react-qr-code";
+import { CalendarClock, RefreshCw, QrCode, DoorOpen, Search, AlertTriangle, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,11 +15,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { apiClient } from "@/core/api/client";
 import { PosCheckInService } from "@/features/pos-check-in/services/pos-check-in.service";
 import type {
   CafeReservationListItem,
   PosBookingPreview,
+  PosCheckInTokenDto,
 } from "@/features/pos-check-in/types/pos-check-in.interface";
 import {
   addDaysIsoDate,
@@ -36,7 +47,6 @@ interface PendingBookingsPanelProps {
     gameTemplateId: string | null;
     gameName: string | null;
   }>;
-  scannedBarcode?: string;
   initialBookingCode?: string;
   onOpenTables?: () => void;
   onConfirmCheckIn?: (
@@ -101,20 +111,81 @@ function reservationToPreview(
 function getCheckInStatusMessage(status?: string | null) {
   switch (status?.trim().toLowerCase()) {
     case "confirmed":
-      return "Sẵn sàng check-in";
+      return "Sẵn sàng nhận bàn";
     case "expired":
-      return "Đã hết hạn — không thể check-in";
+      return "Đã hết hạn — không thể nhận bàn";
     case "holding":
-      return "Chưa đủ điều kiện check-in";
+      return "Chưa đủ điều kiện nhận bàn";
     case "checkedin":
-      return "Reservation đã được check-in";
+      return "Đơn đã được nhận bàn";
+    case "completed":
+      return "Đơn đã hoàn tất — không thể nhận bàn";
     case "cancelled":
     case "cancelledbycafe":
     case "cancelledbyplayer":
-      return "Reservation đã bị hủy";
+      return "Đơn đã bị hủy — không thể nhận bàn";
     default:
-      return "Trạng thái hiện tại chưa cho phép check-in";
+      return "Trạng thái hiện tại chưa cho phép nhận bàn";
   }
+}
+
+function formatReservationStatusLabel(status?: string | null) {
+  switch (status?.trim().toLowerCase()) {
+    case "confirmed":
+      return "Có thể nhận bàn";
+    case "holding":
+      return "Đang giữ chỗ";
+    case "expired":
+      return "Đã hết hạn";
+    case "checkedin":
+      return "Đã nhận bàn";
+    case "completed":
+      return "Đã hoàn tất";
+    case "cancelled":
+      return "Đã hủy";
+    case "cancelledbycafe":
+      return "Quán đã hủy";
+    case "cancelledbyplayer":
+      return "Khách đã hủy";
+    default:
+      return status?.trim() || "Không rõ";
+  }
+}
+
+function formatBoxStatusLabel(status?: string | null) {
+  switch (String(status ?? "")
+    .toLowerCase()
+    .replace(/[_\s-]/g, "")) {
+    case "available":
+      return "Sẵn sàng";
+    case "inuse":
+    case "occupied":
+      return "Đang dùng";
+    case "reserved":
+      return "Đã giữ";
+    default:
+      return status?.trim() || "Không rõ";
+  }
+}
+
+function formatTableStatusLabel(status?: string | null) {
+  switch (String(status ?? "")
+    .toLowerCase()
+    .replace(/[_\s-]/g, "")) {
+    case "available":
+      return "Trống";
+    case "occupied":
+    case "inuse":
+      return "Đang dùng";
+    case "reserved":
+      return "Đã giữ";
+    default:
+      return status?.trim() || "";
+  }
+}
+
+function canOpenCheckInDialog(status?: string | null) {
+  return status?.trim().toLowerCase() === "confirmed";
 }
 
 function normalizePlayDate(value?: string | null): string {
@@ -158,7 +229,6 @@ export function PendingBookingsPanel({
   cafeId,
   tables = [],
   boxes = [],
-  scannedBarcode = "",
   initialBookingCode = "",
   onOpenTables,
   onConfirmCheckIn,
@@ -167,12 +237,28 @@ export function PendingBookingsPanel({
   const [preview, setPreview] = useState<PosBookingPreview | null>(null);
   const [tableId, setTableId] = useState("");
   const [barcode, setBarcode] = useState("");
+  const [checkedBox, setCheckedBox] = useState<{
+    id?: string;
+    barcode?: string;
+    gameName?: string;
+    status?: string;
+    missingComponents?: Array<{
+      componentId?: string;
+      componentName?: string;
+      missingQuantity?: number;
+    }>;
+  } | null>(null);
+  const [checkingBox, setCheckingBox] = useState(false);
   const [reserved, setReserved] = useState<ReservedTable[]>([]);
   const [reservations, setReservations] = useState<CafeReservationListItem[]>([]);
   const [windows, setWindows] = useState<WalkInWindowDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [creatingQr, setCreatingQr] = useState(false);
+  const [checkInToken, setCheckInToken] = useState<PosCheckInTokenDto | null>(
+    null,
+  );
   const appliedInitialCode = useRef(false);
   const todayIso = todayIsoDate();
   const tomorrowIso = addDaysIsoDate(todayIso, 1);
@@ -241,7 +327,12 @@ export function PendingBookingsPanel({
         );
         if (initialReservation) {
           setCode(initialReservation.reservationCode.toUpperCase());
-          setPreview(reservationToPreview(initialReservation));
+          if (canOpenCheckInDialog(initialReservation.status)) {
+            setPreview(reservationToPreview(initialReservation));
+          } else {
+            setPreview(null);
+            toast.error(getCheckInStatusMessage(initialReservation.status));
+          }
         }
       }
     } finally {
@@ -253,6 +344,7 @@ export function PendingBookingsPanel({
     setPlayDate(nextDate);
     setPreview(null);
     setCode("");
+    setCheckInToken(null);
   };
 
   useEffect(() => {
@@ -264,12 +356,6 @@ export function PendingBookingsPanel({
   }, [load]);
 
   useEffect(() => {
-    // Barcode scanner state is owned by the parent POS workspace.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (scannedBarcode.trim()) setBarcode(scannedBarcode.trim());
-  }, [scannedBarcode]);
-
-  useEffect(() => {
     if (
       barcode &&
       !availableBoxes.some((box) => box.barcode === barcode)
@@ -277,6 +363,7 @@ export function PendingBookingsPanel({
       // Keep the selected box valid when the reservation filter changes.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setBarcode("");
+      setCheckedBox(null);
     }
   }, [availableBoxes, barcode]);
 
@@ -287,10 +374,88 @@ export function PendingBookingsPanel({
     return !st || st === "available" || st === "partial";
   });
 
+  const handleCheckBox = async (overrideBarcode?: string) => {
+    const codeToCheck = (overrideBarcode ?? barcode).trim();
+    if (!cafeId) return;
+    if (!codeToCheck) {
+      toast.error("Nhập hoặc chọn mã vạch hộp game.");
+      return;
+    }
+
+    setCheckingBox(true);
+    try {
+      const res: unknown = await apiClient.get(
+        `/api/cafes/${cafeId}/pos/boxes/by-barcode/${encodeURIComponent(codeToCheck)}`,
+      );
+      const boxData = (
+        res && typeof res === "object" && "data" in res
+          ? (res as { data: Record<string, unknown> }).data
+          : res
+      ) as Record<string, unknown>;
+
+      if (boxData?.id) {
+        try {
+          const historyRes: unknown = await apiClient.get(
+            `/api/cafes/${cafeId}/pos/boxes/${String(boxData.id)}/component-history`,
+          );
+          const historyData = (
+            historyRes && typeof historyRes === "object" && "data" in historyRes
+              ? (historyRes as { data: Record<string, unknown> }).data
+              : historyRes
+          ) as {
+            incidents?: Array<{ missingComponents?: unknown[] }>;
+            totalIncidents?: number;
+          };
+
+          const allMissingComponents =
+            historyData?.incidents?.flatMap(
+              (incident) =>
+                (incident.missingComponents || []) as Array<{
+                  componentId?: string;
+                  componentName?: string;
+                  missingQuantity?: number;
+                }>,
+            ) || [];
+
+          boxData.missingComponents = allMissingComponents;
+          boxData.totalIncidents = historyData?.totalIncidents || 0;
+        } catch {
+          boxData.missingComponents = [];
+        }
+      }
+
+      const nextBarcode = String(boxData.barcode ?? codeToCheck);
+      setBarcode(nextBarcode);
+      setCheckedBox({
+        id: boxData.id != null ? String(boxData.id) : undefined,
+        barcode: nextBarcode,
+        gameName:
+          boxData.gameName != null ? String(boxData.gameName) : undefined,
+        status: boxData.status != null ? String(boxData.status) : undefined,
+        missingComponents: Array.isArray(boxData.missingComponents)
+          ? (boxData.missingComponents as Array<{
+              componentId?: string;
+              componentName?: string;
+              missingQuantity?: number;
+            }>)
+          : [],
+      });
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Không tìm thấy hộp game với mã vạch này.",
+      );
+      setCheckedBox(null);
+    } finally {
+      setCheckingBox(false);
+    }
+  };
+
   const handleLookup = async () => {
     const trimmed = code.trim();
     if (!trimmed) {
-      toast.error("Nhập ReservationCode 8 ký tự.");
+      toast.error("Nhập mã đặt chỗ 8 ký tự.");
       return;
     }
     if (!cafeId) return;
@@ -317,14 +482,22 @@ export function PendingBookingsPanel({
         if (switchedDay) {
           setPlayDate(itemPlayDate);
         }
-        setPreview(reservationToPreview(item));
         setCode(item.reservationCode.toUpperCase());
+        setCheckInToken(null);
+        setTableId("");
         if (switchedDay) {
           toast.message(`Đơn thuộc ngày ${formatReservationDayLabel(itemPlayDate, todayIso)}.`);
         }
+        if (!canOpenCheckInDialog(item.status)) {
+          setPreview(null);
+          toast.error(getCheckInStatusMessage(item.status));
+        } else {
+          setPreview(reservationToPreview(item));
+        }
       } else {
         setPreview(null);
-        toast.error("Không tìm thấy ReservationCode trong danh sách của quán.");
+        setCheckInToken(null);
+        toast.error("Không tìm thấy mã đặt chỗ trong danh sách của quán.");
       }
     } finally {
       setLookingUp(false);
@@ -334,22 +507,77 @@ export function PendingBookingsPanel({
   const handleSelectReservation = (item: CafeReservationListItem) => {
     const nextCode = item.reservationCode.trim();
     if (!nextCode) {
-      toast.error("Đơn này chưa có ReservationCode.");
+      toast.error("Đơn này chưa có mã đặt chỗ.");
       return;
     }
     setCode(nextCode.toUpperCase());
+    setCheckInToken(null);
+    setTableId("");
+    if (!canOpenCheckInDialog(item.status)) {
+      setPreview(null);
+      toast.error(getCheckInStatusMessage(item.status));
+      return;
+    }
     setPreview(reservationToPreview(item));
+  };
+
+  const closeCheckInDialog = () => {
+    setPreview(null);
+    setCheckInToken(null);
+    setCheckedBox(null);
+    setBarcode("");
+    setTableId("");
+  };
+
+  const handleShowCheckInQr = async () => {
+    if (!cafeId) return;
+    const raw =
+      preview?.raw && typeof preview.raw === "object"
+        ? (preview.raw as Record<string, unknown>)
+        : null;
+    const reservationId =
+      selectedReservation?.id ||
+      (raw?.id != null ? String(raw.id) : "") ||
+      "";
+    if (!reservationId) {
+      toast.error("Chọn đơn đặt chỗ trước khi tạo mã QR.");
+      return;
+    }
+
+    setCreatingQr(true);
+    try {
+      const token = await PosCheckInService.createCheckInToken(cafeId, {
+        reservationId,
+        ttlMinutes: 30,
+      });
+      if (!token.qrPayload) {
+        throw new Error("Máy chủ không trả nội dung mã QR.");
+      }
+      setCheckInToken(token);
+      toast.success("Đã tạo mã QR. Khách quét bằng app BoardVerse.");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Không tạo được mã QR nhận bàn.";
+      toast.error(message);
+      setCheckInToken(null);
+    } finally {
+      setCreatingQr(false);
+    }
   };
 
   const handleCheckIn = async () => {
     const trimmed = (preview?.bookingCode || code).trim();
     if (!onConfirmCheckIn || !trimmed) return;
+    if (!checkInToken?.qrPayload) {
+      toast.error("Hãy hiện mã QR để khách quét trước khi xác nhận nhận bàn.");
+      return;
+    }
     if (!tableId) {
       toast.error("Chọn bàn để nhận khách.");
       return;
     }
     if (!barcode.trim()) {
-      toast.error("Quét barcode hộp game trước khi check-in.");
+      toast.error("Quét mã vạch hộp game trước khi nhận bàn.");
       return;
     }
     setCheckingIn(true);
@@ -358,6 +586,8 @@ export function PendingBookingsPanel({
     if (ok) {
       setPreview(null);
       setCode("");
+      setCheckInToken(null);
+      setTableId("");
       await load();
     }
   };
@@ -422,14 +652,14 @@ export function PendingBookingsPanel({
               />
             </div>
             <p className="text-xs text-neutral-500">
-              Đang xem reservation ngày{" "}
+              Đang xem đơn đặt chỗ ngày{" "}
               <span className="font-medium text-neutral-700">{reservationDayLabel}</span> (
               {playDate}).
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="reservation-code">Reservation code</Label>
+            <Label htmlFor="reservation-code">Mã đặt chỗ</Label>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 id="reservation-code"
@@ -461,89 +691,10 @@ export function PendingBookingsPanel({
             </p>
           </div>
 
-          {preview && (
-            <div className="space-y-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="font-bold text-neutral-950">
-                    {preview.gameName || "Đặt chỗ"}
-                  </p>
-                  <p className="mt-1 text-sm text-neutral-600">
-                    {formatTime(preview.scheduledStartTime)} ·{" "}
-                    <span className="font-mono">{preview.bookingCode}</span> ·{" "}
-                    {preview.registeredMemberCount} khách
-                  </p>
-                </div>
-                <Badge
-                  variant="outline"
-                  className={
-                    preview.canCheckIn
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      : "border-amber-200 bg-amber-50 text-amber-800"
-                  }
-                >
-                  {preview.canCheckIn
-                    ? "Sẵn sàng check-in"
-                    : getCheckInStatusMessage(preview.depositStatus)}
-                </Badge>
-              </div>
-
-              {(preview.canCheckIn || SHOW_CHECK_IN_CONTROLS_FOR_TESTING) && (
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="check-in-table">Bàn phục vụ</Label>
-                    <select
-                      id="check-in-table"
-                      value={tableId}
-                      onChange={(e) => setTableId(e.target.value)}
-                      className="min-h-11 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
-                    >
-                      <option value="">Chọn bàn</option>
-                      {assignableTables.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                          {t.status ? ` · ${t.status}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="check-in-box">Hộp game bàn giao</Label>
-                    <select
-                      id="check-in-box"
-                      value={barcode}
-                      onChange={(e) => setBarcode(e.target.value)}
-                      className="min-h-11 w-full rounded-md border border-neutral-200 bg-white px-3 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
-                    >
-                      <option value="">Chọn hộp game</option>
-                      {availableBoxes.map((box) => (
-                        <option key={box.id} value={box.barcode}>
-                          {box.gameName ||
-                            selectedReservation?.gameName ||
-                            "Hộp game"}{" "}
-                          · {box.barcode}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <Button
-                    type="button"
-                    disabled={checkingIn}
-                    onClick={() => void handleCheckIn()}
-                    className="min-h-11 gap-2 md:col-span-2"
-                  >
-                    <QrCode className="size-4" />
-                    {checkingIn ? "Đang check-in..." : "Xác nhận check-in"}
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-semibold text-neutral-900">
-                Reservation {reservationDayLabel}
+                Đơn đặt chỗ {reservationDayLabel}
               </h4>
               <Badge variant="secondary">{reservations.length} đơn</Badge>
             </div>
@@ -553,7 +704,7 @@ export function PendingBookingsPanel({
               </p>
             ) : reservations.length === 0 ? (
               <p className="rounded-xl border border-dashed py-5 text-center text-sm text-neutral-500">
-                Không có reservation ngày {reservationDayLabel}.
+                Không có đơn đặt chỗ ngày {reservationDayLabel}.
               </p>
             ) : (
               <div className="grid max-h-64 gap-2 overflow-y-auto pr-1 md:grid-cols-2">
@@ -584,7 +735,7 @@ export function PendingBookingsPanel({
                               : "border-amber-200 text-amber-800"
                           }
                         >
-                          {ready ? "Có thể check-in" : item.status}
+                          {ready ? "Có thể nhận bàn" : formatReservationStatusLabel(item.status)}
                         </Badge>
                       </div>
                       <p className="mt-1 text-xs text-neutral-600">
@@ -639,18 +790,18 @@ export function PendingBookingsPanel({
         <CardHeader className="border-b border-emerald-200">
           <CardTitle className="flex items-center gap-2 text-base text-emerald-950">
             <DoorOpen className="size-4" />
-            Cửa sổ walk-in
+            Cửa sổ khách vãng lai
           </CardTitle>
           <CardAction>
             <Badge className="bg-emerald-700 text-white">
-              {openWindows.length} slot
+              {openWindows.length} khung
             </Badge>
           </CardAction>
         </CardHeader>
         <CardContent>
           {openWindows.length === 0 ? (
             <p className="rounded-xl border border-dashed border-emerald-200 py-4 text-center text-sm text-emerald-900/70">
-              Chưa có cửa sổ walk-in ngày {reservationDayLabel}.
+              Chưa có cửa sổ khách vãng lai ngày {reservationDayLabel}.
             </p>
           ) : (
             <div className="grid max-h-44 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
@@ -684,6 +835,285 @@ export function PendingBookingsPanel({
         </CardContent>
         </Card>
       )}
+
+      <Dialog
+        open={Boolean(preview)}
+        onOpenChange={(open) => {
+          if (!open) closeCheckInDialog();
+        }}
+      >
+        <DialogContent className="flex max-h-[90vh] flex-col gap-4 overflow-hidden sm:max-w-4xl">
+          {preview ? (
+            <>
+              <DialogHeader className="shrink-0">
+                <DialogTitle className="flex flex-wrap items-center gap-2">
+                  <span>{preview.gameName || "Đặt chỗ"}</span>
+                  <Badge
+                    variant="outline"
+                    className={
+                      preview.canCheckIn
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-amber-200 bg-amber-50 text-amber-800"
+                    }
+                  >
+                    {preview.canCheckIn
+                      ? "Sẵn sàng nhận bàn"
+                      : getCheckInStatusMessage(preview.depositStatus)}
+                  </Badge>
+                </DialogTitle>
+                <DialogDescription>
+                  {formatTime(preview.scheduledStartTime)} ·{" "}
+                  <span className="font-mono">{preview.bookingCode}</span> ·{" "}
+                  {preview.registeredMemberCount} khách
+                </DialogDescription>
+              </DialogHeader>
+
+              {(preview.canCheckIn || SHOW_CHECK_IN_CONTROLS_FOR_TESTING) ? (
+                <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto md:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] md:overflow-hidden">
+                  <div className="space-y-3 md:overflow-y-auto md:pr-1">
+                    <div className="space-y-2">
+                      <Label htmlFor="check-in-table">Bàn phục vụ</Label>
+                      <select
+                        id="check-in-table"
+                        value={tableId}
+                        onChange={(e) => setTableId(e.target.value)}
+                        className="min-h-11 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+                      >
+                        <option value="">Chọn bàn</option>
+                        {assignableTables.map((t) => {
+                          const statusLabel = formatTableStatusLabel(t.status);
+                          return (
+                            <option key={t.id} value={t.id}>
+                              {t.name}
+                              {statusLabel ? ` · ${statusLabel}` : ""}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+
+                    <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50/80 p-3">
+                      <div>
+                        <p className="text-sm font-semibold text-neutral-950">
+                          Kiểm tra hộp game
+                        </p>
+                        <p className="text-xs text-neutral-500">
+                          Quét mã hoặc chọn hộp sẵn sàng trước khi bàn giao.
+                        </p>
+                      </div>
+
+                      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                        <Input
+                          id="check-in-box-scan"
+                          value={barcode}
+                          onChange={(e) => {
+                            setBarcode(e.target.value);
+                            setCheckedBox(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              void handleCheckBox();
+                            }
+                          }}
+                          placeholder="Quét hoặc nhập mã vạch"
+                          aria-label="Mã vạch hộp game"
+                          className="min-h-11 font-mono"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={checkingBox || !barcode.trim()}
+                          onClick={() => void handleCheckBox()}
+                          className="min-h-11 gap-2"
+                        >
+                          {checkingBox ? (
+                            <Spinner className="size-4" />
+                          ) : (
+                            <Search className="size-4" />
+                          )}
+                          {checkingBox ? "Đang kiểm tra..." : "Kiểm tra"}
+                        </Button>
+                      </div>
+
+                      <select
+                        id="check-in-box"
+                        value={
+                          availableBoxes.some((box) => box.barcode === barcode)
+                            ? barcode
+                            : ""
+                        }
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setBarcode(next);
+                          setCheckedBox(null);
+                          if (next) void handleCheckBox(next);
+                        }}
+                        aria-label="Chọn hộp sẵn sàng"
+                        className="min-h-11 w-full rounded-md border border-neutral-200 bg-white px-3 font-mono text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+                      >
+                        <option value="">Chọn hộp sẵn sàng</option>
+                        {availableBoxes.map((box) => (
+                          <option key={box.id} value={box.barcode}>
+                            {box.gameName ||
+                              selectedReservation?.gameName ||
+                              "Hộp game"}{" "}
+                            · {box.barcode}
+                          </option>
+                        ))}
+                      </select>
+
+                      {checkedBox ? (
+                        <div className="space-y-2 rounded-lg border bg-white p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold text-neutral-950">
+                                {checkedBox.gameName || "Hộp game"}
+                              </p>
+                              <p className="mt-0.5 font-mono text-xs text-neutral-500">
+                                {checkedBox.barcode}
+                              </p>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={
+                                String(checkedBox.status).toLowerCase() ===
+                                "available"
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                  : "border-amber-200 bg-amber-50 text-amber-800"
+                              }
+                            >
+                              {formatBoxStatusLabel(checkedBox.status)}
+                            </Badge>
+                          </div>
+
+                          {(checkedBox.missingComponents?.length ?? 0) > 0 ? (
+                            <div className="max-h-28 space-y-1.5 overflow-y-auto rounded-lg border border-rose-200 bg-rose-50 p-2.5">
+                              <p className="flex items-center gap-2 text-xs font-bold text-rose-800">
+                                <AlertTriangle className="size-3.5 shrink-0" />
+                                Từng ghi nhận thiếu{" "}
+                                {checkedBox.missingComponents?.length} linh kiện
+                              </p>
+                              {checkedBox.missingComponents?.map((comp, idx) => (
+                                <div
+                                  key={comp.componentId || idx}
+                                  className="flex justify-between gap-2 text-xs"
+                                >
+                                  <span className="font-medium">
+                                    {comp.componentName || "Linh kiện"}
+                                  </span>
+                                  <span className="text-rose-700">
+                                    Thiếu {comp.missingQuantity || 1}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs font-medium text-emerald-800">
+                              <ShieldCheck className="size-3.5 shrink-0" />
+                              Đủ linh kiện, sẵn sàng bàn giao.
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="rounded-lg border border-dashed border-neutral-200 py-2.5 text-center text-xs text-neutral-500">
+                          Chưa kiểm tra hộp.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex min-h-0 flex-col rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 md:overflow-y-auto">
+                    <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-emerald-950">
+                          Mã QR mời khách quét
+                        </p>
+                        <p className="text-xs text-emerald-800/80">
+                          Bắt buộc hiện QR trước khi xác nhận.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={creatingQr || !(
+                          selectedReservation?.id ||
+                          (preview?.raw &&
+                            typeof preview.raw === "object" &&
+                            (preview.raw as Record<string, unknown>).id)
+                        )}
+                        onClick={() => void handleShowCheckInQr()}
+                        className="min-h-10 gap-2 border-emerald-300 text-emerald-900"
+                      >
+                        {creatingQr ? (
+                          <Spinner className="size-4" />
+                        ) : checkInToken ? (
+                          <RefreshCw className="size-4" />
+                        ) : (
+                          <QrCode className="size-4" />
+                        )}
+                        {creatingQr
+                          ? "Đang tạo..."
+                          : checkInToken
+                            ? "Tạo lại"
+                            : "Hiện mã QR"}
+                      </Button>
+                    </div>
+
+                    {checkInToken?.qrPayload ? (
+                      <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+                        <div className="rounded-xl border-2 border-emerald-200 bg-white p-3">
+                          <QRCode value={checkInToken.qrPayload} size={160} />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="font-mono text-xs font-semibold tracking-wider text-emerald-900">
+                            {checkInToken.token}
+                          </p>
+                          <p className="text-xs text-neutral-600">
+                            Hết hạn: {formatTime(checkInToken.expiresAt)}
+                          </p>
+                          <p className="text-xs text-neutral-500">
+                            Khách mở app BoardVerse và quét mã này.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-emerald-200 px-3 py-8 text-center text-xs text-emerald-900/70">
+                        Chưa có mã QR. Bấm &quot;Hiện mã QR&quot; để tạo.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900">
+                  {getCheckInStatusMessage(preview.depositStatus)}
+                </p>
+              )}
+
+              <DialogFooter className="shrink-0 gap-2 sm:justify-between">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={closeCheckInDialog}
+                >
+                  Đóng
+                </Button>
+                {(preview.canCheckIn || SHOW_CHECK_IN_CONTROLS_FOR_TESTING) && (
+                  <Button
+                    type="button"
+                    disabled={checkingIn || !checkInToken?.qrPayload}
+                    onClick={() => void handleCheckIn()}
+                    className="min-h-11 gap-2"
+                  >
+                    <QrCode className="size-4" />
+                    {checkingIn ? "Đang nhận bàn..." : "Xác nhận nhận bàn"}
+                  </Button>
+                )}
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

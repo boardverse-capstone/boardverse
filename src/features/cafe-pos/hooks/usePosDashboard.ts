@@ -58,7 +58,7 @@ function formatUtcCheckInTime(time: string, date: string) {
 
 function formatPosCheckInError(error: unknown) {
   const message =
-    error instanceof Error ? error.message : "Không thể check-in reservation.";
+    error instanceof Error ? error.message : "Không thể nhận bàn đơn đặt chỗ.";
   const windowMatch = message.match(
     /Cho phép check-in từ\s+(\d{1,2}:\d{2})\s+(\d{2}\/\d{2}\/\d{4})\s+đến\s+(\d{1,2}:\d{2})\s+(\d{2}\/\d{2}\/\d{4})/i,
   );
@@ -69,15 +69,15 @@ function formatPosCheckInError(error: unknown) {
     const to = formatUtcCheckInTime(windowMatch[3], windowMatch[4]);
     const now = new Date();
     if (now < fromValue) {
-      return `Chưa đến giờ check-in. Có thể check-in từ ${from}.`;
+      return `Chưa đến giờ nhận bàn. Có thể nhận bàn từ ${from}.`;
     }
     if (now > toValue) {
-      return `Đã quá giờ check-in. Thời gian check-in kết thúc lúc ${to}.`;
+      return `Đã quá giờ nhận bàn. Thời gian nhận bàn kết thúc lúc ${to}.`;
     }
-    return `Không thể check-in trong thời điểm hiện tại. Thời gian cho phép: ${from} – ${to}.`;
+    return `Không thể nhận bàn trong thời điểm hiện tại. Thời gian cho phép: ${from} – ${to}.`;
   }
   if (/status.*holding|trạng thái.*holding/i.test(message)) {
-    return "Reservation đang ở trạng thái Holding, chưa thể check-in.";
+    return "Đơn đang ở trạng thái giữ chỗ, chưa thể nhận bàn.";
   }
   return message.replace(
     /^Check-in reservation\s+['"][^'"]+['"]\s+thất bại:\s*/i,
@@ -317,16 +317,16 @@ export function usePosDashboard(opts?: {
           item.reservationCode.toUpperCase() === code.trim().toUpperCase(),
       );
       if (!reservation) {
-        throw new Error("Không tìm thấy ReservationCode trong danh sách của quán.");
+        throw new Error("Không tìm thấy mã đặt chỗ trong danh sách của quán.");
       }
       setBookingPreview(reservation);
     } catch (err: any) {
-      toast.error(err?.message || "Không tìm thấy reservation.");
+      toast.error(err?.message || "Không tìm thấy đơn đặt chỗ.");
       setBookingPreview(null);
     }
   };
 
-  // Check-in reservation trực tiếp bằng ReservationCode + bàn + barcode.
+  // Nhận bàn đơn đặt chỗ bằng mã đặt chỗ + bàn + mã vạch.
   const handleBookingCheckIn = async (
     overrideCode?: string,
     cafeTableId?: string,
@@ -340,15 +340,15 @@ export function usePosDashboard(opts?: {
     const tableId = (cafeTableId ?? "").trim();
     const boxBarcode = (barcode ?? scannedBarcode).trim();
     if (!code) {
-      toast.error("Nhập ReservationCode 8 ký tự.");
+      toast.error("Nhập mã đặt chỗ 8 ký tự.");
       return false;
     }
     if (!tableId) {
-      toast.error("Chọn bàn trước khi check-in.");
+      toast.error("Chọn bàn trước khi nhận bàn.");
       return false;
     }
     if (!boxBarcode) {
-      toast.error("Quét barcode hộp game trước khi check-in.");
+      toast.error("Quét mã vạch hộp game trước khi nhận bàn.");
       return false;
     }
     try {
@@ -359,7 +359,7 @@ export function usePosDashboard(opts?: {
         idempotencyKey: `pos-checkin:${code.toLowerCase()}`,
       });
 
-      toast.success("Check-in thành công!");
+      toast.success("Nhận bàn thành công!");
       setBookingCode("");
       setBookingPreview(null);
       await fetchAllData(cafeId);
@@ -723,7 +723,7 @@ const handleScanBarcode = async () => {
 
     setScannedBox(boxData);
   } catch (err: any) {
-    toast.error(err?.message || "Không tìm thấy hộp game với Barcode này.");
+    toast.error(err?.message || "Không tìm thấy hộp game với mã vạch này.");
     setScannedBox(null);
   }
 };

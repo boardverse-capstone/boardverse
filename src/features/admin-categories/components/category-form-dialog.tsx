@@ -87,7 +87,7 @@ export function CategoryFormDialog({
         <DialogHeader>
           <DialogTitle>{category ? 'Cập nhật thể loại' : 'Thêm thể loại game'}</DialogTitle>
           <DialogDescription>
-            Quản lý danh mục thể loại board game (POST/PUT /api/v1/admin/categories).
+            Quản lý danh mục thể loại board game.
           </DialogDescription>
         </DialogHeader>
 

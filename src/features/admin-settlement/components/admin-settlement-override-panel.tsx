@@ -50,27 +50,27 @@ export function AdminSettlementOverridePanel() {
     <div className="mx-auto max-w-2xl space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Override settlement thất bại</CardTitle>
+          <CardTitle>Ghi đè giải ngân thất bại</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="settlement-id">Settlement ID</Label>
+            <Label htmlFor="settlement-id">Mã giải ngân</Label>
             <Input
               id="settlement-id"
               value={settlementId}
               onChange={(e) => setSettlementId(e.target.value)}
-              placeholder="UUID settlement"
+              placeholder="UUID giải ngân"
               className="font-mono text-xs"
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="override-reason">Lý do override</Label>
+            <Label htmlFor="override-reason">Lý do ghi đè</Label>
             <Textarea
               id="override-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Ghi rõ lý do admin override (tối thiểu 5 ký tự)..."
+              placeholder="Ghi rõ lý do ghi đè (tối thiểu 5 ký tự)..."
               rows={4}
             />
           </div>
@@ -81,10 +81,10 @@ export function AdminSettlementOverridePanel() {
             {mutation.isPending ? (
               <>
                 <Spinner className="mr-2" />
-                Đang override...
+                Đang ghi đè...
               </>
             ) : (
-              'Override'
+              'Ghi đè'
             )}
           </Button>
         </CardContent>
@@ -97,7 +97,7 @@ export function AdminSettlementOverridePanel() {
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <p>
-              <span className="text-muted-foreground">ID:</span>{' '}
+              <span className="text-muted-foreground">Mã:</span>{' '}
               <span className="font-mono text-xs">{result.id}</span>
             </p>
             <p>
@@ -112,18 +112,18 @@ export function AdminSettlementOverridePanel() {
               {result.settlementAmount.toLocaleString('vi-VN')}
             </p>
             <p>
-              <span className="text-muted-foreground">Cafe:</span> {result.cafeName || '—'}
+              <span className="text-muted-foreground">Quán:</span> {result.cafeName || '—'}
             </p>
             <p>
-              <span className="text-muted-foreground">Booking:</span>{' '}
+              <span className="text-muted-foreground">Đặt chỗ:</span>{' '}
               <span className="font-mono text-xs">{result.bookingId}</span>
             </p>
             <p>
-              <span className="text-muted-foreground">Override bởi:</span>{' '}
+              <span className="text-muted-foreground">Người ghi đè:</span>{' '}
               <span className="font-mono text-xs">{result.overrideBy}</span>
             </p>
             <p>
-              <span className="text-muted-foreground">Override lúc:</span>{' '}
+              <span className="text-muted-foreground">Thời điểm ghi đè:</span>{' '}
               {new Date(result.overrideAt).toLocaleString('vi-VN')}
             </p>
           </CardContent>

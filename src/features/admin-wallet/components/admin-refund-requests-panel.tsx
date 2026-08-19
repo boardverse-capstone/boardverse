@@ -33,10 +33,10 @@ import type { AdminRefundRequest } from '../types/refund.interface';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Tất cả' },
-  { value: 'Pending', label: 'Pending' },
-  { value: 'Approved', label: 'Approved' },
-  { value: 'Rejected', label: 'Rejected' },
-  { value: 'Cancelled', label: 'Cancelled' },
+  { value: 'Pending', label: 'Chờ duyệt' },
+  { value: 'Approved', label: 'Đã duyệt' },
+  { value: 'Rejected', label: 'Đã từ chối' },
+  { value: 'Cancelled', label: 'Đã hủy' },
 ] as const;
 
 export function AdminRefundRequestsPanel() {
@@ -62,7 +62,7 @@ export function AdminRefundRequestsPanel() {
     () => [
       {
         accessorKey: 'id',
-        header: 'Request',
+        header: 'Yêu cầu',
         cell: ({ row }) => (
           <span className="font-mono text-xs" title={row.original.id}>
             {row.original.id.slice(0, 8)}…
@@ -71,7 +71,7 @@ export function AdminRefundRequestsPanel() {
       },
       {
         accessorKey: 'userId',
-        header: 'User',
+        header: 'Người dùng',
         cell: ({ row }) => (
           <span className="font-mono text-xs">{row.original.userId.slice(0, 8)}…</span>
         ),
@@ -84,7 +84,12 @@ export function AdminRefundRequestsPanel() {
       {
         accessorKey: 'status',
         header: 'Status',
-        cell: ({ row }) => <Badge variant="outline">{row.original.status}</Badge>,
+        cell: ({ row }) => {
+          const label =
+            STATUS_OPTIONS.find((item) => item.value === row.original.status)?.label ||
+            row.original.status;
+          return <Badge variant="outline">{label}</Badge>;
+        },
       },
       {
         accessorKey: 'playerReason',
@@ -141,12 +146,12 @@ export function AdminRefundRequestsPanel() {
     <div className="space-y-6">
       <PageHeader
         title="Yêu cầu hoàn BVC"
-        description="Duyệt / từ chối refund-requests từ player."
+        description="Duyệt hoặc từ chối yêu cầu hoàn BVC từ người chơi."
       />
 
       <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
         <div className="space-y-1.5">
-          <Label>Status</Label>
+          <Label>Trạng thái</Label>
           <Select
             value={status}
             onValueChange={(value) => {
@@ -167,7 +172,7 @@ export function AdminRefundRequestsPanel() {
           </Select>
         </div>
         <div className="min-w-[260px] flex-1 space-y-1.5">
-          <Label htmlFor="refund-user">User ID</Label>
+          <Label htmlFor="refund-user">Mã người dùng</Label>
           <div className="flex gap-2">
             <Input
               id="refund-user"

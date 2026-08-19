@@ -120,8 +120,8 @@ export function AdminWalletTransactionsTable({ userId }: AdminWalletTransactions
         <CardTitle className="text-base">Lịch sử giao dịch BVC</CardTitle>
         <CardDescription>
           {data?.userDisplayName
-            ? `User: ${data.userDisplayName}`
-            : 'GET /api/v1/admin/wallet/{userId}/transactions'}
+            ? `Người dùng: ${data.userDisplayName}`
+            : 'Lịch sử giao dịch ví của người dùng.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

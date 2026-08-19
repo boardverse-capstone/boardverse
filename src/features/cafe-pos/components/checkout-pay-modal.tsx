@@ -256,7 +256,7 @@ export function CheckoutPayModal({
       );
       const payload = code.qrPayload || code.code;
       if (!payload) {
-        toast.error("BE không trả qrImageUrl / paymentUrl.");
+        toast.error("Máy chủ không trả mã QR thanh toán.");
         return;
       }
       setQrPayload(payload);
@@ -319,7 +319,7 @@ export function CheckoutPayModal({
         return;
       }
       toast.message(
-        "Vẫn UNPAID — BE chưa ghi nhận CK (chưa có webhook). Đợi thêm hoặc xác nhận tiền mặt.",
+        "Vẫn chờ thanh toán — hệ thống chưa ghi nhận chuyển khoản. Đợi thêm hoặc xác nhận tiền mặt.",
       );
     } catch (err: any) {
       toast.error(err?.message || "Không tải được trạng thái thanh toán.");
@@ -351,8 +351,18 @@ export function CheckoutPayModal({
                   {session.tableName || "Bàn POS"}
                 </strong>{" "}
                 • Trạng thái:{" "}
-                <span className="font-bold uppercase text-amber-600 font-mono">
-                  {session.status || "Unpaid"}
+                <span className="font-bold text-amber-600">
+                  {(() => {
+                    const st = String(session.status || "")
+                      .toLowerCase()
+                      .replace(/[_\s-]/g, "");
+                    if (st === "unpaid") return "Chờ thanh toán";
+                    if (st === "checking") return "Đang kiểm kê";
+                    if (st === "paid") return "Đã thanh toán";
+                    if (st === "completed") return "Đã hoàn tất";
+                    if (st === "playing" || st === "active") return "Đang chơi";
+                    return session.status || "Chờ thanh toán";
+                  })()}
                 </span>
               </p>
             </div>

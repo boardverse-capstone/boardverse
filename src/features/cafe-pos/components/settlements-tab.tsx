@@ -26,6 +26,28 @@ function formatTime(iso: string) {
   }).format(new Date(iso));
 }
 
+function formatSettlementStatusLabel(status?: string | null) {
+  switch (String(status ?? "")
+    .toLowerCase()
+    .replace(/[_\s-]/g, "")) {
+    case "pending":
+      return "Chờ xử lý";
+    case "processing":
+      return "Đang xử lý";
+    case "retrying":
+      return "Đang thử lại";
+    case "completed":
+    case "succeeded":
+      return "Thành công";
+    case "failed":
+      return "Thất bại";
+    case "overridden":
+      return "Đã ghi đè";
+    default:
+      return status?.trim() || "Không rõ";
+  }
+}
+
 /** Tab giải ngân — UI theo style cafe-pos, data từ PosCheckInService. */
 export function SettlementsTab({ cafeId }: SettlementsTabProps) {
   const [items, setItems] = useState<CafeSettlementPending[]>([]);
@@ -121,8 +143,8 @@ export function SettlementsTab({ cafeId }: SettlementsTabProps) {
               {formatTime(item.createdAt)} · {item.id.slice(0, 8)}…
             </p>
           </div>
-          <span className="rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[10px] font-bold uppercase text-neutral-700">
-            {item.status}
+          <span className="rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[10px] font-bold text-neutral-700">
+            {formatSettlementStatusLabel(item.status)}
           </span>
         </div>
       ))}

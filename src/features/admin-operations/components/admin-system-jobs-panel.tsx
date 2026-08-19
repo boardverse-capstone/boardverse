@@ -50,15 +50,15 @@ const SYSTEM_JOBS: Array<{
 }> = [
   {
     id: 'deposits/process-expired',
-    title: 'Expire booking deposits',
-    description: 'Xử lý các deposit giữ chỗ cũ đã quá hạn.',
+    title: 'Hết hạn tiền cọc đặt chỗ',
+    description: 'Xử lý các khoản tiền cọc giữ chỗ đã quá hạn.',
     warning: 'Có thể giải phóng ghế và hoàn hoặc tịch thu tiền cọc.',
     icon: Hourglass,
   },
   {
     id: 'wallet/expire-pending-topups',
-    title: 'Expire pending top-ups',
-    description: 'Đóng các giao dịch nạp BVC đang Pending quá timeout.',
+    title: 'Hết hạn giao dịch nạp đang chờ',
+    description: 'Đóng các giao dịch nạp BVC đang chờ quá thời gian cho phép.',
     warning: 'Các giao dịch hết hạn sẽ không thể tiếp tục thanh toán.',
     icon: WalletCards,
   },
@@ -72,29 +72,29 @@ const SYSTEM_JOBS: Array<{
   {
     id: 'tournaments/send-reminders',
     title: 'Gửi nhắc lịch giải đấu',
-    description: 'Gửi reminder cho mốc 48 giờ và 24 giờ trước khi bắt đầu.',
+    description: 'Gửi nhắc nhở trước 48 giờ và 24 giờ khi giải đấu bắt đầu.',
     warning: 'Người tham gia đủ điều kiện sẽ nhận thông báo.',
     icon: BellRing,
   },
   {
     id: 'tournaments/auto-mark-no-shows',
-    title: 'Đánh dấu no-show giải đấu',
-    description: 'Xử lý người tham gia quá grace period nhưng chưa xuất hiện.',
+    title: 'Đánh dấu vắng mặt giải đấu',
+    description: 'Xử lý người tham gia quá thời gian ân hạn nhưng chưa xuất hiện.',
     warning: 'Tác vụ có thể trừ Karma của người tham gia.',
     icon: UserRoundX,
   },
   {
     id: 'friends/expire-old-pending-requests',
-    title: 'Expire lời mời kết bạn',
-    description: 'Đóng lời mời kết bạn Pending quá 30 ngày.',
+    title: 'Hết hạn lời mời kết bạn',
+    description: 'Đóng lời mời kết bạn đang chờ quá 30 ngày.',
     warning: 'Các lời mời cũ sẽ chuyển sang hết hạn.',
     icon: RefreshCw,
   },
   {
     id: 'config/invalidate-cache',
-    title: 'Xóa cache cấu hình',
-    description: 'Buộc backend tải lại system configuration từ database.',
-    warning: 'Cấu hình mới sẽ được áp dụng cho các request tiếp theo.',
+    title: 'Xóa bộ nhớ đệm cấu hình',
+    description: 'Buộc hệ thống tải lại cấu hình từ cơ sở dữ liệu.',
+    warning: 'Cấu hình mới sẽ được áp dụng cho các yêu cầu tiếp theo.',
     icon: DatabaseZap,
   },
 ];
@@ -134,15 +134,15 @@ export function AdminSystemJobsPanel() {
       activeSessionId: activeSessionId.trim(),
     };
     if (!GUID_RE.test(payload.cafeId)) {
-      setSettlementError('Cafe ID phải là UUID hợp lệ.');
+      setSettlementError('Mã quán phải là UUID hợp lệ.');
       return;
     }
     if (!GUID_RE.test(payload.sessionId)) {
-      setSettlementError('Session ID phải là UUID hợp lệ.');
+      setSettlementError('Mã phiên phải là UUID hợp lệ.');
       return;
     }
     if (!GUID_RE.test(payload.activeSessionId)) {
-      setSettlementError('Active Session ID phải là UUID hợp lệ.');
+      setSettlementError('Mã phiên đang chạy phải là UUID hợp lệ.');
       return;
     }
     setSettlementError(null);
@@ -212,40 +212,40 @@ export function AdminSystemJobsPanel() {
             Retry chuyển settlement
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Retry SePay cho session đã PAID nhưng settlement đang Failed. Đây là retry transfer,
-            không phải thao tác Settlement Override.
+            Thử chuyển SePay lại cho phiên đã thanh toán nhưng giải ngân đang thất bại.
+            Đây là thao tác thử lại chuyển tiền, không phải ghi đè giải ngân.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-1.5">
-              <Label htmlFor="job-cafe-id">Cafe ID</Label>
+              <Label htmlFor="job-cafe-id">Mã quán</Label>
               <Input
                 id="job-cafe-id"
                 className="font-mono text-xs"
                 value={cafeId}
                 onChange={(event) => setCafeId(event.target.value)}
-                placeholder="UUID cafe"
+                placeholder="UUID quán"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="job-session-id">Session ID</Label>
+              <Label htmlFor="job-session-id">Mã phiên</Label>
               <Input
                 id="job-session-id"
                 className="font-mono text-xs"
                 value={sessionId}
                 onChange={(event) => setSessionId(event.target.value)}
-                placeholder="UUID session"
+                placeholder="UUID phiên"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="job-active-session-id">Active Session ID</Label>
+              <Label htmlFor="job-active-session-id">Mã phiên đang chạy</Label>
               <Input
                 id="job-active-session-id"
                 className="font-mono text-xs"
                 value={activeSessionId}
                 onChange={(event) => setActiveSessionId(event.target.value)}
-                placeholder="UUID active session"
+                placeholder="UUID phiên đang chạy"
               />
             </div>
           </div>

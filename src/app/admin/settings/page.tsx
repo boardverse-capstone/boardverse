@@ -8,7 +8,7 @@ export default function AdminSettingsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Cài đặt hệ thống"
-        description="Cấu hình tham số Elo, Karma, matchmaking và biểu phí (GET/PUT /api/v1/admin/configs)."
+        description="Cấu hình tham số Elo, Karma, matchmaking và biểu phí."
       />
       <BypassTimeWindowPanel />
       <SystemConfigLookupPanel />

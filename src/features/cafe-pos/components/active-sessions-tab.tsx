@@ -83,6 +83,26 @@ function isPaidByApi(ses: any) {
   return status === "paid" || status === "completed";
 }
 
+function formatSessionStatusLabel(status?: string | null) {
+  switch (String(status ?? "")
+    .toLowerCase()
+    .replace(/[_\s-]/g, "")) {
+    case "playing":
+    case "active":
+      return "Đang chơi";
+    case "checking":
+      return "Đang kiểm kê";
+    case "unpaid":
+      return "Chờ thanh toán";
+    case "paid":
+      return "Đã thanh toán";
+    case "completed":
+      return "Đã hoàn tất";
+    default:
+      return status?.trim() || "";
+  }
+}
+
 export function ActiveSessionsTab({
   sessions,
   onEndSession,
@@ -121,19 +141,19 @@ export function ActiveSessionsTab({
             ? "inventory"
             : "pay";
         const lifecycleSteps = [
-          { label: "Playing", done: isReturned, current: !isReturned },
+          { label: "Đang chơi", done: isReturned, current: !isReturned },
           {
-            label: "Return",
+            label: "Trả bàn",
             done: isReturned,
             current: isReturned && !isCheckDone,
           },
           {
-            label: "Inventory",
+            label: "Kiểm kê",
             done: isCheckDone,
             current: isReturned && !isCheckDone,
           },
           {
-            label: "Pay",
+            label: "Thanh toán",
             done: isPaidDone,
             current: isCheckDone && !isPaidDone,
           },
@@ -196,7 +216,7 @@ export function ActiveSessionsTab({
               <CardAction>
                   <Badge
                     variant="outline"
-                    className={`uppercase ${
+                    className={`${
                       isUnpaid
                         ? "border-amber-300 bg-amber-100 text-amber-800"
                         : isChecking
@@ -205,10 +225,10 @@ export function ActiveSessionsTab({
                     }`}
                   >
                     {isUnpaid
-                      ? "UNPAID"
+                      ? "Chờ thanh toán"
                       : isChecking
-                        ? "CHECKING"
-                        : ses.status || "Playing"}
+                        ? "Đang kiểm kê"
+                        : formatSessionStatusLabel(ses.status) || "Đang chơi"}
                   </Badge>
               </CardAction>
             </CardHeader>
@@ -325,13 +345,13 @@ export function ActiveSessionsTab({
                 onClick={() => onEndSession(ses.id)}
                 aria-label={
                   isReturned
-                    ? "Đã trả bàn — phiên đang CHECKING hoặc chờ thu tiền"
-                    : "Trả bàn: kết thúc giờ chơi, chuyển phiên sang CHECKING để kiểm kê (chưa thu tiền)"
+                    ? "Đã trả bàn — phiên đang kiểm kê hoặc chờ thu tiền"
+                    : "Trả bàn: kết thúc giờ chơi, chuyển sang kiểm kê (chưa thu tiền)"
                 }
                 title={
                   isReturned
                     ? "Đã trả bàn"
-                    : "Trả bàn — kết thúc giờ chơi, chuyển sang CHECKING để kiểm kê. Chưa thu tiền, bàn chưa trống."
+                    : "Trả bàn — kết thúc giờ chơi, chuyển sang kiểm kê. Chưa thu tiền, bàn chưa trống."
                 }
                 className={`min-h-11 gap-2 rounded-lg font-semibold shadow-none disabled:opacity-100 ${
                   isReturned

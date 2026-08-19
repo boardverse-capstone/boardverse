@@ -45,26 +45,26 @@ const RESERVATION_JOBS: Array<{
 }> = [
   {
     id: 'process-deadlines',
-    title: 'Xử lý deadline',
-    description: 'Xử lý reservation đã đến hạn tuyển người.',
+    title: 'Xử lý hạn tuyển người',
+    description: 'Xử lý đơn đặt chỗ đã đến hạn tuyển người.',
     icon: CalendarClock,
   },
   {
     id: 'process-cafe-approval-expiry',
-    title: 'Hết hạn cafe approval',
-    description: 'Hủy yêu cầu duyệt quá 24 giờ và hoàn BVC cho host.',
+    title: 'Hết hạn duyệt của quán',
+    description: 'Hủy yêu cầu duyệt quá 24 giờ và hoàn BVC cho chủ đơn.',
     icon: AlertTriangle,
   },
   {
     id: 'process-no-show',
-    title: 'Xử lý no-show',
-    description: 'Đánh dấu reservation quá giờ check-in và xử lý BVC/Karma.',
+    title: 'Xử lý vắng mặt',
+    description: 'Đánh dấu đơn quá giờ nhận bàn và xử lý BVC/Karma.',
     icon: UserX,
   },
   {
     id: 'process-bvc-capture-retry',
-    title: 'Retry BVC capture',
-    description: 'Thử capture lại BVC cho phiên đã thanh toán nhưng bị lỗi.',
+    title: 'Thử thu BVC lại',
+    description: 'Thử thu lại BVC cho phiên đã thanh toán nhưng bị lỗi.',
     icon: RefreshCw,
   },
 ];
@@ -225,19 +225,19 @@ export function AdminReservationOperationsPanel() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)]">
         <Card>
           <CardHeader className="space-y-2">
-            <CardTitle>Override refund Reservation</CardTitle>
+            <CardTitle>Hoàn BVC thủ công cho đặt chỗ</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Hoàn BVC thủ công cho reservation đã Completed.
+              Hoàn BVC thủ công cho đơn đặt chỗ đã hoàn tất.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="reservation-refund-id">Reservation ID</Label>
+              <Label htmlFor="reservation-refund-id">Mã đặt chỗ</Label>
               <Input
                 id="reservation-refund-id"
                 value={reservationId}
                 onChange={(event) => setReservationId(event.target.value)}
-                placeholder="UUID reservation"
+                placeholder="UUID đặt chỗ"
                 className="font-mono text-xs"
               />
             </div>
@@ -281,7 +281,7 @@ export function AdminReservationOperationsPanel() {
               ) : (
                 <CircleDollarSign className="mr-2 h-4 w-4" />
               )}
-              Override refund
+              Xác nhận hoàn BVC
             </Button>
           </CardContent>
         </Card>

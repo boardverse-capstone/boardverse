@@ -129,8 +129,8 @@ export function MasterGameComponentsPanel() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Master game catalog"
-        description="Linh kiện, thể loại, metadata và thumbnail của game gốc."
+        title="Danh mục game gốc"
+        description="Linh kiện, thể loại, metadata và ảnh đại diện của game gốc."
       />
 
       <Card>

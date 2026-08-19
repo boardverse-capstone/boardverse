@@ -74,11 +74,15 @@ export function AdminSePayAccountsPanel() {
       {
         accessorKey: 'accountType',
         header: 'Loại',
-        cell: ({ row }) => <Badge variant="outline">{row.original.accountType}</Badge>,
+        cell: ({ row }) => (
+          <Badge variant="outline">
+            {row.original.accountType === 'Master' ? 'Hệ thống' : 'Quán'}
+          </Badge>
+        ),
       },
       {
         accessorKey: 'cafeName',
-        header: 'Cafe',
+        header: 'Quán',
         cell: ({ row }) =>
           row.original.accountType === 'Master'
             ? 'BoardVerse'
@@ -197,14 +201,14 @@ export function AdminSePayAccountsPanel() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Master account</CardTitle>
+          <CardTitle>Tài khoản hệ thống</CardTitle>
         </CardHeader>
         <CardContent>
           {masterQuery.isLoading ? (
-            <p className="text-sm text-muted-foreground">Đang tải master account...</p>
+            <p className="text-sm text-muted-foreground">Đang tải tài khoản hệ thống...</p>
           ) : masterQuery.isError || !master ? (
             <p className="text-sm text-muted-foreground">
-              Chưa có master account. Hãy tạo mới với accountType = Master.
+              Chưa có tài khoản hệ thống. Hãy tạo mới với loại tài khoản Hệ thống.
             </p>
           ) : (
             <div className="grid gap-2 text-sm sm:grid-cols-2">
@@ -243,8 +247,8 @@ export function AdminSePayAccountsPanel() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả</SelectItem>
-                <SelectItem value="Master">Master</SelectItem>
-                <SelectItem value="Cafe">Cafe</SelectItem>
+                <SelectItem value="Master">Hệ thống</SelectItem>
+                <SelectItem value="Cafe">Quán</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -268,7 +272,7 @@ export function AdminSePayAccountsPanel() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="filter-cafe-id">Cafe ID</Label>
+            <Label htmlFor="filter-cafe-id">Mã quán</Label>
             <div className="flex gap-2">
               <Input
                 id="filter-cafe-id"

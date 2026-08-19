@@ -97,7 +97,7 @@ export function StartSessionModal({
   // HÀM KIỂM TRA LINH KIỆN HỘP GAME TRƯỚC KHI GÁN BÀN
   const handleInspectBox = async () => {
     if (!cafeId || !barcode.trim()) {
-      toast.error("Vui lòng nhập Barcode hộp game.");
+      toast.error("Vui lòng nhập mã vạch hộp game.");
       return;
     }
 
@@ -111,7 +111,7 @@ export function StartSessionModal({
       const boxData = boxRes?.data || boxRes;
 
       if (!boxData?.id) {
-        toast.error("Không tìm thấy hộp game với mã Barcode này.");
+        toast.error("Không tìm thấy hộp game với mã vạch này.");
         setBoxInspection(null);
         return;
       }
@@ -155,7 +155,7 @@ export function StartSessionModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!barcode.trim()) {
-      toast.error("Vui lòng nhập hoặc quét mã Barcode hộp game!");
+      toast.error("Vui lòng nhập hoặc quét mã vạch hộp game!");
       return;
     }
     if (guestCount < minPlayers) {
@@ -247,8 +247,8 @@ export function StartSessionModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-neutral-800 flex items-center gap-1">
-              <Barcode className="w-3.5 h-3.5 text-neutral-500" /> Mã Barcode
-              Hộp Game
+              <Barcode className="w-3.5 h-3.5 text-neutral-500" /> Mã vạch
+              hộp game
             </label>
 
             {/* Ô INPUT VÀ NÚT KIỂM TRA XỌT NGANG */}
@@ -256,7 +256,7 @@ export function StartSessionModal({
               <Input
                 type="text"
                 autoFocus
-                placeholder="Nhập hoặc quét mã Barcode (vd: BV-a477...)..."
+                placeholder="Nhập hoặc quét mã vạch (vd: BV-a477...)..."
                 value={barcode}
                 onChange={(e) => {
                   setBarcode(e.target.value);

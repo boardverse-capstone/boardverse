@@ -30,7 +30,7 @@ import type { NavItem } from '@/components/layout/nav-main';
 
 const ADMIN_NAV: NavItem[] = [
   {
-    title: 'Dashboard',
+    title: 'Tổng quan',
     url: ROUTES.DASHBOARD.ADMIN,
     icon: <IconLayoutDashboard />,
   },
@@ -60,7 +60,7 @@ const ADMIN_NAV: NavItem[] = [
     icon: <IconUsers />,
   },
   {
-    title: 'Wallets',
+    title: 'Ví BVC',
     url: ROUTES.ADMIN.WALLETS,
     icon: <IconWallet />,
   },
@@ -85,12 +85,12 @@ const ADMIN_NAV: NavItem[] = [
     icon: <IconActivity />,
   },
   {
-    title: 'SePay accounts',
+    title: 'Tài khoản SePay',
     url: ROUTES.ADMIN.SEPAY_ACCOUNTS,
     icon: <IconCreditCard />,
   },
   {
-    title: 'Karma',
+    title: 'Nhật ký Karma',
     url: ROUTES.ADMIN.KARMA_LOGS,
     icon: <IconHistory />,
   },
@@ -120,7 +120,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <Suspense fallback={<AuthLoading message="Đang xác minh quyền truy cập..." />}>
       <RoleGuard allowedRole={UserRole.Admin}>
-        <DashboardLayout navItems={ADMIN_NAV} appSubtitle="Admin Portal">
+        <DashboardLayout navItems={ADMIN_NAV} appSubtitle="Cổng quản trị">
           {children}
         </DashboardLayout>
       </RoleGuard>

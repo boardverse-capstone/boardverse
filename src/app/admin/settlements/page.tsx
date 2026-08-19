@@ -5,8 +5,8 @@ export default function AdminSettlementsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Settlements"
-        description="Override settlement thất bại sau khi retry hết lần (ghi lý do bắt buộc)."
+        title="Giải ngân"
+        description="Ghi đè thủ công các khoản giải ngân thất bại sau khi đã thử lại hết lần (bắt buộc ghi lý do)."
       />
       <AdminSettlementOverridePanel />
     </div>

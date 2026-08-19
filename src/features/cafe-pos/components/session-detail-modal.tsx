@@ -157,10 +157,10 @@ export function SessionDetailModal({
               </div>
               <div>
                 <span className="text-[10px] font-bold text-neutral-400 uppercase">
-                  Host điều hành:
+                  Người phụ trách:
                 </span>
                 <div className="font-semibold text-neutral-800 truncate">
-                  {detail.hostName || "N/A"}
+                  {detail.hostName || "—"}
                 </div>
               </div>
               <div>
@@ -254,7 +254,7 @@ export function SessionDetailModal({
                             ? "Đã kiểm kê · Đủ linh kiện"
                             : gameCheckStatus(g) === "missingcomponents"
                               ? "Đã kiểm kê · Thiếu linh kiện"
-                            : g.checkStatus || "Chưa kiểm kê"}
+                            : "Chưa kiểm kê"}
                         </span>
 
                         {!isGameChecked(g) && <Button
@@ -322,7 +322,7 @@ export function SessionDetailModal({
                 ))}
                 {guests.length === 0 && (
                   <span className="text-[11px] text-neutral-400">
-                    Chưa có thành viên / khách walk-in.
+                    Chưa có thành viên / khách vãng lai.
                   </span>
                 )}
               </div>

@@ -55,7 +55,7 @@ export function SystemConfigLookupPanel() {
       <CardHeader>
         <CardTitle>Tra cứu config theo key</CardTitle>
         <CardDescription>
-          Chỉ đọc giá trị runtime từ GET /api/v1/system-configs/{'{key}'}.
+          Tra cứu giá trị cấu hình đang chạy theo khóa.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -64,7 +64,7 @@ export function SystemConfigLookupPanel() {
           className="flex flex-col gap-2 sm:flex-row sm:items-end"
         >
           <div className="flex-1 space-y-1.5">
-            <Label htmlFor="system-config-key">Config key</Label>
+            <Label htmlFor="system-config-key">Khóa cấu hình</Label>
             <Input
               id="system-config-key"
               value={key}

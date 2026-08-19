@@ -20,8 +20,8 @@ export default function AdminWalletDetailPage({ params }: AdminWalletDetailPageP
     <div className="space-y-6">
       <ListBackButton fallbackPath={ROUTES.ADMIN.WALLETS} />
       <PageHeader
-        title="Chi tiết wallet"
-        description="Thông tin wallet và người dùng (GET /api/v1/admin/wallet/{userId})."
+        title="Chi tiết ví"
+        description="Thông tin ví và tài khoản người dùng."
       />
       <AdminWalletDetailPanel wallet={data} isLoading={isLoading} isError={isError} />
       <AdminWalletTransactionsTable userId={userId} />

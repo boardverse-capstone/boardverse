@@ -52,7 +52,7 @@ export function AdminCafeListTable() {
   });
   const [statusFilter, setStatusFilter] = useState<CafeOperationalStatusValue | 'all'>('all');
 
-  // Lọc status trên FE: API `status` đang lệch so với badge trên list (vd. thiếu field → map DATA_BLANK).
+  // Lọc status trên FE khi API thiếu/lệch field badge trên list.
   const { data, isLoading, isError } = useAdminCafes({
     page,
     limit,
@@ -255,7 +255,7 @@ export function AdminCafeListTable() {
     <div className="space-y-6">
       <PageHeader
         title="Quản lý quán cafe"
-        description="CRUD quán đối tác qua /api/v1/admin/cafes — danh sách, tạo, sửa, xóa và đổi trạng thái vận hành."
+        description="Quản lý danh sách quán đối tác: tạo, sửa, xóa và đổi trạng thái vận hành."
       />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

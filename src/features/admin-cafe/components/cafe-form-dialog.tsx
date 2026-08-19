@@ -138,9 +138,7 @@ export function CafeFormDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Cập nhật quán' : 'Tạo quán mới'}</DialogTitle>
           <DialogDescription>
-            {isEdit
-              ? 'PUT /api/v1/admin/cafes/{cafeId} — cập nhật thông tin quán.'
-              : 'Admin tạo quán'}
+            {isEdit ? 'Cập nhật thông tin quán.' : 'Tạo quán đối tác mới trên hệ thống.'}
           </DialogDescription>
         </DialogHeader>
 

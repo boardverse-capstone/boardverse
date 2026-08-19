@@ -6,7 +6,7 @@ export default function AdminReportsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Báo cáo"
-        description="Tổng quan, lobby failures, deposits và hiệu suất cafe."
+        description="Tổng quan, lobby thất bại, tiền cọc và hiệu suất quán."
       />
       <AdminReportsPortal />
     </div>
