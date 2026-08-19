@@ -199,11 +199,14 @@ export function SessionDetailModal({
                 <span className="text-[10px] font-bold text-neutral-400 uppercase">
                   Thời điểm bắt đầu:
                 </span>
-                <div className="font-mono text-neutral-600">
+                <div className="font-mono font-semibold text-neutral-900">
                   {detail.startedAt
-                    ? new Date(detail.startedAt).toLocaleTimeString("vi-VN", {
+                    ? new Date(detail.startedAt).toLocaleString("vi-VN", {
                         hour: "2-digit",
                         minute: "2-digit",
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
                       })
                     : "—"}
                 </div>

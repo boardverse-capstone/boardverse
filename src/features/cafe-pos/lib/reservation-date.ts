@@ -29,3 +29,14 @@ export function formatReservationDayLabel(
     month: "2-digit",
   });
 }
+
+/** Hiển thị ngày theo kiểu Việt Nam: dd/mm/yyyy */
+export function formatIsoDateVi(iso: string): string {
+  const date = new Date(`${iso.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}

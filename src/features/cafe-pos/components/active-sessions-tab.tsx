@@ -209,7 +209,7 @@ export function ActiveSessionsTab({
                   <CardTitle className="text-lg font-bold text-neutral-950">
                     {ses.tableName}
                   </CardTitle>
-                  <span className="font-mono text-xs text-neutral-500">
+                  <span className="font-mono text-xs font-medium text-neutral-700">
                     #{ses.id.slice(0, 6)}
                   </span>
               </div>
@@ -270,7 +270,7 @@ export function ActiveSessionsTab({
 
               <div className="grid grid-cols-2 gap-3 rounded-xl border bg-neutral-50 p-3 text-sm">
                 <div>
-                  <span className="flex items-center gap-1 text-xs font-semibold uppercase text-neutral-500">
+                  <span className="flex items-center gap-1 text-xs font-bold uppercase text-neutral-700">
                     <Clock className="size-3.5" /> Đã chơi
                   </span>
                   <div className="mt-1 font-mono font-bold text-neutral-900">
@@ -279,10 +279,10 @@ export function ActiveSessionsTab({
                 </div>
 
                 <div>
-                  <span className="flex items-center gap-1 text-xs font-semibold uppercase text-neutral-500">
+                  <span className="flex items-center gap-1 text-xs font-bold uppercase text-neutral-700">
                     <Users className="size-3.5" /> Số khách
                   </span>
-                  <div className="mt-1 font-semibold text-neutral-800">
+                  <div className="mt-1 font-semibold text-neutral-900">
                     {(() => {
                       const present = readPresentCount(ses);
                       const range = mergePlayerRange(
@@ -310,10 +310,10 @@ export function ActiveSessionsTab({
                 <div className="flex items-center justify-between rounded-xl border bg-neutral-50 p-3 text-sm">
                   <div className="min-w-0 space-y-1 pr-2">
                     <div className="flex items-center gap-1.5 truncate font-bold text-neutral-900">
-                      <Boxes className="size-4 shrink-0 text-neutral-500" />
+                      <Boxes className="size-4 shrink-0 text-neutral-700" />
                       {primaryGame.gameName}
                     </div>
-                    <div className="font-mono text-xs text-neutral-500">
+                    <div className="font-mono text-xs font-medium text-neutral-700">
                       Mã: {primaryGame.boxBarcode}
                     </div>
                   </div>

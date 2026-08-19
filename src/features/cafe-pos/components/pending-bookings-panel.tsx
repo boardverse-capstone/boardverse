@@ -33,6 +33,7 @@ import type {
 } from "@/features/pos-check-in/types/pos-check-in.interface";
 import {
   addDaysIsoDate,
+  formatIsoDateVi,
   formatReservationDayLabel,
   todayIsoDate,
 } from "../lib/reservation-date";
@@ -152,6 +153,48 @@ function formatReservationStatusLabel(status?: string | null) {
   }
 }
 
+type ReservationStatusFilter =
+  | "all"
+  | "confirmed"
+  | "holding"
+  | "checkedin"
+  | "completed"
+  | "cancelled"
+  | "expired";
+
+const RESERVATION_STATUS_FILTERS: Array<{
+  value: ReservationStatusFilter;
+  label: string;
+}> = [
+  { value: "all", label: "Tất cả" },
+  { value: "confirmed", label: "Có thể nhận bàn" },
+  { value: "holding", label: "Đang giữ chỗ" },
+  { value: "checkedin", label: "Đã nhận bàn" },
+  { value: "completed", label: "Đã hoàn tất" },
+  { value: "cancelled", label: "Đã hủy" },
+  { value: "expired", label: "Đã hết hạn" },
+];
+
+function normalizeReservationStatus(status?: string | null) {
+  return status?.trim().toLowerCase() || "";
+}
+
+function matchesReservationStatusFilter(
+  status: string | null | undefined,
+  filter: ReservationStatusFilter,
+) {
+  if (filter === "all") return true;
+  const normalized = normalizeReservationStatus(status);
+  if (filter === "cancelled") {
+    return (
+      normalized === "cancelled" ||
+      normalized === "cancelledbycafe" ||
+      normalized === "cancelledbyplayer"
+    );
+  }
+  return normalized === filter;
+}
+
 function formatBoxStatusLabel(status?: string | null) {
   switch (String(status ?? "")
     .toLowerCase()
@@ -263,6 +306,9 @@ export function PendingBookingsPanel({
   const todayIso = todayIsoDate();
   const tomorrowIso = addDaysIsoDate(todayIso, 1);
   const [playDate, setPlayDate] = useState(todayIso);
+  const [statusFilter, setStatusFilter] =
+    useState<ReservationStatusFilter>("all");
+  const [reservationSearch, setReservationSearch] = useState("");
   const reservationDayLabel = formatReservationDayLabel(playDate, todayIso);
 
   const assignableTables = useMemo(() => {
@@ -292,6 +338,26 @@ export function PendingBookingsPanel({
       (box) => box.gameTemplateId === selectedReservation.gameId,
     );
   }, [boxes, selectedReservation]);
+
+  const filteredReservations = useMemo(() => {
+    const query = reservationSearch.trim().toLowerCase();
+    return reservations.filter((item) => {
+      if (!matchesReservationStatusFilter(item.status, statusFilter)) {
+        return false;
+      }
+      if (!query) return true;
+      const haystack = [
+        item.gameName,
+        item.reservationCode,
+        item.tableNumber,
+        item.timeSlot,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [reservations, reservationSearch, statusFilter]);
 
   const load = useCallback(async () => {
     if (!cafeId) return;
@@ -597,11 +663,11 @@ export function PendingBookingsPanel({
       <Card size="sm">
         <CardHeader className="border-b">
           <div>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <CalendarClock className="size-4 text-neutral-600" />
+            <CardTitle className="flex items-center gap-2 text-lg font-bold text-neutral-950">
+              <CalendarClock className="size-4 text-neutral-800" />
               Tiếp nhận khách đặt chỗ
             </CardTitle>
-            <p className="mt-1 text-sm text-neutral-500">
+            <p className="mt-1 text-sm font-medium text-neutral-700">
               Chọn ngày chơi hoặc nhập mã 8 ký tự trên QR của khách.
             </p>
           </div>
@@ -622,7 +688,7 @@ export function PendingBookingsPanel({
 
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label>Ngày chơi</Label>
+            <Label className="text-sm font-semibold text-neutral-900">Ngày chơi</Label>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -651,15 +717,16 @@ export function PendingBookingsPanel({
                 aria-label="Chọn ngày chơi"
               />
             </div>
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs font-medium text-neutral-700">
               Đang xem đơn đặt chỗ ngày{" "}
-              <span className="font-medium text-neutral-700">{reservationDayLabel}</span> (
-              {playDate}).
+              <span className="font-semibold text-neutral-900">{reservationDayLabel}</span>.
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="reservation-code">Mã đặt chỗ</Label>
+            <Label htmlFor="reservation-code" className="text-sm font-semibold text-neutral-900">
+              Mã đặt chỗ
+            </Label>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
                 id="reservation-code"
@@ -686,29 +753,68 @@ export function PendingBookingsPanel({
                 {lookingUp ? "Đang tìm..." : "Tra cứu"}
               </Button>
             </div>
-            <p id="reservation-code-help" className="text-xs text-neutral-500">
-              Tra cứu trong ngày đang chọn; nếu không thấy sẽ tìm thêm trong toàn bộ đơn của quán.
+            <p id="reservation-code-help" className="text-xs font-medium text-neutral-700">
+              Tra cứu trong ngày đang chọn.
             </p>
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-neutral-900">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h4 className="text-base font-bold text-neutral-950">
                 Đơn đặt chỗ {reservationDayLabel}
               </h4>
-              <Badge variant="secondary">{reservations.length} đơn</Badge>
+              <Badge variant="secondary">
+                {filteredReservations.length}
+                {filteredReservations.length !== reservations.length
+                  ? `/${reservations.length}`
+                  : ""}{" "}
+                đơn
+              </Badge>
             </div>
+
+            <div className="flex flex-col gap-2">
+              <Input
+                value={reservationSearch}
+                onChange={(e) => setReservationSearch(e.target.value)}
+                placeholder="Lọc theo mã, tên game hoặc bàn..."
+                className="min-h-10"
+                aria-label="Tìm đơn đặt chỗ"
+              />
+              <div
+                className="flex flex-wrap gap-1.5"
+                role="group"
+                aria-label="Lọc theo trạng thái đơn"
+              >
+                {RESERVATION_STATUS_FILTERS.map((filter) => (
+                  <Button
+                    key={filter.value}
+                    type="button"
+                    size="sm"
+                    variant={statusFilter === filter.value ? "default" : "outline"}
+                    onClick={() => setStatusFilter(filter.value)}
+                    className="h-8 px-2.5 text-xs"
+                  >
+                    {filter.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
             {loading && reservations.length === 0 ? (
-              <p className="py-4 text-sm text-neutral-500" aria-live="polite">
+              <p className="py-4 text-sm font-medium text-neutral-700" aria-live="polite">
                 Đang tải...
               </p>
             ) : reservations.length === 0 ? (
-              <p className="rounded-xl border border-dashed py-5 text-center text-sm text-neutral-500">
+              <p className="rounded-xl border border-dashed py-5 text-center text-sm font-medium text-neutral-700">
                 Không có đơn đặt chỗ ngày {reservationDayLabel}.
+              </p>
+            ) : filteredReservations.length === 0 ? (
+              <p className="rounded-xl border border-dashed py-5 text-center text-sm font-medium text-neutral-700">
+                Không có đơn khớp bộ lọc hiện tại.
               </p>
             ) : (
               <div className="grid max-h-64 gap-2 overflow-y-auto pr-1 md:grid-cols-2">
-                {reservations.map((item) => {
+                {filteredReservations.map((item) => {
                   const selected = selectedReservation?.id === item.id;
                   const ready = item.status.trim().toLowerCase() === "confirmed";
                   return (
@@ -738,47 +844,19 @@ export function PendingBookingsPanel({
                           {ready ? "Có thể nhận bàn" : formatReservationStatusLabel(item.status)}
                         </Badge>
                       </div>
-                      <p className="mt-1 text-xs text-neutral-600">
-                        <span className="font-mono">{item.reservationCode || "—"}</span>
+                      <p className="mt-1 text-xs font-medium text-neutral-800">
+                        <span className="font-mono font-semibold text-neutral-900">{item.reservationCode || "—"}</span>
                         {" · "}
                         {item.currentPlayers}/{item.maxPlayers} khách
                         {item.tableNumber ? ` · Bàn ${item.tableNumber}` : ""}
                       </p>
-                      <p className="mt-1 text-xs text-neutral-500">
+                      <p className="mt-1 text-xs font-medium text-neutral-700">
                         {formatTime(item.scheduledStartTime)} →{" "}
                         {formatTime(item.scheduledEndTime)}
                       </p>
                     </button>
                   );
                 })}
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-2 border-t pt-4">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-neutral-900">
-                Bàn đang giữ chỗ
-              </h4>
-              <Badge variant="secondary">{reserved.length} bàn</Badge>
-            </div>
-            {reserved.length === 0 ? (
-              <p className="rounded-xl border border-dashed py-4 text-center text-sm text-neutral-500">
-                Không có bàn đang giữ chỗ.
-              </p>
-            ) : (
-              <div className="grid max-h-40 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-                {reserved.map((table) => (
-                  <div
-                    key={table.id}
-                    className="flex min-h-11 items-center justify-between rounded-lg border bg-neutral-50 px-3"
-                  >
-                    <p className="text-sm font-semibold">{table.name}</p>
-                    <Badge variant="outline" className="border-amber-200 text-amber-800">
-                      Đang giữ
-                    </Badge>
-                  </div>
-                ))}
               </div>
             )}
           </div>
@@ -894,10 +972,10 @@ export function PendingBookingsPanel({
 
                     <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50/80 p-3">
                       <div>
-                        <p className="text-sm font-semibold text-neutral-950">
+                        <p className="text-sm font-bold text-neutral-950">
                           Kiểm tra hộp game
                         </p>
-                        <p className="text-xs text-neutral-500">
+                        <p className="text-xs font-medium text-neutral-700">
                           Quét mã hoặc chọn hộp sẵn sàng trước khi bàn giao.
                         </p>
                       </div>
@@ -970,7 +1048,7 @@ export function PendingBookingsPanel({
                               <p className="truncate font-semibold text-neutral-950">
                                 {checkedBox.gameName || "Hộp game"}
                               </p>
-                              <p className="mt-0.5 font-mono text-xs text-neutral-500">
+                              <p className="mt-0.5 font-mono text-xs font-medium text-neutral-700">
                                 {checkedBox.barcode}
                               </p>
                             </div>
@@ -1016,7 +1094,7 @@ export function PendingBookingsPanel({
                           )}
                         </div>
                       ) : (
-                        <p className="rounded-lg border border-dashed border-neutral-200 py-2.5 text-center text-xs text-neutral-500">
+                        <p className="rounded-lg border border-dashed border-neutral-200 py-2.5 text-center text-xs font-medium text-neutral-700">
                           Chưa kiểm tra hộp.
                         </p>
                       )}
@@ -1026,10 +1104,10 @@ export function PendingBookingsPanel({
                   <div className="flex min-h-0 flex-col rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 md:overflow-y-auto">
                     <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <p className="text-sm font-semibold text-emerald-950">
+                        <p className="text-sm font-bold text-emerald-950">
                           Mã QR mời khách quét
                         </p>
-                        <p className="text-xs text-emerald-800/80">
+                        <p className="text-xs font-medium text-emerald-900">
                           Bắt buộc hiện QR trước khi xác nhận.
                         </p>
                       </div>
@@ -1069,10 +1147,10 @@ export function PendingBookingsPanel({
                           <p className="font-mono text-xs font-semibold tracking-wider text-emerald-900">
                             {checkInToken.token}
                           </p>
-                          <p className="text-xs text-neutral-600">
+                          <p className="text-xs font-medium text-neutral-800">
                             Hết hạn: {formatTime(checkInToken.expiresAt)}
                           </p>
-                          <p className="text-xs text-neutral-500">
+                          <p className="text-xs font-medium text-neutral-700">
                             Khách mở app BoardVerse và quét mã này.
                           </p>
                         </div>

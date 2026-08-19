@@ -41,6 +41,7 @@ import {
   Wifi,
   WifiOff,
   Loader2,
+  Table2,
 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -194,7 +195,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         <CardContent className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-bold tracking-tight text-neutral-950 sm:text-2xl">
+              <h1 className="text-xl font-extrabold tracking-tight text-neutral-950 sm:text-2xl">
                 Quầy POS
               </h1>
               <Badge
@@ -202,8 +203,8 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                 role="status"
                 className={
                   hubConnected
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                    : "border-neutral-200 bg-neutral-50 text-neutral-600"
+                    ? "border-emerald-200 bg-emerald-50 font-semibold text-emerald-800"
+                    : "border-neutral-200 bg-neutral-50 font-semibold text-neutral-700"
                 }
               >
                 {hubConnected ? <Wifi /> : <WifiOff />}
@@ -211,7 +212,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                 {hubConnected ? "Đang kết nối trực tiếp" : "Mất kết nối trực tiếp"}
               </Badge>
             </div>
-            <p className="text-sm text-neutral-500">
+            <p className="text-sm font-medium text-neutral-700">
               Tiếp nhận khách, vận hành bàn và hoàn tất phiên chơi tại một nơi.
             </p>
           </div>
@@ -219,26 +220,26 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex min-w-0 flex-1 gap-2 sm:flex-none">
               <div className="flex min-w-[7.5rem] items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2">
-                <CheckCircle2 className="size-5 shrink-0 text-emerald-600" />
+                <CheckCircle2 className="size-5 shrink-0 text-emerald-700" />
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800/70">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-900">
                     Bàn trống
                   </p>
-                  <p className="text-lg font-bold leading-none text-emerald-700">
+                  <p className="text-lg font-extrabold leading-none text-emerald-800">
                     {tables.filter((t) => t.status === "Available").length}
-                    <span className="text-xs font-medium text-neutral-400">
+                    <span className="text-xs font-semibold text-neutral-600">
                       /{tables.length}
                     </span>
                   </p>
                 </div>
               </div>
               <div className="flex min-w-[7.5rem] items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2">
-                <Users className="size-5 shrink-0 text-amber-600" />
+                <Table2 className="size-5 shrink-0 text-amber-700" />
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-800/70">
-                    Đang chơi
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-amber-900">
+                    Bàn đang chơi
                   </p>
-                  <p className="text-lg font-bold leading-none text-amber-700">
+                  <p className="text-lg font-extrabold leading-none text-amber-800">
                     {sessions.length}
                   </p>
                 </div>
@@ -314,7 +315,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
               aria-live="polite"
             >
               <Loader2 className="size-8 animate-spin text-neutral-500" />
-              <p className="text-sm font-medium text-neutral-500">
+              <p className="text-sm font-semibold text-neutral-700">
                 Đang tải dữ liệu POS...
               </p>
             </CardContent>
@@ -364,17 +365,17 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                             {isAvail ? "Sẵn sàng" : "Đang sử dụng"}
                           </Badge>
                         </div>
-                        <span className="text-xs text-neutral-500">
+                        <span className="text-xs font-medium text-neutral-700">
                           Vị trí #{table.sortOrder}
                         </span>
                       </CardHeader>
                       <CardContent className="space-y-2">
-                        <p className="flex items-center gap-2 text-sm font-medium text-neutral-700">
-                          <Users className="size-4 text-neutral-500" />
+                        <p className="flex items-center gap-2 text-sm font-semibold text-neutral-800">
+                          <Users className="size-4 text-neutral-700" />
                           {playerRangeLabel || "Chưa đặt giới hạn người chơi"}
                         </p>
                         {!isAvail && session && (
-                          <p className="flex items-center gap-2 text-sm text-amber-800">
+                          <p className="flex items-center gap-2 text-sm font-semibold text-amber-900">
                             <Clock className="size-4" />
                             Có phiên đang hoạt động
                           </p>
@@ -401,7 +402,10 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                           <Button
                             type="button"
                             variant="outline"
-                            onClick={() => setSelectedDetailSessionId(session.id)}
+                            onClick={() => {
+                              setActiveTab("sessions");
+                              setSelectedDetailSessionId(session.id);
+                            }}
                             className="min-h-11 w-full"
                             aria-label={`Mở chi tiết phiên tại ${table.name}`}
                           >
