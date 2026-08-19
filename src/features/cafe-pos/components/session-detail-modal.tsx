@@ -23,6 +23,17 @@ import {
   UserPlus,
 } from "lucide-react";
 
+function gameCheckStatus(game: any) {
+  return String(game?.checkStatus ?? game?.CheckStatus ?? "")
+    .toLowerCase()
+    .replace(/[_\s-]/g, "");
+}
+
+function isGameChecked(game: any) {
+  const status = gameCheckStatus(game);
+  return status === "verified" || status === "missingcomponents";
+}
+
 interface SessionDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -146,10 +157,10 @@ export function SessionDetailModal({
               </div>
               <div>
                 <span className="text-[10px] font-bold text-neutral-400 uppercase">
-                  Host điều hành:
+                  Người phụ trách:
                 </span>
                 <div className="font-semibold text-neutral-800 truncate">
-                  {detail.hostName || "N/A"}
+                  {detail.hostName || "—"}
                 </div>
               </div>
               <div>
@@ -188,11 +199,14 @@ export function SessionDetailModal({
                 <span className="text-[10px] font-bold text-neutral-400 uppercase">
                   Thời điểm bắt đầu:
                 </span>
-                <div className="font-mono text-neutral-600">
+                <div className="font-mono font-semibold text-neutral-900">
                   {detail.startedAt
-                    ? new Date(detail.startedAt).toLocaleTimeString("vi-VN", {
+                    ? new Date(detail.startedAt).toLocaleString("vi-VN", {
                         hour: "2-digit",
                         minute: "2-digit",
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
                       })
                     : "—"}
                 </div>
@@ -234,15 +248,19 @@ export function SessionDetailModal({
                       <div className="flex items-center gap-2 shrink-0">
                         <span
                           className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border ${
-                            g.checkStatus === "Verified"
+                            gameCheckStatus(g) === "verified"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : "bg-amber-50 text-amber-800 border-amber-200"
                           }`}
                         >
-                          {g.checkStatus || "Pending"}
+                          {gameCheckStatus(g) === "verified"
+                            ? "Đã kiểm kê · Đủ linh kiện"
+                            : gameCheckStatus(g) === "missingcomponents"
+                              ? "Đã kiểm kê · Thiếu linh kiện"
+                            : "Chưa kiểm kê"}
                         </span>
 
-                        <Button
+                        {!isGameChecked(g) && <Button
                           type="button"
                           size="sm"
                           variant="outline"
@@ -282,7 +300,7 @@ export function SessionDetailModal({
                           className="h-7 px-2 text-[10px] font-bold border-neutral-200 rounded-lg"
                         >
                           Kiểm kê
-                        </Button>
+                        </Button>}
                       </div>
                     </div>
                   ))}
@@ -307,7 +325,7 @@ export function SessionDetailModal({
                 ))}
                 {guests.length === 0 && (
                   <span className="text-[11px] text-neutral-400">
-                    Chưa có thành viên / khách walk-in.
+                    Chưa có thành viên / khách vãng lai.
                   </span>
                 )}
               </div>

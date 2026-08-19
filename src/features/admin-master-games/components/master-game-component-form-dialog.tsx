@@ -74,7 +74,7 @@ export function MasterGameComponentFormDialog({
         <DialogHeader>
           <DialogTitle>{component ? 'Cập nhật linh kiện' : 'Thêm linh kiện'}</DialogTitle>
           <DialogDescription>
-            Quản lý linh kiện gốc của tựa game (POST/PUT /api/v1/admin/master-games/.../components).
+            Quản lý linh kiện gốc của tựa game.
           </DialogDescription>
         </DialogHeader>
 

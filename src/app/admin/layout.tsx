@@ -16,9 +16,10 @@ import {
   IconWallet,
   IconTrophy,
   IconChartBar,
-  IconCash,
   IconCreditCard,
   IconReceiptRefund,
+  IconActivity,
+  IconFlag,
 } from '@tabler/icons-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { RoleGuard } from '@/features/auth/components/role-guard';
@@ -29,7 +30,7 @@ import type { NavItem } from '@/components/layout/nav-main';
 
 const ADMIN_NAV: NavItem[] = [
   {
-    title: 'Dashboard',
+    title: 'Tổng quan',
     url: ROUTES.DASHBOARD.ADMIN,
     icon: <IconLayoutDashboard />,
   },
@@ -59,7 +60,7 @@ const ADMIN_NAV: NavItem[] = [
     icon: <IconUsers />,
   },
   {
-    title: 'Wallets',
+    title: 'Ví BVC',
     url: ROUTES.ADMIN.WALLETS,
     icon: <IconWallet />,
   },
@@ -79,17 +80,17 @@ const ADMIN_NAV: NavItem[] = [
     icon: <IconChartBar />,
   },
   {
-    title: 'Settlement override',
-    url: ROUTES.ADMIN.SETTLEMENTS,
-    icon: <IconCash />,
+    title: 'Vận hành hệ thống',
+    url: ROUTES.ADMIN.OPERATIONS,
+    icon: <IconActivity />,
   },
   {
-    title: 'SePay accounts',
+    title: 'Tài khoản SePay',
     url: ROUTES.ADMIN.SEPAY_ACCOUNTS,
     icon: <IconCreditCard />,
   },
   {
-    title: 'Karma',
+    title: 'Nhật ký Karma',
     url: ROUTES.ADMIN.KARMA_LOGS,
     icon: <IconHistory />,
   },
@@ -97,6 +98,11 @@ const ADMIN_NAV: NavItem[] = [
     title: 'Cảnh báo hành vi',
     url: ROUTES.ADMIN.BEHAVIOR_WARNINGS,
     icon: <IconAlertTriangle />,
+  },
+  {
+    title: 'Báo cáo bạn bè',
+    url: ROUTES.ADMIN.FRIEND_REPORTS,
+    icon: <IconFlag />,
   },
   {
     title: 'Bảo mật',
@@ -114,7 +120,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <Suspense fallback={<AuthLoading message="Đang xác minh quyền truy cập..." />}>
       <RoleGuard allowedRole={UserRole.Admin}>
-        <DashboardLayout navItems={ADMIN_NAV} appSubtitle="Admin Portal">
+        <DashboardLayout navItems={ADMIN_NAV} appSubtitle="Cổng quản trị">
           {children}
         </DashboardLayout>
       </RoleGuard>

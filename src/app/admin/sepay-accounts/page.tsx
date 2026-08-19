@@ -5,8 +5,8 @@ export default function AdminSePayAccountsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="SePay accounts"
-        description="Quản lý tài khoản SePay Master/Cafe (GET/POST/PUT/DELETE /api/sepay-accounts)."
+        title="Tài khoản SePay"
+        description="Quản lý tài khoản SePay hệ thống và của từng quán."
       />
       <AdminSePayAccountsPanel />
     </div>

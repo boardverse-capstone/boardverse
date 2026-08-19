@@ -24,7 +24,7 @@ export default function AdminTournamentDetailPage({
       <ListBackButton fallbackPath={ROUTES.ADMIN.TOURNAMENTS} />
       <PageHeader
         title="Chi tiết giải đấu"
-        description="Thông tin, lifecycle actions và danh sách participants."
+        description="Thông tin giải đấu, thao tác vòng đời và danh sách người tham gia."
       />
       <AdminTournamentDetailPanel
         tournament={data}

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/common/page-header';
 import { PartnerDataTable } from '@/features/partner/components/partner-data-table';
+import { cn } from '@/lib/utils';
+import { useMasterGameCatalog } from '../hooks/useMasterGameCatalog';
 import { useMasterGameComponents } from '../hooks/useMasterGameComponents';
 import { useCreateMasterGameComponent } from '../hooks/useCreateMasterGameComponent';
 import { useUpdateMasterGameComponent } from '../hooks/useUpdateMasterGameComponent';
@@ -22,9 +24,12 @@ import {
 import { MasterGameMetaPanel } from './master-game-meta-panel';
 
 export function MasterGameComponentsPanel() {
-  const [gameTemplateId, setGameTemplateId] = useState('');
+  const [search, setSearch] = useState('');
   const [activeGameTemplateId, setActiveGameTemplateId] = useState<string | null>(null);
+  const [activeGameName, setActiveGameName] = useState('');
 
+  const { data: catalog = [], isLoading: catalogLoading, isError: catalogError, refetch: refetchCatalog } =
+    useMasterGameCatalog();
   const { data = [], isLoading, isError, refetch } = useMasterGameComponents(activeGameTemplateId);
   const createMutation = useCreateMasterGameComponent(activeGameTemplateId ?? '');
   const updateMutation = useUpdateMasterGameComponent(activeGameTemplateId ?? '');
@@ -91,11 +96,11 @@ export function MasterGameComponentsPanel() {
     [deleteMutation],
   );
 
-  const handleLoadComponents = () => {
-    const trimmed = gameTemplateId.trim();
-    if (!trimmed) return;
-    setActiveGameTemplateId(trimmed);
-  };
+  const filteredCatalog = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return catalog;
+    return catalog.filter((game) => game.name.toLowerCase().includes(q));
+  }, [catalog, search]);
 
   const handleFormSubmit = (values: MasterGameComponentFormValues) => {
     if (!activeGameTemplateId) return;
@@ -124,29 +129,74 @@ export function MasterGameComponentsPanel() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Master game catalog"
-        description="Linh kiện, thể loại, metadata và thumbnail của game gốc."
+        title="Danh mục game gốc"
+        description="Linh kiện, thể loại, metadata và ảnh đại diện của game gốc."
       />
 
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Chọn tựa game gốc</CardTitle>
-          <CardDescription>Nhập UUID gameTemplateId để quản lý catalog.</CardDescription>
+          <CardDescription>
+            Chọn game trong danh sách để quản lý linh kiện, thể loại và metadata.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="grid flex-1 gap-2">
-            <Label htmlFor="game-template-id">Game Template ID</Label>
+        <CardContent className="space-y-3">
+          <div className="grid gap-2">
+            <Label htmlFor="master-game-search">Tìm theo tên</Label>
             <Input
-              id="game-template-id"
-              value={gameTemplateId}
-              onChange={(event) => setGameTemplateId(event.target.value)}
-              placeholder="UUID của tựa game gốc"
+              id="master-game-search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Ví dụ: Catan, Splendor..."
             />
           </div>
-          <Button onClick={handleLoadComponents} disabled={!gameTemplateId.trim()}>
-            <Search className="mr-2 h-4 w-4" />
-            Tải
-          </Button>
+          {catalogLoading ? (
+            <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Đang tải danh sách game...
+            </div>
+          ) : catalogError ? (
+            <p className="text-sm text-rose-600">
+              Không tải được catalog.{' '}
+              <button type="button" className="underline" onClick={() => void refetchCatalog()}>
+                Thử lại
+              </button>
+            </p>
+          ) : filteredCatalog.length === 0 ? (
+            <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+              Không có tựa game khớp.
+            </p>
+          ) : (
+            <div className="max-h-64 overflow-y-auto rounded-lg border">
+              {filteredCatalog.map((game) => {
+                const selected = activeGameTemplateId === game.id;
+                return (
+                  <button
+                    key={game.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveGameTemplateId(game.id);
+                      setActiveGameName(game.name);
+                    }}
+                    className={cn(
+                      'flex w-full items-center justify-between border-b px-3 py-2 text-left text-sm last:border-b-0 hover:bg-neutral-50',
+                      selected && 'bg-neutral-100 font-semibold',
+                    )}
+                  >
+                    <span>{game.name}</span>
+                    {selected ? (
+                      <span className="text-[10px] font-bold uppercase text-neutral-500">Đang chọn</span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {activeGameName ? (
+            <p className="text-xs text-muted-foreground">
+              Đang quản lý: <span className="font-semibold text-foreground">{activeGameName}</span>
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 

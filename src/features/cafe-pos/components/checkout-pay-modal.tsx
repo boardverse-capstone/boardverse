@@ -124,15 +124,24 @@ export function PayConfirmModal({
   useEffect(() => {
     if (!isOpen || !qrPayload || !onRefreshPayment || !session?.id) return;
     let stopped = false;
+    let refreshing = false;
     const tick = async () => {
-      if (stopped) return;
-      const fresh = await onRefreshPayment(session.id);
-      const status = String(fresh?.status || fresh?.Status || "").toLowerCase();
-      if (status === "paid") {
-        toast.success("Đã nhận chuyển khoản QR. Bàn đã giải phóng.");
-        onClose();
+      if (stopped || refreshing) return;
+      refreshing = true;
+      try {
+        const fresh = await onRefreshPayment(session.id);
+        const status = String(fresh?.status || fresh?.Status || "").toLowerCase();
+        if (status === "paid" || status === "completed") {
+          toast.success("Thanh toán thành công. Bàn đã giải phóng.");
+          onClose();
+        }
+      } catch {
+        // Bỏ qua — poll sẽ thử lại; 404 sau webhook được xử lý trong onRefreshPayment
+      } finally {
+        refreshing = false;
       }
     };
+    void tick();
     const id = window.setInterval(() => void tick(), 5000);
     return () => {
       stopped = true;
@@ -167,9 +176,7 @@ export function PayConfirmModal({
           (c: any) =>
             c.isMissing ||
             c.isDamaged ||
-            (c.missingQuantity && c.missingQuantity > 0) ||
-            (c.penaltyFee && c.penaltyFee > 0) ||
-            (c.penaltyAmount && c.penaltyAmount > 0)
+            (c.missingQuantity && c.missingQuantity > 0),
         )
         .map((c: any) => ({
           componentId: c.componentId || c.id || "N/A",
@@ -241,7 +248,7 @@ export function PayConfirmModal({
       );
       const payload = code.qrPayload || code.code;
       if (!payload) {
-        toast.error("BE không trả qrImageUrl / paymentUrl.");
+        toast.error("Máy chủ không trả mã QR thanh toán.");
         return;
       }
       setQrPayload(payload);
@@ -288,13 +295,13 @@ export function PayConfirmModal({
         return;
       }
       const status = String(fresh?.status || fresh?.Status || "").toLowerCase();
-      if (status === "paid") {
-        toast.success("Đã ghi nhận chuyển khoản. Bàn đã giải phóng.");
+      if (status === "paid" || status === "completed") {
+        toast.success("Thanh toán thành công. Bàn đã giải phóng.");
         onClose();
         return;
       }
       toast.message(
-        "Vẫn UNPAID — BE chưa ghi nhận CK (chưa có webhook). Đợi thêm hoặc xác nhận tiền mặt.",
+        "Vẫn chờ thanh toán — hệ thống chưa ghi nhận chuyển khoản. Đợi thêm hoặc xác nhận tiền mặt.",
       );
     } catch (err: any) {
       toast.error(err?.message || "Không tải được trạng thái thanh toán.");
@@ -321,9 +328,23 @@ export function PayConfirmModal({
                 Thu Tiền Hóa Đơn (Pay)
               </h3>
               <p className="text-[11px] text-neutral-500 font-medium">
-                Bàn: <strong className="text-neutral-900">{session.tableName || "Bàn POS"}</strong> • Trạng thái:{" "}
-                <span className="font-bold uppercase text-amber-600 font-mono">
-                  {session.status || "UNPAID"}
+                Bàn:{" "}
+                <strong className="text-neutral-900">
+                  {session.tableName || "Bàn POS"}
+                </strong>{" "}
+                • Trạng thái:{" "}
+                <span className="font-bold text-amber-600">
+                  {(() => {
+                    const st = String(session.status || "")
+                      .toLowerCase()
+                      .replace(/[_\s-]/g, "");
+                    if (st === "unpaid") return "Chờ thanh toán";
+                    if (st === "checking") return "Đang kiểm kê";
+                    if (st === "paid") return "Đã thanh toán";
+                    if (st === "completed") return "Đã hoàn tất";
+                    if (st === "playing" || st === "active") return "Đang chơi";
+                    return session.status || "Chờ thanh toán";
+                  })()}
                 </span>
               </p>
             </div>

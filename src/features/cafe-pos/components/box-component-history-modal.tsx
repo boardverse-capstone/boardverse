@@ -44,7 +44,7 @@ export function BoxComponentHistoryModal({
                 </span>
               </h3>
               <p className="text-xs text-neutral-500 font-medium truncate max-w-xs">
-                {historyData.gameName} • Barcode:{" "}
+                {historyData.gameName} • Mã vạch:{" "}
                 <span className="font-mono text-neutral-800">
                   {historyData.barcode}
                 </span>

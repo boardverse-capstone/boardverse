@@ -257,7 +257,7 @@ export function UserDetailContent({ user, isLoading, isError }: UserDetailConten
 
           title="Hồ sơ người chơi"
 
-          description="Dữ liệu từ GET /api/UserManagement/{id}"
+          description="Dữ liệu hồ sơ người dùng"
 
         >
 

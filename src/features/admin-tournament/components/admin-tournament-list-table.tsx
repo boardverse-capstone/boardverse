@@ -229,7 +229,7 @@ export function AdminTournamentListTable() {
     <div className="space-y-6">
       <PageHeader
         title="Quản lý giải đấu"
-        description="CRUD và vận hành tournament qua /api/v1/admin/tournaments."
+        description="Tạo, chỉnh sửa và vận hành giải đấu."
       />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">

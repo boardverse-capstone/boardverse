@@ -42,22 +42,22 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-5 border border-neutral-200 rounded-2xl shadow-xs">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-neutral-900">
-            Sơ Đồ Bàn Realtime (POS)
+            Sơ đồ bàn trực tiếp (POS)
           </h1>
           <p className="text-xs text-neutral-500 font-medium mt-0.5">
-            Quản lý trực quan bàn chơi, quét giao hộp game và Check-in theo mã
-            Booking.
+            Quản lý trực quan bàn chơi, quét giao hộp game và nhận bàn theo mã
+            đặt chỗ.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Nút Host-led Check-in bằng QR */}
+          {/* Nút nhận bàn bằng QR */}
           <Button
             type="button"
             className="h-9 px-3.5 bg-neutral-900 text-white hover:bg-neutral-800 text-xs font-semibold rounded-lg shadow-2xs flex items-center gap-2 transition-all"
           >
             <QrCode className="w-4 h-4 text-emerald-400" />
-            <span>Quét Mã Booking (Check-in)</span>
+            <span>Quét mã đặt chỗ (nhận bàn)</span>
           </Button>
 
           {/* Nút Làm Mới */}

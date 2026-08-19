@@ -23,7 +23,11 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { WALLET_ACCOUNT_STATUS_FILTERS } from '@/core/constants/admin-wallet';
+import {
+  WALLET_ACCOUNT_STATUS_FILTERS,
+  WALLET_ACCOUNT_STATUS_LABELS,
+  WALLET_RISK_LEVEL_LABELS,
+} from '@/core/constants/admin-wallet';
 import { useAdminWalletAdjustBalance } from '../hooks/useAdminWalletAdjustBalance';
 import { useAdminWalletSetStatus } from '../hooks/useAdminWalletSetStatus';
 import type { AdminWalletDetail, WalletAccountStatus } from '../types/wallet.interface';
@@ -152,7 +156,7 @@ export function AdminWalletDetailPanel({
     return (
       <Card>
         <CardContent className="py-8 text-sm text-rose-600">
-          Không thể tải chi tiết wallet.
+          Không thể tải chi tiết ví.
         </CardContent>
       </Card>
     );
@@ -164,18 +168,18 @@ export function AdminWalletDetailPanel({
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
-              <CardTitle className="text-xl">{wallet.userEmail || 'Chi tiết wallet'}</CardTitle>
+              <CardTitle className="text-xl">{wallet.userEmail || 'Chi tiết ví'}</CardTitle>
               <CardDescription className="font-mono text-xs">{wallet.userId}</CardDescription>
             </div>
             <div className="flex flex-col items-end gap-2">
               <div className="flex flex-wrap justify-end gap-2">
                 <Badge variant="outline" className={statusBadgeClass(wallet.accountStatus)}>
-                  {wallet.accountStatus}
+                  {WALLET_ACCOUNT_STATUS_LABELS[wallet.accountStatus] || wallet.accountStatus}
                 </Badge>
                 <Badge variant="outline" className={riskBadgeClass(wallet.riskLevel)}>
-                  {wallet.riskLevel}
+                  {WALLET_RISK_LEVEL_LABELS[wallet.riskLevel] || wallet.riskLevel}
                 </Badge>
-                {wallet.isCoolingOff && <Badge variant="secondary">Cooling off</Badge>}
+                {wallet.isCoolingOff && <Badge variant="secondary">Đang tạm khóa</Badge>}
               </div>
               <div className="flex flex-wrap justify-end gap-2">
                 <Button
@@ -207,7 +211,7 @@ export function AdminWalletDetailPanel({
                       Đang cập nhật…
                     </>
                   ) : (
-                    'Đổi AccountStatus'
+                    'Đổi trạng thái'
                   )}
                 </Button>
               </div>
@@ -239,32 +243,32 @@ export function AdminWalletDetailPanel({
       <Dialog open={adjustDialogOpen} onOpenChange={setAdjustDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Dieu chinh so du BVC</DialogTitle>
+            <DialogTitle>Điều chỉnh số dư BVC</DialogTitle>
             <DialogDescription>
-              Goi API <span className="font-mono">POST /api/v1/admin/wallet/adjust</span>.
+              Cộng hoặc trừ BVC thủ công cho ví người dùng.
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4">
             <div className="space-y-2">
-              <span className="text-sm font-medium">Hanh dong</span>
+              <span className="text-sm font-medium">Hành động</span>
               <Select
                 value={isCredit ? 'credit' : 'debit'}
                 onValueChange={(value) => setIsCredit(value === 'credit')}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Chon huong dieu chinh..." />
+                  <SelectValue placeholder="Chọn hướng điều chỉnh..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="credit">Cong BVC</SelectItem>
-                  <SelectItem value="debit">Tru BVC</SelectItem>
+                  <SelectItem value="credit">Cộng BVC</SelectItem>
+                  <SelectItem value="debit">Trừ BVC</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="wallet-amount-bvc">
-                So BVC
+                Số BVC
               </label>
               <Input
                 id="wallet-amount-bvc"
@@ -281,13 +285,13 @@ export function AdminWalletDetailPanel({
 
             <div className="space-y-2">
               <label className="text-sm font-medium" htmlFor="wallet-adjust-reason">
-                Ly do
+                Lý do
               </label>
               <Textarea
                 id="wallet-adjust-reason"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Nhap ly do (min 5 ky tu)..."
+                placeholder="Nhập lý do (tối thiểu 5 ký tự)..."
                 rows={4}
               />
               {reasonError ? <p className="text-xs text-rose-600">{reasonError}</p> : null}
@@ -296,7 +300,7 @@ export function AdminWalletDetailPanel({
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setAdjustDialogOpen(false)}>
-              Huy
+              Hủy
             </Button>
             <Button
               type="button"
@@ -323,7 +327,7 @@ export function AdminWalletDetailPanel({
               }}
               disabled={adjustBalanceMutation.isPending || Boolean(reasonError) || Boolean(amountError)}
             >
-              {adjustBalanceMutation.isPending ? 'Dang xu ly...' : 'Xac nhan dieu chinh'}
+              {adjustBalanceMutation.isPending ? 'Đang xử lý...' : 'Xác nhận điều chỉnh'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -334,19 +338,19 @@ export function AdminWalletDetailPanel({
           <DialogHeader>
             <DialogTitle>Đổi trạng thái tài khoản</DialogTitle>
             <DialogDescription>
-              Gọi API <span className="font-mono">POST /api/v1/admin/wallet/set-status</span>.
+              Đổi trạng thái tài khoản ví (ví dụ hạn chế, tạm khóa, cấm).
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4">
             <div className="space-y-2">
-              <span className="text-sm font-medium">Tài khoản mới</span>
+              <span className="text-sm font-medium">Trạng thái mới</span>
               <Select
                 value={pendingNewStatus}
                 onValueChange={(v) => setPendingNewStatus(v as WalletAccountStatus)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Chọn AccountStatus…" />
+                  <SelectValue placeholder="Chọn trạng thái…" />
                 </SelectTrigger>
                 <SelectContent>
                   {WALLET_ACCOUNT_STATUS_FILTERS.map((item) =>

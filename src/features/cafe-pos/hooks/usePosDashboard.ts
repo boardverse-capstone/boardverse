@@ -27,6 +27,64 @@ function isAlreadyCheckedMessage(message: string) {
   );
 }
 
+function isSessionNotFoundError(err: unknown) {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  return /Không tìm thấy phiên|session.*not found/i.test(msg);
+}
+
+function isPaidSessionStatus(status: unknown) {
+  const normalized = String(status ?? "").toLowerCase();
+  return normalized === "paid" || normalized === "completed";
+}
+
+function parseUtcCheckInTime(time: string, date: string) {
+  const [hour, minute] = time.split(":").map(Number);
+  const [day, month, year] = date.split("/").map(Number);
+  return new Date(Date.UTC(year, month - 1, day, hour, minute));
+}
+
+function formatUtcCheckInTime(time: string, date: string) {
+  const value = parseUtcCheckInTime(time, date);
+  if (Number.isNaN(value.getTime())) return `${time} ${date}`;
+  return new Intl.DateTimeFormat("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(value);
+}
+
+function formatPosCheckInError(error: unknown) {
+  const message =
+    error instanceof Error ? error.message : "Không thể nhận bàn đơn đặt chỗ.";
+  const windowMatch = message.match(
+    /Cho phép check-in từ\s+(\d{1,2}:\d{2})\s+(\d{2}\/\d{2}\/\d{4})\s+đến\s+(\d{1,2}:\d{2})\s+(\d{2}\/\d{2}\/\d{4})/i,
+  );
+  if (/ngoài khung giờ/i.test(message) && windowMatch) {
+    const fromValue = parseUtcCheckInTime(windowMatch[1], windowMatch[2]);
+    const toValue = parseUtcCheckInTime(windowMatch[3], windowMatch[4]);
+    const from = formatUtcCheckInTime(windowMatch[1], windowMatch[2]);
+    const to = formatUtcCheckInTime(windowMatch[3], windowMatch[4]);
+    const now = new Date();
+    if (now < fromValue) {
+      return `Chưa đến giờ nhận bàn. Có thể nhận bàn từ ${from}.`;
+    }
+    if (now > toValue) {
+      return `Đã quá giờ nhận bàn. Thời gian nhận bàn kết thúc lúc ${to}.`;
+    }
+    return `Không thể nhận bàn trong thời điểm hiện tại. Thời gian cho phép: ${from} – ${to}.`;
+  }
+  if (/status.*holding|trạng thái.*holding/i.test(message)) {
+    return "Đơn đang ở trạng thái giữ chỗ, chưa thể nhận bàn.";
+  }
+  return message.replace(
+    /^Check-in reservation\s+['"][^'"]+['"]\s+thất bại:\s*/i,
+    "",
+  );
+}
+
 function rememberVerifiedFromSession(
   session: any,
   verifiedGameIds: Set<string>,
@@ -154,9 +212,16 @@ export function usePosDashboard(opts?: {
       const rawSessions = sessionsRes?.data || sessionsRes || [];
 
       // Lọc bỏ các phiên đã hoàn tất thanh toán (Paid / Completed)
-      const activeSessionsOnly = rawSessions.filter(
-        (s: any) => s.status !== "Paid" && s.status !== "Completed"
-      );
+      const activeSessionsOnly = rawSessions
+        .filter((s: any) => s.status !== "Paid" && s.status !== "Completed")
+        .filter(
+          (session: any, index: number, sessions: any[]) =>
+            sessions.findIndex(
+              (candidate: any) =>
+                (candidate.id || candidate.sessionId) ===
+                (session.id || session.sessionId),
+            ) === index,
+        );
 
       const details = await Promise.all(
         activeSessionsOnly.map(async (s: any) => {
@@ -240,21 +305,30 @@ export function usePosDashboard(opts?: {
     init();
   }, [fetchAllData, role, hasHydrated]);
 
-  // BƯỚC 2: Preview Đơn Đặt Chỗ (MDC)
+  // Tra ReservationCode trong danh sách reservation của quán.
   const handlePreviewBooking = async (code: string) => {
     if (!cafeId || !code.trim()) return;
     try {
-      const res: any = await apiClient.get(
-        `/api/cafes/${cafeId}/pos/bookings/${code.trim()}`
+      const reservations = await PosCheckInService.getCafeReservations({
+        cafeId,
+        page: 1,
+        pageSize: 50,
+      });
+      const reservation = reservations.find(
+        (item) =>
+          item.reservationCode.toUpperCase() === code.trim().toUpperCase(),
       );
-      setBookingPreview(res?.data || res);
+      if (!reservation) {
+        throw new Error("Không tìm thấy mã đặt chỗ trong danh sách của quán.");
+      }
+      setBookingPreview(reservation);
     } catch (err: any) {
-      toast.error(err?.message || "Không tìm thấy thông tin Đơn đặt chỗ.");
+      toast.error(err?.message || "Không tìm thấy đơn đặt chỗ.");
       setBookingPreview(null);
     }
   };
 
-  // BƯỚC 3a: Check-in khách đặt chỗ — GET preview rồi POST /pos/check-in (code + bàn + barcode)
+  // Nhận bàn đơn đặt chỗ bằng mã đặt chỗ + bàn + mã vạch.
   const handleBookingCheckIn = async (
     overrideCode?: string,
     cafeTableId?: string,
@@ -268,38 +342,32 @@ export function usePosDashboard(opts?: {
     const tableId = (cafeTableId ?? "").trim();
     const boxBarcode = (barcode ?? scannedBarcode).trim();
     if (!code) {
-      toast.error("Nhập ReservationCode (8 ký tự) hoặc BookingCode BV…");
+      toast.error("Nhập mã đặt chỗ 8 ký tự.");
       return false;
     }
     if (!tableId) {
-      toast.error("Chọn bàn trước khi check-in.");
+      toast.error("Chọn bàn trước khi nhận bàn.");
       return false;
     }
     if (!boxBarcode) {
-      toast.error("Quét barcode hộp game trước khi check-in.");
+      toast.error("Quét mã vạch hộp game trước khi nhận bàn.");
       return false;
     }
     try {
-      const preview = await PosCheckInService.previewPosBooking(cafeId, code);
-      setBookingPreview(preview);
-      if (!preview.canCheckIn) {
-        toast.error("Đơn chưa sẵn sàng check-in.");
-        return false;
-      }
       await apiClient.post(`/api/cafes/${cafeId}/pos/check-in`, {
-        code: preview.bookingCode || code,
+        code,
         cafeTableId: tableId,
         barcode: boxBarcode,
-        idempotencyKey: `pos-checkin:${(preview.bookingCode || code).toLowerCase()}`,
+        idempotencyKey: `pos-checkin:${code.toLowerCase()}`,
       });
 
-      toast.success("Check-in thành công!");
+      toast.success("Nhận bàn thành công!");
       setBookingCode("");
       setBookingPreview(null);
       await fetchAllData(cafeId);
       return true;
-    } catch (err: any) {
-      toast.error(err?.message || "Check-in thất bại.");
+    } catch (err: unknown) {
+      toast.error(formatPosCheckInError(err));
       return false;
     }
   };
@@ -344,7 +412,7 @@ export function usePosDashboard(opts?: {
   const handleStartSession = async (
     cafeTableId: string,
     barcode: string,
-    walkInGuests: string[] = [],
+    walkInGuests: Array<{ displayName: string; phoneNumber?: string }> = [],
   ) => {
     if (!cafeId) return false;
     try {
@@ -358,17 +426,18 @@ export function usePosDashboard(opts?: {
       const newSession = res?.data || res;
       const sessionId = newSession?.id || newSession?.sessionId;
 
-      const names = walkInGuests.map((n) => n.trim()).filter(Boolean);
-      if (sessionId && names.length > 0) {
-        for (const displayName of names) {
+      const guests = walkInGuests.filter((g) => g.displayName.trim());
+      if (sessionId && guests.length > 0) {
+        for (const guest of guests) {
           try {
             await PosCheckInService.addGuestSlots(cafeId, sessionId, {
-              displayName,
+              displayName: guest.displayName.trim(),
+              phoneNumber: guest.phoneNumber?.trim() || undefined,
             });
           } catch (guestErr: any) {
             toast.error(
               guestErr?.message ||
-                `Phiên đã mở nhưng chưa thêm đủ khách vãng lai (${displayName}).`,
+                `Phiên đã mở nhưng chưa thêm đủ khách vãng lai (${guest.displayName}).`,
             );
             await fetchAllData(cafeId);
             return true;
@@ -378,7 +447,7 @@ export function usePosDashboard(opts?: {
 
       toast.success(
         `Đã mở bàn ${newSession?.tableName || "POS"}${
-          names.length ? ` · ${names.length} khách vãng lai` : ""
+          guests.length ? ` · ${guests.length} khách vãng lai` : ""
         }.`,
       );
       await fetchAllData(cafeId);
@@ -656,7 +725,7 @@ const handleScanBarcode = async () => {
 
     setScannedBox(boxData);
   } catch (err: any) {
-    toast.error(err?.message || "Không tìm thấy hộp game với Barcode này.");
+    toast.error(err?.message || "Không tìm thấy hộp game với mã vạch này.");
     setScannedBox(null);
   }
 };
@@ -690,32 +759,62 @@ const handleScanBarcode = async () => {
         }
         return data;
       } catch (err: any) {
-        console.error("Lỗi lấy chi tiết phiên chơi:", err);
+        if (!isSessionNotFoundError(err)) {
+          console.error("Lỗi lấy chi tiết phiên chơi:", err);
+        }
         return null;
       }
     },
     [cafeId]
   );
 
-  /** Poll GET session — không có webhook SePay nên staff bấm Reload sau khi khách CK. */
-  const handleRefreshCheckoutPayment = async (sessionId: string) => {
-    if (!cafeId) return null;
-    const detail = await handleGetSessionDetail(sessionId);
-    await fetchAllData(cafeId);
-    if (detail) {
-      setCheckoutSession((prev: any) =>
-        prev?.id === sessionId
-          ? {
-              ...(prev || {}),
-              ...detail,
-              id: sessionId,
-              tableName: detail.tableName || prev?.tableName,
-            }
-          : prev,
-      );
-    }
-    return detail;
-  };
+  const completePaidCheckout = useCallback(
+    async (sessionId: string) => {
+      setCheckoutSession(null);
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      if (cafeId) await fetchAllData(cafeId);
+    },
+    [cafeId, fetchAllData],
+  );
+
+  /** Poll GET session — webhook SePay có thể xóa phiên khỏi active ngay sau khi PAID. */
+  const handleRefreshCheckoutPayment = useCallback(
+    async (sessionId: string) => {
+      if (!cafeId) return null;
+      try {
+        const res: any = await apiClient.get(
+          `/api/cafes/${cafeId}/pos/sessions/${sessionId}`,
+        );
+        const detail = res?.data || res;
+        const status = detail?.status ?? detail?.Status;
+
+        if (isPaidSessionStatus(status)) {
+          await completePaidCheckout(sessionId);
+          return { ...detail, status: "Paid", id: sessionId };
+        }
+
+        setCheckoutSession((prev: any) =>
+          prev?.id === sessionId
+            ? {
+                ...(prev || {}),
+                ...detail,
+                id: sessionId,
+                tableName: detail.tableName || prev?.tableName,
+              }
+            : prev,
+        );
+        return detail;
+      } catch (err) {
+        if (isSessionNotFoundError(err)) {
+          await completePaidCheckout(sessionId);
+          return { status: "Paid", id: sessionId };
+        }
+        // Poll thanh toán là tác vụ nền; lỗi mạng/timeout sẽ được thử lại.
+        return null;
+      }
+    },
+    [cafeId, fetchAllData, completePaidCheckout],
+  );
 
   // Lấy lịch sử hộp game 
 const handleFetchBoxHistory = useCallback(

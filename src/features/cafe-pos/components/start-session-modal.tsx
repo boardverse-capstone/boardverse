@@ -20,6 +20,13 @@ import {
 import { apiClient } from "@/core/api/client";
 import { formatPlayerRange, readPlayerRange } from "../lib/player-range";
 
+/** SĐT VN mobile — cùng rule cafe-partner: 10–11 số, đầu 03/05/07/08/09 */
+const VN_MOBILE_PHONE = /^0[35789]\d{8,9}$/;
+
+function isVnWalkInPhone(raw: string) {
+  return VN_MOBILE_PHONE.test(raw.replace(/\s/g, ""));
+}
+
 export interface StartSessionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -33,7 +40,7 @@ export interface StartSessionModalProps {
   onStart: (
     cafeTableId: string,
     barcode: string,
-    walkInGuests?: string[],
+    walkInGuests?: Array<{ displayName: string; phoneNumber?: string }>,
   ) => Promise<boolean>;
 }
 
@@ -90,7 +97,7 @@ export function StartSessionModal({
   // HÀM KIỂM TRA LINH KIỆN HỘP GAME TRƯỚC KHI GÁN BÀN
   const handleInspectBox = async () => {
     if (!cafeId || !barcode.trim()) {
-      toast.error("Vui lòng nhập Barcode hộp game.");
+      toast.error("Vui lòng nhập mã vạch hộp game.");
       return;
     }
 
@@ -104,7 +111,7 @@ export function StartSessionModal({
       const boxData = boxRes?.data || boxRes;
 
       if (!boxData?.id) {
-        toast.error("Không tìm thấy hộp game với mã Barcode này.");
+        toast.error("Không tìm thấy hộp game với mã vạch này.");
         setBoxInspection(null);
         return;
       }
@@ -148,7 +155,7 @@ export function StartSessionModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!barcode.trim()) {
-      toast.error("Vui lòng nhập hoặc quét mã Barcode hộp game!");
+      toast.error("Vui lòng nhập hoặc quét mã vạch hộp game!");
       return;
     }
     if (guestCount < minPlayers) {
@@ -164,24 +171,26 @@ export function StartSessionModal({
       toast.error("Nhập SĐT khách liên hệ (khách 1).");
       return;
     }
-    if (!/^0\d{8,10}$/.test(primaryPhone)) {
-      toast.error("SĐT khách 1 không hợp lệ (vd: 0912345678).");
+    if (!isVnWalkInPhone(primaryPhone)) {
+      toast.error("SĐT khách 1 phải là số VN 10–11 chữ số, đầu 03/05/07/08/09.");
       return;
     }
     const invalidPhone = guestPhones.findIndex((raw, idx) => {
       if (idx === 0) return false;
       const phone = raw.replace(/\s/g, "");
-      return phone.length > 0 && !/^0\d{8,10}$/.test(phone);
+      return phone.length > 0 && !isVnWalkInPhone(phone);
     });
     if (invalidPhone >= 0) {
-      toast.error(`SĐT khách ${invalidPhone + 1} không hợp lệ.`);
+      toast.error(
+        `SĐT khách ${invalidPhone + 1} phải là số VN 10–11 chữ số, đầu 03/05/07/08/09.`,
+      );
       return;
     }
 
     const walkInGuests = guestNames.map((name, idx) => {
-      const label = name.trim() || `Khách ${idx + 1}`;
-      const phone = guestPhones[idx]?.replace(/\s/g, "") || "";
-      return phone ? `${label} · ${phone}` : label;
+      const displayName = name.trim() || `Khách ${idx + 1}`;
+      const phoneNumber = guestPhones[idx]?.replace(/\s/g, "") || "";
+      return { displayName, phoneNumber };
     });
 
     setLoading(true);
@@ -238,8 +247,8 @@ export function StartSessionModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-neutral-800 flex items-center gap-1">
-              <Barcode className="w-3.5 h-3.5 text-neutral-500" /> Mã Barcode
-              Hộp Game
+              <Barcode className="w-3.5 h-3.5 text-neutral-500" /> Mã vạch
+              hộp game
             </label>
 
             {/* Ô INPUT VÀ NÚT KIỂM TRA XỌT NGANG */}
@@ -247,7 +256,7 @@ export function StartSessionModal({
               <Input
                 type="text"
                 autoFocus
-                placeholder="Nhập hoặc quét mã Barcode (vd: BV-a477...)..."
+                placeholder="Nhập hoặc quét mã vạch (vd: BV-a477...)..."
                 value={barcode}
                 onChange={(e) => {
                   setBarcode(e.target.value);
@@ -316,7 +325,7 @@ export function StartSessionModal({
                       inputMode="tel"
                       placeholder={
                         idx === 0
-                          ? `SĐT khách ${idx + 1} (bắt buộc)`
+                          ? `SĐT khách ${idx + 1} (03/05/07/08/09, 10–11 số)`
                           : `SĐT khách ${idx + 1} (tuỳ chọn)`
                       }
                       value={guestPhones[idx] ?? ""}

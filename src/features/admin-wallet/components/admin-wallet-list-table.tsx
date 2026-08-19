@@ -17,7 +17,9 @@ import {
 import { CommonPagination } from '@/components/common/pagination';
 import {
   WALLET_ACCOUNT_STATUS_FILTERS,
+  WALLET_ACCOUNT_STATUS_LABELS,
   WALLET_RISK_LEVEL_FILTERS,
+  WALLET_RISK_LEVEL_LABELS,
 } from '@/core/constants/admin-wallet';
 import { ROUTES } from '@/core/constants/routes';
 import { PartnerDataTable } from '@/features/partner/components/partner-data-table';
@@ -110,7 +112,7 @@ const columns: ColumnDef<AdminWallet>[] = [
     cell: ({ row }) => (
       <div className="space-y-1">
         <Badge variant="outline" className={riskBadgeClass(row.original.riskLevel)}>
-          {row.original.riskLevel}
+          {WALLET_RISK_LEVEL_LABELS[row.original.riskLevel] || row.original.riskLevel}
         </Badge>
         <div className="text-[11px] text-muted-foreground">
           ×{row.original.riskMultiplier}
@@ -124,7 +126,8 @@ const columns: ColumnDef<AdminWallet>[] = [
     cell: ({ row }) => (
       <div className="space-y-1">
         <Badge variant="outline" className={statusBadgeClass(row.original.accountStatus)}>
-          {row.original.accountStatus}
+          {WALLET_ACCOUNT_STATUS_LABELS[row.original.accountStatus] ||
+            row.original.accountStatus}
         </Badge>
         {row.original.isCoolingOff && (
           <Badge variant="secondary" className="text-[10px]">
@@ -202,7 +205,7 @@ export function AdminWalletListTable() {
       <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
         <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
           <Input
-            placeholder="Tìm theo email, full name hoặc userId..."
+            placeholder="Tìm theo email, họ tên hoặc mã người dùng..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -220,7 +223,7 @@ export function AdminWalletListTable() {
           }}
         >
           <SelectTrigger className="w-full md:w-[200px]">
-            <SelectValue placeholder="AccountStatus" />
+            <SelectValue placeholder="Trạng thái tài khoản" />
           </SelectTrigger>
           <SelectContent>
             {WALLET_ACCOUNT_STATUS_FILTERS.map((item) => (
@@ -238,7 +241,7 @@ export function AdminWalletListTable() {
           }}
         >
           <SelectTrigger className="w-full md:w-[200px]">
-            <SelectValue placeholder="RiskLevel" />
+            <SelectValue placeholder="Mức rủi ro" />
           </SelectTrigger>
           <SelectContent>
             {WALLET_RISK_LEVEL_FILTERS.map((item) => (

@@ -94,7 +94,7 @@ export function PosBoxesTab({ boxes }: PosBoxesTabProps) {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
           <Input
             type="text"
-            placeholder="Tìm theo tên trò chơi hoặc mã Barcode..."
+            placeholder="Tìm theo tên trò chơi hoặc mã vạch..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full h-9 pl-9 text-xs border-neutral-200 rounded-lg bg-neutral-50/50"
@@ -226,13 +226,13 @@ export function PosBoxesTab({ boxes }: PosBoxesTabProps) {
                           {box.gameName} #{index + 1}
                         </span>
                         <span
-                          className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border ${
+                          className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${
                             isAvail
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : "bg-amber-100 text-amber-800 border-amber-200"
                           }`}
                         >
-                          {box.status}
+                          {isAvail ? "Sẵn sàng" : "Đang dùng"}
                         </span>
                       </div>
                       <div className="flex items-center gap-1 text-[11px] font-mono text-neutral-500">

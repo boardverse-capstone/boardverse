@@ -113,7 +113,7 @@ export function CategoryListTable() {
     <div className="space-y-6">
       <PageHeader
         title="Thể loại game"
-        description="Quản lý danh mục thể loại board game (GET/POST/PUT/DELETE /api/v1/admin/categories)."
+        description="Quản lý danh mục thể loại board game."
       />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

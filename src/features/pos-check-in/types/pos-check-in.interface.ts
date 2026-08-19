@@ -41,7 +41,7 @@ export interface TableBooking {
   sessionStatus: BookingSessionStatus;
   /** Có khi booking đã check-in / đang chơi */
   sessionId?: string;
-  /** Fields từ GET /api/bookings/cafe/{cafeId} */
+  /** Fields từ GET /api/cafes/{cafeId}/reservations */
   lobbyId?: string;
   scheduledEndAt?: string;
   apiStatus?: CafeBookingApiStatus;
@@ -227,7 +227,7 @@ export interface StaffCafe {
 
 // ─── CafeStaff API payloads (Booking + Active Session) ───────────────────────
 
-/** POST /api/bookings/{bookingId}/check-in (legacy) */
+/** POST /api/cafes/{cafeId}/pos/check-in */
 export interface CheckInBookingPayload {
   presentParticipantIds: string[];
   /** Game thay thế khi thiếu người / đổi game */
@@ -248,10 +248,14 @@ export interface PosCheckInPayload {
   lobbyId?: string;
 }
 
-/** POST /api/cafes/{cafeId}/sessions/{sessionId}/guest-slots */
+/** POST /api/cafes/{cafeId}/pos/sessions/{sessionId}/guest-slots */
 export interface AddGuestSlotsPayload {
-  /** Docs: displayName — khách vô danh */
+  /** Tên hiển thị khách vô danh */
   displayName: string;
+  /** Alias cũ — BE ưu tiên displayName nếu gửi cả hai */
+  username?: string;
+  /** SĐT liên hệ (Swagger AddGuestSlotRequestDto) */
+  phoneNumber?: string;
 }
 
 /** POST /api/cafes/{cafeId}/sessions/{sessionId}/members/add */
@@ -364,6 +368,26 @@ export interface PosBookingPreview {
   gameName: string | null;
   lobbyId: string | null;
   raw?: unknown;
+}
+
+/** GET /api/cafes/{cafeId}/reservations — Manager / CafeStaff */
+export interface CafeReservationListItem {
+  id: string;
+  cafeId: string;
+  gameId: string;
+  gameName: string;
+  playDate: string;
+  timeSlot: string;
+  currentPlayers: number;
+  maxPlayers: number;
+  status: string;
+  depositAmount: number;
+  lobbyId: string | null;
+  lobbyStatus: string | null;
+  reservationCode: string;
+  scheduledStartTime: string | null;
+  scheduledEndTime: string | null;
+  tableNumber: string | null;
 }
 
 /** POST /api/cafes/{cafeId}/pos/sessions — walk-in / giao hộp */

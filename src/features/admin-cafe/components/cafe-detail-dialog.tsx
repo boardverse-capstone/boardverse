@@ -131,7 +131,7 @@ export function CafeDetailDialog({ open, onOpenChange, cafeId }: CafeDetailDialo
                 </div>
               </Panel>
 
-              <Panel title="Manager">
+              <Panel title="Quản lý quán">
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
                   <Field label="Tên" value={data.managerName || '—'} />
                   <Field label="Email" value={data.managerEmail ?? '—'} />
@@ -172,7 +172,7 @@ export function CafeDetailDialog({ open, onOpenChange, cafeId }: CafeDetailDialo
                       className="col-span-2"
                     />
                     <Field
-                      label="Game Master"
+                      label="Có host hỗ trợ"
                       value={formatCafeYesNo(data.hasGameMaster)}
                     />
                   </div>
@@ -181,14 +181,14 @@ export function CafeDetailDialog({ open, onOpenChange, cafeId }: CafeDetailDialo
 
               <Panel title="Giá & thanh toán">
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-3 lg:grid-cols-4">
-                  <Field label="Billing" value={data.billingModel ?? '—'} />
+                  <Field label="Mô hình tính phí" value={data.billingModel ?? '—'} />
                   <Field label="Giá cơ bản" value={formatCafeMoney(data.basePrice)} />
                   <Field label="Giá block" value={formatCafeMoney(data.tieredBlockRate)} />
                   <Field label="Phút / block" value={data.tieredBlockMinutes ?? '—'} />
                   <Field label="Khóa giá" value={formatCafeYesNo(data.isPricingLocked)} />
                   <Field label="% cọc" value={formatCafePercent(data.depositPercentage)} />
-                  <Field label="Hold (phút)" value={data.defaultHoldDurationMinutes ?? '—'} />
-                  <Field label="Refund" value={data.depositRefundPolicy || '—'} />
+                  <Field label="Giữ chỗ (phút)" value={data.defaultHoldDurationMinutes ?? '—'} />
+                  <Field label="Chính sách hoàn cọc" value={data.depositRefundPolicy || '—'} />
                   <Field label="SePay" value={formatCafeYesNo(data.hasSePayConfigured)} />
                 </div>
               </Panel>

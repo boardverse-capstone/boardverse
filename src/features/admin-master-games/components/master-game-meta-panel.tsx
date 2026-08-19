@@ -59,7 +59,8 @@ export function MasterGameMetaPanel({ gameTemplateId }: MasterGameMetaPanelProps
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Thể loại của game</CardTitle>
           <CardDescription>
-            GET/PUT /master-games/{'{id}'}/categories — thay thế toàn bộ danh sách.
+            Chọn thể loại gắn với game. Thay đổi sẽ thay thế toàn bộ danh sách hiện tại.
+            {' '}
             Hiện tại: {isLoading ? '...' : linkedLabel}
           </CardDescription>
         </CardHeader>

@@ -110,7 +110,7 @@ export function SePayAccountFormDialog({
     }
 
     if (form.accountType === 'Cafe' && !cafeId) {
-      setError('accountType Cafe yêu cầu cafeId.');
+      setError('Loại Quán yêu cầu mã quán.');
       return;
     }
 
@@ -161,9 +161,9 @@ export function SePayAccountFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{account ? 'Cập nhật SePay account' : 'Tạo SePay account'}</DialogTitle>
+          <DialogTitle>{account ? 'Cập nhật tài khoản SePay' : 'Tạo tài khoản SePay'}</DialogTitle>
           <DialogDescription>
-            Quản lý tài khoản SePay Master/Cafe (không dùng payment-master deprecated).
+            Quản lý tài khoản SePay hệ thống hoặc gắn với quán.
           </DialogDescription>
         </DialogHeader>
 
@@ -179,8 +179,8 @@ export function SePayAccountFormDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Master">Master</SelectItem>
-                  <SelectItem value="Cafe">Cafe</SelectItem>
+                  <SelectItem value="Master">Hệ thống</SelectItem>
+                  <SelectItem value="Cafe">Quán</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -188,7 +188,7 @@ export function SePayAccountFormDialog({
 
           {(form.accountType === 'Cafe' || account?.accountType === 'Cafe') && (
             <div className="grid gap-2">
-              <Label htmlFor="sepay-cafe-id">Cafe ID</Label>
+              <Label htmlFor="sepay-cafe-id">Mã quán</Label>
               <Input
                 id="sepay-cafe-id"
                 value={form.cafeId ?? ''}

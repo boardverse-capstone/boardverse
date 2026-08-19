@@ -56,7 +56,7 @@ export function EndSessionModal({
                 <strong className="text-neutral-900">
                   {session.tableName}
                 </strong>
-                : dừng tính giờ, chuyển CHECKING (chờ kiểm kê). Chưa thu tiền.
+                : dừng tính giờ, chuyển sang kiểm kê. Chưa thu tiền.
               </p>
             </div>
           </div>
@@ -92,10 +92,10 @@ export function EndSessionModal({
 
           <div className="flex items-center justify-between pt-2 border-t border-neutral-200/80">
             <span className="text-neutral-500 font-medium">
-              Host phụ trách:
+              Người phụ trách:
             </span>
             <span className="font-semibold text-neutral-800 truncate max-w-180px">
-              {session.hostName || "N/A"}
+              {session.hostName || "—"}
             </span>
           </div>
         </div>
@@ -105,9 +105,8 @@ export function EndSessionModal({
           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <span>
             Nút <strong>Xác nhận trả bàn</strong> gọi kết thúc phiên: chốt thời
-            gian đã chơi, chuyển trạng thái sang <strong>CHECKING</strong> để
-            kiểm kê hộp. Bàn chưa trống và chưa thu tiền — bước đó làm sau khi
-            kiểm kê xong.
+            gian đã chơi, chuyển sang <strong>đang kiểm kê</strong> hộp. Bàn
+            chưa trống và chưa thu tiền — bước đó làm sau khi kiểm kê xong.
           </span>
         </div>
 

@@ -8,10 +8,8 @@ export const metadata: Metadata = {
 
 export default function PosPage() {
   return (
-    <main className="min-h-screen bg-[#F6F6F7] p-4 md:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        <PosFeatureContainer />
-      </div>
-    </main>
+    <section className="mx-auto w-full max-w-[1600px]" aria-label="Web POS">
+      <PosFeatureContainer />
+    </section>
   );
 }
