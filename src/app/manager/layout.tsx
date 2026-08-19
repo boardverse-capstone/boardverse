@@ -30,6 +30,11 @@ const MANAGER_NAV: NavItem[] = [
     icon: <IconDeviceDesktop />,
   },
   {
+    title: "Giải đấu",
+    url: ROUTES.MANAGER.TOURNAMENT,
+    icon: <Trophy className="w-5 h-5" />,
+  },
+  {
     title: "Hồ sơ vận hành",
     url: ROUTES.MANAGER.OPERATIONAL_PROFILE,
     icon: <Coffee />,

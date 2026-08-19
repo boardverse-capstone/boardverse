@@ -217,14 +217,14 @@ export function ActiveSessionsTab({
                   <Badge
                     variant="outline"
                     className={`${
-                      isUnpaid
+                      isUnpaid || (isChecking && isCheckDone)
                         ? "border-amber-300 bg-amber-100 text-amber-800"
                         : isChecking
                           ? "border-blue-200 bg-blue-50 text-blue-700"
                           : "border-emerald-200 bg-emerald-50 text-emerald-700"
                     }`}
                   >
-                    {isUnpaid
+                    {isUnpaid || (isChecking && isCheckDone)
                       ? "Chờ thanh toán"
                       : isChecking
                         ? "Đang kiểm kê"

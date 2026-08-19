@@ -1,10 +1,21 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState } from "react";
 import { CreateTournamentDto } from "../types/tournament.types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { X, Trophy, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  X,
+  Trophy,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Layers,
+  ShieldCheck,
+  CheckCircle2,
+  Lock,
+} from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -32,16 +43,14 @@ export function TournamentCreateModal({
   const [registrationDeadline, setRegistrationDeadline] = useState("");
   const [roundDurationMinutes, setRoundDurationMinutes] = useState(45);
 
-  // 3. Quy mô & Thể thức
+  // 3. Quy mô
   const [minParticipants, setMinParticipants] = useState(4);
   const [maxParticipants, setMaxParticipants] = useState(16);
-  const [pairingMode, setPairingMode] = useState<"Auto" | "Manual">("Auto");
-  const [hasThirdPlaceMatch, setHasThirdPlaceMatch] = useState(true);
 
-  // 4. Điều kiện & Điểm thưởng
+  // 4. Điều kiện & Điểm thưởng (Cấu hình Elo: 0 - 5000, Karma: 0 - 100)
   const [minKarmaRequirement, setMinKarmaRequirement] = useState(0);
   const [minEloRequirement, setMinEloRequirement] = useState(0);
-  const [maxEloRequirement, setMaxEloRequirement] = useState(3000);
+  const [maxEloRequirement, setMaxEloRequirement] = useState(5000);
   const [noShowKarmaPenalty, setNoShowKarmaPenalty] = useState(-30);
 
   // Toggle cấu hình nâng cao
@@ -64,7 +73,6 @@ export function TournamentCreateModal({
     }
 
     const startIso = new Date(startTime).toISOString();
-    // Nếu không nhập hạn chót đăng ký -> Mặc định trước giờ bắt đầu 1 tiếng
     const deadlineIso = registrationDeadline
       ? new Date(registrationDeadline).toISOString()
       : new Date(new Date(startTime).getTime() - 60 * 60 * 1000).toISOString();
@@ -74,10 +82,21 @@ export function TournamentCreateModal({
       return;
     }
 
-    if (minParticipants > maxParticipants) {
+    if (Number(minParticipants) > Number(maxParticipants)) {
       toast.error("Số lượng tối thiểu không được lớn hơn số lượng tối đa.");
       return;
     }
+
+    // Ép kiểu & validate khoảng Elo/Karma
+    const minElo = Math.max(0, Math.min(5000, Number(minEloRequirement) || 0));
+    const maxElo = Math.max(
+      minElo,
+      Math.min(5000, Number(maxEloRequirement) || 5000),
+    );
+    const minKarma = Math.max(
+      0,
+      Math.min(100, Number(minKarmaRequirement) || 0),
+    );
 
     const payload: CreateTournamentDto = {
       title: title.trim(),
@@ -88,12 +107,12 @@ export function TournamentCreateModal({
       roundDurationMinutes: Number(roundDurationMinutes),
       minParticipants: Number(minParticipants),
       maxParticipants: Number(maxParticipants),
-      minKarmaRequirement: Number(minKarmaRequirement),
-      minEloRequirement: Number(minEloRequirement),
-      maxEloRequirement: Number(maxEloRequirement),
+      minKarmaRequirement: minKarma,
+      minEloRequirement: minElo,
+      maxEloRequirement: maxElo,
       noShowKarmaPenalty: Number(noShowKarmaPenalty),
-      pairingMode,
-      hasThirdPlaceMatch,
+      pairingMode: "Auto", // Khóa cứng Tự động (Auto Swiss)
+      hasThirdPlaceMatch: true, // Khóa cứng Vòng chung kết
       winnerKarmaBonus: 50,
       finalistKarmaBonus: 20,
     };
@@ -266,7 +285,7 @@ export function TournamentCreateModal({
               onClick={() => setShowAdvanced(!showAdvanced)}
               className="flex items-center justify-between w-full p-2.5 bg-neutral-50 hover:bg-neutral-100 rounded-2xl text-neutral-700 font-bold transition-colors"
             >
-              <span>Cấu hình nâng cao (Elo, Karma & Tranh hạng ba)</span>
+              <span>Cấu hình nâng cao (Thể thức & Điều kiện Elo/Karma)</span>
               {showAdvanced ? (
                 <ChevronUp className="w-4 h-4" />
               ) : (
@@ -275,112 +294,132 @@ export function TournamentCreateModal({
             </button>
 
             {showAdvanced && (
-              <div className="mt-3 space-y-3 p-3 bg-neutral-50/50 rounded-2xl border border-neutral-200">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-bold text-neutral-700 block mb-1">
-                      Chế độ ghép cặp
-                    </label>
-                    <select
-                      value={pairingMode}
-                      onChange={(e) =>
-                        setPairingMode(e.target.value as "Auto" | "Manual")
-                      }
-                      className="w-full h-8.5 px-3 rounded-xl border bg-white font-bold text-neutral-800"
-                    >
-                      <option value="Auto">Tự động (Auto Swiss)</option>
-                      <option value="Manual">Thủ công (Manual)</option>
-                    </select>
+              <div className="mt-3 space-y-3.5">
+                {/* Phần 1: Thể thức thi đấu (Cố định cứng Tự động & Chung kết) */}
+                <div className="p-3 bg-neutral-50/70 rounded-2xl border border-neutral-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-neutral-800 text-xs flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-amber-600" /> Thể thức
+                      thi đấu chuẩn
+                    </span>
+                    <span className="text-[10px] font-bold text-neutral-400 flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-neutral-400" /> Cố định mặc
+                      định
+                    </span>
                   </div>
 
-                  <div>
-                    <label className="font-bold text-neutral-700 block mb-1">
-                      Tranh Hạng 3
-                    </label>
-                    <select
-                      value={hasThirdPlaceMatch ? "true" : "false"}
-                      onChange={(e) =>
-                        setHasThirdPlaceMatch(e.target.value === "true")
-                      }
-                      className="w-full h-8.5 px-3 rounded-xl border bg-white font-bold text-neutral-800"
-                    >
-                      <option value="true">Có đấu tranh hạng 3</option>
-                      <option value="false">Không (Chỉ Chung kết)</option>
-                    </select>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="p-2.5 bg-white rounded-xl border border-neutral-200/90 flex items-center justify-between shadow-2xs">
+                      <div>
+                        <span className="text-[10px] font-bold text-neutral-400 uppercase block">
+                          Chế độ ghép cặp
+                        </span>
+                        <span className="font-black text-xs text-neutral-900">
+                          Tự Động (Auto Swiss)
+                        </span>
+                      </div>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    </div>
+
+                    <div className="p-2.5 bg-white rounded-xl border border-neutral-200/90 flex items-center justify-between shadow-2xs">
+                      <div>
+                        <span className="text-[10px] font-bold text-neutral-400 uppercase block">
+                          Thể thức vòng cuối
+                        </span>
+                        <span className="font-black text-xs text-neutral-900">
+                          Vòng Chung Kết
+                        </span>
+                      </div>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <div>
-                    <label className="font-bold text-neutral-600 block mb-1 text-[11px]">
-                      Elo tối thiểu
-                    </label>
-                    <Input
-                      type="number"
-                      value={minEloRequirement}
-                      onChange={(e) =>
-                        setMinEloRequirement(Number(e.target.value))
-                      }
-                      className="h-8 font-mono bg-white"
-                    />
+                {/* Phần 2: Điều kiện Elo, Karma & Phạt No-Show */}
+                <div className="p-3 bg-neutral-50/70 rounded-2xl border border-neutral-200 space-y-2.5">
+                  <span className="font-bold text-neutral-800 text-xs flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600" /> Điều
+                    kiện tham gia & Điểm số
+                  </span>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div>
+                      <label className="font-bold text-neutral-600 block mb-1 text-[11px]">
+                        Elo tối thiểu (0-5000)
+                      </label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={5000}
+                        value={minEloRequirement}
+                        onChange={(e) =>
+                          setMinEloRequirement(Number(e.target.value))
+                        }
+                        className="h-8 font-mono bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="font-bold text-neutral-600 block mb-1 text-[11px]">
+                        Elo tối đa (0-5000)
+                      </label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={5000}
+                        value={maxEloRequirement}
+                        onChange={(e) =>
+                          setMaxEloRequirement(Number(e.target.value))
+                        }
+                        className="h-8 font-mono bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="font-bold text-neutral-600 block mb-1 text-[11px]">
+                        Karma tối thiểu (0-100)
+                      </label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={minKarmaRequirement}
+                        onChange={(e) =>
+                          setMinKarmaRequirement(Number(e.target.value))
+                        }
+                        className="h-8 font-mono bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="font-bold text-neutral-600 block mb-1 text-[11px]">
+                        Phạt No-Show
+                      </label>
+                      <Input
+                        type="number"
+                        value={noShowKarmaPenalty}
+                        onChange={(e) =>
+                          setNoShowKarmaPenalty(Number(e.target.value))
+                        }
+                        className="h-8 font-mono bg-white"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="font-bold text-neutral-600 block mb-1 text-[11px]">
-                      Elo tối đa
-                    </label>
-                    <Input
-                      type="number"
-                      value={maxEloRequirement}
-                      onChange={(e) =>
-                        setMaxEloRequirement(Number(e.target.value))
-                      }
-                      className="h-8 font-mono bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="font-bold text-neutral-600 block mb-1 text-[11px]">
-                      Karma tối thiểu
-                    </label>
-                    <Input
-                      type="number"
-                      value={minKarmaRequirement}
-                      onChange={(e) =>
-                        setMinKarmaRequirement(Number(e.target.value))
-                      }
-                      className="h-8 font-mono bg-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="font-bold text-neutral-600 block mb-1 text-[11px]">
-                      Phạt No-Show
-                    </label>
-                    <Input
-                      type="number"
-                      value={noShowKarmaPenalty}
-                      onChange={(e) =>
-                        setNoShowKarmaPenalty(Number(e.target.value))
-                      }
-                      className="h-8 font-mono bg-white"
-                    />
-                  </div>
+                  {defaultGameTemplateId === undefined && (
+                    <div className="pt-1">
+                      <label className="font-bold text-neutral-600 block mb-1 text-[11px]">
+                        Game Template ID (Tùy chọn)
+                      </label>
+                      <Input
+                        placeholder="Để trống sẽ mặc định chọn Splendor"
+                        value={gameTemplateId}
+                        onChange={(e) => setGameTemplateId(e.target.value)}
+                        className="h-8 font-mono bg-white text-[11px]"
+                      />
+                    </div>
+                  )}
                 </div>
-
-                {defaultGameTemplateId === undefined && (
-                  <div>
-                    <label className="font-bold text-neutral-600 block mb-1 text-[11px]">
-                      Game Template ID (Tùy chọn)
-                    </label>
-                    <Input
-                      placeholder="Để trống sẽ mặc định chọn Splendor"
-                      value={gameTemplateId}
-                      onChange={(e) => setGameTemplateId(e.target.value)}
-                      className="h-8 font-mono bg-white text-[11px]"
-                    />
-                  </div>
-                )}
               </div>
             )}
           </div>

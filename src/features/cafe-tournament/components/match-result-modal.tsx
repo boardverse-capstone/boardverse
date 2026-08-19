@@ -487,8 +487,8 @@ function MatchResultModalContent({
               {isSubmitting
                 ? "Đang lưu..."
                 : isEditMode
-                  ? "Cập Nhật Kết Quả (PATCH)"
-                  : "Xác Nhận Kết Quả (POST)"}
+                  ? "Cập Nhật Kết Quả "
+                  : "Xác Nhận Kết Quả "}
             </Button>
           </div>
         </form>

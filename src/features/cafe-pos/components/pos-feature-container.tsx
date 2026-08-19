@@ -87,6 +87,8 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     setChecklistData,
     unpaidSessions = [],
     handleFetchUnpaidSessions,
+    checkoutSession,
+    setCheckoutSession,
     refreshData,
     handleBookingCheckIn,
     handleStartSession,
@@ -162,14 +164,14 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
       return;
     }
 
-    setPayConfirmSession(detailedSession);
+    setCheckoutSession(detailedSession);
   };
 
   const handleProceedFromHistoryToPay = () => {
     const targetSession = historyModalState.targetSession;
     setHistoryModalState({ isOpen: false, data: null, targetSession: null });
     if (targetSession) {
-      setPayConfirmSession(targetSession);
+      setCheckoutSession(targetSession);
     }
   };
 
@@ -481,7 +483,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         }
       />
 
-      <CheckoutPayModal
+      <PayConfirmModal
         key={checkoutSession?.id || "checkout-modal"}
         isOpen={!!checkoutSession}
         onClose={() => setCheckoutSession(null)}

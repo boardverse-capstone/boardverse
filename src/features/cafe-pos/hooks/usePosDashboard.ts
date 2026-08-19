@@ -570,6 +570,24 @@ export function usePosDashboard(opts?: {
     }
   };
 
+  const handleFetchUnpaidSessions = useCallback(
+    async (olderThanMinutes = 0) => {
+      if (!cafeId) return [];
+      try {
+        const res: any = await apiClient.get(
+          `/api/cafes/${cafeId}/pos/sessions/unpaid?olderThanMinutes=${olderThanMinutes}`,
+        );
+        const data = res?.data || res || [];
+        setUnpaidSessions(data);
+        return data;
+      } catch (err: any) {
+        console.error("Lỗi lấy danh sách phiên Unpaid:", err);
+        return [];
+      }
+    },
+    [cafeId],
+  );
+
   // BƯỚC 10: POST /checkout (Chuyển trạng thái phiên chơi sang UNPAID)
   const handleCheckoutSession = async (sessionId: string) => {
     if (!cafeId) return false;
@@ -579,7 +597,7 @@ export function usePosDashboard(opts?: {
         { useExternalPayment: false },
       );
 
-    const checkoutData = res?.data || res;
+    let checkoutData = res?.data || res;
 
       const hasTotal =
         Number(checkoutData?.totalAmount ?? checkoutData?.TotalAmount ?? 0) >

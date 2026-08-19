@@ -152,6 +152,9 @@ export function PayConfirmModal({
   if (!isOpen || !session) return null;
 
   // 1. TÍNH TIỀN GIỜ CHƠI (SUBTOTAL) — sau POST checkout BE mới có số
+  const elapsedMinutes = Number(
+    session.elapsedMinutes ?? session.ElapsedMinutes ?? 0,
+  );
   const subtotal = pickAmount(
     session,
     "subtotal",
