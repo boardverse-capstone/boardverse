@@ -1,0 +1,1551 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "BoardVerse API",
+    "description": "Authentication API for BoardVerse",
+    "version": "v1"
+  },
+  "paths": {
+    "/api/Auth/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Đăng ký tài khoản người dùng mới vào hệ thống BoardVerse.",
+        "requestBody": {
+          "description": "Thông tin đăng ký của người dùng.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đăng ký thành công."
+          },
+          "400": {
+            "description": "Dữ liệu đầu vào không hợp lệ hoặc email/username đã tồn tại."
+          },
+          "500": {
+            "description": "Lỗi hệ thống khi xử lý đăng ký."
+          }
+        }
+      }
+    },
+    "/api/Auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Xác thực tài khoản và tạo token đăng nhập cho người dùng.",
+        "requestBody": {
+          "description": "Thông tin đăng nhập của người dùng.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đăng nhập thành công, trả về access token và refresh token."
+          },
+          "401": {
+            "description": "Thông tin đăng nhập không hợp lệ."
+          },
+          "429": {
+            "description": "Vượt quá số lần đăng nhập cho phép."
+          }
+        }
+      }
+    },
+    "/api/Auth/google-login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Đăng nhập bằng tài khoản Google và phát hành token truy cập.",
+        "requestBody": {
+          "description": "Thông tin Google ID token.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleAuthRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleAuthRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleAuthRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đăng nhập Google thành công."
+          },
+          "401": {
+            "description": "Google token không hợp lệ hoặc thiếu dữ liệu bắt buộc."
+          }
+        }
+      }
+    },
+    "/api/Auth/refresh-token": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Gia hạn access token bằng refresh token hợp lệ.",
+        "requestBody": {
+          "description": "Thông tin refresh token cần gia hạn.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Gia hạn token thành công."
+          },
+          "401": {
+            "description": "Refresh token không hợp lệ hoặc đã hết hạn."
+          },
+          "404": {
+            "description": "Không tìm thấy người dùng tương ứng với refresh token."
+          }
+        }
+      }
+    },
+    "/api/Auth/logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Thu hồi refresh token của người dùng để kết thúc phiên đăng nhập.",
+        "requestBody": {
+          "description": "Thông tin refresh token cần thu hồi.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đăng xuất thành công."
+          },
+          "400": {
+            "description": "Dữ liệu yêu cầu không hợp lệ."
+          }
+        }
+      }
+    },
+    "/api/Auth/send-email-verification": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Gửi mã xác minh email đến địa chỉ đã đăng ký của người dùng.",
+        "requestBody": {
+          "description": "Địa chỉ email cần nhận mã xác minh.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendEmailVerificationRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendEmailVerificationRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendEmailVerificationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Gửi email xác minh thành công."
+          },
+          "404": {
+            "description": "Không tìm thấy người dùng theo email."
+          },
+          "500": {
+            "description": "Không gửi được email."
+          }
+        }
+      }
+    },
+    "/api/Auth/verify-email": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Xác thực email của người dùng bằng mã xác minh đã nhận.",
+        "requestBody": {
+          "description": "Mã xác minh email.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Xác minh email thành công."
+          },
+          "401": {
+            "description": "Mã xác minh không hợp lệ hoặc đã hết hạn."
+          }
+        }
+      }
+    },
+    "/api/Auth/request-password-reset": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Tạo yêu cầu đặt lại mật khẩu và gửi mã reset đến email người dùng.",
+        "requestBody": {
+          "description": "Địa chỉ email cần yêu cầu đặt lại mật khẩu.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestPasswordResetDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestPasswordResetDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestPasswordResetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Gửi yêu cầu đặt lại mật khẩu thành công."
+          },
+          "403": {
+            "description": "Email chưa được xác minh."
+          },
+          "404": {
+            "description": "Không tìm thấy người dùng theo email."
+          }
+        }
+      }
+    },
+    "/api/Auth/reset-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Đặt lại mật khẩu bằng mã xác minh đặt lại mật khẩu.",
+        "requestBody": {
+          "description": "Thông tin mã reset và mật khẩu mới.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đặt lại mật khẩu thành công."
+          },
+          "401": {
+            "description": "Mã reset không hợp lệ hoặc đã hết hạn."
+          }
+        }
+      }
+    },
+    "/api/Auth/change-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Thay đổi mật khẩu của tài khoản đang đăng nhập.",
+        "requestBody": {
+          "description": "Mật khẩu hiện tại và mật khẩu mới.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Đổi mật khẩu thành công."
+          },
+          "400": {
+            "description": "Mật khẩu mới không hợp lệ hoặc tài khoản không có mật khẩu nội bộ."
+          },
+          "401": {
+            "description": "Token không hợp lệ hoặc mật khẩu hiện tại không đúng."
+          }
+        }
+      }
+    },
+    "/api/Auth/link-google": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Liên kết tài khoản Google với tài khoản BoardVerse hiện có.",
+        "requestBody": {
+          "description": "Google ID token dùng để liên kết tài khoản.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkGoogleRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkGoogleRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkGoogleRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Liên kết tài khoản Google thành công."
+          },
+          "401": {
+            "description": "Google token không hợp lệ."
+          },
+          "404": {
+            "description": "Không tìm thấy tài khoản nội bộ để liên kết."
+          }
+        }
+      }
+    },
+    "/api/Health/status": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Kiểm tra trạng thái hoạt động tổng thể của API.",
+        "responses": {
+          "200": {
+            "description": "API đang hoạt động bình thường."
+          }
+        }
+      }
+    },
+    "/api/Health/db-info": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Kiểm tra kết nối cơ sở dữ liệu và trả về số lượng người dùng hiện có.",
+        "responses": {
+          "200": {
+            "description": "Kết nối cơ sở dữ liệu thành công."
+          },
+          "500": {
+            "description": "Không truy cập được cơ sở dữ liệu."
+          }
+        }
+      }
+    },
+    "/api/Health/ping": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Trả về phản hồi nhịp tim đơn giản để kiểm tra endpoint.",
+        "responses": {
+          "200": {
+            "description": "Endpoint phản hồi bình thường."
+          }
+        }
+      }
+    },
+    "/api/Protected/secret": {
+      "get": {
+        "tags": [
+          "Protected"
+        ],
+        "summary": "Truy cập endpoint yêu cầu xác thực để xác minh token hợp lệ.",
+        "responses": {
+          "200": {
+            "description": "Người dùng đã truy cập được endpoint bảo vệ."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          }
+        }
+      }
+    },
+    "/api/UserManagement/users": {
+      "get": {
+        "tags": [
+          "UserManagement"
+        ],
+        "summary": "Lấy danh sách người dùng theo điều kiện tìm kiếm, lọc và phân trang.",
+        "parameters": [
+          {
+            "name": "Search",
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "minLength": 0,
+              "type": "string"
+            }
+          },
+          {
+            "name": "Role",
+            "in": "query",
+            "schema": {
+              "maxLength": 32,
+              "minLength": 0,
+              "type": "string"
+            }
+          },
+          {
+            "name": "IsActive",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "IsBlocked",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "Page",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả về danh sách người dùng phù hợp."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Người dùng không có quyền quản trị."
+          }
+        }
+      }
+    },
+    "/api/UserManagement": {
+      "get": {
+        "tags": [
+          "UserManagement"
+        ],
+        "summary": "Lấy danh sách người dùng theo điều kiện tìm kiếm, lọc và phân trang.",
+        "parameters": [
+          {
+            "name": "Search",
+            "in": "query",
+            "schema": {
+              "maxLength": 100,
+              "minLength": 0,
+              "type": "string"
+            }
+          },
+          {
+            "name": "Role",
+            "in": "query",
+            "schema": {
+              "maxLength": 32,
+              "minLength": 0,
+              "type": "string"
+            }
+          },
+          {
+            "name": "IsActive",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "IsBlocked",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "Page",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả về danh sách người dùng phù hợp."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Người dùng không có quyền quản trị."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "UserManagement"
+        ],
+        "summary": "Tạo mới tài khoản người dùng cho quản trị viên.",
+        "requestBody": {
+          "description": "Thông tin tài khoản cần tạo.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateUserDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateUserDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "description": "Tạo người dùng thành công."
+          },
+          "400": {
+            "description": "Dữ liệu đầu vào không hợp lệ hoặc email/username đã tồn tại."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Người dùng không có quyền quản trị."
+          }
+        }
+      }
+    },
+    "/api/UserManagement/{id}": {
+      "get": {
+        "tags": [
+          "UserManagement"
+        ],
+        "summary": "Lấy thông tin chi tiết của một người dùng theo mã định danh.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Mã định danh của người dùng.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trả về thông tin người dùng."
+          },
+          "404": {
+            "description": "Không tìm thấy người dùng."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "UserManagement"
+        ],
+        "summary": "Cập nhật thông tin người dùng theo mã định danh.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Mã định danh của người dùng.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Thông tin cập nhật người dùng.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateUserDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateUserDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cập nhật người dùng thành công."
+          },
+          "404": {
+            "description": "Không tìm thấy người dùng."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Người dùng không có quyền quản trị."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "UserManagement"
+        ],
+        "summary": "Vô hiệu hóa tài khoản người dùng theo mã định danh.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Mã định danh của người dùng.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vô hiệu hóa người dùng thành công."
+          },
+          "404": {
+            "description": "Không tìm thấy người dùng."
+          },
+          "401": {
+            "description": "Thiếu token hoặc token không hợp lệ."
+          },
+          "403": {
+            "description": "Người dùng không có quyền quản trị."
+          }
+        }
+      }
+    },
+    "/api/UserManagement/users/{id}/block": {
+      "post": {
+        "tags": [
+          "UserManagement"
+        ],
+        "summary": "Chặn một người dùng theo mã định danh với lý do cụ thể.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Mã định danh của người dùng.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Lý do chặn người dùng.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminBlockUserDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminBlockUserDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminBlockUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Chặn người dùng thành công."
+          },
+          "400": {
+            "description": "Lý do chặn không hợp lệ."
+          },
+          "404": {
+            "description": "Không tìm thấy người dùng."
+          }
+        }
+      }
+    },
+    "/api/UserManagement/users/{id}/unblock": {
+      "post": {
+        "tags": [
+          "UserManagement"
+        ],
+        "summary": "Gỡ chặn người dùng theo mã định danh.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Mã định danh của người dùng.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Gỡ chặn người dùng thành công."
+          },
+          "404": {
+            "description": "Không tìm thấy người dùng."
+          }
+        }
+      }
+    },
+    "/api/UserManagement/users/{id}/role": {
+      "put": {
+        "tags": [
+          "UserManagement"
+        ],
+        "summary": "Cập nhật vai trò của người dùng theo mã định danh.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Mã định danh của người dùng.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Vai trò mới của người dùng.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateUserRoleDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateUserRoleDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateUserRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cập nhật vai trò thành công."
+          },
+          "400": {
+            "description": "Vai trò không hợp lệ."
+          },
+          "404": {
+            "description": "Không tìm thấy người dùng."
+          }
+        }
+      }
+    },
+    "/api/UserProfile": {
+      "get": {
+        "tags": [
+          "UserProfile"
+        ],
+        "summary": "Lấy hồ sơ công khai của người dùng đang đăng nhập.",
+        "responses": {
+          "200": {
+            "description": "Lấy hồ sơ thành công."
+          },
+          "401": {
+            "description": "Thiếu token, token không hợp lệ hoặc thiếu claim người dùng."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "UserProfile"
+        ],
+        "summary": "Tạo hồ sơ người dùng mới cho tài khoản đang đăng nhập.",
+        "requestBody": {
+          "description": "Thông tin hồ sơ cần tạo.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileCreateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileCreateDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileCreateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "description": "Tạo hồ sơ thành công."
+          },
+          "401": {
+            "description": "Thiếu token hoặc claim người dùng."
+          },
+          "404": {
+            "description": "Không tìm thấy người dùng."
+          },
+          "409": {
+            "description": "Người dùng đã có hồ sơ hoạt động."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "UserProfile"
+        ],
+        "summary": "Cập nhật thông tin hồ sơ của người dùng đang đăng nhập.",
+        "requestBody": {
+          "description": "Thông tin hồ sơ cần cập nhật.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdateDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cập nhật hồ sơ thành công."
+          },
+          "401": {
+            "description": "Thiếu token hoặc claim người dùng."
+          },
+          "404": {
+            "description": "Không tìm thấy người dùng."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "UserProfile"
+        ],
+        "summary": "Vô hiệu hóa hồ sơ của người dùng đang đăng nhập.",
+        "responses": {
+          "200": {
+            "description": "Xóa hoặc vô hiệu hóa hồ sơ thành công."
+          },
+          "401": {
+            "description": "Thiếu token hoặc claim người dùng."
+          }
+        }
+      }
+    },
+    "/api/UserProfile/progress": {
+      "post": {
+        "tags": [
+          "UserProfile"
+        ],
+        "summary": "Cập nhật tiến trình và điểm số của hồ sơ người dùng.",
+        "requestBody": {
+          "description": "Thông tin tiến trình cần cập nhật.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileProgressUpdateDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileProgressUpdateDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileProgressUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cập nhật tiến trình thành công."
+          },
+          "401": {
+            "description": "Thiếu token hoặc claim người dùng."
+          },
+          "404": {
+            "description": "Không tìm thấy người dùng."
+          }
+        }
+      }
+    },
+    "/api/UserProfile/me/avatar": {
+      "put": {
+        "tags": [
+          "UserProfile"
+        ],
+        "summary": "Cập nhật ảnh đại diện của người dùng đang đăng nhập.",
+        "requestBody": {
+          "description": "Đường dẫn ảnh đại diện mới.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAvatarRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAvatarRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAvatarRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cập nhật avatar thành công."
+          },
+          "401": {
+            "description": "Thiếu token hoặc claim người dùng."
+          },
+          "404": {
+            "description": "Không tìm thấy người dùng."
+          }
+        }
+      }
+    },
+    "/api/UserProfile/me/karma-history": {
+      "get": {
+        "tags": [
+          "UserProfile"
+        ],
+        "summary": "Xem trạng thái điểm karma hiện tại của người dùng đang đăng nhập.",
+        "responses": {
+          "200": {
+            "description": "Trả về trạng thái karma hiện tại."
+          },
+          "401": {
+            "description": "Thiếu token hoặc claim người dùng."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdminBlockUserDto": {
+        "required": [
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 0,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminCreateUserDto": {
+        "required": [
+          "email",
+          "username"
+        ],
+        "type": "object",
+        "properties": {
+          "username": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 256,
+            "minLength": 0,
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "maxLength": 128,
+            "minLength": 8,
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "maxLength": 32,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminUpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "maxLength": 256,
+            "minLength": 0,
+            "type": "string",
+            "format": "email",
+            "nullable": true
+          },
+          "password": {
+            "maxLength": 128,
+            "minLength": 8,
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "maxLength": 32,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "isBlocked": {
+            "type": "boolean",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminUpdateUserRoleDto": {
+        "required": [
+          "role"
+        ],
+        "type": "object",
+        "properties": {
+          "role": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ChangePasswordDto": {
+        "required": [
+          "confirmNewPassword",
+          "currentPassword",
+          "newPassword"
+        ],
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "maxLength": 100,
+            "minLength": 6,
+            "type": "string"
+          },
+          "newPassword": {
+            "maxLength": 100,
+            "minLength": 8,
+            "type": "string"
+          },
+          "confirmNewPassword": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GoogleAuthRequestDto": {
+        "required": [
+          "idToken"
+        ],
+        "type": "object",
+        "properties": {
+          "idToken": {
+            "maxLength": 4000,
+            "minLength": 10,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LinkGoogleRequestDto": {
+        "required": [
+          "idToken"
+        ],
+        "type": "object",
+        "properties": {
+          "idToken": {
+            "maxLength": 4000,
+            "minLength": 10,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LoginRequestDto": {
+        "required": [
+          "password",
+          "usernameOrEmail"
+        ],
+        "type": "object",
+        "properties": {
+          "usernameOrEmail": {
+            "maxLength": 256,
+            "minLength": 3,
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 100,
+            "minLength": 6,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProfileCreateDto": {
+        "required": [
+          "gamerTag"
+        ],
+        "type": "object",
+        "properties": {
+          "gamerTag": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string"
+          },
+          "bio": {
+            "maxLength": 1000,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "firstName": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "lastName": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "homeAddress": {
+            "maxLength": 250,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProfileProgressUpdateDto": {
+        "type": "object",
+        "properties": {
+          "globalElo": {
+            "maximum": 2147483647,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32"
+          },
+          "level": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProfileUpdateDto": {
+        "type": "object",
+        "properties": {
+          "gamerTag": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "bio": {
+            "maxLength": 1000,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "globalElo": {
+            "maximum": 2147483647,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "level": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "firstName": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "lastName": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "homeAddress": {
+            "maxLength": 250,
+            "minLength": 0,
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RefreshTokenRequestDto": {
+        "required": [
+          "refreshToken"
+        ],
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "maxLength": 500,
+            "minLength": 20,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RegisterRequestDto": {
+        "required": [
+          "email",
+          "password",
+          "username"
+        ],
+        "type": "object",
+        "properties": {
+          "username": {
+            "maxLength": 100,
+            "minLength": 3,
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 256,
+            "minLength": 0,
+            "type": "string",
+            "format": "email"
+          },
+          "phoneNumber": {
+            "maxLength": 50,
+            "minLength": 0,
+            "type": "string",
+            "format": "tel",
+            "nullable": true
+          },
+          "password": {
+            "maxLength": 100,
+            "minLength": 6,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RequestPasswordResetDto": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "maxLength": 256,
+            "minLength": 0,
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResetPasswordDto": {
+        "required": [
+          "newPassword",
+          "token"
+        ],
+        "type": "object",
+        "properties": {
+          "token": {
+            "maxLength": 10,
+            "minLength": 6,
+            "type": "string"
+          },
+          "newPassword": {
+            "maxLength": 100,
+            "minLength": 6,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SendEmailVerificationRequestDto": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "maxLength": 256,
+            "minLength": 0,
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateAvatarRequestDto": {
+        "required": [
+          "avatarUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "avatarUrl": {
+            "minLength": 1,
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VerifyEmailRequestDto": {
+        "required": [
+          "token"
+        ],
+        "type": "object",
+        "properties": {
+          "token": {
+            "maxLength": 10,
+            "minLength": 6,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {
+      "Bearer": {
+        "type": "http",
+        "description": "Enter JWT Bearer token",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "Bearer": [ ]
+    }
+  ]
+}
