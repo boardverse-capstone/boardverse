@@ -132,15 +132,24 @@ export function CheckoutPayModal({
   useEffect(() => {
     if (!isOpen || !qrPayload || !onRefreshPayment || !session?.id) return;
     let stopped = false;
+    let refreshing = false;
     const tick = async () => {
-      if (stopped) return;
-      const fresh = await onRefreshPayment(session.id);
-      const status = String(fresh?.status || fresh?.Status || "").toLowerCase();
-      if (status === "paid") {
-        toast.success("Đã nhận chuyển khoản QR. Bàn đã giải phóng.");
-        onClose();
+      if (stopped || refreshing) return;
+      refreshing = true;
+      try {
+        const fresh = await onRefreshPayment(session.id);
+        const status = String(fresh?.status || fresh?.Status || "").toLowerCase();
+        if (status === "paid" || status === "completed") {
+          toast.success("Thanh toán thành công. Bàn đã giải phóng.");
+          onClose();
+        }
+      } catch {
+        // Bỏ qua — poll sẽ thử lại; 404 sau webhook được xử lý trong onRefreshPayment
+      } finally {
+        refreshing = false;
       }
     };
+    void tick();
     const id = window.setInterval(() => void tick(), 5000);
     return () => {
       stopped = true;
@@ -175,9 +184,7 @@ export function CheckoutPayModal({
           (c: any) =>
             c.isMissing ||
             c.isDamaged ||
-            (c.missingQuantity && c.missingQuantity > 0) ||
-            (c.penaltyFee && c.penaltyFee > 0) ||
-            (c.penaltyAmount && c.penaltyAmount > 0),
+            (c.missingQuantity && c.missingQuantity > 0),
         )
         .map((c: any) => ({
           componentId: c.componentId || c.id || "N/A",
@@ -306,8 +313,8 @@ export function CheckoutPayModal({
         return;
       }
       const status = String(fresh?.status || fresh?.Status || "").toLowerCase();
-      if (status === "paid") {
-        toast.success("Đã ghi nhận chuyển khoản. Bàn đã giải phóng.");
+      if (status === "paid" || status === "completed") {
+        toast.success("Thanh toán thành công. Bàn đã giải phóng.");
         onClose();
         return;
       }

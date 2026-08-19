@@ -916,6 +916,37 @@ export const PosCheckInService = {
     return parseCafeReservationList(raw);
   },
 
+  /** Tra cứu reservation theo mã — ưu tiên ngày chọn, fallback toàn quán. */
+  findCafeReservationByCode: async (params: {
+    cafeId: string;
+    code: string;
+    playDate?: string;
+  }): Promise<CafeReservationListItem | null> => {
+    const normalized = params.code.trim().toUpperCase();
+    if (!normalized) return null;
+
+    const match = (items: CafeReservationListItem[]) =>
+      items.find((item) => item.reservationCode.toUpperCase() === normalized) ?? null;
+
+    if (params.playDate) {
+      const onDate = await PosCheckInService.getCafeReservations({
+        cafeId: params.cafeId,
+        playDate: params.playDate,
+        page: 1,
+        pageSize: 100,
+      });
+      const foundOnDate = match(onDate);
+      if (foundOnDate) return foundOnDate;
+    }
+
+    const all = await PosCheckInService.getCafeReservations({
+      cafeId: params.cafeId,
+      page: 1,
+      pageSize: 100,
+    });
+    return match(all);
+  },
+
   resolveQrOrBookingId: async (payload: string): Promise<QrResolveResult> => {
     
     const cafe = await PosCheckInService.getStaffCafe();

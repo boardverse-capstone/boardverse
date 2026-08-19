@@ -5,6 +5,22 @@ import { usePosDashboard } from "../hooks/usePosDashboard";
 import { useCafePosHub } from "../hooks/useCafePosHub";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
 import { SyncTablesModal } from "./sync-tables-modal";
 import { CheckoutPayModal } from "./checkout-pay-modal";
 import { ComponentChecklistModal } from "./component-checklist-modal";
@@ -20,7 +36,6 @@ import { PendingBookingsPanel } from "./pending-bookings-panel";
 import { SettlementsTab } from "./settlements-tab";
 import {
   RefreshCw,
-  QrCode,
   Barcode,
   Play,
   Users,
@@ -77,15 +92,12 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     setScannedBarcode,
     scannedBox,
     setScannedBox,
-    bookingCode,
-    setBookingCode,
     checklistData,
     setChecklistData,
     checkoutSession,
     setCheckoutSession,
     refreshData,
     handleScanBarcode,
-    handlePreviewBooking,
     handleBookingCheckIn,
     handleStartSession,
     handleEndSession,
@@ -189,368 +201,383 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
   };
 
   return (
-    <div className="space-y-6 text-neutral-900 font-sans antialiased">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-neutral-200 shadow-2xs">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-neutral-950">
-            Web POS Center
-          </h1>
-          <p className="text-xs text-neutral-500 font-medium mt-0.5 flex items-center gap-2">
-            
-            <span
-              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${
-                hubConnected
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-neutral-200 bg-neutral-50 text-neutral-500"
-              }`}
-            >
-              {hubConnected ? (
-                <Wifi className="h-3 w-3" />
-              ) : (
-                <WifiOff className="h-3 w-3" />
-              )}
-              {hubConnected ? "Realtime" : "Offline hub"}
-            </span>
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {canConfigureTables && (
+    <div className="space-y-5 font-sans text-neutral-900 antialiased">
+      <Card className="gap-0 py-0">
+        <CardContent className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight text-neutral-950 sm:text-2xl">
+                Web POS
+              </h1>
+              <Badge
+                variant="outline"
+                role="status"
+                className={
+                  hubConnected
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-neutral-200 bg-neutral-50 text-neutral-600"
+                }
+              >
+                {hubConnected ? <Wifi /> : <WifiOff />}
+                {hubConnected && <Loader2 className="size-3 animate-spin" />}
+                {hubConnected ? "Realtime đang kết nối" : "Realtime tạm ngắt"}
+              </Badge>
+            </div>
+            <p className="text-sm text-neutral-500">
+              Tiếp nhận khách, vận hành bàn và hoàn tất phiên chơi tại một nơi.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               variant="outline"
-              onClick={() => setIsSyncModalOpen(true)}
-              className="h-9 px-3 border-neutral-200 text-xs font-bold text-neutral-700 hover:bg-neutral-50 rounded-lg flex items-center gap-1.5"
+              onClick={refreshData}
+              className="min-h-11 gap-2"
+              aria-label="Làm mới toàn bộ dữ liệu POS"
             >
-              <Settings className="w-3.5 h-3.5" />
-              <span>Sơ đồ bàn</span>
+              <RefreshCw className="size-4" />
+              Làm mới
             </Button>
-          )}
-
-          <Button
-            type="button"
-            variant="outline"
-            onClick={refreshData}
-            className="h-9 px-3 border-neutral-200 text-xs font-bold text-neutral-700 hover:bg-neutral-50 rounded-lg flex items-center gap-1.5"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Làm mới</span>
-          </Button>
-
-          <div className="flex items-center gap-1.5 bg-neutral-50 p-1 border border-neutral-200 rounded-xl">
-            <Input
-              type="text"
-              placeholder="ReservationCode..."
-              value={bookingCode}
-              onChange={(e) => setBookingCode(e.target.value)}
-              className="h-7 w-40 text-xs bg-white border-neutral-200 rounded-lg"
-            />
-            <Button
-              type="button"
-              onClick={() => void handlePreviewBooking(bookingCode)}
-              className="h-7 px-2.5 bg-neutral-950 text-white text-[10px] font-bold uppercase rounded-lg"
-            >
-              <QrCode className="w-3 h-3 mr-1" /> Tra cứu
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <PendingBookingsPanel
-        cafeId={cafeId}
-        tables={tables}
-        boxes={boxes}
-        scannedBarcode={scannedBarcode}
-        onOpenTables={() => setActiveTab("tables")}
-        onConfirmCheckIn={(code, tableId, barcode) =>
-          handleBookingCheckIn(code, tableId, barcode)
-        }
-      />
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="bg-white border border-neutral-200 rounded-2xl p-4 flex flex-col justify-between shadow-2xs space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-neutral-900 flex items-center gap-1.5">
-              <Barcode className="w-4 h-4 text-neutral-700" /> Tra cứu Barcode
-              Hộp Game
-            </span>
-            {scannedBox && (
-              <button
+            {canConfigureTables && (
+              <Button
                 type="button"
-                onClick={() => {
-                  setScannedBox(null);
-                  setScannedBarcode("");
-                }}
-                className="text-[11px] font-semibold text-neutral-400 hover:text-neutral-900 transition-colors"
+                variant="outline"
+                onClick={() => setIsSyncModalOpen(true)}
+                className="min-h-11 gap-2"
               >
-                Xóa kết quả
-              </button>
+                <Settings className="size-4" />
+                Cài đặt bàn
+              </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
 
-          <div className="flex gap-2">
-            <Input
-              type="text"
-              placeholder="Quét hoặc nhập Barcode (vd: BV-a477...)..."
-              value={scannedBarcode}
-              onChange={(e) => setScannedBarcode(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleScanBarcode();
-                }
-              }}
-              className="h-9 text-xs border-neutral-200 rounded-lg bg-neutral-50/50 font-mono focus:bg-white"
-            />
-            <Button
-              type="button"
-              onClick={handleScanBarcode}
-              className="h-9 px-3.5 bg-neutral-950 text-white text-xs font-bold rounded-lg shrink-0 hover:bg-neutral-800"
-            >
-              Quét
-            </Button>
-          </div>
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
+        <section aria-label="Tiếp nhận và check-in">
+          <PendingBookingsPanel
+            cafeId={cafeId}
+            tables={tables}
+            boxes={boxes}
+            scannedBarcode={scannedBarcode}
+            initialBookingCode={props?.initialBookingCode}
+            onOpenTables={() => setActiveTab("tables")}
+            onConfirmCheckIn={(code, tableId, barcode) =>
+              handleBookingCheckIn(code, tableId, barcode)
+            }
+          />
+        </section>
 
-          {scannedBox ? (
-            <div className="p-3 bg-neutral-50 border border-neutral-200/90 rounded-xl space-y-2.5 animate-in fade-in-50 duration-150">
-              <div className="flex items-start justify-between gap-2">
-                <div className="space-y-0.5">
-                  <h4 className="font-extrabold text-xs text-neutral-950">
-                    {scannedBox.gameName}
-                  </h4>
-                  <p className="text-[10px] font-mono text-neutral-500 flex items-center gap-1">
-                    <span>Mã Hộp:</span>
-                    <strong className="text-neutral-800">
-                      {scannedBox.barcode}
-                    </strong>
-                  </p>
+        <aside className="space-y-4" aria-label="Công cụ và tổng quan POS">
+          <Card size="sm">
+            <CardHeader className="border-b">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Barcode className="size-4" />
+                Kiểm tra hộp game
+              </CardTitle>
+              {scannedBox && (
+                <CardAction>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setScannedBox(null);
+                      setScannedBarcode("");
+                    }}
+                    className="min-h-10"
+                  >
+                    Xóa kết quả
+                  </Button>
+                </CardAction>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="pos-box-barcode">Barcode hộp game</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="pos-box-barcode"
+                    type="text"
+                    placeholder="Quét hoặc nhập barcode"
+                    value={scannedBarcode}
+                    onChange={(e) => setScannedBarcode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleScanBarcode();
+                      }
+                    }}
+                    className="min-h-11 font-mono"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleScanBarcode}
+                    className="min-h-11 shrink-0 px-4"
+                  >
+                    Kiểm tra
+                  </Button>
                 </div>
-
-                <span
-                  className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border shrink-0 ${
-                    scannedBox.status === "Available"
-                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                      : "bg-amber-100 text-amber-800 border-amber-200"
-                  }`}
-                >
-                  {scannedBox.status}
-                </span>
               </div>
 
-              {scannedBox.missingComponents &&
-              scannedBox.missingComponents.length > 0 ? (
-                <div className="p-2.5 bg-rose-50/80 border border-rose-200 rounded-lg space-y-1.5">
-                  <div className="text-[10px] font-bold text-rose-800 uppercase flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-                    Cảnh báo: Hộp từng ghi nhận thiếu{" "}
-                    {scannedBox.missingComponents.length} linh kiện
+              {scannedBox ? (
+                <div className="space-y-3 rounded-xl border bg-neutral-50 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h4 className="truncate font-bold text-neutral-950">
+                        {scannedBox.gameName}
+                      </h4>
+                      <p className="mt-1 text-xs font-medium text-neutral-500">
+                        Mã hộp:{" "}
+                        <span className="font-mono text-neutral-800">
+                          {scannedBox.barcode}
+                        </span>
+                      </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={
+                        scannedBox.status === "Available"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : "border-amber-200 bg-amber-50 text-amber-800"
+                      }
+                    >
+                      {scannedBox.status}
+                    </Badge>
                   </div>
 
-                  <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
-                    {scannedBox.missingComponents.map(
-                      (comp: any, idx: number) => (
-                        <div
-                          key={comp.componentId || idx}
-                          className="bg-white border border-rose-100 px-2 py-1 rounded text-[11px] flex items-center justify-between"
-                        >
-                          <span className="font-bold text-neutral-900">
-                            • {comp.componentName}
-                          </span>
-                          <span className="font-mono font-bold text-rose-600 text-[10px]">
-                            Thiếu {comp.missingQuantity || 1} (
-                            {comp.componentKind || "Mảnh"})
-                          </span>
-                        </div>
-                      ),
-                    )}
-                  </div>
+                  {scannedBox.missingComponents?.length > 0 ? (
+                    <div className="space-y-2 rounded-lg border border-rose-200 bg-rose-50 p-3">
+                      <p className="flex items-center gap-2 text-xs font-bold text-rose-800">
+                        <AlertTriangle className="size-4" />
+                        Từng ghi nhận thiếu {scannedBox.missingComponents.length} linh kiện
+                      </p>
+                      {scannedBox.missingComponents.map(
+                        (comp: any, idx: number) => (
+                          <div
+                            key={comp.componentId || idx}
+                            className="flex justify-between gap-2 rounded-md bg-white px-2.5 py-2 text-xs"
+                          >
+                            <span className="font-semibold">{comp.componentName}</span>
+                            <span className="text-rose-700">
+                              Thiếu {comp.missingQuantity || 1}
+                            </span>
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  ) : (
+                    <p className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-800">
+                      <ShieldCheck className="size-4 shrink-0" />
+                      Đủ linh kiện, sẵn sàng bàn giao.
+                    </p>
+                  )}
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(scannedBox.barcode);
+                      toast.success(`Đã chép mã ${scannedBox.barcode}.`);
+                    }}
+                    className="min-h-10 w-full"
+                  >
+                    Chép mã mượn
+                  </Button>
                 </div>
               ) : (
-                <div className="p-2 bg-emerald-50/60 border border-emerald-200/60 rounded-lg flex items-center gap-1.5 text-[11px] text-emerald-800 font-medium">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>
-                    Hộp đầy đủ linh kiện, sẵn sàng bàn giao cho khách.
-                  </span>
-                </div>
+                <p className="rounded-xl border border-dashed p-4 text-center text-sm text-neutral-500">
+                  Quét barcode để xem tình trạng và lịch sử thiếu linh kiện.
+                </p>
               )}
+            </CardContent>
+          </Card>
 
-              <div className="pt-2 border-t border-neutral-200/60 flex items-center justify-between">
-                <span className="text-[10px] text-neutral-400 font-mono">
-                  ID: {scannedBox.id?.slice(0, 8)}...
-                </span>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => {
-                    navigator.clipboard.writeText(scannedBox.barcode);
-                    toast.success(`Đã chép mã ${scannedBox.barcode}.`);
-                  }}
-                  className="h-6 px-2 bg-neutral-900 text-white text-[10px] font-bold uppercase rounded-md shadow-2xs"
-                >
-                  Chép mã mượn
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="p-2.5 bg-neutral-50/50 border border-dashed border-neutral-200 rounded-xl text-center text-[11px] text-neutral-400 font-medium">
-              Sử dụng máy quét Barcode POS hoặc bấm nút Quét để kiểm tra tình
-              trạng hộp.
-            </div>
-          )}
-        </div>
-
-        <div className="bg-white border border-neutral-200 rounded-2xl p-4 flex items-center justify-between shadow-2xs">
-          <div className="space-y-1">
-            <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
-              Sơ đồ bàn trống
-            </span>
-            <div className="text-2xl font-mono font-extrabold text-emerald-600">
-              {tables.filter((t) => t.status === "Available").length} /{" "}
-              {tables.length}
-            </div>
-            <p className="text-[11px] text-neutral-400">
-              Bàn trống sẵn sàng đón khách
-            </p>
-          </div>
-          <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-        </div>
-
-        <div className="bg-white border border-neutral-200 rounded-2xl p-4 flex items-center justify-between shadow-2xs">
-          <div className="space-y-1">
-            <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
-              Phiên chơi đang hoạt động
-            </span>
-            <div className="text-2xl font-mono font-extrabold text-amber-600">
-              {sessions.length}
-            </div>
-            <p className="text-[11px] text-neutral-400">
-              Đang phục vụ billing & tính giờ
-            </p>
-          </div>
-          <Users className="w-8 h-8 text-amber-500" />
-        </div>
-      </div>
-
-      <div className="flex gap-2 border-b border-neutral-200 pb-px overflow-x-auto">
-        {(
-          [
-            ["tables", `Sơ đồ bàn (${tables.length})`],
-            ["sessions", `Phiên chơi active (${sessions.length})`],
-            ["boxes", `Kho Hộp Vật Lý (${boxes.length})`],
-            ["settlements", "Giải ngân"],
-          ] as const
-        ).map(([tab, label]) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-xs font-bold uppercase border-b-2 transition-all shrink-0 ${
-              activeTab === tab
-                ? "border-neutral-950 text-neutral-950 font-extrabold"
-                : "border-transparent text-neutral-400"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-20 border border-dashed rounded-2xl bg-white">
-          <Loader2 className="h-8 w-8 animate-spin text-neutral-500" />
-          <p className="text-xs font-semibold text-neutral-400">
-            Đang tải dữ liệu POS...
-          </p>
-        </div>
-      ) : activeTab === "tables" ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {tables.map((table) => {
-            const isAvail = table.status === "Available";
-            const session = sessions.find(
-              (s) =>
-                (s.cafeTableId || s.tableId || s.CafeTableId) === table.id,
-            );
-            const playerRange = mergePlayerRange(
-              session?.games?.[0],
-              session?.game,
-              session,
-              table,
-            );
-            const displayRange = {
-              min:
-                playerRange.min ??
-                (playerRange.max != null ? 1 : null),
-              max: playerRange.max,
-            };
-            const playerRangeLabel = formatPlayerRange(displayRange);
-            return (
-              <div
-                key={table.id}
-                className={`border rounded-2xl p-4 flex flex-col justify-between bg-white ${
-                  isAvail
-                    ? "border-neutral-200"
-                    : "border-amber-200 bg-amber-50/20"
-                }`}
-              >
+          <div className="grid grid-cols-2 gap-3">
+            <Card size="sm" className="gap-2">
+              <CardContent className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-extrabold text-base text-neutral-950">
-                    {table.name}
-                  </h3>
-                  <span className="text-[10px] text-neutral-400 font-mono">
-                    Thứ tự bàn: {table.sortOrder}
-                  </span>
-                  {playerRangeLabel && (
-                    <div className="mt-1.5 text-[11px] font-semibold text-neutral-700 flex items-center gap-1">
-                      <Users className="w-3 h-3 text-neutral-400 shrink-0" />
-                      <span>{playerRangeLabel}</span>
-                    </div>
-                  )}
+                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                    Bàn trống
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-emerald-700">
+                    {tables.filter((t) => t.status === "Available").length}
+                    <span className="text-sm font-medium text-neutral-400">/{tables.length}</span>
+                  </p>
                 </div>
-                <div className="pt-3 border-t border-neutral-100 mt-auto">
-                  {isAvail ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() =>
-                        setStartTable({
-                          id: table.id,
-                          name: table.name,
-                          minPlayers: displayRange.min,
-                          maxPlayers: displayRange.max,
-                        })
-                      }
-                      className="w-full h-7 bg-neutral-950 text-white text-[10px] font-bold uppercase rounded-md"
-                    >
-                      <Play className="w-2.5 h-2.5 mr-1" /> Gán Phiên
-                    </Button>
-                  ) : (
-                    <span className="text-[10px] font-bold text-amber-700 flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> Đang dùng
-                    </span>
-                  )}
+                <CheckCircle2 className="size-6 text-emerald-600" />
+              </CardContent>
+            </Card>
+            <Card size="sm" className="gap-2">
+              <CardContent className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                    Đang chơi
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-amber-700">{sessions.length}</p>
                 </div>
-              </div>
-            );
-          })}
+                <Users className="size-6 text-amber-600" />
+              </CardContent>
+            </Card>
+          </div>
+        </aside>
+      </div>
+
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as PosTab)}
+        className="gap-4"
+      >
+        <div className="overflow-x-auto pb-1">
+          <TabsList variant="line" aria-label="Khu vực vận hành POS" className="h-11 min-w-max">
+            <TabsTrigger value="tables" className="min-h-10 px-4">
+              Sơ đồ bàn ({tables.length})
+            </TabsTrigger>
+            <TabsTrigger value="sessions" className="min-h-10 px-4">
+              Phiên chơi ({sessions.length})
+            </TabsTrigger>
+            <TabsTrigger value="boxes" className="min-h-10 px-4">
+              Kho hộp ({boxes.length})
+            </TabsTrigger>
+            <TabsTrigger value="settlements" className="min-h-10 px-4">
+              Giải ngân
+            </TabsTrigger>
+          </TabsList>
         </div>
-      ) : activeTab === "sessions" ? (
-        <ActiveSessionsTab
-          sessions={sessions}
-          onEndSession={(sessionId: string) => {
-            const targetSes = sessions.find((s) => s.id === sessionId);
-            if (targetSes) setEndingSession(targetSes);
-          }}
-          onViewDetail={(sessionId: string) =>
-            setSelectedDetailSessionId(sessionId)
-          }
-          onInitiatePaymentFlow={handleInitiatePaymentFlow}
-          onShowBoxHistory={handleShowBoxHistoryDirectly}
-        />
-      ) : activeTab === "boxes" ? (
-        <PosBoxesTab boxes={boxes} />
-      ) : (
-        <SettlementsTab cafeId={cafeId} />
-      )}
+
+        {loading ? (
+          <Card>
+            <CardContent
+              className="flex flex-col items-center justify-center gap-3 py-16"
+              aria-live="polite"
+            >
+              <Loader2 className="size-8 animate-spin text-neutral-500" />
+              <p className="text-sm font-medium text-neutral-500">
+                Đang tải dữ liệu POS...
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            <TabsContent value="tables">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                {tables.map((table) => {
+                  const isAvail = table.status === "Available";
+                  const session = sessions.find(
+                    (s) =>
+                      (s.cafeTableId || s.tableId || s.CafeTableId) === table.id,
+                  );
+                  const playerRange = mergePlayerRange(
+                    session?.games?.[0],
+                    session?.game,
+                    session,
+                    table,
+                  );
+                  const displayRange = {
+                    min: playerRange.min ?? (playerRange.max != null ? 1 : null),
+                    max: playerRange.max,
+                  };
+                  const playerRangeLabel = formatPlayerRange(displayRange);
+                  return (
+                    <Card
+                      key={table.id}
+                      size="sm"
+                      className={
+                        isAvail
+                          ? "border-emerald-200 bg-emerald-50/20"
+                          : "border-amber-200 bg-amber-50/40"
+                      }
+                    >
+                      <CardHeader className="border-b">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-lg font-bold">{table.name}</CardTitle>
+                          <Badge
+                            variant="outline"
+                            className={
+                              isAvail
+                                ? "border-emerald-200 bg-white text-emerald-700"
+                                : "border-amber-200 bg-white text-amber-800"
+                            }
+                          >
+                            {isAvail ? "Sẵn sàng" : "Đang sử dụng"}
+                          </Badge>
+                        </div>
+                        <span className="text-xs text-neutral-500">
+                          Vị trí #{table.sortOrder}
+                        </span>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <p className="flex items-center gap-2 text-sm font-medium text-neutral-700">
+                          <Users className="size-4 text-neutral-500" />
+                          {playerRangeLabel || "Chưa đặt giới hạn người chơi"}
+                        </p>
+                        {!isAvail && session && (
+                          <p className="flex items-center gap-2 text-sm text-amber-800">
+                            <Clock className="size-4" />
+                            Có phiên đang hoạt động
+                          </p>
+                        )}
+                      </CardContent>
+                      <CardFooter className="border-t">
+                        {isAvail ? (
+                          <Button
+                            type="button"
+                            onClick={() =>
+                              setStartTable({
+                                id: table.id,
+                                name: table.name,
+                                minPlayers: displayRange.min,
+                                maxPlayers: displayRange.max,
+                              })
+                            }
+                            className="min-h-11 w-full gap-2"
+                          >
+                            <Play className="size-4" />
+                            Bắt đầu phiên
+                          </Button>
+                        ) : session ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setSelectedDetailSessionId(session.id)}
+                            className="min-h-11 w-full"
+                            aria-label={`Mở chi tiết phiên tại ${table.name}`}
+                          >
+                            Mở chi tiết phiên
+                          </Button>
+                        ) : (
+                          <div className="flex min-h-11 w-full items-center text-sm font-medium text-amber-800">
+                            Bàn đang bận, chưa tìm thấy phiên
+                          </div>
+                        )}
+                      </CardFooter>
+                    </Card>
+                  );
+                })}
+              </div>
+            </TabsContent>
+            <TabsContent value="sessions">
+              <ActiveSessionsTab
+                sessions={sessions}
+                onEndSession={(sessionId: string) => {
+                  const targetSes = sessions.find((s) => s.id === sessionId);
+                  if (targetSes) setEndingSession(targetSes);
+                }}
+                onViewDetail={(sessionId: string) =>
+                  setSelectedDetailSessionId(sessionId)
+                }
+                onInitiatePaymentFlow={handleInitiatePaymentFlow}
+                onShowBoxHistory={handleShowBoxHistoryDirectly}
+              />
+            </TabsContent>
+            <TabsContent value="boxes">
+              <PosBoxesTab boxes={boxes} />
+            </TabsContent>
+            <TabsContent value="settlements">
+              <SettlementsTab cafeId={cafeId} />
+            </TabsContent>
+          </>
+        )}
+      </Tabs>
 
       {canConfigureTables && (
         <SyncTablesModal

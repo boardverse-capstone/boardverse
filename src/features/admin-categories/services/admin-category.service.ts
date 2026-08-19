@@ -24,19 +24,15 @@ export const AdminCategoryService = {
   getCategories: async (params: CategoryListParams = {}): Promise<GameCategory[]> => {
     if (USE_MOCK) return AdminCategoryMockService.getCategories(params.includeInactive);
 
-    try {
-      const raw = await apiClient.get<
-        never,
-        RawGameCategory[] | { data?: RawGameCategory[]; items?: RawGameCategory[] }
-      >('/api/v1/admin/categories', {
-        params: {
-          includeInactive: params.includeInactive ? true : undefined,
-        },
-      });
-      return normalizeCategoryList(raw);
-    } catch {
-      return AdminCategoryMockService.getCategories(params.includeInactive);
-    }
+    const raw = await apiClient.get<
+      never,
+      RawGameCategory[] | { data?: RawGameCategory[]; items?: RawGameCategory[] }
+    >('/api/v1/admin/categories', {
+      params: {
+        includeInactive: params.includeInactive ? true : undefined,
+      },
+    });
+    return normalizeCategoryList(raw);
   },
 
   /** POST /api/v1/admin/categories */

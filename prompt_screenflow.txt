@@ -1,0 +1,60 @@
+Chào bạn,
+
+Hiện tại nhóm đang hoàn thiện tài liệu SRS/SDD cho đồ án BoardVerse, phần Screen Flow cần thể hiện đầy đủ luồng màn hình thực tế theo source code frontend của 3 roles trên Web:
+1. Cafe Staff (POS Web App)
+2. Cafe Manager (Management Web App)
+3. Admin (Centralized Administration Web Portal)
+
+Để đảm bảo tài liệu khớp 100% với source code Web (Next.js), bạn giúp mình trích xuất và mô tả Textual Screen Flow của từng role theo định dạng chuẩn bên dưới nhé:
+
+---
+
+### MẪU ĐỊNH DẠNG YÊU CẦU:
+
+#### Role: [Tên Role - Cafe Staff / Cafe Manager / Admin]
+
+1. Danh sách các màn hình chính (Screens / Routes):
+- [Tên màn hình 1] (Route URL, ví dụ: /pos/tables): Mô tả ngắn gọn chức năng.
+- [Tên màn hình 2] (Route URL, ví dụ: /pos/sessions/[id]): Mô tả ngắn gọn chức năng.
+- ...
+
+2. Luồng di chuyển chi tiết giữa các màn hình (Screen Transitions):
+- [Màn hình A]
+  + [Hành động / Nút bấm / Trigger] -> Chuyển sang / Mở popup: [Màn hình B / Modal C]
+  + [Hành động / Nút bấm / Trigger] -> Chuyển sang: [Màn hình D]
+  + [Điều kiện / Lỗi / Exception] -> Chuyển sang / Mở modal: [Màn hình E]
+
+3. Danh sách các Popup / Dialog / Modal phụ trên từng trang (nếu có):
+- Trang A:
+  + Modal 1: [Tên modal, ví dụ: CustomerCheckInModal] -> Trigger từ nút nào -> Sau khi submit chuyển đi đâu.
+  + Modal 2: [Tên modal, ví dụ: DigitalComponentChecklistModal] -> Trigger từ nút nào -> Sau khi submit chuyển đi đâu.
+
+---
+
+### CÁC LUỒNG NGHIỆP VỤ CỐT LÕI CẦN LIỆT KÊ ĐỦ:
+
+1. Phía Cafe Staff / POS:
+- Luồng mở/đóng ca làm việc (Shift Management).
+- Luồng xem sơ đồ bàn (Table Grid) -> Check-in khách (quét QR / tạo Token).
+- Luồng quản lý phiên chơi (Gán game qua barcode, thêm khách vô danh, thêm thành viên đến trễ).
+- Luồng trả game -> Bảng kiểm kê linh kiện (Digital Checklist) -> Tính phạt.
+- Luồng thanh toán (Multi-tier Invoice: tiền giờ + F&B + phạt linh kiện) & Tách nhóm (Partial Checkout).
+
+2. Phía Cafe Manager:
+- Luồng cấu hình hồ sơ quán: Giờ mở cửa, sơ đồ bàn, biểu phí giờ chơi, chính sách cọc.
+- Luồng quản lý kho game (Nhập game từ Master Catalog, cấu hình đơn giá đền bù linh kiện).
+- Luồng quản lý tài khoản nhân viên (Staff Accounts & Permissions).
+- Luồng duyệt phòng chờ đặt xa (Distant Lobby Approval Queue).
+- Luồng tạo và điều hành giải đấu tại quán (Tạo giải, Check-in vận động viên, Tạo bảng đấu Swiss/Knockout, Nhập điểm, Phát thưởng).
+- Luồng xem báo cáo & phân tích doanh thu (Analytics Dashboard).
+
+3. Phía Admin:
+- Dashboard tổng quan KPI toàn hệ thống.
+- Luồng duyệt hồ sơ đăng ký quán đối tác (Partner Onboarding Review & Verification).
+- Luồng quản trị Master Catalog (Import/Map game từ BGG, cấu hình template linh kiện chuẩn).
+- Luồng quản trị rủi ro & kỷ luật (Risk Alert Dashboard, Xử phạt Warning/Suspend/Ban, Xử lý khiếu nại Appeal Tickets, Cooling-off).
+- Luồng cấu hình tham số hệ thống toàn cục (Elo K-factor, Karma weights, Master variables).
+
+---
+
+Nhờ bạn phản hồi lại dưới dạng text/markdown chi tiết theo mẫu trên để mình ráp nối vẽ Screen Flow hoàn chỉnh cho báo cáo nhé. Cảm ơn bạn!

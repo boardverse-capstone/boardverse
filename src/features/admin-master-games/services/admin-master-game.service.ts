@@ -12,7 +12,6 @@ import type {
   UpdateMasterGameThumbnailRequest,
 } from '../types/master-game.interface';
 import {
-  mapApiMasterGameCategoryLink,
   mapApiMasterGameComponent,
   normalizeMasterGameCategoryList,
   normalizeMasterGameComponentList,
@@ -89,15 +88,11 @@ export const AdminMasterGameService = {
   getComponents: async (gameTemplateId: string): Promise<MasterGameComponent[]> => {
     if (USE_MOCK) return AdminMasterGameMockService.getComponents(gameTemplateId);
 
-    try {
-      const raw = await apiClient.get<
-        never,
-        RawMasterGameComponent[] | { data?: RawMasterGameComponent[]; items?: RawMasterGameComponent[] }
-      >(`/api/v1/admin/master-games/${gameTemplateId}/components`);
-      return normalizeMasterGameComponentList(raw);
-    } catch {
-      return AdminMasterGameMockService.getComponents(gameTemplateId);
-    }
+    const raw = await apiClient.get<
+      never,
+      RawMasterGameComponent[] | { data?: RawMasterGameComponent[]; items?: RawMasterGameComponent[] }
+    >(`/api/v1/admin/master-games/${gameTemplateId}/components`);
+    return normalizeMasterGameComponentList(raw);
   },
 
   /** POST /api/v1/admin/master-games/{gameTemplateId}/components */

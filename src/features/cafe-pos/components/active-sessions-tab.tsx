@@ -3,6 +3,15 @@
 
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   mergePlayerRange,
   readPresentCount,
@@ -43,6 +52,10 @@ function gameCheckStatus(game: any) {
   return normStatus(game?.checkStatus ?? game?.CheckStatus);
 }
 
+function isCompletedCheckStatus(status: string) {
+  return status === "verified" || status === "missingcomponents";
+}
+
 /** Trả bàn xong: BE đã đưa phiên sang CHECKING / UNPAID / PAID. */
 function isReturnedByApi(ses: any) {
   const status = sessionLifecycle(ses);
@@ -56,13 +69,13 @@ function isReturnedByApi(ses: any) {
   );
 }
 
-/** Kiểm kê xong: mọi game đều checkStatus = Verified từ BE. */
+/** Kiểm kê xong: hợp lệ hoặc đã ghi nhận linh kiện bị thiếu. */
 function isCheckDoneByApi(ses: any) {
   const games = ses.games || ses.Games || ses.sessionGames || [];
   if (!Array.isArray(games) || games.length === 0) {
-    return gameCheckStatus(ses) === "verified";
+    return isCompletedCheckStatus(gameCheckStatus(ses));
   }
-  return games.some((g: any) => gameCheckStatus(g) === "verified");
+  return games.every((g: any) => isCompletedCheckStatus(gameCheckStatus(g)));
 }
 
 function isPaidByApi(ses: any) {
@@ -81,20 +94,20 @@ export function ActiveSessionsTab({
 
   if (!activeSessions || activeSessions.length === 0) {
     return (
-      <div className="bg-white border border-neutral-200 rounded-2xl p-12 text-center space-y-3 shadow-2xs">
-        <Users className="w-10 h-10 text-neutral-400 mx-auto" />
-        <h3 className="font-bold text-sm text-neutral-900">
-          Không có bàn nào đang hoạt động
-        </h3>
-        <p className="text-xs text-neutral-500">
-          Vào tab Sơ đồ bàn để bắt đầu gán bàn cho lượt khách mới.
-        </p>
-      </div>
+      <Card>
+        <CardContent className="space-y-3 py-12 text-center">
+          <Users className="mx-auto size-10 text-neutral-400" />
+          <h3 className="font-bold text-neutral-900">Không có bàn nào đang hoạt động</h3>
+          <p className="text-sm text-neutral-500">
+            Vào tab Sơ đồ bàn để bắt đầu phiên cho lượt khách mới.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
       {activeSessions.map((ses: any) => {
         const isUnpaid = sessionLifecycle(ses) === "unpaid";
         const isChecking = sessionLifecycle(ses) === "checking";
@@ -102,6 +115,29 @@ export function ActiveSessionsTab({
         const isReturned = isReturnedByApi(ses);
         const isCheckDone = isCheckDoneByApi(ses);
         const isPaidDone = isPaidByApi(ses);
+        const nextAction = !isReturned
+          ? "return"
+          : !isCheckDone
+            ? "inventory"
+            : "pay";
+        const lifecycleSteps = [
+          { label: "Playing", done: isReturned, current: !isReturned },
+          {
+            label: "Return",
+            done: isReturned,
+            current: isReturned && !isCheckDone,
+          },
+          {
+            label: "Inventory",
+            done: isCheckDone,
+            current: isReturned && !isCheckDone,
+          },
+          {
+            label: "Pay",
+            done: isPaidDone,
+            current: isCheckDone && !isPaidDone,
+          },
+        ];
 
         const openDetail = () => {
           onViewDetail(ses.id);
@@ -139,59 +175,94 @@ export function ActiveSessionsTab({
         };
 
         return (
-          <div
+          <Card
             key={ses.id}
-            className={`bg-white border rounded-2xl p-4 shadow-2xs flex flex-col justify-between space-y-4 transition-all ${
+            size="sm"
+            className={`gap-0 transition-colors ${
               isUnpaid
-                ? "border-amber-300 bg-amber-50/20"
+                ? "border-amber-300 bg-amber-50/30"
                 : "border-neutral-200 hover:border-neutral-300"
             }`}
           >
-            {/* HEADER PHIÊN & TRẠNG THÁI */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-extrabold text-base text-neutral-950">
+            <CardHeader className="border-b">
+              <div className="flex items-center gap-2">
+                  <CardTitle className="text-lg font-bold text-neutral-950">
                     {ses.tableName}
-                  </h3>
-                  <span className="text-[11px] font-mono text-neutral-400">
+                  </CardTitle>
+                  <span className="font-mono text-xs text-neutral-500">
                     #{ses.id.slice(0, 6)}
                   </span>
-                </div>
-
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase border ${
-                    isUnpaid
-                      ? "bg-amber-100 text-amber-800 border-amber-300 animate-pulse"
-                      : isChecking
-                        ? "bg-blue-50 text-blue-700 border-blue-200"
-                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  }`}
-                >
-                  {isUnpaid
-                    ? "UNPAID"
-                    : isChecking
-                      ? "CHECKING"
-                      : ses.status || "Playing"}
-                </span>
               </div>
+              <CardAction>
+                  <Badge
+                    variant="outline"
+                    className={`uppercase ${
+                      isUnpaid
+                        ? "border-amber-300 bg-amber-100 text-amber-800"
+                        : isChecking
+                          ? "border-blue-200 bg-blue-50 text-blue-700"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    }`}
+                  >
+                    {isUnpaid
+                      ? "UNPAID"
+                      : isChecking
+                        ? "CHECKING"
+                        : ses.status || "Playing"}
+                  </Badge>
+              </CardAction>
+            </CardHeader>
 
-              {/* BƯỚC THỜI GIAN VÀ KHÁCH */}
-              <div className="grid grid-cols-2 gap-2 p-2.5 bg-neutral-50 rounded-xl border border-neutral-100 text-xs">
+            <CardContent className="space-y-4 py-4">
+              <ol
+                className="grid grid-cols-4 gap-1"
+                aria-label="Quy trình phiên chơi"
+              >
+                {lifecycleSteps.map((step, index) => (
+                  <li
+                    key={step.label}
+                    className="relative flex min-w-0 flex-col items-center gap-1 text-center"
+                    aria-current={step.current ? "step" : undefined}
+                  >
+                    <span
+                      className={`relative z-10 flex size-7 items-center justify-center rounded-full border text-xs font-bold ${
+                        step.done
+                          ? "border-emerald-600 bg-emerald-600 text-white"
+                          : step.current
+                            ? "border-neutral-900 bg-neutral-900 text-white"
+                            : "border-neutral-200 bg-white text-neutral-400"
+                      }`}
+                    >
+                      {step.done ? <CheckCircle2 className="size-4" /> : index + 1}
+                    </span>
+                    <span
+                      className={`text-xs font-medium ${
+                        step.current || step.done
+                          ? "text-neutral-900"
+                          : "text-neutral-400"
+                      }`}
+                    >
+                      {step.label}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+
+              <div className="grid grid-cols-2 gap-3 rounded-xl border bg-neutral-50 p-3 text-sm">
                 <div>
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase flex items-center gap-1">
-                    <Clock className="w-3 h-3" /> ĐÃ CHƠI
+                  <span className="flex items-center gap-1 text-xs font-semibold uppercase text-neutral-500">
+                    <Clock className="size-3.5" /> Đã chơi
                   </span>
-                  <div className="font-mono font-bold text-neutral-900 mt-0.5">
+                  <div className="mt-1 font-mono font-bold text-neutral-900">
                     {ses.elapsedMinutes} phút
                   </div>
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-neutral-400 uppercase flex items-center gap-1">
-                    <Users className="w-3 h-3" /> SỐ KHÁCH
+                  <span className="flex items-center gap-1 text-xs font-semibold uppercase text-neutral-500">
+                    <Users className="size-3.5" /> Số khách
                   </span>
-                  <div className="font-semibold text-neutral-800 mt-0.5">
+                  <div className="mt-1 font-semibold text-neutral-800">
                     {(() => {
                       const present = readPresentCount(ses);
                       const range = mergePlayerRange(
@@ -215,15 +286,14 @@ export function ActiveSessionsTab({
                 </div>
               </div>
 
-              {/* THÔNG TIN HỘP GAME (NẾU CÓ) */}
               {primaryGame && (
-                <div className="p-2.5 bg-neutral-50 rounded-xl border border-neutral-200/80 flex items-center justify-between text-xs">
-                  <div className="space-y-0.5 min-w-0 pr-2">
-                    <div className="font-bold text-neutral-900 truncate flex items-center gap-1">
-                      <Boxes className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                <div className="flex items-center justify-between rounded-xl border bg-neutral-50 p-3 text-sm">
+                  <div className="min-w-0 space-y-1 pr-2">
+                    <div className="flex items-center gap-1.5 truncate font-bold text-neutral-900">
+                      <Boxes className="size-4 shrink-0 text-neutral-500" />
                       {primaryGame.gameName}
                     </div>
-                    <div className="text-[10px] font-mono text-neutral-400">
+                    <div className="font-mono text-xs text-neutral-500">
                       Mã: {primaryGame.boxBarcode}
                     </div>
                   </div>
@@ -236,18 +306,17 @@ export function ActiveSessionsTab({
                       onClick={() =>
                         onShowBoxHistory(primaryGame.cafeInventoryBoxId)
                       }
-                      title="Xem lịch sử kiểm kê"
-                      className="h-7 w-7 p-0 text-amber-600 hover:bg-amber-100/60 rounded-lg shrink-0"
+                      aria-label={`Xem lịch sử kiểm kê của ${primaryGame.gameName}`}
+                      className="size-10 shrink-0 rounded-lg p-0 text-amber-700 hover:bg-amber-100"
                     >
-                      <History className="w-4 h-4" />
+                      <History className="size-4" />
                     </Button>
                   )}
                 </div>
               )}
-            </div>
+            </CardContent>
 
-            {/* CỤM FOOTER ACTION BUTTONS: DÙNG GRID CỐ ĐỊNH HOẶC FLEX CHUẨN ĐỂ KHÔNG BAO GIỜ ĐÈ NHAU */}
-            <div className="pt-3 border-t border-neutral-100 flex flex-wrap items-center gap-1.5 w-full">
+            <CardFooter className="grid grid-cols-2 gap-2 border-t">
               <Button
                 type="button"
                 size="sm"
@@ -264,16 +333,18 @@ export function ActiveSessionsTab({
                     ? "Đã trả bàn"
                     : "Trả bàn — kết thúc giờ chơi, chuyển sang CHECKING để kiểm kê. Chưa thu tiền, bàn chưa trống."
                 }
-                className={`h-8 px-2.5 text-[11px] font-bold rounded-lg shrink-0 flex items-center gap-1 shadow-none disabled:opacity-100 ${
+                className={`min-h-11 gap-2 rounded-lg font-semibold shadow-none disabled:opacity-100 ${
                   isReturned
                     ? "text-emerald-700 bg-emerald-50 hover:bg-emerald-50 hover:text-emerald-700"
-                    : "text-neutral-500 hover:text-rose-700 hover:bg-rose-50"
+                    : nextAction === "return"
+                      ? "bg-amber-500 text-white ring-2 ring-amber-200 ring-offset-2 hover:bg-amber-600 hover:text-white"
+                      : "text-neutral-500 hover:text-rose-700 hover:bg-rose-50"
                 }`}
               >
                 {isReturned ? (
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <CheckCircle2 className="size-4 shrink-0" />
                 ) : (
-                  <LogOut className="w-3.5 h-3.5 shrink-0" />
+                  <LogOut className="size-4 shrink-0" />
                 )}
                 <span>Trả bàn</span>
               </Button>
@@ -283,16 +354,18 @@ export function ActiveSessionsTab({
                 variant="outline"
                 size="sm"
                 onClick={openDetail}
-                className={`h-8 px-2.5 text-[11px] font-bold rounded-lg shrink-0 flex items-center gap-1 shadow-none ${
+                className={`min-h-11 gap-2 rounded-lg font-semibold shadow-none ${
                   isCheckDone
                     ? "text-emerald-800 border-emerald-200 bg-emerald-50"
-                    : "text-neutral-700 border-neutral-200"
+                    : nextAction === "inventory"
+                      ? "border-amber-500 bg-amber-500 text-white ring-2 ring-amber-200 ring-offset-2 hover:bg-amber-600 hover:text-white"
+                      : "text-neutral-500 border-neutral-200"
                 }`}
               >
                 {isCheckDone ? (
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+                  <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
                 ) : (
-                  <Info className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                  <Info className="size-4 shrink-0 text-neutral-500" />
                 )}
                 <span>Chi tiết</span>
               </Button>
@@ -302,28 +375,26 @@ export function ActiveSessionsTab({
                 size="sm"
                 disabled={isPaidDone}
                 onClick={openPay}
-                className={`h-8 px-3 text-[11px] font-bold rounded-lg flex items-center gap-1 shadow-none ml-auto ${
+                className={`col-span-2 min-h-11 gap-2 rounded-lg font-semibold shadow-none ${
                   isPaidDone
                     ? "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-50"
-                    : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                    : nextAction === "pay"
+                      ? "bg-emerald-600 text-white ring-2 ring-emerald-200 ring-offset-2 hover:bg-emerald-700"
+                      : "bg-neutral-100 text-neutral-400 hover:bg-neutral-100"
                 }`}
               >
                 {isPaidDone ? (
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <CheckCircle2 className="size-4 shrink-0" />
                 ) : (
-                  <CreditCard className="w-3.5 h-3.5 shrink-0" />
+                  <CreditCard className="size-4 shrink-0" />
                 )}
                 <span>
-                  {isPaidDone
-                    ? "Thanh toán"
-                    : isUnpaid
-                      ? "Thu Tiền"
-                      : "Thanh toán"}
+                  Thanh toán
                 </span>
-                {!isPaidDone && <ArrowRight className="w-3 h-3 shrink-0" />}
+                {!isPaidDone && <ArrowRight className="size-4 shrink-0" />}
               </Button>
-            </div>
-          </div>
+            </CardFooter>
+          </Card>
         );
       })}
     </div>

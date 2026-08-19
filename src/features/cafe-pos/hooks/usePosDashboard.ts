@@ -27,6 +27,16 @@ function isAlreadyCheckedMessage(message: string) {
   );
 }
 
+function isSessionNotFoundError(err: unknown) {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  return /Không tìm thấy phiên|session.*not found/i.test(msg);
+}
+
+function isPaidSessionStatus(status: unknown) {
+  const normalized = String(status ?? "").toLowerCase();
+  return normalized === "paid" || normalized === "completed";
+}
+
 function parseUtcCheckInTime(time: string, date: string) {
   const [hour, minute] = time.split(":").map(Number);
   const [day, month, year] = date.split("/").map(Number);
@@ -65,9 +75,6 @@ function formatPosCheckInError(error: unknown) {
       return `Đã quá giờ check-in. Thời gian check-in kết thúc lúc ${to}.`;
     }
     return `Không thể check-in trong thời điểm hiện tại. Thời gian cho phép: ${from} – ${to}.`;
-  }
-  if (/hiện tại:\s*Expired|status.*expired|trạng thái.*expired/i.test(message)) {
-    return "Reservation đã hết hạn vì không đủ số người tối thiểu.";
   }
   if (/status.*holding|trạng thái.*holding/i.test(message)) {
     return "Reservation đang ở trạng thái Holding, chưa thể check-in.";
@@ -203,9 +210,16 @@ export function usePosDashboard(opts?: {
       const rawSessions = sessionsRes?.data || sessionsRes || [];
 
       // Lọc bỏ các phiên đã hoàn tất thanh toán (Paid / Completed)
-      const activeSessionsOnly = rawSessions.filter(
-        (s: any) => s.status !== "Paid" && s.status !== "Completed"
-      );
+      const activeSessionsOnly = rawSessions
+        .filter((s: any) => s.status !== "Paid" && s.status !== "Completed")
+        .filter(
+          (session: any, index: number, sessions: any[]) =>
+            sessions.findIndex(
+              (candidate: any) =>
+                (candidate.id || candidate.sessionId) ===
+                (session.id || session.sessionId),
+            ) === index,
+        );
 
       const details = await Promise.all(
         activeSessionsOnly.map(async (s: any) => {
@@ -743,32 +757,62 @@ const handleScanBarcode = async () => {
         }
         return data;
       } catch (err: any) {
-        console.error("Lỗi lấy chi tiết phiên chơi:", err);
+        if (!isSessionNotFoundError(err)) {
+          console.error("Lỗi lấy chi tiết phiên chơi:", err);
+        }
         return null;
       }
     },
     [cafeId]
   );
 
-  /** Poll GET session — không có webhook SePay nên staff bấm Reload sau khi khách CK. */
-  const handleRefreshCheckoutPayment = async (sessionId: string) => {
-    if (!cafeId) return null;
-    const detail = await handleGetSessionDetail(sessionId);
-    await fetchAllData(cafeId);
-    if (detail) {
-      setCheckoutSession((prev: any) =>
-        prev?.id === sessionId
-          ? {
-              ...(prev || {}),
-              ...detail,
-              id: sessionId,
-              tableName: detail.tableName || prev?.tableName,
-            }
-          : prev,
-      );
-    }
-    return detail;
-  };
+  const completePaidCheckout = useCallback(
+    async (sessionId: string) => {
+      setCheckoutSession(null);
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      if (cafeId) await fetchAllData(cafeId);
+    },
+    [cafeId, fetchAllData],
+  );
+
+  /** Poll GET session — webhook SePay có thể xóa phiên khỏi active ngay sau khi PAID. */
+  const handleRefreshCheckoutPayment = useCallback(
+    async (sessionId: string) => {
+      if (!cafeId) return null;
+      try {
+        const res: any = await apiClient.get(
+          `/api/cafes/${cafeId}/pos/sessions/${sessionId}`,
+        );
+        const detail = res?.data || res;
+        const status = detail?.status ?? detail?.Status;
+
+        if (isPaidSessionStatus(status)) {
+          await completePaidCheckout(sessionId);
+          return { ...detail, status: "Paid", id: sessionId };
+        }
+
+        setCheckoutSession((prev: any) =>
+          prev?.id === sessionId
+            ? {
+                ...(prev || {}),
+                ...detail,
+                id: sessionId,
+                tableName: detail.tableName || prev?.tableName,
+              }
+            : prev,
+        );
+        return detail;
+      } catch (err) {
+        if (isSessionNotFoundError(err)) {
+          await completePaidCheckout(sessionId);
+          return { status: "Paid", id: sessionId };
+        }
+        // Poll thanh toán là tác vụ nền; lỗi mạng/timeout sẽ được thử lại.
+        return null;
+      }
+    },
+    [cafeId, fetchAllData, completePaidCheckout],
+  );
 
   // Lấy lịch sử hộp game 
 const handleFetchBoxHistory = useCallback(

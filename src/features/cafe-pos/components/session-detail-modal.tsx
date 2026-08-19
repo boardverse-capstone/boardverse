@@ -23,6 +23,17 @@ import {
   UserPlus,
 } from "lucide-react";
 
+function gameCheckStatus(game: any) {
+  return String(game?.checkStatus ?? game?.CheckStatus ?? "")
+    .toLowerCase()
+    .replace(/[_\s-]/g, "");
+}
+
+function isGameChecked(game: any) {
+  const status = gameCheckStatus(game);
+  return status === "verified" || status === "missingcomponents";
+}
+
 interface SessionDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -234,15 +245,19 @@ export function SessionDetailModal({
                       <div className="flex items-center gap-2 shrink-0">
                         <span
                           className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border ${
-                            g.checkStatus === "Verified"
+                            gameCheckStatus(g) === "verified"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : "bg-amber-50 text-amber-800 border-amber-200"
                           }`}
                         >
-                          {g.checkStatus || "Pending"}
+                          {gameCheckStatus(g) === "verified"
+                            ? "Đã kiểm kê · Đủ linh kiện"
+                            : gameCheckStatus(g) === "missingcomponents"
+                              ? "Đã kiểm kê · Thiếu linh kiện"
+                            : g.checkStatus || "Chưa kiểm kê"}
                         </span>
 
-                        <Button
+                        {!isGameChecked(g) && <Button
                           type="button"
                           size="sm"
                           variant="outline"
@@ -282,7 +297,7 @@ export function SessionDetailModal({
                           className="h-7 px-2 text-[10px] font-bold border-neutral-200 rounded-lg"
                         >
                           Kiểm kê
-                        </Button>
+                        </Button>}
                       </div>
                     </div>
                   ))}
