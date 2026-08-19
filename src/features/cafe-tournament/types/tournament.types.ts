@@ -151,6 +151,13 @@ export interface RecordMatchResultDto {
   notes?: string;
   results: MatchPlayerResultItem[];
 }
+
+export interface UpdateMatchResultDto {
+  matchId: string;
+  winnerUserId: string;
+  correctionReason: string;
+  results: MatchPlayerResultItem[];
+}
 export interface PairingTablePreview {
   tableNumber: number;
   tableName?: string;

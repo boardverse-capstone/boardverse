@@ -34,6 +34,7 @@ export const ROUTES = {
   },
   MANAGER: {
     POS: '/manager/pos',
+    TOURNAMENT: '/manager/tournaments',
     INVENTORY: '/manager/inventory',
     OPERATIONAL_PROFILE: '/manager/operational-profile',
     REPORTS: '/manager/reports',

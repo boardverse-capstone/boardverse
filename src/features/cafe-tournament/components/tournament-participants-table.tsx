@@ -5,7 +5,14 @@ import { useState } from "react";
 import { TournamentParticipant } from "../types/tournament.types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Users, Search, UserX, ShieldAlert, Phone } from "lucide-react";
+import {
+  Users,
+  Search,
+  CheckCircle2,
+  UserX,
+  ShieldAlert,
+  RefreshCw,
+} from "lucide-react";
 
 interface Props {
   participants: TournamentParticipant[];
@@ -14,7 +21,7 @@ interface Props {
   onNoShow: (participantId: string) => Promise<void>;
   onKick: (participantId: string, reason: string) => Promise<void>;
   actionLoadingId: string | null;
-  onAddWalkInClick?: () => void;
+  onRefresh?: () => void;
 }
 
 export function TournamentParticipantsTable({
@@ -24,21 +31,27 @@ export function TournamentParticipantsTable({
   onNoShow,
   onKick,
   actionLoadingId,
-  onAddWalkInClick,
+  onRefresh,
 }: Props) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   const filteredList = participants.filter((p) => {
-    const name = (p.walkInDisplayName || p.username || "").toLowerCase();
-    const phone = (p.walkInPhoneNumber || "").toLowerCase();
-    const matchSearch =
-      name.includes(search.toLowerCase()) ||
-      phone.includes(search.toLowerCase());
+    const name = (p.username || "").toLowerCase();
+    const matchSearch = name.includes(search.toLowerCase());
 
     if (statusFilter === "ALL") return matchSearch;
     if (statusFilter === "CheckedIn") {
       return matchSearch && (p.status === "CheckedIn" || p.status === "Active");
+    }
+    if (statusFilter === "Withdrawn") {
+      return (
+        matchSearch &&
+        (p.status === "Eliminated" ||
+          p.status === "NoShow" ||
+          (p.status as string) === "Withdrawn" ||
+          (p.status as string) === "Kicked")
+      );
     }
     return matchSearch && p.status === statusFilter;
   });
@@ -64,11 +77,12 @@ export function TournamentParticipantsTable({
             Vắng mặt
           </span>
         );
+      case "Eliminated":
       case "Withdrawn":
       case "Kicked":
         return (
           <span className="px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase bg-rose-100 text-rose-800 border border-rose-300">
-            Đã rời/Bị loại
+            Đã loại / Rời giải
           </span>
         );
       default:
@@ -82,7 +96,7 @@ export function TournamentParticipantsTable({
 
   return (
     <div className="bg-white rounded-3xl border border-neutral-200/90 shadow-2xs overflow-hidden flex flex-col">
-      {/* Header & Controls */}
+      {/* Header */}
       <div className="p-4 border-b border-neutral-200 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -92,37 +106,57 @@ export function TournamentParticipantsTable({
             </h3>
           </div>
 
-          {onAddWalkInClick && (
+          {onRefresh && (
             <Button
               size="sm"
-              onClick={onAddWalkInClick}
-              className="h-8 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold rounded-xl"
+              variant="outline"
+              onClick={onRefresh}
+              disabled={loading}
+              className="h-8 px-3 text-xs font-bold rounded-xl border-neutral-300 flex items-center gap-1.5 hover:bg-neutral-50 shadow-2xs"
             >
-              + Thêm Khách Vãng Lai
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${loading ? "animate-spin text-neutral-900" : "text-neutral-500"}`}
+              />
+              <span>Làm mới danh sách</span>
             </Button>
           )}
         </div>
 
-        {/* Search & Filter bar */}
+        {/* Search & Tabs */}
         <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
           <div className="flex items-center gap-1.5 flex-wrap">
             {[
               { id: "ALL", label: `Tất cả (${participants.length})` },
               {
                 id: "CheckedIn",
-                label: `Đã đến (${participants.filter((p) => p.status === "CheckedIn" || p.status === "Active").length})`,
+                label: `Đã đến (${
+                  participants.filter(
+                    (p) => p.status === "CheckedIn" || p.status === "Active",
+                  ).length
+                })`,
               },
               {
                 id: "Registered",
-                label: `Chưa đến (${participants.filter((p) => p.status === "Registered").length})`,
+                label: `Chưa đến (${
+                  participants.filter((p) => p.status === "Registered").length
+                })`,
               },
               {
                 id: "NoShow",
-                label: `Vắng (${participants.filter((p) => p.status === "NoShow").length})`,
+                label: `Vắng (${
+                  participants.filter((p) => p.status === "NoShow").length
+                })`,
               },
               {
                 id: "Withdrawn",
-                label: `Đã rời (${participants.filter((p) => p.status === "Withdrawn" || p.status === "Kicked").length})`,
+                label: `Đã rời (${
+                  participants.filter(
+                    (p) =>
+                      p.status === "Eliminated" ||
+                      (p.status as string) === "Withdrawn" ||
+                      (p.status as string) === "Kicked",
+                  ).length
+                })`,
               },
             ].map((tab) => (
               <button
@@ -143,7 +177,7 @@ export function TournamentParticipantsTable({
             <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-neutral-400" />
             <Input
               type="text"
-              placeholder="Tìm theo tên hoặc SĐT..."
+              placeholder="Tìm theo tên tuyển thủ..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="h-9 pl-8 text-xs bg-neutral-50 rounded-xl"
@@ -152,13 +186,12 @@ export function TournamentParticipantsTable({
         </div>
       </div>
 
-      {/* Table Data */}
+      {/* Danh sách dữ liệu */}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs">
           <thead className="bg-neutral-50/80 text-neutral-500 font-bold border-b border-neutral-200">
             <tr>
               <th className="py-3 px-4">Tuyển Thủ</th>
-              <th className="py-3 px-4">Loại Tham Gia</th>
               <th className="py-3 px-4">Chỉ Số Elo</th>
               <th className="py-3 px-4">Điểm Swiss</th>
               <th className="py-3 px-4">Trạng Thái</th>
@@ -169,7 +202,7 @@ export function TournamentParticipantsTable({
             {loading ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={5}
                   className="py-12 text-center text-neutral-400 font-medium"
                 >
                   Đang nạp danh sách tuyển thủ...
@@ -178,7 +211,7 @@ export function TournamentParticipantsTable({
             ) : filteredList.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={5}
                   className="py-12 text-center text-neutral-400 font-medium"
                 >
                   Không tìm thấy tuyển thủ nào phù hợp.
@@ -186,10 +219,13 @@ export function TournamentParticipantsTable({
               </tr>
             ) : (
               filteredList.map((p) => {
-                const displayName = p.walkInDisplayName || p.username || "VĐV";
+                const displayName = p.username || "VĐV";
                 const isReady =
                   p.status === "CheckedIn" || p.status === "Active";
-                const isOut = p.status === "Withdrawn" || p.status === "Kicked";
+                const isOut =
+                  p.status === "Eliminated" ||
+                  (p.status as string) === "Withdrawn" ||
+                  (p.status as string) === "Kicked";
                 const isActionLoading = actionLoadingId === p.id;
 
                 return (
@@ -217,20 +253,6 @@ export function TournamentParticipantsTable({
                       </div>
                     </td>
 
-                    {/* Loại tham gia */}
-                    <td className="py-3.5 px-4">
-                      {p.isWalkIn ? (
-                        <div className="flex items-center gap-1 text-[11px] font-semibold text-amber-800">
-                          <Phone className="w-3 h-3 text-amber-600" />
-                          <span>{p.walkInPhoneNumber || "Khách Vãng Lai"}</span>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
-                          App Member
-                        </span>
-                      )}
-                    </td>
-
                     {/* Elo */}
                     <td className="py-3.5 px-4 font-mono font-bold text-neutral-700">
                       {p.currentElo || p.initialElo || 1200}
@@ -247,51 +269,53 @@ export function TournamentParticipantsTable({
                     {/* Thao tác quản trị */}
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        {/* Chưa điểm danh -> Cho phép Check-in */}
                         {p.status === "Registered" && (
-                          <Button
-                            size="sm"
-                            disabled={isActionLoading}
-                            onClick={() => onCheckIn(p.id)}
-                            className="h-7 px-3 bg-neutral-950 hover:bg-neutral-800 text-white text-[11px] font-bold rounded-lg"
-                          >
-                            Check-in
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              disabled={isActionLoading}
+                              onClick={() => onCheckIn(p.id)}
+                              className="h-7 px-3 bg-neutral-950 hover:bg-neutral-800 text-white text-[11px] font-bold rounded-lg"
+                            >
+                              Check-in
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isActionLoading}
+                              onClick={() => onNoShow(p.id)}
+                              className="h-7 px-2.5 border-amber-200 text-amber-800 hover:bg-amber-50 text-[11px] font-bold rounded-lg flex items-center gap-1"
+                              title="Đánh dấu vắng mặt"
+                            >
+                              <UserX className="w-3 h-3" /> Vắng Mặt
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isActionLoading}
+                              onClick={() => {
+                                const reason = prompt(
+                                  `Nhập lý do xóa VĐV ${displayName}:`,
+                                );
+                                if (reason?.trim()) {
+                                  void onKick(p.id, reason.trim());
+                                }
+                              }}
+                              className="h-7 px-2.5 border-rose-200 text-rose-700 hover:bg-rose-50 text-[11px] font-bold rounded-lg flex items-center gap-1"
+                              title="Xóa khỏi danh sách đăng ký"
+                            >
+                              <ShieldAlert className="w-3 h-3" /> Xóa
+                            </Button>
+                          </>
                         )}
 
-                        {/* Đang có mặt -> Cho phép NoShow khi tự ý rời đi */}
                         {isReady && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={isActionLoading}
-                            onClick={() => onNoShow(p.id)}
-                            className="h-7 px-2.5 border-amber-200 text-amber-800 hover:bg-amber-50 text-[11px] font-bold rounded-lg flex items-center gap-1"
-                            title="Đánh dấu rời bàn/Vắng mặt để không xếp cặp các vòng sau"
-                          >
-                            <UserX className="w-3 h-3" /> Vắng Mặt
-                          </Button>
-                        )}
-
-                        {/* Kick / Loại trừ do gian lận hoặc vi phạm */}
-                        {!isOut && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={isActionLoading}
-                            onClick={() => {
-                              const reason = prompt(
-                                `Nhập lý do loại VĐV ${displayName} (VD: Gian lận, rời quán, phá luật...):`,
-                              );
-                              if (reason?.trim()) {
-                                void onKick(p.id, reason.trim());
-                              }
-                            }}
-                            className="h-7 px-2.5 border-rose-200 text-rose-700 hover:bg-rose-50 text-[11px] font-bold rounded-lg flex items-center gap-1"
-                            title="Loại khỏi giải đấu và hủy các ghép cặp tiếp theo"
-                          >
-                            <ShieldAlert className="w-3 h-3" /> Loại Khỏi Giải
-                          </Button>
+                          <span className="text-emerald-700 font-extrabold text-xs flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Đã Check-in
+                            (Sẵn sàng)
+                          </span>
                         )}
 
                         {isOut && (

@@ -5,32 +5,38 @@ import React, { useState } from "react";
 import {
   TournamentMatch,
   RecordMatchResultDto,
+  UpdateMatchResultDto,
 } from "../types/tournament.types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { X, Trophy, Sparkles, Medal, Award } from "lucide-react";
+import {
+  X,
+  Trophy,
+  Minus,
+  Plus,
+  AlertCircle,
+  Sparkles,
+  Layers,
+  Award,
+} from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   match: TournamentMatch | null;
+  staffId?: string;
   onSaveResult: (dto: RecordMatchResultDto) => Promise<boolean>;
+  onUpdateResult?: (dto: UpdateMatchResultDto) => Promise<boolean>;
 }
-
-// Bảng điểm Swiss chuẩn: 1st (+6), 2nd (+4), 3rd (+2), 4th (+0)
-const SWISS_POINTS: Record<number, number> = {
-  1: 6,
-  2: 4,
-  3: 2,
-  4: 0,
-};
 
 export function MatchResultModal({
   isOpen,
   onClose,
   match,
+  staffId,
   onSaveResult,
+  onUpdateResult,
 }: Props) {
   if (!isOpen || !match) return null;
 
@@ -38,144 +44,169 @@ export function MatchResultModal({
     <MatchResultModalContent
       key={match.id}
       match={match}
+      staffId={staffId}
       onClose={onClose}
       onSaveResult={onSaveResult}
+      onUpdateResult={onUpdateResult}
     />
   );
 }
 
 function MatchResultModalContent({
   match,
+  staffId,
   onClose,
   onSaveResult,
+  onUpdateResult,
 }: {
   match: TournamentMatch;
+  staffId?: string;
   onClose: () => void;
   onSaveResult: (dto: RecordMatchResultDto) => Promise<boolean>;
+  onUpdateResult?: (dto: UpdateMatchResultDto) => Promise<boolean>;
 }) {
+  const isEditMode = match.status === "Completed";
   const playersList: any[] = (match as any).players || [];
 
+  // Mặc định tất cả người chơi bắt đầu ở 15 điểm Prestige và 10 thẻ mua
   const [playerScores, setPlayerScores] = useState<
     Record<
       string,
       {
         prestigeScore: number;
         cardsBought: number;
-        rank: number;
       }
     >
   >(() => {
     const initial: Record<
       string,
-      { prestigeScore: number; cardsBought: number; rank: number }
+      { prestigeScore: number; cardsBought: number }
     > = {};
-    playersList.forEach((p, idx) => {
+    playersList.forEach((p) => {
       const pId = p.userId || p.id;
+      const defaultScore =
+        p.score !== null && p.score !== undefined ? p.score : 15;
+      const defaultCards =
+        p.cardsBought !== null && p.cardsBought !== undefined
+          ? p.cardsBought
+          : 10;
+
       initial[pId] = {
-        prestigeScore: p.score ?? 15,
-        cardsBought: p.cardsBought ?? 7,
-        rank: idx + 1,
+        prestigeScore: defaultScore,
+        cardsBought: defaultCards,
       };
     });
     return initial;
   });
 
   const [notes, setNotes] = useState(match.notes || "");
+  const [correctionReason, setCorrectionReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Tự động xếp hạng 1 -> 4 theo điểm Prestige và số thẻ mua
-  const handleAutoRank = () => {
-    const sorted = [...playersList].sort((a, b) => {
-      const pA = playerScores[a.userId || a.id] || {
-        prestigeScore: 0,
-        cardsBought: 0,
+  // Tăng/Giảm điểm Prestige (giới hạn tối thiểu 0, tối đa 50)
+  const adjustScore = (userId: string, delta: number) => {
+    setPlayerScores((prev) => {
+      const current = prev[userId]?.prestigeScore ?? 15;
+      const nextScore = Math.max(0, Math.min(50, current + delta));
+      return {
+        ...prev,
+        [userId]: {
+          ...prev[userId],
+          prestigeScore: nextScore,
+        },
       };
-      const pB = playerScores[b.userId || b.id] || {
-        prestigeScore: 0,
-        cardsBought: 0,
+    });
+  };
+
+  // Tăng/Giảm số thẻ đã mua (giới hạn tối thiểu 0, tối đa 100)
+  const adjustCards = (userId: string, delta: number) => {
+    setPlayerScores((prev) => {
+      const current = prev[userId]?.cardsBought ?? 10;
+      const nextCards = Math.max(0, Math.min(100, current + delta));
+      return {
+        ...prev,
+        [userId]: {
+          ...prev[userId],
+          cardsBought: nextCards,
+        },
       };
-
-      // 1. Điểm Prestige cao hơn xếp trên
-      if (pB.prestigeScore !== pA.prestigeScore) {
-        return pB.prestigeScore - pA.prestigeScore;
-      }
-      // 2. Tiebreaker: Số thẻ mua ít hơn xếp trên
-      return pA.cardsBought - pB.cardsBought;
     });
+  };
 
-    const updated = { ...playerScores };
-    sorted.forEach((p, idx) => {
-      const pId = p.userId || p.id;
-      if (updated[pId]) {
-        updated[pId].rank = idx + 1;
+  // Tìm người chiến thắng: Điểm cao hơn -> Nếu hòa xét mua ít thẻ hơn
+  const getSortedPlayers = () => {
+    return [...playersList].sort((a, b) => {
+      const pAId = a.userId || a.id;
+      const pBId = b.userId || b.id;
+      const scoreA = playerScores[pAId]?.prestigeScore ?? 0;
+      const scoreB = playerScores[pBId]?.prestigeScore ?? 0;
+      const cardsA = playerScores[pAId]?.cardsBought ?? 0;
+      const cardsB = playerScores[pBId]?.cardsBought ?? 0;
+
+      if (scoreB !== scoreA) {
+        return scoreB - scoreA;
       }
+      return cardsA - cardsB;
     });
-
-    setPlayerScores(updated);
-    toast.success("Đã tự động xếp hạng & tính điểm Swiss (+6, +4, +2, +0)!");
   };
 
-  const handleScoreChange = (
-    userId: string,
-    field: "prestigeScore" | "cardsBought",
-    val: number,
-  ) => {
-    setPlayerScores((prev) => ({
-      ...prev,
-      [userId]: {
-        ...prev[userId],
-        [field]: Number(val),
-      },
-    }));
-  };
-
-  const handleSetRankManually = (userId: string, rank: number) => {
-    setPlayerScores((prev) => ({
-      ...prev,
-      [userId]: {
-        ...prev[userId],
-        rank,
-      },
-    }));
-  };
+  const sortedPlayers = getSortedPlayers();
+  const winnerUserId = sortedPlayers[0]?.userId || sortedPlayers[0]?.id;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Tìm người hạng 1 (Winner)
-    const winnerEntry = Object.entries(playerScores).find(
-      ([, val]) => val.rank === 1,
-    );
+    if (!winnerUserId) {
+      toast.error("Không tìm thấy người chơi hợp lệ.");
+      return;
+    }
 
-    const winnerUserId = winnerEntry
-      ? winnerEntry[0]
-      : playersList[0]?.userId || playersList[0]?.id;
-
-    // Chuẩn bị payload results theo schema của Backend
     const results = Object.entries(playerScores).map(([userId, data]) => ({
       userId,
-      score: SWISS_POINTS[data.rank] ?? 0, // Điểm Swiss +6, +4, +2, +0 gửi vào trường score
+      score: data.prestigeScore,
       cardsBought: data.cardsBought,
     }));
 
     if (results.length < 2) {
-      toast.error("Bàn đấu cần tối thiểu 2 người chơi để ghi kết quả.");
+      toast.error("Bàn đấu cần tối thiểu 2 tuyển thủ.");
       return;
     }
 
-    const payload: RecordMatchResultDto = {
-      matchId: match.id,
-      winnerUserId,
-      results,
-      notes: notes.trim() || undefined,
-    };
-
     setIsSubmitting(true);
     try {
-      const ok = await onSaveResult(payload);
-      if (ok) {
-        toast.success("Đã ghi nhận kết quả bàn đấu!");
-        onClose();
+      if (isEditMode) {
+        if (!correctionReason.trim()) {
+          toast.error("Vui lòng nhập lý do sửa kết quả để ghi log hệ thống.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (!onUpdateResult) {
+          toast.error("Chức năng sửa kết quả chưa được cấu hình.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        const patchPayload: UpdateMatchResultDto = {
+          matchId: match.id,
+          winnerUserId,
+          correctionReason: correctionReason.trim(),
+          results,
+        };
+
+        const ok = await onUpdateResult(patchPayload);
+        if (ok) onClose();
+      } else {
+        const postPayload: RecordMatchResultDto = {
+          matchId: match.id,
+          winnerUserId,
+          recordedByStaffId: staffId || undefined,
+          notes: notes.trim() || undefined,
+          results,
+        };
+
+        const ok = await onSaveResult(postPayload);
+        if (ok) onClose();
       }
     } finally {
       setIsSubmitting(false);
@@ -184,22 +215,32 @@ function MatchResultModalContent({
 
   return (
     <div className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-neutral-200 rounded-3xl max-w-xl w-full p-6 space-y-4 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[90vh] flex flex-col">
-        {/* Header */}
+      <div className="bg-white border border-neutral-200 rounded-3xl max-w-xl w-full p-6 space-y-4 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[92vh] flex flex-col">
+        {/* Header Modal */}
         <div className="flex items-center justify-between border-b pb-3 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-amber-500 text-white rounded-2xl shadow-xs">
+            <div
+              className={`p-2.5 rounded-2xl text-white shadow-xs ${
+                isEditMode ? "bg-purple-600" : "bg-amber-500"
+              }`}
+            >
               <Trophy className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-black text-base text-neutral-950">
-                Ghi Nhận Kết Quả •{" "}
-                {match.tableName ||
-                  `Bàn #${match.tableNumber || match.id.slice(0, 6)}`}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-black text-base text-neutral-950">
+                  {isEditMode
+                    ? "Sửa Kết Quả Bàn Đấu"
+                    : "Ghi Nhận Kết Quả Bàn Đấu"}
+                </h3>
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-neutral-100 text-neutral-700">
+                  {match.tableName ||
+                    `Bàn #${match.tableNumber || match.id.slice(0, 6)}`}
+                </span>
+              </div>
               <p className="text-xs text-neutral-500 font-medium">
-                Cơ chế điểm Swiss:{" "}
-                <strong>1st: +6đ • 2nd: +4đ • 3rd: +2đ • 4th: +0đ</strong>
+                Mặc định <strong>15 điểm</strong> & <strong>10 thẻ</strong> •
+                Bấm <strong>[-]</strong> / <strong>[+]</strong> để tùy chỉnh
               </p>
             </div>
           </div>
@@ -213,138 +254,182 @@ function MatchResultModalContent({
           </button>
         </div>
 
-        {/* Action Button: Auto-Rank */}
-        <div className="flex items-center justify-between bg-amber-50/70 border border-amber-200/80 p-2.5 rounded-2xl shrink-0">
-          <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-amber-600" /> Tự động xếp hạng
-            theo điểm và thẻ mua
-          </span>
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleAutoRank}
-            className="h-7 px-3 bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] rounded-xl shadow-2xs"
-          >
-            Tính Xếp Hạng & Điểm
-          </Button>
-        </div>
+        {/* Warning Banner khi ở Edit Mode */}
+        {isEditMode && (
+          <div className="bg-purple-50 border border-purple-200/80 p-3 rounded-2xl flex items-start gap-2.5 text-xs text-purple-950 shrink-0">
+            <AlertCircle className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+            <div>
+              <strong>Lưu ý:</strong> Hệ thống sẽ tự động hoàn tác điểm cũ và
+              tính lại Elo theo kết quả mới.
+            </div>
+          </div>
+        )}
 
         {/* Form nhập điểm 4 VĐV */}
         <form
           onSubmit={handleSubmit}
           className="space-y-3 overflow-y-auto pr-1 flex-1 scrollbar-thin"
         >
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {playersList.map((player: any) => {
               const pId = player.userId || player.id;
               const current = playerScores[pId] || {
-                prestigeScore: 0,
-                cardsBought: 0,
-                rank: 4,
+                prestigeScore: 15,
+                cardsBought: 10,
               };
-              const swissPts = SWISS_POINTS[current.rank] ?? 0;
-              const isFirst = current.rank === 1;
+              const isWinner = winnerUserId === pId;
 
               return (
                 <div
                   key={pId}
-                  className={`p-3 rounded-2xl border transition-all ${
-                    isFirst
-                      ? "bg-amber-50/60 border-amber-300 ring-2 ring-amber-400/20"
-                      : "bg-neutral-50/70 border-neutral-200"
+                  className={`p-3.5 rounded-2xl border transition-all ${
+                    isWinner
+                      ? "bg-amber-50/70 border-amber-300 ring-2 ring-amber-400/30"
+                      : "bg-neutral-50/70 border-neutral-200/90"
                   }`}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                  {/* Tên VĐV & Badge Winner */}
+                  <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2 truncate">
-                      {isFirst ? (
-                        <Medal className="w-4 h-4 text-amber-600 shrink-0" />
+                      {isWinner ? (
+                        <span className="px-2 py-0.5 rounded-lg bg-amber-500 text-white font-black text-[10px] flex items-center gap-1 shadow-2xs">
+                          <Trophy className="w-3 h-3" /> HẠNG 1 (WINNER)
+                        </span>
                       ) : (
                         <Award className="w-4 h-4 text-neutral-400 shrink-0" />
                       )}
-                      <span className="font-extrabold text-xs text-neutral-900 truncate">
+                      <span className="font-black text-sm text-neutral-900 truncate">
                         {player.userName || player.username || "VĐV"}
                       </span>
                     </div>
 
-                    {/* Huy hiệu Swiss Points */}
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-bold text-neutral-500">
-                        Thứ hạng:
-                      </span>
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4].map((r) => (
-                          <button
-                            key={r}
-                            type="button"
-                            onClick={() => handleSetRankManually(pId, r)}
-                            className={`w-6 h-6 rounded-lg text-[10px] font-black transition-all ${
-                              current.rank === r
-                                ? r === 1
-                                  ? "bg-amber-500 text-white shadow-xs"
-                                  : "bg-neutral-950 text-white"
-                                : "bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-100"
-                            }`}
-                          >
-                            #{r}
-                          </button>
-                        ))}
-                      </div>
-
-                      <span
-                        className={`px-2 py-0.5 rounded-lg text-[11px] font-mono font-black ml-1 ${
-                          swissPts === 6
-                            ? "bg-amber-100 text-amber-800 border border-amber-300"
-                            : swissPts === 4
-                              ? "bg-blue-100 text-blue-800"
-                              : swissPts === 2
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-neutral-200 text-neutral-600"
-                        }`}
-                      >
-                        +{swissPts}đ
-                      </span>
-                    </div>
+                    <span className="text-[11px] font-mono text-neutral-400 font-bold">
+                      Elo: {player.currentElo || 1200}
+                    </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <label className="font-bold text-neutral-600 block mb-1 text-[11px]">
-                        Điểm Prestige (0 - 30)
-                      </label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={50}
-                        value={current.prestigeScore}
-                        onChange={(e) =>
-                          handleScoreChange(
-                            pId,
-                            "prestigeScore",
-                            Number(e.target.value),
-                          )
-                        }
-                        className="h-8.5 bg-white font-mono font-bold"
-                      />
+                  {/* Bộ điều khiển Điểm & Thẻ */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* CỘT 1: ĐIỂM PRESTIGE (Mặc định 15đ) */}
+                    <div className="bg-white p-2.5 rounded-xl border border-neutral-200/80 space-y-1.5 shadow-2xs">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-neutral-600">
+                        <span className="flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-amber-500" /> Điểm
+                          Prestige
+                        </span>
+                        <span className="text-[10px] text-neutral-400 font-mono">
+                          Chuẩn: 15đ
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-1">
+                        {/* Nút giảm nhanh -5 và -1 */}
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => adjustScore(pId, -5)}
+                            className="w-7 h-8 bg-neutral-100 hover:bg-neutral-200 rounded-lg font-bold text-[10px] text-neutral-700 active:scale-95 transition-transform"
+                            title="Giảm 5 điểm"
+                          >
+                            -5
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => adjustScore(pId, -1)}
+                            className="w-8 h-8 bg-neutral-100 hover:bg-rose-50 hover:text-rose-600 rounded-lg flex items-center justify-center font-black text-neutral-800 active:scale-95 transition-transform"
+                            title="Giảm 1 điểm"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Ô hiển thị & nhập số điểm */}
+                        <input
+                          type="number"
+                          min={0}
+                          max={50}
+                          value={current.prestigeScore}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setPlayerScores((prev) => ({
+                              ...prev,
+                              [pId]: { ...prev[pId], prestigeScore: val },
+                            }));
+                          }}
+                          className="w-14 h-8 text-center font-mono font-black text-base text-neutral-950 bg-neutral-50 rounded-lg border border-neutral-200"
+                        />
+
+                        {/* Nút tăng +1 */}
+                        <button
+                          type="button"
+                          onClick={() => adjustScore(pId, +1)}
+                          className="w-8 h-8 bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-600 rounded-lg flex items-center justify-center font-black text-neutral-800 active:scale-95 transition-transform"
+                          title="Tăng 1 điểm"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="font-bold text-neutral-600 block mb-1 text-[11px]">
-                        Số thẻ đã mua (Tiebreaker)
-                      </label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={50}
-                        value={current.cardsBought}
-                        onChange={(e) =>
-                          handleScoreChange(
-                            pId,
-                            "cardsBought",
-                            Number(e.target.value),
-                          )
-                        }
-                        className="h-8.5 bg-white font-mono font-bold"
-                      />
+                    {/* CỘT 2: SỐ THẺ ĐÃ MUA (Mặc định 10 thẻ) */}
+                    <div className="bg-white p-2.5 rounded-xl border border-neutral-200/80 space-y-1.5 shadow-2xs">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-neutral-600">
+                        <span className="flex items-center gap-1">
+                          <Layers className="w-3 h-3 text-blue-500" /> Thẻ Đã
+                          Mua
+                        </span>
+                        <span className="text-[10px] text-neutral-400 font-mono">
+                          Chuẩn: 10 thẻ
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-1">
+                        {/* Nút giảm -1 */}
+                        <button
+                          type="button"
+                          onClick={() => adjustCards(pId, -1)}
+                          className="w-8 h-8 bg-neutral-100 hover:bg-rose-50 hover:text-rose-600 rounded-lg flex items-center justify-center font-black text-neutral-800 active:scale-95 transition-transform"
+                          title="Giảm 1 thẻ"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Ô hiển thị & nhập số thẻ */}
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={current.cardsBought}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setPlayerScores((prev) => ({
+                              ...prev,
+                              [pId]: { ...prev[pId], cardsBought: val },
+                            }));
+                          }}
+                          className="w-14 h-8 text-center font-mono font-black text-base text-neutral-950 bg-neutral-50 rounded-lg border border-neutral-200"
+                        />
+
+                        {/* Nút tăng +1 và +5 */}
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => adjustCards(pId, +1)}
+                            className="w-8 h-8 bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-600 rounded-lg flex items-center justify-center font-black text-neutral-800 active:scale-95 transition-transform"
+                            title="Tăng 1 thẻ"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => adjustCards(pId, +5)}
+                            className="w-7 h-8 bg-neutral-100 hover:bg-neutral-200 rounded-lg font-bold text-[10px] text-neutral-700 active:scale-95 transition-transform"
+                            title="Tăng 5 thẻ"
+                          >
+                            +5
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -352,18 +437,35 @@ function MatchResultModalContent({
             })}
           </div>
 
-          <div>
-            <label className="font-bold text-neutral-700 block mb-1 text-xs">
-              Ghi chú bàn đấu (Tùy chọn)
-            </label>
-            <Input
-              placeholder="VD: Trận đấu kết thúc ở lượt thứ 24..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="h-8.5 text-xs"
-            />
-          </div>
+          {/* Ghi chú hoặc Lý do sửa */}
+          {isEditMode ? (
+            <div>
+              <label className="font-bold text-purple-900 block mb-1 text-xs">
+                Lý do sửa kết quả <span className="text-rose-500">*</span>
+              </label>
+              <Input
+                required
+                placeholder="VD: Nhập nhầm điểm bàn 1, điều chỉnh số thẻ tiebreaker..."
+                value={correctionReason}
+                onChange={(e) => setCorrectionReason(e.target.value)}
+                className="h-9 text-xs bg-purple-50/40 border-purple-200 focus:border-purple-500 rounded-xl"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="font-bold text-neutral-700 block mb-1 text-xs">
+                Ghi chú ván đấu (Tùy chọn)
+              </label>
+              <Input
+                placeholder="VD: Ván đấu kết thúc nhanh, chiến thuật gem xanh..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="h-9 text-xs rounded-xl"
+              />
+            </div>
+          )}
 
+          {/* Nút Xác nhận */}
           <div className="pt-3 border-t border-neutral-100 flex items-center justify-end gap-2 shrink-0">
             <Button
               type="button"
@@ -376,9 +478,17 @@ function MatchResultModalContent({
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="h-9 px-6 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold rounded-xl shadow-xs"
+              className={`h-9 px-6 text-white text-xs font-bold rounded-xl shadow-xs ${
+                isEditMode
+                  ? "bg-purple-600 hover:bg-purple-700"
+                  : "bg-neutral-950 hover:bg-neutral-800"
+              }`}
             >
-              {isSubmitting ? "Đang lưu..." : "Xác Nhận Kết Quả"}
+              {isSubmitting
+                ? "Đang lưu..."
+                : isEditMode
+                  ? "Cập Nhật Kết Quả (PATCH)"
+                  : "Xác Nhận Kết Quả (POST)"}
             </Button>
           </div>
         </form>

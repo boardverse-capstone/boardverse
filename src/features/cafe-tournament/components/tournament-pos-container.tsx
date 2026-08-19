@@ -9,9 +9,9 @@ import {
 } from "../types/tournament.types";
 import { MatchResultModal } from "./match-result-modal";
 import { TournamentCreateModal } from "./tournament-create-modal";
-import { TournamentWalkInModal } from "./tournament-walkin-modal";
 import { TournamentPairingStudioModal } from "./tournament-pairing-studio-modal";
 import { TournamentParticipantsTable } from "./tournament-participants-table";
+import { TournamentPodiumModal } from "./tournament-podium-modal";
 import { apiClient } from "@/core/api/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,11 +23,10 @@ import {
   XCircle,
   Plus,
   ChevronRight,
-  UserPlus,
-  Users,
   RefreshCw,
   Lock,
   LayoutGrid,
+  Users,
 } from "lucide-react";
 
 export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
@@ -54,21 +53,21 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
   // States
   const [participants, setParticipants] = useState<TournamentParticipant[]>([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
-  const [matches, setMatches] = useState<TournamentMatch[]>([]);
+  const [matches, setMatches] = useState<any[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(false);
 
-  // Tab View khi OnGoing: Xem Bàn Đấu (MATCHES) hoặc Xem Bảng Quản Lý Tuyển Thủ (ROSTER)
+  // Tab View khi OnGoing: MATCHES (Bàn Đấu) hoặc ROSTER (Quản Lý Tuyển Thủ)
   const [mainView, setMainView] = useState<"MATCHES" | "ROSTER">("MATCHES");
 
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showWalkInModal, setShowWalkInModal] = useState(false);
   const [showPairingStudio, setShowPairingStudio] = useState(false);
+  const [showPodiumModal, setShowPodiumModal] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<TournamentMatch | null>(
     null,
   );
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
-  // Refresh danh sách VĐV
+  // 1. Refresh danh sách VĐV
   const refreshParticipants = useCallback(async (tournamentId: string) => {
     try {
       setLoadingParticipants(true);
@@ -85,19 +84,29 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     }
   }, []);
 
-  // Fetch danh sách Bàn đấu
+  // 2. Fetch danh sách Bàn đấu
   const refreshMatches = useCallback(
     async (tournamentId: string, currentRound: number) => {
       try {
         setLoadingMatches(true);
-        const endpoint =
-          currentRound > 0
-            ? `/api/v1/pos/tournaments/${tournamentId}/matches/round/${currentRound}`
-            : `/api/v1/pos/tournaments/${tournamentId}/matches`;
+        const round = currentRound > 0 ? currentRound : 1;
 
-        const res: unknown = await apiClient.get(endpoint);
-        const resData = res as { data?: any[] };
-        const list: any[] = resData?.data || (res as any[]) || [];
+        let list: any[] = [];
+        try {
+          const res: unknown = await apiClient.get(
+            `/api/v1/pos/tournaments/${tournamentId}/matches/round/${round}`,
+          );
+          const resData = res as { data?: any[] };
+          list = resData?.data || (res as any[]) || [];
+        } catch {
+          const previewRes: unknown = await apiClient.get(
+            `/api/v1/pos/tournaments/${tournamentId}/pairings/${round}/preview`,
+          );
+          const prevData = previewRes as { data?: any };
+          const data = prevData?.data || previewRes;
+          list =
+            data?.pairings || data?.tables || (Array.isArray(data) ? data : []);
+        }
 
         setMatches(list);
       } catch {
@@ -109,26 +118,34 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     [],
   );
 
-  // Fetch Tournament ban đầu
+  // 3. Fetch danh sách giải đấu ban đầu
   useEffect(() => {
     if (!cafeId) return;
+
     let isMounted = true;
     const loadTournaments = async () => {
       try {
         await fetchTournaments();
-      } catch {}
+      } catch {
+        // Handled in hook
+      }
     };
-    if (isMounted) void loadTournaments();
+
+    if (isMounted) {
+      void loadTournaments();
+    }
+
     return () => {
       isMounted = false;
     };
   }, [cafeId, fetchTournaments]);
 
-  // Load VĐV & Bàn đấu khi activeTournament thay đổi
+  // 4. Tự động load VĐV & Bàn đấu khi activeTournament thay đổi
   useEffect(() => {
     const tournamentId = activeTournament?.id;
     const currentRound = activeTournament?.currentRound || 0;
     const isOngoing = activeTournament?.status === "OnGoing";
+
     let isMounted = true;
 
     if (!tournamentId) {
@@ -167,14 +184,28 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
       }
       try {
         setLoadingMatches(true);
-        const endpoint =
-          currentRound > 0
-            ? `/api/v1/pos/tournaments/${tournamentId}/matches/round/${currentRound}`
-            : `/api/v1/pos/tournaments/${tournamentId}/matches`;
-        const res: unknown = await apiClient.get(endpoint);
-        const resData = res as { data?: any[] };
-        const list: any[] = resData?.data || (res as any[]) || [];
-        if (isMounted) setMatches(list);
+        const round = currentRound > 0 ? currentRound : 1;
+
+        let list: any[] = [];
+        try {
+          const res: unknown = await apiClient.get(
+            `/api/v1/pos/tournaments/${tournamentId}/matches/round/${round}`,
+          );
+          const resData = res as { data?: any[] };
+          list = resData?.data || (res as any[]) || [];
+        } catch {
+          const previewRes: unknown = await apiClient.get(
+            `/api/v1/pos/tournaments/${tournamentId}/pairings/${round}/preview`,
+          );
+          const prevData = previewRes as { data?: any };
+          const data = prevData?.data || previewRes;
+          list =
+            data?.pairings || data?.tables || (Array.isArray(data) ? data : []);
+        }
+
+        if (isMounted) {
+          setMatches(list);
+        }
       } catch {
         if (isMounted) setMatches([]);
       } finally {
@@ -194,13 +225,16 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     activeTournament?.currentRound,
   ]);
 
+  // Bắt đầu 1 bàn đấu
   const onStartMatch = async (matchId: string) => {
     if (!activeTournament) return;
     const ok = await handleStartMatch(matchId);
-    if (ok)
+    if (ok) {
       await refreshMatches(activeTournament.id, activeTournament.currentRound);
+    }
   };
 
+  // Ghi nhận kết quả bàn đấu (POST)
   const onSaveMatchResult = async (dto: any) => {
     if (!activeTournament) return false;
     const ok = await handleRecordMatchResult(dto);
@@ -211,34 +245,42 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     return ok;
   };
 
-  const onCancelMatch = async (matchId: string, reason: string) => {
-    if (!activeTournament) return;
-    const ok = await handleCancelMatch(matchId, reason);
-    if (ok)
-      await refreshMatches(activeTournament.id, activeTournament.currentRound);
-  };
-
-  const handleAddWalkIn = async (dto: {
-    displayName: string;
-    phoneNumber?: string;
-  }) => {
+  // Sửa kết quả bàn đấu đã Completed (PATCH)
+  const onUpdateMatchResult = async (dto: any) => {
     if (!activeTournament) return false;
     try {
-      await apiClient.post(
-        `/api/v1/pos/tournaments/${activeTournament.id}/walk-in`,
+      const res: any = await apiClient.patch(
+        `/api/v1/pos/tournaments/matches/${dto.matchId}/result`,
         dto,
       );
-      toast.success("Đã thêm khách vãng lai!");
+      toast.success(res?.message || "Sửa kết quả bàn đấu thành công!");
+      await refreshMatches(activeTournament.id, activeTournament.currentRound);
       await refreshParticipants(activeTournament.id);
-      await fetchTournaments();
       return true;
     } catch (err: unknown) {
-      const error = err as { message?: string };
-      toast.error(error?.message || "Lỗi thêm khách vãng lai.");
+      const error = err as {
+        message?: string;
+        errors?: Record<string, string[]>;
+      };
+      toast.error(
+        error?.errors?.Results?.[0] ||
+          error?.message ||
+          "Lỗi cập nhật kết quả.",
+      );
       return false;
     }
   };
 
+  // Hủy bàn đấu
+  const onCancelMatch = async (matchId: string, reason: string) => {
+    if (!activeTournament) return;
+    const ok = await handleCancelMatch(matchId, reason);
+    if (ok) {
+      await refreshMatches(activeTournament.id, activeTournament.currentRound);
+    }
+  };
+
+  // Loại VĐV khỏi giải đấu (Kick)
   const handleKickParticipant = async (
     participantId: string,
     reason: string,
@@ -250,7 +292,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
         `/api/v1/pos/tournaments/${activeTournament.id}/participants/${participantId}/kick`,
         { reason },
       );
-      toast.success("Đã loại tuyển thủ khỏi giải đấu.");
+      toast.success("Đã loại tuyển thủ khỏi danh sách.");
       await refreshParticipants(activeTournament.id);
       await fetchTournaments();
     } catch (err: unknown) {
@@ -261,6 +303,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     }
   };
 
+  // Check-in VĐV tại quầy
   const onCheckIn = async (participantId: string) => {
     if (!activeTournament) return;
     setActionLoadingId(participantId);
@@ -269,12 +312,15 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
         activeTournament.id,
         participantId,
       );
-      if (ok) await refreshParticipants(activeTournament.id);
+      if (ok) {
+        await refreshParticipants(activeTournament.id);
+      }
     } finally {
       setActionLoadingId(null);
     }
   };
 
+  // No-show
   const onNoShow = async (participantId: string) => {
     if (!activeTournament) return;
     setActionLoadingId(participantId);
@@ -283,7 +329,9 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
         activeTournament.id,
         participantId,
       );
-      if (ok) await refreshParticipants(activeTournament.id);
+      if (ok) {
+        await refreshParticipants(activeTournament.id);
+      }
     } finally {
       setActionLoadingId(null);
     }
@@ -300,13 +348,14 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     );
   }
 
+  // Khóa sửa bảng cặp nếu có bàn đã OnGoing hoặc Completed
   const isAnyMatchStarted = matches.some(
     (m) => m.status === "OnGoing" || m.status === "Completed",
   );
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-10">
-      {/* Header Bar */}
+      {/* 1. Header Bar */}
       <div className="bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-2xs flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-amber-500 text-white rounded-2xl shadow-xs">
@@ -349,7 +398,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
         </div>
       </div>
 
-      {/* Hero Tournament Card */}
+      {/* 2. Hero Tournament Card */}
       {activeTournament ? (
         <div className="space-y-4">
           <div className="bg-white p-5 rounded-3xl border border-neutral-200 shadow-2xs space-y-4">
@@ -375,7 +424,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                 </p>
               </div>
 
-              {/* Action Buttons */}
+              {/* Action Buttons theo State Machine */}
               <div className="flex items-center gap-2">
                 {activeTournament.status === "Draft" && (
                   <Button
@@ -394,13 +443,6 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                       className="h-9 border-neutral-300 text-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5"
                     >
                       <Swords className="w-3.5 h-3.5" /> Xếp Bảng Cặp R1
-                    </Button>
-                    <Button
-                      onClick={() => setShowWalkInModal(true)}
-                      variant="outline"
-                      className="h-9 border-neutral-300 text-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5"
-                    >
-                      <UserPlus className="w-3.5 h-3.5" /> Thêm Walk-in
                     </Button>
                     <Button
                       onClick={() =>
@@ -423,13 +465,6 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                       <Swords className="w-3.5 h-3.5" /> Xếp Bảng Cặp R1
                     </Button>
                     <Button
-                      onClick={() => setShowWalkInModal(true)}
-                      variant="outline"
-                      className="h-9 border-neutral-300 text-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5"
-                    >
-                      <UserPlus className="w-3.5 h-3.5" /> Thêm Walk-in
-                    </Button>
-                    <Button
                       onClick={() => handleStartTournament(activeTournament.id)}
                       className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl px-5 shadow-xs"
                     >
@@ -439,25 +474,85 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                   </>
                 )}
 
-                {activeTournament.status === "OnGoing" && (
-                  <>
-                    <Button
-                      onClick={() => handleAdvanceRound(activeTournament.id)}
-                      className="h-9 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl px-4"
-                    >
-                      <ChevronRight className="w-4 h-4 mr-1" /> Chuyển Vòng Tiếp
-                    </Button>
-                    <Button
-                      onClick={() =>
-                        handleCompleteTournament(activeTournament.id)
-                      }
-                      className="h-9 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl px-4"
-                    >
-                      <CheckCircle2 className="w-4 h-4 mr-1" /> Hoàn Thành Giải
-                    </Button>
-                  </>
+                {activeTournament.status === "OnGoing" &&
+                  (() => {
+                    const totalRounds = activeTournament.totalRounds || 4;
+                    const isFinalRound =
+                      activeTournament.currentRound >= totalRounds;
+                    const isAllMatchesCompleted =
+                      matches.length > 0 &&
+                      matches.every((m) => m.status === "Completed");
+                    const canComplete = isFinalRound && isAllMatchesCompleted;
+
+                    return (
+                      <>
+                        {!isFinalRound && (
+                          <Button
+                            onClick={() =>
+                              handleAdvanceRound(activeTournament.id)
+                            }
+                            className="h-9 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl px-4"
+                          >
+                            <ChevronRight className="w-4 h-4 mr-1" /> Chuyển
+                            Vòng Tiếp
+                          </Button>
+                        )}
+
+                        <Button
+                          onClick={async () => {
+                            if (!canComplete) {
+                              if (!isFinalRound) {
+                                toast.warning(
+                                  `Giải đấu chưa hoàn thành vòng ${totalRounds}. Hiện đang ở vòng #${activeTournament.currentRound}.`,
+                                );
+                              } else if (!isAllMatchesCompleted) {
+                                toast.warning(
+                                  "Vẫn còn bàn đấu ở vòng cuối chưa ghi nhận kết quả.",
+                                );
+                              }
+                              return;
+                            }
+
+                            const ok = await handleCompleteTournament(
+                              activeTournament.id,
+                            );
+                            if (ok) {
+                              await refreshParticipants(activeTournament.id);
+                              setShowPodiumModal(true);
+                            }
+                          }}
+                          disabled={!canComplete}
+                          className={`h-9 text-xs font-bold rounded-xl px-4 transition-all flex items-center gap-1.5 ${
+                            canComplete
+                              ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md ring-2 ring-emerald-400/40 animate-pulse"
+                              : "bg-neutral-200 text-neutral-400 cursor-not-allowed border border-neutral-300 opacity-60"
+                          }`}
+                          title={
+                            canComplete
+                              ? "Tất cả các ván vòng 4 đã xong. Bấm để tổng kết giải và đồng bộ Elo/Karma!"
+                              : "Chỉ hoàn thành giải khi đã thi đấu xong tất cả các bàn ở vòng 4."
+                          }
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          {canComplete
+                            ? "Hoàn Thành Giải Đấu"
+                            : `Hoàn Thành Giải (Cần xong Vòng ${totalRounds})`}
+                        </Button>
+                      </>
+                    );
+                  })()}
+
+                {/* Khi giải đã Hoàn thành -> Cho phép mở lại Bảng Vinh Danh */}
+                {activeTournament.status === "Completed" && (
+                  <Button
+                    onClick={() => setShowPodiumModal(true)}
+                    className="h-9 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl px-4 flex items-center gap-1.5 shadow-xs"
+                  >
+                    <Trophy className="w-4 h-4" /> Xem Bảng Vinh Danh
+                  </Button>
                 )}
 
+                {/* Ẩn nút hủy giải khi đã OnGoing hoặc Completed */}
                 {activeTournament.status !== "OnGoing" &&
                   activeTournament.status !== "Completed" &&
                   activeTournament.status !== "Cancelled" && (
@@ -526,7 +621,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
             </div>
           </div>
 
-          {/* Thanh điều hướng Tab khi giải OnGoing */}
+          {/* Thanh chuyển đổi View khi giải OnGoing */}
           {activeTournament.status === "OnGoing" && (
             <div className="flex items-center gap-2 bg-neutral-100/70 p-1.5 rounded-2xl w-fit">
               <button
@@ -555,9 +650,9 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
             </div>
           )}
 
-          {/* Khu vực nội dung chính */}
+          {/* 3. KHU VỰC NỘI DUNG CHÍNH */}
           {activeTournament.status === "OnGoing" && mainView === "MATCHES" ? (
-            /* 1. ARENA BÀN ĐẤU */
+            /* 3A. ARENA BÀN ĐẤU */
             <div className="bg-white p-5 rounded-3xl border border-neutral-200 shadow-2xs space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
                 <div className="flex items-center gap-2">
@@ -620,9 +715,14 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {matches.map((match: any) => {
+                  {matches.map((match: any, idx: number) => {
+                    const matchNumber =
+                      match.matchNumber || match.tableNumber || idx + 1;
+                    let tablePlayers: any[] = [];
+
+                    // Phân giải player1Id -> player4Id
                     const slotIndices = [1, 2, 3, 4] as const;
-                    const tablePlayers = slotIndices
+                    const flatPlayers = slotIndices
                       .map((slot) => {
                         const pId = match[`player${slot}Id`];
                         if (!pId) return null;
@@ -635,7 +735,6 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                           slot,
                           userId: pId,
                           userName:
-                            participantInfo?.walkInDisplayName ||
                             participantInfo?.username ||
                             `VĐV #${pId.slice(0, 4)}`,
                           avatarUrl: participantInfo?.avatarUrl,
@@ -645,35 +744,97 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                             1200,
                           score: match[`player${slot}Score`],
                           cardsBought: match[`player${slot}CardsBought`],
-                          isWinner: match.winnerPlayerId === pId,
+                          isWinner:
+                            match.winnerPlayerId === pId ||
+                            match.winnerUserId === pId,
                         };
                       })
                       .filter(Boolean);
 
+                    if (flatPlayers.length > 0) {
+                      tablePlayers = flatPlayers;
+                    } else if (
+                      Array.isArray(match.playerIds) &&
+                      match.playerIds.length > 0
+                    ) {
+                      tablePlayers = match.playerIds.map((pId: string) => {
+                        const participantInfo = participants.find(
+                          (p) => p.userId === pId || p.id === pId,
+                        );
+                        return {
+                          userId: pId,
+                          userName:
+                            participantInfo?.username ||
+                            `VĐV #${pId.slice(0, 4)}`,
+                          avatarUrl: participantInfo?.avatarUrl,
+                          currentElo:
+                            participantInfo?.currentElo ||
+                            participantInfo?.initialElo ||
+                            1200,
+                          score:
+                            match.scores?.find((s: any) => s.userId === pId)
+                              ?.score ?? null,
+                          cardsBought:
+                            match.scores?.find((s: any) => s.userId === pId)
+                              ?.cardsBought ?? null,
+                          isWinner:
+                            match.winnerUserId === pId ||
+                            match.winnerPlayerId === pId,
+                        };
+                      });
+                    } else if (Array.isArray(match.players)) {
+                      tablePlayers = match.players.map((p: any) => {
+                        const pId = p.userId || p.id;
+                        const participantInfo = participants.find(
+                          (part) => part.userId === pId || part.id === pId,
+                        );
+                        return {
+                          userId: pId,
+                          userName:
+                            p.userName ||
+                            p.username ||
+                            participantInfo?.username ||
+                            "VĐV",
+                          avatarUrl: p.avatarUrl || participantInfo?.avatarUrl,
+                          currentElo:
+                            p.currentElo ||
+                            participantInfo?.currentElo ||
+                            participantInfo?.initialElo ||
+                            1200,
+                          score: p.score ?? null,
+                          cardsBought: p.cardsBought ?? null,
+                          isWinner: p.isWinner || match.winnerUserId === pId,
+                        };
+                      });
+                    }
+
+                    const matchStatus = match.status || "Scheduled";
+
                     return (
                       <div
-                        key={match.id}
+                        key={match.id || `table-${matchNumber}`}
                         className="p-4 rounded-3xl border border-neutral-200/90 bg-white space-y-3.5 shadow-2xs flex flex-col justify-between overflow-hidden"
                       >
                         <div className="space-y-3">
+                          {/* Header Bàn đấu */}
                           <div className="flex items-center justify-between">
                             <span className="font-black text-sm text-neutral-950">
-                              {match.tableName ||
-                                `Bàn #${match.matchNumber || match.tableNumber || match.id.slice(0, 6)}`}
+                              {match.tableName || `Bàn #${matchNumber}`}
                             </span>
                             <span
                               className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${
-                                match.status === "Completed"
+                                matchStatus === "Completed"
                                   ? "bg-emerald-100 text-emerald-800"
-                                  : match.status === "OnGoing"
+                                  : matchStatus === "OnGoing"
                                     ? "bg-blue-100 text-blue-800"
                                     : "bg-neutral-100 text-neutral-600"
                               }`}
                             >
-                              {match.status}
+                              {matchStatus}
                             </span>
                           </div>
 
+                          {/* Danh sách 4 VĐV trong bàn */}
                           <div className="space-y-2">
                             {tablePlayers.map((p: any) => (
                               <div
@@ -716,9 +877,11 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                           </div>
                         </div>
 
+                        {/* Action buttons */}
                         <div className="pt-3 border-t border-neutral-100 flex flex-wrap items-center justify-end gap-1.5">
-                          {match.status !== "Completed" &&
-                            match.status !== "Cancelled" && (
+                          {match.id &&
+                            matchStatus !== "Completed" &&
+                            matchStatus !== "Cancelled" && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -735,7 +898,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                               </Button>
                             )}
 
-                          {match.status === "Scheduled" && (
+                          {match.id && matchStatus === "Scheduled" && (
                             <Button
                               size="sm"
                               onClick={() => onStartMatch(match.id)}
@@ -748,14 +911,24 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                           <Button
                             size="sm"
                             onClick={() => {
+                              if (!match.id || match.id.startsWith("table-")) {
+                                toast.error(
+                                  "Bàn đấu chưa có UUID hợp lệ trong cơ sở dữ liệu.",
+                                );
+                                return;
+                              }
+
                               setSelectedMatch({
                                 ...match,
+                                id: match.id,
+                                tableName:
+                                  match.tableName || `Bàn #${matchNumber}`,
                                 players: tablePlayers,
                               });
                             }}
                             className="h-8 px-3.5 bg-neutral-950 hover:bg-neutral-800 text-white text-[11px] font-bold rounded-xl shadow-2xs"
                           >
-                            {match.status === "Completed"
+                            {matchStatus === "Completed"
                               ? "Sửa Điểm"
                               : "Ghi Kết Quả"}
                           </Button>
@@ -767,7 +940,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
               )}
             </div>
           ) : (
-            /* 2. BẢNG QUẢN LÝ TUYỂN THỦ (Dùng chung cho cả Sảnh chờ và Trong lúc thi đấu) */
+            /* 3B. BẢNG QUẢN LÝ TUYỂN THỦ */
             <TournamentParticipantsTable
               participants={participants}
               loading={loadingParticipants}
@@ -775,7 +948,11 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
               onNoShow={onNoShow}
               onKick={handleKickParticipant}
               actionLoadingId={actionLoadingId}
-              onAddWalkInClick={() => setShowWalkInModal(true)}
+              onRefresh={() => {
+                if (activeTournament) {
+                  void refreshParticipants(activeTournament.id);
+                }
+              }}
             />
           )}
         </div>
@@ -787,24 +964,19 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
         </div>
       )}
 
-      {/* Các Modal Vệ Tinh */}
+      {/* 4. Các Modal Vệ Tinh */}
       <MatchResultModal
         isOpen={!!selectedMatch}
         onClose={() => setSelectedMatch(null)}
         match={selectedMatch}
         onSaveResult={onSaveMatchResult}
+        onUpdateResult={onUpdateMatchResult}
       />
 
       <TournamentCreateModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateTournament}
-      />
-
-      <TournamentWalkInModal
-        isOpen={showWalkInModal}
-        onClose={() => setShowWalkInModal(false)}
-        onSubmit={handleAddWalkIn}
       />
 
       {activeTournament && (
@@ -822,6 +994,15 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
               );
             }
           }}
+        />
+      )}
+
+      {activeTournament && (
+        <TournamentPodiumModal
+          isOpen={showPodiumModal}
+          onClose={() => setShowPodiumModal(false)}
+          tournamentTitle={activeTournament.title}
+          participants={participants}
         />
       )}
     </div>

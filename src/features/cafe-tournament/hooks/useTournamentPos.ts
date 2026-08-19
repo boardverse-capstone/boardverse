@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useCallback } from "react";
 import { apiClient } from "@/core/api/client";
@@ -7,6 +8,7 @@ import {
   CreateTournamentDto,
   RecordMatchResultDto,
   TournamentStatus,
+  UpdateMatchResultDto,
 } from "../types/tournament.types";
 
 export function useTournamentPos(cafeId: string | null) {
@@ -197,17 +199,37 @@ export function useTournamentPos(cafeId: string | null) {
     }
   };
 
-  const handleRecordMatchResult = async (dto: RecordMatchResultDto) => {
-    try {
-      await apiClient.post(`/api/v1/pos/tournaments/matches/${dto.matchId}/result`, dto);
-      toast.success("Đã ghi nhận kết quả bàn đấu!");
-      await fetchTournaments();
-      return true;
-    } catch (err: any) {
-      toast.error(err?.message || "Lỗi ghi nhận kết quả.");
-      return false;
-    }
-  };
+// Ghi nhận kết quả lần đầu (POST)
+const handleRecordMatchResult = async (dto: RecordMatchResultDto): Promise<boolean> => {
+  try {
+    const res: any = await apiClient.post(
+      `/api/v1/pos/tournaments/matches/${dto.matchId}/result`,
+      dto
+    );
+    toast.success(res?.message || "Ghi nhận kết quả bàn đấu thành công!");
+    return true;
+  } catch (err: unknown) {
+    const error = err as { message?: string; errors?: Record<string, string[]> };
+    toast.error(error?.errors?.Results?.[0] || error?.message || "Lỗi ghi nhận kết quả.");
+    return false;
+  }
+};
+
+// Sửa kết quả bàn đấu đã Completed (PATCH)
+const handleUpdateMatchResult = async (dto: UpdateMatchResultDto): Promise<boolean> => {
+  try {
+    const res: any = await apiClient.patch(
+      `/api/v1/pos/tournaments/matches/${dto.matchId}/result`,
+      dto
+    );
+    toast.success(res?.message || "Sửa kết quả bàn đấu thành công!");
+    return true;
+  } catch (err: unknown) {
+    const error = err as { message?: string; errors?: Record<string, string[]> };
+    toast.error(error?.errors?.Results?.[0] || error?.message || "Lỗi cập nhật kết quả.");
+    return false;
+  }
+};
 
   const handleCancelMatch = async (matchId: string, reason: string) => {
     try {
@@ -220,6 +242,21 @@ export function useTournamentPos(cafeId: string | null) {
       return false;
     }
   };
+  const fetchRoundPairingsPreview = useCallback(
+  async (tournamentId: string, roundNumber: number) => {
+    try {
+      const res: any = await apiClient.get(
+        `/api/v1/pos/tournaments/${tournamentId}/pairings/${roundNumber}/preview`
+      );
+      const resData = res?.data || res;
+      // Trả về pairings hoặc tables từ payload preview
+      return resData?.pairings || resData?.tables || [];
+    } catch (err) {
+      return [];
+    }
+  },
+  []
+);
 
   return {
     tournaments,
@@ -239,6 +276,8 @@ export function useTournamentPos(cafeId: string | null) {
     handleNoShowParticipant,
     handleStartMatch,
     handleRecordMatchResult,
+    handleUpdateMatchResult,
     handleCancelMatch,
+    fetchRoundPairingsPreview,
   };
 }
