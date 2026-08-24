@@ -16,9 +16,6 @@ import {
   normalizeInventoryListResponse,
   normalizeNearbyCafeList,
 } from '../utils/inventory.mapper';
-import { StaffCafeMockService } from './staff-cafe.mock';
-
-const USE_MOCK = false;
 
 export const STAFF_CAFE_QUERY_KEYS = {
   workingCafe: 'staff-working-cafe',
@@ -40,12 +37,6 @@ export const StaffCafeService = {
 
   /** Quán staff đang gán: GET /api/staff/my-cafes */
   getStaffWorkingCafe: async (): Promise<StaffWorkingCafe> => {
-    if (USE_MOCK) {
-      const cafe = await StaffCafeMockService.getStaffWorkingCafe();
-      cachedCafeId = cafe.id;
-      return cafe;
-    }
-
     const raw = await apiClient.get<never, unknown>('/api/staff/my-cafes');
     const cafes = unwrapList(raw as StaffWorkingCafe[] | { data?: StaffWorkingCafe[] });
     if (cafes.length === 0) {
@@ -66,8 +57,6 @@ export const StaffCafeService = {
     latitude?: number;
     longitude?: number;
   }): Promise<NearbyCafe[]> => {
-    if (USE_MOCK) return StaffCafeMockService.getNearbyCafes();
-
     const { gameTemplateId, radiusKm = 15, latitude, longitude } = params;
     if (!gameTemplateId) {
       throw new Error('Thiếu gameTemplateId để tìm quán gần.');
@@ -98,8 +87,6 @@ export const StaffCafeService = {
     cafeId: string,
     params: InventoryListParams,
   ): Promise<PaginatedResponse<InventoryListItem>> => {
-    if (USE_MOCK) return StaffCafeMockService.getInventoryList(cafeId, params);
-
     const raw = await apiClient.get<never, RawInventoryListItem[] | RawInventoryListResponse>(
       `/api/cafes/${cafeId}/inventory`,
       {
@@ -118,8 +105,6 @@ export const StaffCafeService = {
 
   /** GET /api/cafes/{cafeId}/inventory/{inventoryId} */
   getInventoryDetail: async (cafeId: string, inventoryId: string): Promise<InventoryDetail> => {
-    if (USE_MOCK) return StaffCafeMockService.getInventoryDetail(cafeId, inventoryId);
-
     const raw = await apiClient.get<never, RawInventoryDetail>(
       `/api/cafes/${cafeId}/inventory/${inventoryId}`,
     );

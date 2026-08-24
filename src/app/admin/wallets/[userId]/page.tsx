@@ -23,7 +23,12 @@ export default function AdminWalletDetailPage({ params }: AdminWalletDetailPageP
         title="Chi tiết ví"
         description="Thông tin ví và tài khoản người dùng."
       />
-      <AdminWalletDetailPanel wallet={data} isLoading={isLoading} isError={isError} />
+      <AdminWalletDetailPanel
+        wallet={data}
+        userId={userId}
+        isLoading={isLoading}
+        isError={isError}
+      />
       <AdminWalletTransactionsTable userId={userId} />
     </div>
   );

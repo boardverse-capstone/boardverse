@@ -242,7 +242,7 @@ export function SessionMembersPanel({
 
   const handleMerge = async () => {
     if (!targetSessionId) {
-      toast.error('Chọn phiên đích để gộp.');
+      toast.error('Chọn bàn muốn gộp sang để gộp.');
       return;
     }
     if (!mergeMemberId) {

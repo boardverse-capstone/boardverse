@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { apiClient } from "@/core/api/client";
 import { PosCheckInService } from "@/features/pos-check-in/services/pos-check-in.service";
+import { isBoxStatusAvailable } from "@/features/cafe-pos/components/pos-boxes-tab";
 import type {
   CafeReservationListItem,
   PosBookingPreview,
@@ -77,7 +78,7 @@ interface ReservedTable {
 // Tạm bật để QA có thể gửi request check-in với mọi trạng thái reservation.
 // Đổi thành false sau khi test xong để UI tiếp tục tuân theo preview.canCheckIn.
 const SHOW_CHECK_IN_CONTROLS_FOR_TESTING = true;
-const SHOW_WALK_IN_WINDOWS = false;
+const SHOW_WALK_IN_WINDOWS = true;
 
 function formatTime(iso?: string | null) {
   if (!iso) return "—";
@@ -295,6 +296,9 @@ export function PendingBookingsPanel({
   const [reserved, setReserved] = useState<ReservedTable[]>([]);
   const [reservations, setReservations] = useState<CafeReservationListItem[]>([]);
   const [windows, setWindows] = useState<WalkInWindowDto[]>([]);
+  const [walkInGuestName, setWalkInGuestName] = useState("");
+  const [walkInSeats, setWalkInSeats] = useState("1");
+  const [walkInBusyId, setWalkInBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
@@ -433,6 +437,52 @@ export function PendingBookingsPanel({
     }
   }, [availableBoxes, barcode]);
 
+  const createWalkIn = async (windowId: string) => {
+    const guestName = walkInGuestName.trim();
+    const seats = Number(walkInSeats);
+    if (!guestName) {
+      toast.error("Nhập tên khách vãng lai.");
+      return;
+    }
+    if (!Number.isFinite(seats) || seats < 1) {
+      toast.error("Số ghế phải ≥ 1.");
+      return;
+    }
+    setWalkInBusyId(windowId);
+    try {
+      await apiClient.post("/api/v1/reservations/walkin", {
+        walkInWindowId: windowId,
+        guestName,
+        seats,
+        idempotencyKey: `WI-${Date.now()}`,
+      });
+      toast.success("Đã tạo đặt chỗ khách vãng lai.");
+      setWalkInGuestName("");
+      setWalkInSeats("1");
+      await load();
+    } catch (err: any) {
+      toast.error(err?.message || "Không tạo được walk-in.");
+    } finally {
+      setWalkInBusyId(null);
+    }
+  };
+
+  const closeWalkInWindow = async (windowId: string) => {
+    setWalkInBusyId(windowId);
+    try {
+      await apiClient.post(
+        `/api/v1/reservations/walkin/windows/${windowId}/close`,
+        { reason: "Đóng thủ công từ quầy POS" },
+      );
+      toast.success("Đã đóng cửa sổ khách vãng lai.");
+      await load();
+    } catch (err: any) {
+      toast.error(err?.message || "Không đóng được cửa sổ walk-in.");
+    } finally {
+      setWalkInBusyId(null);
+    }
+  };
+
   if (!cafeId) return null;
 
   const openWindows = windows.filter((w) => {
@@ -491,6 +541,28 @@ export function PendingBookingsPanel({
       }
 
       const nextBarcode = String(boxData.barcode ?? codeToCheck);
+      if (!isBoxStatusAvailable(boxData.status)) {
+        toast.error(
+          `Hộp "${nextBarcode}" không sẵn sàng để gán (đang dùng / bảo trì).`,
+        );
+        setCheckedBox(null);
+        return;
+      }
+      // Parent truyền assignableBoxes — nếu có list mà barcode không nằm trong đó thì đang gắn phiên khác.
+      if (
+        boxes.length > 0 &&
+        !boxes.some(
+          (box) =>
+            box.barcode.toLowerCase() === nextBarcode.toLowerCase() &&
+            isBoxStatusAvailable(box.status),
+        )
+      ) {
+        toast.error(
+          `Hộp "${nextBarcode}" đang được gán cho phiên chơi khác.`,
+        );
+        setCheckedBox(null);
+        return;
+      }
       setBarcode(nextBarcode);
       setCheckedBox({
         id: boxData.id != null ? String(boxData.id) : undefined,
@@ -644,6 +716,19 @@ export function PendingBookingsPanel({
     }
     if (!barcode.trim()) {
       toast.error("Quét mã vạch hộp game trước khi nhận bàn.");
+      return;
+    }
+    if (
+      boxes.length > 0 &&
+      !boxes.some(
+        (box) =>
+          box.barcode.toLowerCase() === barcode.trim().toLowerCase() &&
+          isBoxStatusAvailable(box.status),
+      )
+    ) {
+      toast.error(
+        "Hộp không sẵn sàng hoặc đang gắn phiên khác — chọn hộp trống.",
+      );
       return;
     }
     setCheckingIn(true);
@@ -876,17 +961,40 @@ export function PendingBookingsPanel({
             </Badge>
           </CardAction>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="walk-in-guest">Tên khách</Label>
+              <Input
+                id="walk-in-guest"
+                value={walkInGuestName}
+                onChange={(e) => setWalkInGuestName(e.target.value)}
+                placeholder="Nguyễn Văn A"
+                className="min-h-10"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="walk-in-seats">Số ghế</Label>
+              <Input
+                id="walk-in-seats"
+                type="number"
+                min={1}
+                value={walkInSeats}
+                onChange={(e) => setWalkInSeats(e.target.value)}
+                className="min-h-10"
+              />
+            </div>
+          </div>
           {openWindows.length === 0 ? (
             <p className="rounded-xl border border-dashed border-emerald-200 py-4 text-center text-sm text-emerald-900/70">
               Chưa có cửa sổ khách vãng lai ngày {reservationDayLabel}.
             </p>
           ) : (
-            <div className="grid max-h-44 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+            <div className="grid max-h-56 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
               {openWindows.map((w) => (
                 <div
                   key={w.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-white p-3"
+                  className="flex flex-col gap-2 rounded-xl border border-emerald-200 bg-white p-3"
                 >
                   <div>
                     <p className="text-sm font-bold">
@@ -896,16 +1004,38 @@ export function PendingBookingsPanel({
                       {formatTime(w.windowStart)} → {formatTime(w.windowEnd)}
                     </p>
                   </div>
-                  {onOpenTables && (
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
-                      variant="outline"
-                      onClick={onOpenTables}
-                      className="min-h-10 border-emerald-300 text-emerald-800"
+                      size="sm"
+                      disabled={walkInBusyId === w.id}
+                      onClick={() => void createWalkIn(w.id)}
+                      className="min-h-9 bg-emerald-700 text-white hover:bg-emerald-800"
                     >
-                      Mở sơ đồ bàn
+                      Tạo walk-in
                     </Button>
-                  )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={walkInBusyId === w.id}
+                      onClick={() => void closeWalkInWindow(w.id)}
+                      className="min-h-9 border-emerald-300 text-emerald-900"
+                    >
+                      Đóng khung
+                    </Button>
+                    {onOpenTables && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={onOpenTables}
+                        className="min-h-9 text-emerald-800"
+                      >
+                        Sơ đồ bàn
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

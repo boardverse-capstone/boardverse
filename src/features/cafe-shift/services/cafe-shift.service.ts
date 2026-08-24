@@ -77,7 +77,7 @@ export const CafeShiftService = {
     page = 1,
     pageSize = 10,
   ): Promise<CafeShiftList> => {
-    const raw = await apiClient.get<never, unknown>('/api/shifts/history', {
+    const raw = await apiClient.get<never, unknown>('/api/shifts', {
       params: { cafeId, page, pageSize },
     });
     const r = rec(raw);

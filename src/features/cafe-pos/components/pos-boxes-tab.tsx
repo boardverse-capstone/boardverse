@@ -23,6 +23,46 @@ export interface PosBoxItem {
   status: string;
 }
 
+/** Hộp Available mới được gán / thêm vào phiên. */
+export function isBoxStatusAvailable(status?: string | null) {
+  return (
+    String(status ?? "")
+      .toLowerCase()
+      .replace(/[_\s-]/g, "") === "available"
+  );
+}
+
+/** Barcode đang gắn phiên live (Active/Checking/Unpaid…). */
+export function getAssignedBoxBarcodes(sessions: any[]): Set<string> {
+  const set = new Set<string>();
+  for (const session of sessions) {
+    const games = session?.games ?? session?.Games ?? [];
+    if (!Array.isArray(games)) continue;
+    for (const game of games) {
+      const barcode = String(
+        game?.boxBarcode ?? game?.BoxBarcode ?? game?.barcode ?? "",
+      ).trim();
+      if (barcode) set.add(barcode.toUpperCase());
+    }
+  }
+  return set;
+}
+
+/** Chỉ hộp trống và chưa gắn phiên đang chạy — dùng cho picker gán/thêm. */
+export function filterBoxesAssignableForPos(
+  boxes: PosBoxItem[],
+  sessions: any[],
+): PosBoxItem[] {
+  const assigned = getAssignedBoxBarcodes(sessions);
+  return boxes.filter((box) => {
+    if (!isBoxStatusAvailable(box.status)) return false;
+    const barcode = String(box.barcode ?? "").trim();
+    if (!barcode) return false;
+    if (assigned.has(barcode.toUpperCase())) return false;
+    return true;
+  });
+}
+
 interface PosBoxesTabProps {
   boxes: PosBoxItem[];
 }

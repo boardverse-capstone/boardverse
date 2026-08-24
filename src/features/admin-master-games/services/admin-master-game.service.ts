@@ -16,9 +16,6 @@ import {
   normalizeMasterGameCategoryList,
   normalizeMasterGameComponentList,
 } from '../utils/master-game.mapper';
-import { AdminMasterGameMockService } from './admin-master-game.mock';
-
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_ADMIN_MASTER_GAME_API === 'true';
 
 export const ADMIN_MASTER_GAME_QUERY_KEYS = {
   catalog: 'admin-master-game-catalog',
@@ -86,8 +83,6 @@ export const AdminMasterGameService = {
 
   /** GET /api/v1/admin/master-games/{gameTemplateId}/components */
   getComponents: async (gameTemplateId: string): Promise<MasterGameComponent[]> => {
-    if (USE_MOCK) return AdminMasterGameMockService.getComponents(gameTemplateId);
-
     const raw = await apiClient.get<
       never,
       RawMasterGameComponent[] | { data?: RawMasterGameComponent[]; items?: RawMasterGameComponent[] }
@@ -100,8 +95,6 @@ export const AdminMasterGameService = {
     gameTemplateId: string,
     payload: CreateMasterGameComponentRequest,
   ): Promise<MasterGameComponent> => {
-    if (USE_MOCK) return AdminMasterGameMockService.createComponent(gameTemplateId, payload);
-
     const raw = await apiClient.post<never, RawMasterGameComponent>(
       `/api/v1/admin/master-games/${gameTemplateId}/components`,
       toComponentBody(payload),
@@ -115,8 +108,6 @@ export const AdminMasterGameService = {
     componentId: string,
     payload: UpdateMasterGameComponentRequest,
   ): Promise<MasterGameComponent> => {
-    if (USE_MOCK) return AdminMasterGameMockService.updateComponent(gameTemplateId, componentId, payload);
-
     const raw = await apiClient.put<never, RawMasterGameComponent>(
       `/api/v1/admin/master-games/${gameTemplateId}/components/${componentId}`,
       toComponentBody(payload),
@@ -126,8 +117,6 @@ export const AdminMasterGameService = {
 
   /** DELETE /api/v1/admin/master-games/{gameTemplateId}/components/{componentId} */
   deleteComponent: async (gameTemplateId: string, componentId: string): Promise<void> => {
-    if (USE_MOCK) return AdminMasterGameMockService.deleteComponent?.(gameTemplateId, componentId);
-
     await apiClient.delete(
       `/api/v1/admin/master-games/${gameTemplateId}/components/${componentId}`,
     );

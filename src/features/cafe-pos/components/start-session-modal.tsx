@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,15 +16,39 @@ import {
   Users,
   UserPlus,
   Phone,
+  Box,
+  ChevronRight,
+  ChevronLeft,
+  Layers,
 } from "lucide-react";
 import { apiClient } from "@/core/api/client";
 import { formatPlayerRange, readPlayerRange } from "../lib/player-range";
+import type { PosBoxItem } from "./pos-boxes-tab";
+import { isBoxStatusAvailable } from "./pos-boxes-tab";
 
 /** SĐT VN mobile — cùng rule cafe-partner: 10–11 số, đầu 03/05/07/08/09 */
 const VN_MOBILE_PHONE = /^0[35789]\d{8,9}$/;
 
 function isVnWalkInPhone(raw: string) {
   return VN_MOBILE_PHONE.test(raw.replace(/\s/g, ""));
+}
+
+function formatBoxStatus(status?: string) {
+  const st = String(status ?? "")
+    .toLowerCase()
+    .replace(/[_\s-]/g, "");
+  if (st === "available") return "Sẵn sàng";
+  if (st === "inuse" || st === "occupied") return "Đang dùng";
+  if (st === "maintenance") return "Bảo trì";
+  return status?.trim() || "Không rõ";
+}
+
+interface GroupedGame {
+  gameName: string;
+  gameTemplateId: string;
+  totalBoxes: number;
+  availableBoxes: PosBoxItem[];
+  allBoxes: PosBoxItem[];
 }
 
 export interface StartSessionModalProps {
@@ -37,6 +61,7 @@ export interface StartSessionModalProps {
     maxPlayers?: number | null;
   } | null;
   cafeId: string | null;
+  boxes?: PosBoxItem[];
   onStart: (
     cafeTableId: string,
     barcode: string,
@@ -49,6 +74,7 @@ export function StartSessionModal({
   onClose,
   selectedTable,
   cafeId,
+  boxes = [],
   onStart,
 }: StartSessionModalProps) {
   const [barcode, setBarcode] = useState("");
@@ -57,8 +83,10 @@ export function StartSessionModal({
   const [guestCount, setGuestCount] = useState(1);
   const [guestNames, setGuestNames] = useState<string[]>([""]);
   const [guestPhones, setGuestPhones] = useState<string[]>([""]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState("");
+  const [pickerGame, setPickerGame] = useState<GroupedGame | null>(null);
 
-  // State lưu kết quả kiểm tra hộp game trước khi gán bàn
   const [boxInspection, setBoxInspection] = useState<{
     gameName?: string;
     barcode?: string;
@@ -68,6 +96,41 @@ export function StartSessionModal({
     missingComponents?: any[];
     hasChecked: boolean;
   } | null>(null);
+
+  const groupedGames = useMemo(() => {
+    const map = new Map<string, GroupedGame>();
+    boxes.forEach((box) => {
+      const key = box.gameName || box.gameTemplateId || "Game";
+      const existing = map.get(key) || {
+        gameName: box.gameName || "Game",
+        gameTemplateId: box.gameTemplateId,
+        totalBoxes: 0,
+        availableBoxes: [],
+        allBoxes: [],
+      };
+      existing.totalBoxes += 1;
+      existing.allBoxes.push(box);
+      if (String(box.status).toLowerCase() === "available") {
+        existing.availableBoxes.push(box);
+      }
+      map.set(key, existing);
+    });
+    return Array.from(map.values()).sort((a, b) =>
+      a.gameName.localeCompare(b.gameName, "vi"),
+    );
+  }, [boxes]);
+
+  const filteredGames = useMemo(() => {
+    const withStock = groupedGames.filter((g) => g.availableBoxes.length > 0);
+    const term = pickerSearch.trim().toLowerCase();
+    if (!term) return withStock;
+    return withStock.filter((group) => {
+      if (group.gameName.toLowerCase().includes(term)) return true;
+      return group.availableBoxes.some((b) =>
+        b.barcode.toLowerCase().includes(term),
+      );
+    });
+  }, [groupedGames, pickerSearch]);
 
   if (!isOpen || !selectedTable) return null;
 
@@ -94,19 +157,16 @@ export function StartSessionModal({
     });
   };
 
-  // HÀM KIỂM TRA LINH KIỆN HỘP GAME TRƯỚC KHI GÁN BÀN
-  const handleInspectBox = async () => {
-    if (!cafeId || !barcode.trim()) {
-      toast.error("Vui lòng nhập mã vạch hộp game.");
+  const inspectBarcode = async (code: string) => {
+    if (!cafeId || !code.trim()) {
+      toast.error("Vui lòng nhập hoặc chọn mã vạch hộp game.");
       return;
     }
 
     try {
       setCheckingBox(true);
-
-      // 1. Tra cứu thông tin hộp game
       const boxRes: any = await apiClient.get(
-        `/api/cafes/${cafeId}/pos/boxes/by-barcode/${barcode.trim()}`,
+        `/api/cafes/${cafeId}/pos/boxes/by-barcode/${encodeURIComponent(code.trim())}`,
       );
       const boxData = boxRes?.data || boxRes;
 
@@ -116,7 +176,30 @@ export function StartSessionModal({
         return;
       }
 
-      // 2. Tra cứu lịch sử thiếu/hỏng linh kiện
+      if (!isBoxStatusAvailable(boxData.status)) {
+        toast.error(
+          `Hộp "${boxData.barcode || code}" không sẵn sàng để gán (đang dùng / bảo trì).`,
+        );
+        setBoxInspection(null);
+        return;
+      }
+
+      const nextBarcode = String(boxData.barcode || code).trim();
+      if (
+        boxes.length > 0 &&
+        !boxes.some(
+          (b) =>
+            b.barcode.toLowerCase() === nextBarcode.toLowerCase() &&
+            isBoxStatusAvailable(b.status),
+        )
+      ) {
+        toast.error(
+          `Hộp "${nextBarcode}" đang được gán cho phiên chơi khác.`,
+        );
+        setBoxInspection(null);
+        return;
+      }
+
       let missingList: any[] = [];
       try {
         const historyRes: any = await apiClient.get(
@@ -151,11 +234,25 @@ export function StartSessionModal({
     }
   };
 
-  // HÀM XÁC NHẬN BẮT ĐẦU PHIÊN CHƠI
+  const selectBox = (box: PosBoxItem) => {
+    setBarcode(box.barcode);
+    setPickerOpen(false);
+    setPickerGame(null);
+    setPickerSearch("");
+    void inspectBarcode(box.barcode);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!barcode.trim()) {
-      toast.error("Vui lòng nhập hoặc quét mã vạch hộp game!");
+      toast.error("Vui lòng nhập hoặc chọn mã vạch hộp game!");
+      return;
+    }
+    if (
+      boxInspection?.hasChecked &&
+      !isBoxStatusAvailable(boxInspection.status)
+    ) {
+      toast.error("Hộp game không sẵn sàng — chọn hộp khác.");
       return;
     }
     if (guestCount < minPlayers) {
@@ -217,13 +314,15 @@ export function StartSessionModal({
     setGuestCount(1);
     setGuestNames([""]);
     setGuestPhones([""]);
+    setPickerOpen(false);
+    setPickerGame(null);
+    setPickerSearch("");
     onClose();
   };
 
   return (
     <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-neutral-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl animate-in fade-in-50 duration-150">
-        {/* HEADER MODAL */}
+      <div className="bg-white border border-neutral-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl animate-in fade-in-50 duration-150 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
           <div>
             <h3 className="font-bold text-base text-neutral-950">
@@ -243,43 +342,56 @@ export function StartSessionModal({
           </button>
         </div>
 
-        {/* FORM NHẬP BARCODE & NÚT KIỂM TRA */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-neutral-800 flex items-center gap-1">
-              <Barcode className="w-3.5 h-3.5 text-neutral-500" /> Mã vạch
-              hộp game
+              <Barcode className="w-3.5 h-3.5 text-neutral-500" /> Mã vạch hộp
+              game
             </label>
 
-            {/* Ô INPUT VÀ NÚT KIỂM TRA XỌT NGANG */}
             <div className="flex gap-2">
               <Input
                 type="text"
-                autoFocus
-                placeholder="Nhập hoặc quét mã vạch (vd: BV-a477...)..."
+                placeholder="Nhập hoặc quét mã vạch (vd: BV-a4...)"
                 value={barcode}
                 onChange={(e) => {
                   setBarcode(e.target.value);
-                  if (boxInspection) setBoxInspection(null); // Reset kết quả cũ khi gõ mã mới
+                  setBoxInspection(null);
                 }}
-                className="h-9 text-xs border-neutral-300 focus:border-neutral-900 rounded-lg bg-neutral-50/50 font-mono"
+                className="h-9 text-xs border-neutral-300 rounded-lg bg-neutral-50/50 font-mono"
+                autoFocus
               />
-
               <Button
                 type="button"
                 variant="outline"
                 disabled={checkingBox || !barcode.trim()}
-                onClick={handleInspectBox}
-                className="h-9 px-3 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-bold rounded-lg shrink-0 flex items-center gap-1 shadow-2xs"
+                onClick={() => void inspectBarcode(barcode)}
+                className="h-9 shrink-0 gap-1.5 rounded-lg border-amber-300 bg-amber-50 px-3 text-xs font-bold text-amber-900 hover:bg-amber-100"
               >
                 {checkingBox ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 className="size-3.5 animate-spin" />
                 ) : (
-                  <Search className="w-3.5 h-3.5 text-amber-700" />
+                  <Search className="size-3.5" />
                 )}
-                <span>Kiểm tra</span>
+                Kiểm tra
               </Button>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setPickerOpen(true);
+                setPickerGame(null);
+                setPickerSearch("");
+              }}
+              className="flex w-full items-center justify-between gap-2 rounded-lg border border-dashed border-neutral-300 bg-white px-3 py-2 text-left hover:border-neutral-500 hover:bg-neutral-50"
+            >
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-neutral-700">
+                <Layers className="size-3.5 text-neutral-500" />
+                Hoặc chọn từ kho (game → hộp)
+              </span>
+              <ChevronRight className="size-4 shrink-0 text-neutral-400" />
+            </button>
           </div>
 
           <div className="space-y-1.5">
@@ -344,7 +456,6 @@ export function StartSessionModal({
             </div>
           </div>
 
-          {/* HIỂN THỊ KẾT QUẢ KIỂM TRA TRƯỚC BÀN GIAO */}
           {boxInspection && boxInspection.hasChecked && (
             <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl space-y-2 animate-in fade-in-50 duration-150">
               <div className="flex items-center justify-between text-xs">
@@ -367,7 +478,6 @@ export function StartSessionModal({
                 </div>
               )}
 
-              {/* TRƯỜNG HỢP 1: HỘP CÓ LINH KIỆN BỊ THIẾU/HỎNG */}
               {boxInspection.missingComponents &&
               boxInspection.missingComponents.length > 0 ? (
                 <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg space-y-1.5">
@@ -376,7 +486,6 @@ export function StartSessionModal({
                     Cảnh báo: Hộp game ghi nhận thiếu{" "}
                     {boxInspection.missingComponents.length} loại linh kiện!
                   </div>
-
                   <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
                     {boxInspection.missingComponents.map(
                       (comp: any, idx: number) => (
@@ -401,7 +510,6 @@ export function StartSessionModal({
                   </p>
                 </div>
               ) : (
-                /* TRƯỜNG HỢP 2: HỘP GAME ĐẦY ĐỦ */
                 <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-1.5 text-[11px] text-emerald-800 font-medium">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>
@@ -412,7 +520,6 @@ export function StartSessionModal({
             </div>
           )}
 
-          {/* FOOTER ACTIONS */}
           <div className="pt-3 border-t border-neutral-100 flex justify-end gap-2">
             <Button
               type="button"
@@ -422,7 +529,6 @@ export function StartSessionModal({
             >
               Hủy
             </Button>
-
             <Button
               type="submit"
               disabled={loading || !barcode.trim()}
@@ -434,6 +540,130 @@ export function StartSessionModal({
           </div>
         </form>
       </div>
+
+      {pickerOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-neutral-950/50 p-4 backdrop-blur-xs">
+          <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
+              <div className="flex items-center gap-2 min-w-0">
+                {pickerGame ? (
+                  <button
+                    type="button"
+                    onClick={() => setPickerGame(null)}
+                    className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950"
+                    aria-label="Quay lại danh sách game"
+                  >
+                    <ChevronLeft className="size-5" />
+                  </button>
+                ) : (
+                  <div className="rounded-lg border border-neutral-200 bg-neutral-100 p-2">
+                    <Layers className="size-4 text-neutral-800" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <h3 className="truncate font-bold text-neutral-950">
+                    {pickerGame ? pickerGame.gameName : "Chọn game từ kho"}
+                  </h3>
+                  <p className="text-[11px] text-neutral-500">
+                    {pickerGame
+                      ? `${pickerGame.availableBoxes.length}/${pickerGame.totalBoxes} hộp sẵn sàng`
+                      : `${groupedGames.length} tựa · ${boxes.length} hộp`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setPickerOpen(false);
+                  setPickerGame(null);
+                  setPickerSearch("");
+                }}
+                className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-950"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            {!pickerGame ? (
+              <>
+                <div className="border-b border-neutral-100 p-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                    <Input
+                      value={pickerSearch}
+                      onChange={(e) => setPickerSearch(e.target.value)}
+                      placeholder="Tìm tên game hoặc mã vạch..."
+                      className="h-9 border-neutral-200 bg-neutral-50/50 pl-9 text-xs"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+                <div className="flex-1 space-y-2 overflow-y-auto p-3">
+                  {filteredGames.length === 0 ? (
+                    <p className="py-10 text-center text-xs text-neutral-400">
+                      Không có game/hộp phù hợp trong kho.
+                    </p>
+                  ) : (
+                    filteredGames.map((group, groupIdx) => (
+                      <button
+                        key={`${group.gameTemplateId || "g"}-${group.gameName}-${groupIdx}`}
+                        type="button"
+                        onClick={() => setPickerGame(group)}
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white p-3 text-left hover:border-neutral-400"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-100 text-neutral-700">
+                            <Box className="size-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-extrabold text-neutral-950">
+                              {group.gameName}
+                            </p>
+                            <p className="text-[11px] font-semibold text-emerald-700">
+                              {group.availableBoxes.length}/{group.totalBoxes}{" "}
+                              hộp sẵn sàng
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronRight className="size-5 shrink-0 text-neutral-400" />
+                      </button>
+                    ))
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 space-y-2 overflow-y-auto p-3">
+                {pickerGame.availableBoxes.length === 0 ? (
+                  <p className="py-10 text-center text-xs text-neutral-400">
+                    Game này không còn hộp trống để gán.
+                  </p>
+                ) : (
+                  pickerGame.availableBoxes.map((box, boxIdx) => (
+                      <button
+                        key={box.barcode || `${box.id}-${boxIdx}`}
+                        type="button"
+                        onClick={() => selectBox(box)}
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white p-3 text-left hover:border-emerald-400 hover:bg-emerald-50/40"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-mono text-sm font-bold text-neutral-950">
+                            {box.barcode}
+                          </p>
+                          <p className="text-[11px] text-neutral-500">
+                            {formatBoxStatus(box.status)}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                          Chọn
+                        </span>
+                      </button>
+                    ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

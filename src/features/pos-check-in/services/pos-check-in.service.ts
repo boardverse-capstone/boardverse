@@ -1677,6 +1677,19 @@ export const PosCheckInService = {
     }
   },
 
+  /** POST /api/payments/session-payment/{sessionId}/regenerate-qr */
+  regenerateSessionPaymentQr: async (sessionId: string): Promise<PaymentCode> => {
+    const raw = await apiClient.post<never, unknown>(
+      `/api/payments/session-payment/${encodeURIComponent(sessionId)}/regenerate-qr`,
+    );
+    const code = mapApiPaymentCode(raw);
+    if (!code.qrPayload) {
+      throw new Error('BE không trả qrImageUrl / paymentUrl.');
+    }
+    if (code.amount > 0) writeServerCheckoutTotal(sessionId, code.amount);
+    return code;
+  },
+
   /** POST /api/payments/manual-confirm — ManualPaymentConfirmRequestDto */
   manualConfirmPayment: async (params: {
     sessionId: string;

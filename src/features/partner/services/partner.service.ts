@@ -16,9 +16,6 @@ import {
   normalizePartnerListResponse,
   normalizePartnerMutationResponse,
 } from '../utils/partner.mapper';
-import { PartnerMockService } from './partner.mock';
-
-const USE_MOCK = false;
 
 export const PARTNER_QUERY_KEYS = {
   pending: 'partner-pending',
@@ -29,8 +26,6 @@ export const PartnerService = {
   getPendingApplications: async (
     params: PartnerApplicationListParams,
   ): Promise<PaginatedResponse<PartnerApplication>> => {
-    if (USE_MOCK) return PartnerMockService.getPendingApplications(params);
-
     const raw = await apiClient.get('/api/admin/cafe-partner-applications', {
       params: {
         // GET /api/admin/cafe-partner-applications — query: search, status, page, pageSize
@@ -45,8 +40,6 @@ export const PartnerService = {
   },
 
   getRegistrationById: async (id: string): Promise<PartnerApplication> => {
-    if (USE_MOCK) return PartnerMockService.getRegistrationById(id);
-
     const raw = await apiClient.get<never, unknown>(
       `/api/admin/cafe-partner-applications/${id}`,
     );
@@ -57,7 +50,6 @@ export const PartnerService = {
   submitRegistration: async (
     payload: PartnerRegistrationRequest,
   ): Promise<SubmitRegistrationResponse> => {
-    if (USE_MOCK) return PartnerMockService.submitRegistration(payload);
     return apiClient.post<never, SubmitRegistrationResponse>('/admin/partners', payload);
   },
 
@@ -65,7 +57,6 @@ export const PartnerService = {
     id: string,
     payload: TransitionRegistrationRequest,
   ): Promise<TransitionRegistrationResponse> => {
-    if (USE_MOCK) return PartnerMockService.transitionRegistration(id, payload);
     return apiClient.post<never, TransitionRegistrationResponse>(
       `/admin/partners/${id}/transition`,
       payload,
@@ -73,11 +64,6 @@ export const PartnerService = {
   },
 
   approveRegistration: async (id: string): Promise<ApproveRegistrationResult> => {
-    if (USE_MOCK) {
-      const mock = await PartnerMockService.approveRegistration(id);
-      return normalizeApproveRegistrationResponse(mock);
-    }
-
     const raw = await apiClient.post<never, unknown>(
       `/api/admin/cafe-partner-applications/${id}/approve`,
     );
@@ -89,11 +75,6 @@ export const PartnerService = {
     id: string,
     payload: RejectRegistrationRequest,
   ): Promise<PartnerApplication> => {
-    if (USE_MOCK) {
-      const mock = await PartnerMockService.rejectRegistration(id, payload);
-      return normalizePartnerMutationResponse(mock);
-    }
-
     const raw = await apiClient.post<never, unknown>(
       `/api/admin/cafe-partner-applications/${id}/reject`,
       payload,

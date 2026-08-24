@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { PageHeader } from '@/components/common/page-header';
+import { AdminModerationPanels } from '@/features/behavior-monitoring/components/admin-moderation-panels';
 import { BehaviorWarningCards } from '@/features/behavior-monitoring/components/behavior-warning-cards';
 
 export default function AdminBehaviorWarningsPage() {
@@ -12,6 +13,7 @@ export default function AdminBehaviorWarningsPage() {
       <Suspense fallback={<div className="text-sm text-muted-foreground">Đang tải...</div>}>
         <BehaviorWarningCards />
       </Suspense>
+      <AdminModerationPanels />
     </div>
   );
 }

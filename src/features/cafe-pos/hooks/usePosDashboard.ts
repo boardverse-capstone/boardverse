@@ -37,6 +37,18 @@ function isPaidSessionStatus(status: unknown) {
   return normalized === "paid" || normalized === "completed";
 }
 
+/** Phiên terminal — không còn trên tab phiên / không giữ bàn InUse. */
+function isTerminalSessionStatus(status: unknown) {
+  const normalized = String(status ?? "")
+    .toLowerCase()
+    .replace(/[_\s-]/g, "");
+  return (
+    normalized === "paid" ||
+    normalized === "completed" ||
+    normalized === "closed"
+  );
+}
+
 function parseUtcCheckInTime(time: string, date: string) {
   const [hour, minute] = time.split(":").map(Number);
   const [day, month, year] = date.split("/").map(Number);
@@ -93,17 +105,22 @@ function rememberVerifiedFromSession(
   if (!session) return;
   const sessionId = session.id || session.sessionId;
   const games = session.games || session.Games || [];
-  let anyVerified = false;
+  if (!Array.isArray(games) || games.length === 0) return;
+
+  let allDone = true;
   for (const g of games) {
     const fromApi = String(g?.checkStatus || g?.CheckStatus || "")
       .toLowerCase()
       .replace(/[_\s-]/g, "");
-    if (fromApi !== "verified") continue;
-    anyVerified = true;
+    const done =
+      fromApi === "verified" || fromApi === "missingcomponents";
     const gid = g.id || g.sessionGameId;
-    if (gid) verifiedGameIds.add(gid);
+    if (done && gid) verifiedGameIds.add(gid);
+    if (!done) allDone = false;
   }
-  if (anyVerified && sessionId) verifiedSessionIds.add(sessionId);
+  // Chỉ đánh dấu cả phiên khi mọi hộp đã kiểm kê
+  if (allDone && sessionId) verifiedSessionIds.add(sessionId);
+  else if (sessionId) verifiedSessionIds.delete(sessionId);
 }
 
 function applyVerifiedFlags(
@@ -113,28 +130,42 @@ function applyVerifiedFlags(
 ) {
   return list.map((s) => {
     const sessionId = s.id || s.sessionId;
-    const sessionHit = Boolean(
-      sessionId && verifiedSessionIds.has(sessionId),
-    );
     const games = s.games || s.Games || [];
     if (!Array.isArray(games) || games.length === 0) {
+      const sessionHit = Boolean(
+        sessionId && verifiedSessionIds.has(sessionId),
+      );
       return sessionHit ? { ...s, checkStatus: "Verified" } : s;
     }
-    return {
-      ...s,
-      games: games.map((g: any) => {
-        const gid = g.id || g.sessionGameId;
-        const fromApi = String(g.checkStatus || "")
-          .toLowerCase()
-          .replace(/[_\s-]/g, "");
-        const done =
-          sessionHit ||
-          (gid && verifiedGameIds.has(gid)) ||
-          fromApi === "verified";
-        if (done && gid) verifiedGameIds.add(gid);
-        return done ? { ...g, checkStatus: "Verified" } : g;
-      }),
-    };
+
+    const nextGames = games.map((g: any) => {
+      const gid = g.id || g.sessionGameId;
+      const fromApi = String(g.checkStatus || g.CheckStatus || "")
+        .toLowerCase()
+        .replace(/[_\s-]/g, "");
+      const done =
+        fromApi === "verified" ||
+        fromApi === "missingcomponents" ||
+        Boolean(gid && verifiedGameIds.has(gid));
+      if (done && gid) verifiedGameIds.add(gid);
+      if (!done) return g;
+      // Giữ MissingComponents từ BE; chỉ ép Verified khi FE đã chốt hộp này
+      if (fromApi === "missingcomponents") return g;
+      return { ...g, checkStatus: "Verified" };
+    });
+
+    const allDone = nextGames.every((g: any) => {
+      const st = String(g.checkStatus || g.CheckStatus || "")
+        .toLowerCase()
+        .replace(/[_\s-]/g, "");
+      return st === "verified" || st === "missingcomponents";
+    });
+    if (sessionId) {
+      if (allDone) verifiedSessionIds.add(sessionId);
+      else verifiedSessionIds.delete(sessionId);
+    }
+
+    return { ...s, games: nextGames };
   });
 }
 
@@ -211,9 +242,12 @@ export function usePosDashboard(opts?: {
 
       const rawSessions = sessionsRes?.data || sessionsRes || [];
 
-      // Lọc bỏ các phiên đã hoàn tất thanh toán (Paid / Completed)
+      // Lọc bỏ phiên terminal (Paid / Completed / Closed)
       const activeSessionsOnly = rawSessions
-        .filter((s: any) => s.status !== "Paid" && s.status !== "Completed")
+        .filter(
+          (s: any) =>
+            !isTerminalSessionStatus(s.status ?? s.Status ?? s.sessionStatus),
+        )
         .filter(
           (session: any, index: number, sessions: any[]) =>
             sessions.findIndex(
@@ -246,7 +280,12 @@ export function usePosDashboard(opts?: {
         }),
       );
 
-      details.forEach((s: any) =>
+      const liveSessions = details.filter(
+        (s: any) =>
+          !isTerminalSessionStatus(s.status ?? s.Status ?? s.sessionStatus),
+      );
+
+      liveSessions.forEach((s: any) =>
         rememberVerifiedFromSession(
           s,
           verifiedGameIdsRef.current,
@@ -256,7 +295,7 @@ export function usePosDashboard(opts?: {
 
       setSessions(
         applyVerifiedFlags(
-          details,
+          liveSessions,
           verifiedGameIdsRef.current,
           verifiedSessionIdsRef.current,
         ),
@@ -274,6 +313,111 @@ export function usePosDashboard(opts?: {
       setLoading(false);
     }
   }, [cafeId]);
+
+  // Poll elapsedMinutes từ BE mỗi 1s — GET /pos/sessions/{id} (không tự tính FE)
+  const playingSessionKey = sessions
+    .filter((s) => {
+      const st = String(s.status ?? s.Status ?? s.sessionStatus ?? "")
+        .toLowerCase()
+        .replace(/[_\s-]/g, "");
+      return st === "active" || st === "playing";
+    })
+    .map((s) => s.id || s.sessionId)
+    .filter(Boolean)
+    .sort()
+    .join(",");
+
+  useEffect(() => {
+    if (!cafeId || !playingSessionKey) return;
+
+    const playingIds = playingSessionKey.split(",").filter(Boolean);
+    let cancelled = false;
+    let inFlight = false;
+
+    const pollElapsedFromBe = async () => {
+      if (cancelled || inFlight) return;
+      inFlight = true;
+      try {
+        const details = await Promise.all(
+          playingIds.map(async (sessionId) => {
+            try {
+              const res: any = await apiClient.get(
+                `/api/cafes/${cafeId}/pos/sessions/${sessionId}`,
+              );
+              const detail = res?.data || res;
+              if (!detail) return null;
+              return {
+                sessionId,
+                elapsedMinutes:
+                  detail.elapsedMinutes ?? detail.ElapsedMinutes,
+                estimatedRemainingMinutes:
+                  detail.estimatedRemainingMinutes ??
+                  detail.EstimatedRemainingMinutes,
+                status: detail.status ?? detail.Status,
+                startedAt: detail.startedAt ?? detail.StartedAt,
+              };
+            } catch {
+              return null;
+            }
+          }),
+        );
+        if (cancelled) return;
+
+        const byId = new Map(
+          details
+            .filter(Boolean)
+            .map((d) => [d!.sessionId, d!] as const),
+        );
+        if (byId.size === 0) return;
+
+        setSessions((prev) =>
+          prev.map((s) => {
+            const id = String(s.id || s.sessionId || "");
+            const fresh = byId.get(id);
+            if (!fresh) return s;
+            return {
+              ...s,
+              elapsedMinutes:
+                fresh.elapsedMinutes ?? s.elapsedMinutes,
+              estimatedRemainingMinutes:
+                fresh.estimatedRemainingMinutes ??
+                s.estimatedRemainingMinutes,
+              status: fresh.status ?? s.status,
+              startedAt: fresh.startedAt ?? s.startedAt,
+            };
+          }),
+        );
+
+        setCheckoutSession((prev: any) => {
+          if (!prev?.id) return prev;
+          const fresh = byId.get(String(prev.id));
+          if (!fresh) return prev;
+          return {
+            ...prev,
+            elapsedMinutes:
+              fresh.elapsedMinutes ?? prev.elapsedMinutes,
+            estimatedRemainingMinutes:
+              fresh.estimatedRemainingMinutes ??
+              prev.estimatedRemainingMinutes,
+          };
+        });
+      } catch {
+        // im lặng — lần poll sau sẽ thử lại
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    void pollElapsedFromBe();
+    const timer = window.setInterval(() => {
+      void pollElapsedFromBe();
+    }, 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [cafeId, playingSessionKey]);
 
   // Khởi tạo: lấy cafe theo role (Manager / Staff) sau khi auth hydrate
   useEffect(() => {
@@ -380,6 +524,105 @@ export function usePosDashboard(opts?: {
       return true;
     } catch (err: any) {
       toast.error(err?.message || "Không thêm được khách vãng lai.");
+      return false;
+    }
+  };
+
+  const handleAttachSessionGame = async (
+    sessionId: string,
+    barcode: string,
+  ) => {
+    if (!cafeId) return false;
+    try {
+      await PosCheckInService.assignSessionGames(cafeId, sessionId, {
+        barcode,
+      });
+      toast.success("Đã gán thêm hộp game vào phiên.");
+      await fetchAllData(cafeId);
+      return true;
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể gán hộp game vào phiên.");
+      return false;
+    }
+  };
+
+  const handleAddSessionMembers = async (
+    sessionId: string,
+    userIds: string[],
+  ) => {
+    if (!cafeId) return false;
+    try {
+      await PosCheckInService.addSessionMembers(cafeId, sessionId, {
+        userIds,
+      });
+      toast.success("Đã thêm member đến muộn vào phiên.");
+      await fetchAllData(cafeId);
+      return true;
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể thêm member vào phiên.");
+      return false;
+    }
+  };
+
+  const handleReportInventoryLoss = async (
+    sessionId: string,
+    payload: {
+      sessionGameId: string;
+      missingComponents: Array<{
+        componentTemplateId: string;
+        missingQuantity: number;
+      }>;
+      notes?: string;
+    },
+  ) => {
+    if (!cafeId) return false;
+    try {
+      await PosCheckInService.reportInventoryLoss(cafeId, sessionId, payload);
+      toast.success("Đã ghi nhận hao hụt linh kiện.");
+      await fetchAllData(cafeId);
+      return true;
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể ghi nhận hao hụt linh kiện.");
+      return false;
+    }
+  };
+
+  const handlePartialCheckout = async (
+    sessionId: string,
+    memberUserIds: string[],
+    applyDeposit?: boolean,
+  ) => {
+    if (!cafeId) return false;
+    try {
+      await PosCheckInService.partialCheckout(cafeId, sessionId, {
+        memberUserIds,
+        applyDeposit,
+      });
+      toast.success("Đã thanh toán một phần cho member đã chọn.");
+      await fetchAllData(cafeId);
+      return true;
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể thanh toán một phần.");
+      return false;
+    }
+  };
+
+  const handleMergeSessionMember = async (
+    sourceSessionId: string,
+    memberUserId: string,
+    targetSessionId: string,
+  ) => {
+    if (!cafeId) return false;
+    try {
+      await PosCheckInService.mergeSessions(cafeId, sourceSessionId, {
+        memberUserId,
+        targetSessionId,
+      });
+      toast.success("Đã chuyển member sang phiên khác.");
+      await fetchAllData(cafeId);
+      return true;
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể chuyển member sang phiên khác.");
       return false;
     }
   };
@@ -523,11 +766,7 @@ export function usePosDashboard(opts?: {
 
   const markComponentCheckDone = (sessionGameId: string) => {
     if (sessionGameId) verifiedGameIdsRef.current.add(sessionGameId);
-    const linked =
-      findSessionByGameId(sessions, sessionGameId) ||
-      sessions.find((s) => s.id === lastCheckSessionIdRef.current);
-    const sessionId = linked?.id || lastCheckSessionIdRef.current;
-    if (sessionId) verifiedSessionIdsRef.current.add(sessionId);
+    // Không đánh dấu cả phiên — chỉ khi mọi hộp đã kiểm (applyVerifiedFlags)
   };
 
   // BƯỚC 9: POST /component-check (Chốt kết quả kiểm kê linh kiện)
@@ -569,6 +808,70 @@ export function usePosDashboard(opts?: {
       return null;
     }
   };
+
+  /** POST .../sessions/{id}/resume — CHECKING → ACTIVE khi trả bàn nhầm */
+  const handleResumeSession = async (sessionId: string) => {
+    if (!cafeId) return false;
+    try {
+      await apiClient.post(
+        `/api/cafes/${cafeId}/pos/sessions/${sessionId}/resume`,
+      );
+      toast.success("Đã khôi phục phiên — tiếp tục chơi.");
+      await fetchAllData(cafeId);
+      return true;
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể khôi phục phiên chơi.");
+      return false;
+    }
+  };
+
+  /** POST .../component-check/reset?sessionGameId= */
+  const handleResetComponentCheck = async (sessionGameId: string) => {
+    if (!cafeId || !sessionGameId) return null;
+    try {
+      const res: any = await apiClient.post(
+        `/api/cafes/${cafeId}/pos/sessions/component-check/reset`,
+        null,
+        { params: { sessionGameId } },
+      );
+      verifiedGameIdsRef.current.delete(sessionGameId);
+      toast.success("Đã reset bảng kiểm kê — kiểm kê lại.");
+      await fetchAllData(cafeId);
+      return res?.data || res;
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể reset kiểm kê.");
+      return null;
+    }
+  };
+
+  /** GET .../sessions/paid — báo cáo phiên đã thanh toán trong ngày (UTC) */
+  const handleFetchPaidSessions = useCallback(
+    async (fromDate?: string, toDate?: string) => {
+      if (!cafeId) return [];
+      const todayUtc = new Date().toISOString().slice(0, 10);
+      try {
+        const res: any = await apiClient.get(
+          `/api/cafes/${cafeId}/pos/sessions/paid`,
+          {
+            params: {
+              fromDate: fromDate || todayUtc,
+              toDate: toDate || todayUtc,
+            },
+          },
+        );
+        // BE: { data: { items: [...], totalCount, ... } }
+        const payload = res?.data ?? res;
+        if (Array.isArray(payload)) return payload;
+        if (Array.isArray(payload?.items)) return payload.items;
+        return [];
+      } catch (err: any) {
+        console.error("Lỗi lấy danh sách phiên Paid:", err);
+        toast.error(err?.message || "Không tải được phiên đã thanh toán.");
+        return [];
+      }
+    },
+    [cafeId],
+  );
 
   const handleFetchUnpaidSessions = useCallback(
     async (olderThanMinutes = 0) => {
@@ -645,7 +948,14 @@ export function usePosDashboard(opts?: {
         { notes: payloadData?.notes || "Thanh toán thủ công tại quầy POS" },
       );
 
-      toast.success("Thanh toán thủ công thành công. Bàn đã được giải phóng.");
+      const tableLabel =
+        checkoutSession?.tableName ||
+        checkoutSession?.tableLabel ||
+        sessions.find((s) => s.id === sessionId)?.tableName ||
+        "Bàn";
+      toast.success(
+        `Thanh toán thủ công thành công. ${tableLabel} đã trống, có thể đặt bàn ngay! Xem hóa đơn tại tab Giải ngân.`,
+      );
 
     // Đóng Modal Thu Tiền
     setCheckoutSession(null);
@@ -885,13 +1195,21 @@ const handleFetchBoxHistory = useCallback(
     handleReturnGame,
     handleComponentCheck,
     unpaidSessions,
-  handleFetchUnpaidSessions,
-  handleCheckoutSession,
+    handleFetchUnpaidSessions,
+    handleFetchPaidSessions,
+    handleResumeSession,
+    handleResetComponentCheck,
+    handleCheckoutSession,
     handlePaySession,
     handleSyncTables,
     handleUpdateTable,
     handleFetchBoxHistory,
     handleAddGuest,
+    handleAttachSessionGame,
+    handleAddSessionMembers,
+    handleReportInventoryLoss,
+    handlePartialCheckout,
+    handleMergeSessionMember,
     handleManualConfirmCash,
     handleRefreshCheckoutPayment,
     canConfigureTables,

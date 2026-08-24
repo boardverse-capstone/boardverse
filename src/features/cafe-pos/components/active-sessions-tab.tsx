@@ -34,6 +34,8 @@ export interface ActiveSessionsTabProps {
   onViewDetail: (sessionId: string) => void;
   onInitiatePaymentFlow: (session: any) => void;
   onShowBoxHistory?: (boxId: string) => void;
+  onResumeSession?: (sessionId: string) => void;
+  onResetComponentCheck?: (sessionGameId: string) => void;
 }
 
 function normStatus(value: unknown) {
@@ -64,6 +66,7 @@ function isReturnedByApi(ses: any) {
     status === "unpaid" ||
     status === "paid" ||
     status === "completed" ||
+    status === "closed" ||
     ses.isCheckingInventory === true ||
     ses.IsCheckingInventory === true
   );
@@ -80,7 +83,9 @@ function isCheckDoneByApi(ses: any) {
 
 function isPaidByApi(ses: any) {
   const status = sessionLifecycle(ses);
-  return status === "paid" || status === "completed";
+  return (
+    status === "paid" || status === "completed" || status === "closed"
+  );
 }
 
 function formatSessionStatusLabel(status?: string | null) {
@@ -98,6 +103,8 @@ function formatSessionStatusLabel(status?: string | null) {
       return "Đã thanh toán";
     case "completed":
       return "Đã hoàn tất";
+    case "closed":
+      return "Đã đóng";
     default:
       return status?.trim() || "";
   }
@@ -109,6 +116,8 @@ export function ActiveSessionsTab({
   onViewDetail,
   onInitiatePaymentFlow,
   onShowBoxHistory,
+  onResumeSession,
+  onResetComponentCheck,
 }: ActiveSessionsTabProps) {
   const activeSessions = (sessions || []).filter((s) => !isPaidByApi(s));
 
@@ -274,7 +283,7 @@ export function ActiveSessionsTab({
                     <Clock className="size-3.5" /> Đã chơi
                   </span>
                   <div className="mt-1 font-mono font-bold text-neutral-900">
-                    {ses.elapsedMinutes} phút
+                    {Number(ses.elapsedMinutes ?? ses.ElapsedMinutes ?? 0)} phút
                   </div>
                 </div>
 
@@ -337,6 +346,38 @@ export function ActiveSessionsTab({
             </CardContent>
 
             <CardFooter className="grid grid-cols-2 gap-2 border-t">
+              {isChecking && !isCheckDone && onResumeSession ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onResumeSession(ses.id)}
+                  className="min-h-11 gap-2 rounded-lg font-semibold col-span-2 border-sky-300 text-sky-800 bg-sky-50"
+                >
+                  Khôi phục phiên (tiếp tục chơi)
+                </Button>
+              ) : null}
+              {isCheckDone && !isUnpaid && !isPaidDone && onResetComponentCheck ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    const gid =
+                      primaryGame?.id ||
+                      primaryGame?.sessionGameId ||
+                      ses.games?.[0]?.id;
+                    if (!gid) {
+                      toast.error("Không tìm thấy mã game trong phiên để reset.");
+                      return;
+                    }
+                    onResetComponentCheck(gid);
+                  }}
+                  className="min-h-11 gap-2 rounded-lg font-semibold col-span-2 text-neutral-600"
+                >
+                  Reset kiểm kê
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 size="sm"

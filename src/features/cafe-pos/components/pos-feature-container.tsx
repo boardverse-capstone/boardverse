@@ -23,7 +23,7 @@ import { CheckoutConfirmModal } from "./checkout-confirm-modal";
 import { PayConfirmModal } from "./checkout-pay-modal";
 import { ComponentChecklistModal } from "./component-checklist-modal";
 import { SessionDetailModal } from "./session-detail-modal";
-import { PosBoxesTab } from "./pos-boxes-tab";
+import { PosBoxesTab, filterBoxesAssignableForPos } from "./pos-boxes-tab";
 import { StartSessionModal } from "./start-session-modal";
 import {
   ActiveSessionsTab,
@@ -44,7 +44,7 @@ import {
   Loader2,
   Table2,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   formatPlayerRange,
@@ -77,6 +77,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
   const [selectedDetailSessionId, setSelectedDetailSessionId] = useState<
     string | null
   >(null);
+  const [detailRefreshKey, setDetailRefreshKey] = useState(0);
   const {
     cafeId,
     tables,
@@ -98,9 +99,17 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     handleComponentCheck,
     handleCheckoutSession,
     handlePaySession,
+    handleResumeSession,
+    handleResetComponentCheck,
+    handleFetchPaidSessions,
     handleSyncTables,
     handleFetchBoxHistory,
     handleAddGuest,
+    handleAttachSessionGame,
+    handleAddSessionMembers,
+    handleReportInventoryLoss,
+    handlePartialCheckout,
+    handleMergeSessionMember,
     handleRefreshCheckoutPayment,
     canConfigureTables,
   } = usePosDashboard({
@@ -111,8 +120,15 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     },
   });
 
+  /** Hộp có thể gán/thêm phiên — không gồm InUse hoặc barcode đang gắn session live. */
+  const assignableBoxes = useMemo(
+    () => filterBoxesAssignableForPos(boxes, sessions),
+    [boxes, sessions],
+  );
+
   const { connected: hubConnected } = useCafePosHub({
     enabled: Boolean(cafeId),
+    cafeId,
     onRefresh: refreshData,
   });
 
@@ -143,28 +159,81 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
       }
     }
 
-    const primaryGame = detailedSession.games?.[0];
-    const boxId =
-      primaryGame?.cafeInventoryBoxId || detailedSession.cafeInventoryBoxId;
+    const games: any[] =
+      detailedSession.games || detailedSession.Games || [];
 
-    if (boxId && handleFetchBoxHistory) {
-      const historyRes = await handleFetchBoxHistory(boxId, detailedSession.id);
-      setHistoryModalState({
-        isOpen: true,
-        data: historyRes || {
-          boxId,
-          gameName:
-            primaryGame?.gameName || detailedSession.tableName || "Hộp game",
-          barcode: primaryGame?.boxBarcode || "—",
-          totalIncidents: 0,
-          incidents: [],
-        },
-        targetSession: detailedSession,
-      });
+    const normCheck = (game: any) =>
+      String(game?.checkStatus ?? game?.CheckStatus ?? "")
+        .toLowerCase()
+        .replace(/[_\s-]/g, "");
+
+    // Ưu tiên hộp đang MissingComponents trong phiên (không lấy games[0] mặc định)
+    const missingGames = games.filter(
+      (game) => normCheck(game) === "missingcomponents",
+    );
+
+    if (missingGames.length === 0 || !handleFetchBoxHistory) {
+      setCheckoutSession(detailedSession);
       return;
     }
 
-    setCheckoutSession(detailedSession);
+    const histories = await Promise.all(
+      missingGames.map(async (game) => {
+        const boxId =
+          game.cafeInventoryBoxId ||
+          game.CafeInventoryBoxId ||
+          game.boxId ||
+          game.BoxId;
+        if (!boxId) return null;
+        const historyRes = await handleFetchBoxHistory(
+          boxId,
+          detailedSession.id,
+        );
+        return (
+          historyRes || {
+            boxId,
+            gameName: game.gameName || game.name || "Hộp game",
+            barcode: game.boxBarcode || game.barcode || "—",
+            totalIncidents: 0,
+            incidents: [],
+          }
+        );
+      }),
+    );
+
+    const validHistories = histories.filter(Boolean) as any[];
+    if (validHistories.length === 0) {
+      setCheckoutSession(detailedSession);
+      return;
+    }
+
+    const mergedIncidents = validHistories.flatMap(
+      (h) => h.incidents || [],
+    );
+    const merged = {
+      boxId: validHistories[0].boxId,
+      gameName: missingGames
+        .map((g) => g.gameName || g.name)
+        .filter(Boolean)
+        .join(", "),
+      barcode: missingGames
+        .map((g) => g.boxBarcode || g.barcode)
+        .filter(Boolean)
+        .join(" · "),
+      totalIncidents:
+        mergedIncidents.length ||
+        validHistories.reduce(
+          (sum, h) => sum + Number(h.totalIncidents || 0),
+          0,
+        ),
+      incidents: mergedIncidents,
+    };
+
+    setHistoryModalState({
+      isOpen: true,
+      data: merged,
+      targetSession: detailedSession,
+    });
   };
 
   const handleProceedFromHistoryToPay = () => {
@@ -190,6 +259,9 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
   // LUỒNG TỰ ĐỘNG: CHỐT KIỂM KÊ LINH KIỆN -> MỞ MODAL CHECKOUT CONFIRM
   const handleChecklistSubmitOnly = async (payload: any) => {
     const checkResult = await handleComponentCheck(payload);
+    if (checkResult) {
+      setDetailRefreshKey((key) => key + 1);
+    }
     return Boolean(checkResult);
   };
 
@@ -281,7 +353,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         <PendingBookingsPanel
           cafeId={cafeId}
           tables={tables}
-          boxes={boxes}
+          boxes={assignableBoxes}
           initialBookingCode={props?.initialBookingCode}
           onOpenTables={() => setActiveTab("tables")}
           onConfirmCheckIn={(code, tableId, barcode) =>
@@ -329,11 +401,26 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
             <TabsContent value="tables">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {tables.map((table) => {
-                  const isAvail = table.status === "Available";
-                  const session = sessions.find(
-                    (s) =>
-                      (s.cafeTableId || s.tableId || s.CafeTableId) === table.id,
-                  );
+                  const tableStatus = String(table.status ?? "");
+                  const session = sessions.find((s) => {
+                    const sid =
+                      s.cafeTableId || s.tableId || s.CafeTableId;
+                    if (sid !== table.id) return false;
+                    const st = String(
+                      s.status ?? s.Status ?? s.sessionStatus ?? "",
+                    )
+                      .toLowerCase()
+                      .replace(/[_\s-]/g, "");
+                    return (
+                      st === "active" ||
+                      st === "playing" ||
+                      st === "checking" ||
+                      st === "unpaid"
+                    );
+                  });
+                  // BE: Available | InUse | Reserved | EventInProgress — InUse khi session Active/Checking/Unpaid
+                  const isAvail =
+                    tableStatus === "Available" && !session;
                   const playerRange = mergePlayerRange(
                     session?.games?.[0],
                     session?.game,
@@ -438,13 +525,22 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                 }
                 onInitiatePaymentFlow={handleInitiatePaymentFlow}
                 onShowBoxHistory={handleShowBoxHistoryDirectly}
+                onResumeSession={(sessionId) => {
+                  void handleResumeSession(sessionId);
+                }}
+                onResetComponentCheck={(sessionGameId) => {
+                  void handleResetComponentCheck(sessionGameId);
+                }}
               />
             </TabsContent>
             <TabsContent value="boxes">
               <PosBoxesTab boxes={boxes} />
             </TabsContent>
             <TabsContent value="settlements">
-              <SettlementsTab cafeId={cafeId} />
+              <SettlementsTab
+                cafeId={cafeId}
+                onFetchPaidSessions={handleFetchPaidSessions}
+              />
             </TabsContent>
           </>
         )}
@@ -508,6 +604,29 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
           if (targetSes) setEndingSession(targetSes);
         }}
         onAddGuest={handleAddGuest}
+        boxes={assignableBoxes}
+        detailRefreshKey={detailRefreshKey}
+        otherSessions={sessions
+          .filter((session) => {
+            const id = session.id || session.sessionId;
+            const status = String(session.status ?? session.Status ?? "").toLowerCase();
+            return (
+              id &&
+              id !== selectedDetailSessionId &&
+              status !== "paid" &&
+              status !== "completed"
+            );
+          })
+          .map((session) => ({
+            id: session.id || session.sessionId,
+            tableName: session.tableName || session.tableLabel,
+            status: session.status || session.Status,
+          }))}
+        onAttachGame={handleAttachSessionGame}
+        onAddMembers={handleAddSessionMembers}
+        onReportInventoryLoss={handleReportInventoryLoss}
+        onPartialCheckout={handlePartialCheckout}
+        onMergeMember={handleMergeSessionMember}
       />
 
       <StartSessionModal
@@ -515,6 +634,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         onClose={() => setStartTable(null)}
         selectedTable={startTable}
         cafeId={cafeId}
+        boxes={assignableBoxes}
         onStart={handleStartSession}
       />
 

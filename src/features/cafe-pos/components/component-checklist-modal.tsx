@@ -119,7 +119,7 @@ export function ComponentChecklistModal({
   );
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-[70] flex items-center justify-center p-4">
       <div className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
         {/* HEADER MODAL */}
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">

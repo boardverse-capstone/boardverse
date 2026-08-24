@@ -132,7 +132,10 @@ export function PayConfirmModal({
         const fresh = await onRefreshPayment(session.id);
         const status = String(fresh?.status || fresh?.Status || "").toLowerCase();
         if (status === "paid" || status === "completed") {
-          toast.success("Thanh toán thành công. Bàn đã giải phóng.");
+          const tableLabel = session.tableName || session.tableLabel || "Bàn";
+          toast.success(
+            `Thanh toán thành công. ${tableLabel} đã trống, có thể đặt bàn ngay!`,
+          );
           onClose();
         }
       } catch {
@@ -242,13 +245,12 @@ export function PayConfirmModal({
         const checkoutOk = await onCheckout(session.id);
         if (!checkoutOk) return;
       }
-      const code = await PosCheckInService.createSessionPayment(
-        cafeId,
-        session.id,
-        {
-          notes: finalNotes,
-        },
-      );
+
+      const code = qrPayload
+        ? await PosCheckInService.regenerateSessionPaymentQr(session.id)
+        : await PosCheckInService.createSessionPayment(cafeId, session.id, {
+            notes: finalNotes,
+          });
       const payload = code.qrPayload || code.code;
       if (!payload) {
         toast.error("Máy chủ không trả mã QR thanh toán.");
@@ -258,9 +260,11 @@ export function PayConfirmModal({
       setQrOrderId(code.code || "");
       setQrAmount(code.amount > 0 ? code.amount : finalTotalAmount);
       toast.success(
-        code.amount > 0
-          ? `Đã tạo QR VietQR · ${code.amount.toLocaleString("vi-VN")}đ. Chờ khách quét.`
-          : "Đã tạo QR VietQR. Chờ khách quét.",
+        qrPayload
+          ? "Đã tạo lại QR thanh toán."
+          : code.amount > 0
+            ? `Đã tạo QR VietQR · ${code.amount.toLocaleString("vi-VN")}đ. Chờ khách quét.`
+            : "Đã tạo QR VietQR. Chờ khách quét.",
       );
     } catch (err: any) {
       toast.error(err?.message || "Không tạo được QR thanh toán.");
@@ -299,7 +303,10 @@ export function PayConfirmModal({
       }
       const status = String(fresh?.status || fresh?.Status || "").toLowerCase();
       if (status === "paid" || status === "completed") {
-        toast.success("Thanh toán thành công. Bàn đã giải phóng.");
+        const tableLabel = session.tableName || session.tableLabel || "Bàn";
+        toast.success(
+          `Thanh toán thành công. ${tableLabel} đã trống, có thể đặt bàn ngay!`,
+        );
         onClose();
         return;
       }
