@@ -555,7 +555,7 @@ export function PendingBookingsPanel({
       }
 
       const nextBarcode = String(boxData.barcode ?? codeToCheck);
-      if (!isBoxStatusAvailable(boxData.status)) {
+      if (!isBoxStatusAvailable(String(boxData.status ?? ""))) {
         toast.error(
           `Hộp "${nextBarcode}" không sẵn sàng để gán (đang dùng / bảo trì).`,
         );

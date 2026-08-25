@@ -154,7 +154,7 @@ function UserSearchPicker({
           ) : null}
 
           {submitted && !searchQuery.isFetching && results.length === 0 ? (
-            <EmptyState>Không có kết quả khớp “{submitted}”.</EmptyState>
+            <EmptyState>{`Không có kết quả khớp “${submitted}”.`}</EmptyState>
           ) : null}
 
           {results.length > 0 ? (
