@@ -53,6 +53,7 @@ export const ROUTES = {
     INVENTORY_BOXES: '/staff/inventory?tab=boxes',
     INVENTORY_DETAIL: (cafeId: string, inventoryId: string) =>
       `/staff/inventory/${inventoryId}?cafeId=${cafeId}`,
+    TOURNAMENT: '/staff/tournaments',
     REPORTS: '/staff/reports',
   },
 } as const;

@@ -31,7 +31,7 @@ const STAFF_NAV: NavItem[] = [
   },
   {
     title: "Giải đấu",
-    url: ROUTES.MANAGER.TOURNAMENT,
+    url: ROUTES.STAFF.TOURNAMENT,
     icon: <Trophy className="w-5 h-5" />,
   },
   {

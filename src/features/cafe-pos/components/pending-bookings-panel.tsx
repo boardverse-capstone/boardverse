@@ -92,6 +92,20 @@ function formatTime(iso?: string | null) {
   });
 }
 
+/**
+ * Khung giờ đặt chỗ: BE trả `...T12:00:00Z` nhưng số giờ là giờ quán
+ * (trùng preferredStartTime), không phải UTC thật — không cộng timezone local.
+ */
+function formatReservationSlot(iso?: string | null) {
+  if (!iso) return "—";
+  const match = String(iso).match(
+    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/,
+  );
+  if (!match) return formatTime(iso);
+  const [, , month, day, hour, minute] = match;
+  return `${hour}:${minute} ${day}-${month}`;
+}
+
 function reservationToPreview(
   item: CafeReservationListItem,
 ): PosBookingPreview {
@@ -936,8 +950,8 @@ export function PendingBookingsPanel({
                         {item.tableNumber ? ` · Bàn ${item.tableNumber}` : ""}
                       </p>
                       <p className="mt-1 text-xs font-medium text-neutral-700">
-                        {formatTime(item.scheduledStartTime)} →{" "}
-                        {formatTime(item.scheduledEndTime)}
+                        {formatReservationSlot(item.scheduledStartTime)} →{" "}
+                        {formatReservationSlot(item.scheduledEndTime)}
                       </p>
                     </button>
                   );
@@ -1070,7 +1084,7 @@ export function PendingBookingsPanel({
                   </Badge>
                 </DialogTitle>
                 <DialogDescription>
-                  {formatTime(preview.scheduledStartTime)} ·{" "}
+                  {formatReservationSlot(preview.scheduledStartTime)} ·{" "}
                   <span className="font-mono">{preview.bookingCode}</span> ·{" "}
                   {preview.registeredMemberCount} khách
                 </DialogDescription>

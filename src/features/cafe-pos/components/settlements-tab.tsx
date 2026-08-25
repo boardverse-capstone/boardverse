@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Banknote, Receipt, RefreshCw, X } from "lucide-react";
+import { Banknote, FileDown, Receipt, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/core/api/client";
@@ -30,6 +30,109 @@ function formatTime(iso: string) {
     day: "2-digit",
     month: "2-digit",
   }).format(new Date(iso));
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** BE chỉ trả JSON — in qua iframe ẩn (không bị chặn popup), chọn Save as PDF. */
+function exportReceiptPdf(receipt: any) {
+  const members = Array.isArray(receipt?.members) ? receipt.members : [];
+  const memberRows = members
+    .map(
+      (m: any) => `
+      <tr>
+        <td>${escapeHtml(m.displayName || "Khách")}${m.isGuestSlot ? " (guest)" : ""}</td>
+        <td style="text-align:right">${escapeHtml(
+          Number(m.total || 0).toLocaleString("vi-VN"),
+        )}đ</td>
+      </tr>`,
+    )
+    .join("");
+
+  const paidAt = receipt?.paidAt
+    ? formatTime(String(receipt.paidAt))
+    : "—";
+  const title = `Hoa-don-${String(receipt?.tableName || "ban").replace(/\s+/g, "-")}-${String(receipt?.sessionId || "").slice(0, 8) || "receipt"}`;
+
+  const html = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body { font-family: system-ui, "Segoe UI", Arial, sans-serif; color: #111; padding: 24px; max-width: 480px; margin: 0 auto; }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    .meta { color: #555; font-size: 12px; margin-bottom: 16px; }
+    .row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; }
+    .total { font-weight: 700; font-size: 15px; border-top: 1px solid #ddd; margin-top: 8px; padding-top: 8px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 12px; }
+    th, td { padding: 6px 0; border-bottom: 1px solid #eee; text-align: left; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <h1>Hóa đơn BoardVerse</h1>
+  <p class="meta">
+    ${escapeHtml(receipt?.cafeName || "BoardVerse")}<br/>
+    ${escapeHtml(receipt?.cafeAddress || "")}<br/>
+    ${escapeHtml(receipt?.tableName || "Bàn")} · ${escapeHtml(receipt?.gameName || "Game")}<br/>
+    Thời lượng: ${escapeHtml(receipt?.durationMinutes ?? "—")} phút · Thanh toán: ${escapeHtml(paidAt)}
+  </p>
+  <div class="row"><span>Subtotal</span><span>${escapeHtml(Number(receipt?.totalSubtotal || 0).toLocaleString("vi-VN"))}đ</span></div>
+  <div class="row"><span>Phạt</span><span>${escapeHtml(Number(receipt?.totalPenalty || 0).toLocaleString("vi-VN"))}đ</span></div>
+  <div class="row"><span>Cọc trừ</span><span>${escapeHtml(Number(receipt?.totalDepositApplied || 0).toLocaleString("vi-VN"))}đ</span></div>
+  <div class="row total"><span>Tổng</span><span>${escapeHtml(Number(receipt?.grandTotal || 0).toLocaleString("vi-VN"))}đ</span></div>
+  ${
+    members.length
+      ? `<table><thead><tr><th>Thành viên</th><th style="text-align:right">Số tiền</th></tr></thead><tbody>${memberRows}</tbody></table>`
+      : ""
+  }
+</body>
+</html>`;
+
+  const iframe = document.createElement("iframe");
+  iframe.setAttribute("title", title);
+  iframe.style.cssText =
+    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;";
+  document.body.appendChild(iframe);
+
+  const frameDoc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!frameDoc || !iframe.contentWindow) {
+    iframe.remove();
+    toast.error("Không mở được bản in hóa đơn.");
+    return;
+  }
+
+  frameDoc.open();
+  frameDoc.write(html);
+  frameDoc.close();
+
+  const cleanup = () => {
+    iframe.remove();
+  };
+
+  iframe.contentWindow.onafterprint = cleanup;
+  // Một số trình duyệt không gọi afterprint — dọn sau timeout.
+  window.setTimeout(cleanup, 60_000);
+
+  window.setTimeout(() => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      toast.message(
+        "Chọn “Lưu dưới dạng PDF” / “Save as PDF” trong hộp thoại in.",
+      );
+    } catch {
+      cleanup();
+      toast.error("Không thể mở hộp thoại in.");
+    }
+  }, 150);
 }
 
 function formatSettlementStatusLabel(status?: string | null) {
@@ -321,7 +424,16 @@ export function SettlementsTab({
                 ))}
               </div>
             ) : null}
-            <div className="flex justify-end border-t border-neutral-100 pt-3">
+            <div className="flex justify-end gap-2 border-t border-neutral-100 pt-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => exportReceiptPdf(receipt)}
+                className="h-9 gap-1.5 text-xs font-bold"
+              >
+                <FileDown className="size-3.5" />
+                Xuất PDF
+              </Button>
               <Button
                 type="button"
                 variant="outline"
