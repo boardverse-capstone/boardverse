@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PosCheckInService } from "@/features/pos-check-in/services/pos-check-in.service";
+import { SplitBillPanel } from "./split-bill-panel";
+import type { MemberPaymentResult } from "@/features/pos-check-in/types/pos-check-in.interface";
 import {
   X,
   CreditCard,
@@ -19,7 +21,14 @@ import {
   PenTool,
   QrCode,
   RefreshCw,
+  Users,
 } from "lucide-react";
+
+type PayMode = "table" | "split";
+
+function splitQrValue(row: MemberPaymentResult) {
+  return row.qrImageUrl || row.paymentUrl || row.transferContent || "";
+}
 
 function pickAmount(source: any, ...keys: string[]): number {
   if (!source) return 0;
@@ -85,6 +94,8 @@ export function PayConfirmModal({
   const [qrPayload, setQrPayload] = useState<string | null>(null);
   const [qrAmount, setQrAmount] = useState(0);
   const [qrOrderId, setQrOrderId] = useState("");
+  const [payMode, setPayMode] = useState<PayMode>("table");
+  const [splitQrList, setSplitQrList] = useState<MemberPaymentResult[]>([]);
 
   useEffect(() => {
     if (!isOpen || !session?.id || !onCheckout) return;
@@ -118,11 +129,62 @@ export function PayConfirmModal({
       setQrPayload(null);
       setQrAmount(0);
       setQrOrderId("");
+      setPayMode("table");
+      setSplitQrList([]);
     }
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen || !qrPayload || !onRefreshPayment || !session?.id) return;
+    if (
+      !isOpen ||
+      payMode !== "split" ||
+      splitQrList.length === 0 ||
+      !onRefreshPayment ||
+      !session?.id
+    ) {
+      return;
+    }
+    let stopped = false;
+    let refreshing = false;
+    const tick = async () => {
+      if (stopped || refreshing) return;
+      refreshing = true;
+      try {
+        const fresh = await onRefreshPayment(session.id);
+        const status = String(fresh?.status || fresh?.Status || "").toLowerCase();
+        if (status === "paid" || status === "completed") {
+          const tableLabel = session.tableName || session.tableLabel || "Bàn";
+          toast.success(
+            `Thanh toán thành công. ${tableLabel} đã trống, có thể đặt bàn ngay!`,
+          );
+          onClose();
+        }
+      } catch {
+        // ignore
+      } finally {
+        refreshing = false;
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), 5000);
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+    };
+  }, [
+    isOpen,
+    payMode,
+    splitQrList.length,
+    onRefreshPayment,
+    session?.id,
+    onClose,
+    session?.tableName,
+    session?.tableLabel,
+  ]);
+
+  useEffect(() => {
+    if (!isOpen || !qrPayload || payMode !== "table" || !onRefreshPayment || !session?.id)
+      return;
     let stopped = false;
     let refreshing = false;
     const tick = async () => {
@@ -150,7 +212,7 @@ export function PayConfirmModal({
       stopped = true;
       window.clearInterval(id);
     };
-  }, [isOpen, qrPayload, onRefreshPayment, session?.id, onClose]);
+  }, [isOpen, qrPayload, payMode, onRefreshPayment, session?.id, onClose, session?.tableName, session?.tableLabel]);
 
   if (!isOpen || !session) return null;
 
@@ -324,7 +386,13 @@ export function PayConfirmModal({
     <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
       <div
         className={`bg-white border border-neutral-200 rounded-2xl w-full p-5 shadow-xl animate-in fade-in-50 duration-150 flex flex-col max-h-[90vh] ${
-          qrPayload ? "max-w-4xl" : "max-w-md"
+          payMode === "split" && splitQrList.length > 1
+            ? "max-w-6xl"
+            : (payMode === "table" && qrPayload) ||
+                (payMode === "split" && splitQrList.length > 0) ||
+                payMode === "split"
+              ? "max-w-4xl"
+              : "max-w-lg"
         }`}
       >
         {/* HEADER MODAL */}
@@ -370,9 +438,12 @@ export function PayConfirmModal({
 
         <div
           className={`min-h-0 flex-1 pt-4 ${
-            qrPayload
-              ? "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_320px] gap-4 items-start overflow-hidden"
-              : "space-y-4 overflow-y-auto"
+            payMode === "split" && splitQrList.length > 1
+              ? "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-4 items-stretch overflow-hidden"
+              : (payMode === "table" && qrPayload) ||
+                  (payMode === "split" && splitQrList.length > 0)
+                ? "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_320px] gap-4 items-start overflow-hidden"
+                : "space-y-4 overflow-y-auto"
           }`}
         >
           <div className="space-y-4 min-h-0 overflow-y-auto">
@@ -446,61 +517,117 @@ export function PayConfirmModal({
           </div>
         </div>
 
-        {/* GHI CHÚ THU TIỀN */}
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-neutral-800 flex items-center gap-1">
-            <Tag className="w-3.5 h-3.5 text-neutral-500" /> Ghi chú trường hợp thu tiền:
-          </label>
+        {cafeId ? (
+          <div className="grid grid-cols-2 gap-1 rounded-xl border border-neutral-200 bg-neutral-50 p-1">
+            <button
+              type="button"
+              onClick={() => {
+                setPayMode("table");
+                setSplitQrList([]);
+              }}
+              className={`flex h-9 items-center justify-center gap-1.5 rounded-lg text-xs font-bold transition-colors ${
+                payMode === "table"
+                  ? "bg-white text-neutral-950 shadow-2xs"
+                  : "text-neutral-500 hover:text-neutral-800"
+              }`}
+            >
+              <CreditCard className="size-3.5" />
+              Thu cả bàn
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPayMode("split");
+                setQrPayload(null);
+              }}
+              className={`flex h-9 items-center justify-center gap-1.5 rounded-lg text-xs font-bold transition-colors ${
+                payMode === "split"
+                  ? "bg-white text-neutral-950 shadow-2xs"
+                  : "text-neutral-500 hover:text-neutral-800"
+              }`}
+            >
+              <Users className="size-3.5" />
+              Chia tiền
+            </button>
+          </div>
+        ) : null}
 
-          <div className="flex flex-wrap gap-1.5">
-            {PRESET_NOTES.map((preset) => {
-              const isSelected = selectedPreset === preset;
-              return (
+        {payMode === "split" && cafeId ? (
+          <SplitBillPanel
+            cafeId={cafeId}
+            sessionId={String(session.id)}
+            notes={finalNotes}
+            onQrListChange={setSplitQrList}
+            onAllPaid={() => {
+              const tableLabel =
+                session.tableName || session.tableLabel || "Bàn";
+              toast.success(
+                `Đã thu đủ theo khách. ${tableLabel} trống — xem hóa đơn tại tab Giải ngân.`,
+              );
+              void onRefreshPayment?.(session.id);
+              onClose();
+            }}
+          />
+        ) : null}
+
+        {payMode === "table" ? (
+          <>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-neutral-800 flex items-center gap-1">
+                <Tag className="w-3.5 h-3.5 text-neutral-500" /> Ghi chú trường hợp thu tiền:
+              </label>
+
+              <div className="flex flex-wrap gap-1.5">
+                {PRESET_NOTES.map((preset) => {
+                  const isSelected = selectedPreset === preset;
+                  return (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setSelectedPreset(preset)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border ${
+                        isSelected
+                          ? "bg-emerald-50 border-emerald-500 text-emerald-800 shadow-2xs"
+                          : "bg-neutral-50 border-neutral-200 text-neutral-600 hover:bg-neutral-100"
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  );
+                })}
+
                 <button
-                  key={preset}
                   type="button"
-                  onClick={() => setSelectedPreset(preset)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border ${
-                    isSelected
+                  onClick={() => setSelectedPreset("OTHER")}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border flex items-center gap-1 ${
+                    selectedPreset === "OTHER"
                       ? "bg-emerald-50 border-emerald-500 text-emerald-800 shadow-2xs"
                       : "bg-neutral-50 border-neutral-200 text-neutral-600 hover:bg-neutral-100"
                   }`}
                 >
-                  {preset}
+                  <PenTool className="w-3 h-3" />
+                  <span>Tự nhập khác...</span>
                 </button>
-              );
-            })}
+              </div>
 
-            <button
-              type="button"
-              onClick={() => setSelectedPreset("OTHER")}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all border flex items-center gap-1 ${
-                selectedPreset === "OTHER"
-                  ? "bg-emerald-50 border-emerald-500 text-emerald-800 shadow-2xs"
-                  : "bg-neutral-50 border-neutral-200 text-neutral-600 hover:bg-neutral-100"
-              }`}
-            >
-              <PenTool className="w-3 h-3" />
-              <span>Tự nhập khác...</span>
-            </button>
-          </div>
-
-          {selectedPreset === "OTHER" && (
-            <div className="pt-1">
-              <Input
-                type="text"
-                autoFocus
-                placeholder="Nhập ghi chú chi tiết..."
-                value={customNote}
-                onChange={(e) => setCustomNote(e.target.value)}
-                className="h-9 text-xs bg-white border-neutral-300 focus:border-emerald-500 rounded-lg"
-              />
+              {selectedPreset === "OTHER" && (
+                <div className="pt-1">
+                  <Input
+                    type="text"
+                    autoFocus
+                    placeholder="Nhập ghi chú chi tiết..."
+                    value={customNote}
+                    onChange={(e) => setCustomNote(e.target.value)}
+                    className="h-9 text-xs bg-white border-neutral-300 focus:border-emerald-500 rounded-lg"
+                  />
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        ) : null}
           </div>
 
-        {qrPayload && (
+        {payMode === "table" && qrPayload ? (
           <div className="flex flex-col items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/40 p-3 shrink-0">
             <p className="text-xs font-bold text-emerald-800 text-center">
               Quét QR VietQR
@@ -527,10 +654,66 @@ export function PayConfirmModal({
               </div>
             )}
           </div>
-        )}
+        ) : null}
+
+        {payMode === "split" && splitQrList.length > 0 ? (
+          <div className="flex max-h-full min-h-0 shrink-0 flex-col gap-2 overflow-hidden rounded-xl border border-violet-200 bg-violet-50/40 p-3">
+            <p className="shrink-0 text-center text-xs font-bold text-violet-900">
+              QR VietQR ({splitQrList.length})
+            </p>
+            <div
+              className={`min-h-0 flex-1 gap-2 ${
+                splitQrList.length === 1
+                  ? "flex flex-col items-center overflow-y-auto"
+                  : "grid grid-flow-col auto-cols-[minmax(160px,1fr)] overflow-x-auto overflow-y-hidden"
+              }`}
+            >
+              {splitQrList.map((row) => {
+                const payload = splitQrValue(row);
+                if (!payload) return null;
+                const compact = splitQrList.length > 1;
+                const qrPx = compact ? 148 : 220;
+                return (
+                  <div
+                    key={row.memberId}
+                    className="flex h-full min-w-0 flex-col items-center justify-start gap-1 rounded-xl border border-violet-200 bg-white p-2"
+                  >
+                    <p className="w-full truncate text-center text-xs font-bold text-violet-900">
+                      {row.displayName}
+                      {row.amountDue > 0
+                        ? ` · ${row.amountDue.toLocaleString("vi-VN")}đ`
+                        : ""}
+                    </p>
+                    {row.transferContent || row.orderId ? (
+                      <p className="w-full truncate text-center font-mono text-[9px] text-neutral-500">
+                        ND: {row.transferContent || row.orderId}
+                      </p>
+                    ) : null}
+                    {/^https?:\/\//i.test(payload) &&
+                    /vietqr|\.png|\.jpg|qr/i.test(payload) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={payload}
+                        alt={`QR ${row.displayName}`}
+                        className={
+                          compact
+                            ? "h-auto max-h-[min(52vh,320px)] w-auto max-w-full rounded-lg bg-white object-contain"
+                            : "h-[220px] w-[220px] rounded-lg bg-white object-contain"
+                        }
+                      />
+                    ) : (
+                      <div className="rounded-lg bg-white p-1">
+                        <QRCode value={payload} size={qrPx} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
         </div>
 
-        {/* FOOTER ACTIONS */}
         <div className="pt-3 mt-3 border-t border-neutral-100 flex flex-wrap justify-end gap-2 shrink-0">
           <Button
             type="button"
@@ -538,10 +721,10 @@ export function PayConfirmModal({
             onClick={onClose}
             className="h-9 text-xs rounded-lg border-neutral-200"
           >
-            Hủy
+            Đóng
           </Button>
 
-          {onRefreshPayment && (
+          {payMode === "table" && onRefreshPayment ? (
             <Button
               type="button"
               disabled={loading}
@@ -552,28 +735,32 @@ export function PayConfirmModal({
               <RefreshCw className={`mr-1 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
               Reload
             </Button>
-          )}
+          ) : null}
 
-          <Button
-            type="button"
-            disabled={loading}
-            onClick={() => void handleCreateQr()}
-            className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg px-3"
-          >
-            <QrCode className="mr-1 h-3.5 w-3.5" />
-            {loading ? "Đang tạo QR..." : qrPayload ? "Tạo lại QR" : "Tạo QR thanh toán"}
-          </Button>
+          {payMode === "table" ? (
+            <>
+              <Button
+                type="button"
+                disabled={loading}
+                onClick={() => void handleCreateQr()}
+                className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg px-3"
+              >
+                <QrCode className="mr-1 h-3.5 w-3.5" />
+                {loading ? "Đang tạo QR..." : qrPayload ? "Tạo lại QR" : "Tạo QR cả bàn"}
+              </Button>
 
-          <Button
-            type="button"
-            disabled={loading}
-            variant="outline"
-            onClick={handleConfirmPay}
-            className="h-9 text-xs font-bold rounded-lg px-4 flex items-center gap-1.5"
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            <span>{loading ? "Đang xử lý..." : "Thanh toán thủ công"}</span>
-          </Button>
+              <Button
+                type="button"
+                disabled={loading}
+                variant="outline"
+                onClick={handleConfirmPay}
+                className="h-9 text-xs font-bold rounded-lg px-4 flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{loading ? "Đang xử lý..." : "Tiền mặt cả bàn"}</span>
+              </Button>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

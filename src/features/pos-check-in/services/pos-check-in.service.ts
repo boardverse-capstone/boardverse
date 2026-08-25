@@ -39,6 +39,9 @@ import type {
   UpdatePosTablePayload,
   CreateCheckInTokenPayload,
   PosCheckInTokenDto,
+  SessionPaymentStatus,
+  SessionPaymentMemberStatus,
+  MemberPaymentResult,
 } from '../types/pos-check-in.interface';
 import {
   mapApiActivatedSession,
@@ -423,6 +426,115 @@ function isNotFoundError(err: unknown): boolean {
     );
   }
   return false;
+}
+
+function unwrapData(raw: unknown): unknown {
+  if (raw && typeof raw === 'object' && 'data' in raw) {
+    return (raw as { data: unknown }).data;
+  }
+  return raw;
+}
+
+function mapOneMemberPayment(r: Record<string, unknown>): MemberPaymentResult {
+  return {
+    memberId: String(r.memberId ?? r.MemberId ?? ''),
+    displayName: String(r.displayName ?? r.DisplayName ?? 'Khách'),
+    amountDue: Number(r.amountDue ?? r.AmountDue ?? 0),
+    amountPaid: Number(r.amountPaid ?? r.AmountPaid ?? 0),
+    paymentMethod: String(r.paymentMethod ?? r.PaymentMethod ?? ''),
+    status: String(r.status ?? r.Status ?? 'NotPaid'),
+    paidAt:
+      r.paidAt != null
+        ? String(r.paidAt)
+        : r.PaidAt != null
+          ? String(r.PaidAt)
+          : null,
+    orderId:
+      r.orderId != null
+        ? String(r.orderId)
+        : r.OrderId != null
+          ? String(r.OrderId)
+          : null,
+    qrImageUrl:
+      r.qrImageUrl != null
+        ? String(r.qrImageUrl)
+        : r.QrImageUrl != null
+          ? String(r.QrImageUrl)
+          : null,
+    paymentUrl:
+      r.paymentUrl != null
+        ? String(r.paymentUrl)
+        : r.PaymentUrl != null
+          ? String(r.PaymentUrl)
+          : null,
+    transferContent:
+      r.transferContent != null
+        ? String(r.transferContent)
+        : r.TransferContent != null
+          ? String(r.TransferContent)
+          : null,
+  };
+}
+
+function mapMemberPaymentResults(raw: unknown): MemberPaymentResult[] {
+  const data = unwrapData(raw);
+  const list = Array.isArray(data)
+    ? data
+    : data && typeof data === 'object' && Array.isArray((data as { items?: unknown }).items)
+      ? ((data as { items: unknown[] }).items)
+      : data && typeof data === 'object'
+        ? [data]
+        : [];
+  return list
+    .map((item) =>
+      item && typeof item === 'object'
+        ? mapOneMemberPayment(item as Record<string, unknown>)
+        : null,
+    )
+    .filter((m): m is MemberPaymentResult => !!m?.memberId);
+}
+
+function mapSessionPaymentStatus(
+  raw: unknown,
+  fallbackSessionId: string,
+): SessionPaymentStatus {
+  const data = unwrapData(raw);
+  const r =
+    data && typeof data === 'object' ? (data as Record<string, unknown>) : {};
+  const membersRaw = Array.isArray(r.members)
+    ? r.members
+    : Array.isArray(r.Members)
+      ? r.Members
+      : [];
+  const members: SessionPaymentMemberStatus[] = membersRaw
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const m = item as Record<string, unknown>;
+      const memberId = String(m.memberId ?? m.MemberId ?? m.id ?? '');
+      if (!memberId) return null;
+      return {
+        memberId,
+        displayName: String(m.displayName ?? m.DisplayName ?? 'Khách'),
+        totalAmount: Number(m.totalAmount ?? m.TotalAmount ?? 0),
+        amountPaid: Number(m.amountPaid ?? m.AmountPaid ?? 0),
+        status: String(m.status ?? m.Status ?? 'NotPaid'),
+        paymentMethod:
+          m.paymentMethod != null
+            ? String(m.paymentMethod)
+            : m.PaymentMethod != null
+              ? String(m.PaymentMethod)
+              : null,
+      };
+    })
+    .filter((m): m is SessionPaymentMemberStatus => !!m);
+
+  return {
+    sessionId: String(r.sessionId ?? r.SessionId ?? fallbackSessionId),
+    totalAmount: Number(r.totalAmount ?? r.TotalAmount ?? 0),
+    totalPaid: Number(r.totalPaid ?? r.TotalPaid ?? 0),
+    totalRemaining: Number(r.totalRemaining ?? r.TotalRemaining ?? 0),
+    members,
+  };
 }
 
 function mapCafeReservationListItem(raw: unknown): CafeReservationListItem | null {
@@ -1628,6 +1740,77 @@ export const PosCheckInService = {
       body,
     );
     return mapApiPaymentCode(raw);
+  },
+
+  /** GET .../payment-status — Split Bill: ai đã trả / còn nợ */
+  getSessionPaymentStatus: async (
+    cafeId: string,
+    sessionId: string,
+  ): Promise<SessionPaymentStatus> => {
+    const raw = await apiClient.get<never, unknown>(
+      posSessionPath(cafeId, sessionId, '/payment-status'),
+    );
+    return mapSessionPaymentStatus(raw, sessionId);
+  },
+
+  /**
+   * POST .../pay-member — Split Bill: thu 1+ member (CASH | QR_CODE).
+   */
+  payMembers: async (
+    cafeId: string,
+    sessionId: string,
+    payload: {
+      memberIds: string[];
+      paymentMethod: 'CASH' | 'QR_CODE';
+      notes?: string;
+    },
+  ): Promise<MemberPaymentResult[]> => {
+    const raw = await apiClient.post<never, unknown>(
+      posSessionPath(cafeId, sessionId, '/pay-member'),
+      {
+        memberIds: payload.memberIds,
+        paymentMethod: payload.paymentMethod,
+        notes: payload.notes || undefined,
+      },
+    );
+    return mapMemberPaymentResults(raw);
+  },
+
+  /** POST .../members/{memberId}/confirm-cash */
+  confirmMemberCash: async (
+    cafeId: string,
+    sessionId: string,
+    memberId: string,
+    notes?: string,
+  ): Promise<MemberPaymentResult | null> => {
+    const raw = await apiClient.post<never, unknown>(
+      posSessionPath(
+        cafeId,
+        sessionId,
+        `/members/${encodeURIComponent(memberId)}/confirm-cash`,
+      ),
+      notes ? { notes } : {},
+    );
+    const list = mapMemberPaymentResults(raw);
+    return list[0] ?? (raw && typeof raw === 'object' ? mapOneMemberPayment(raw as Record<string, unknown>) : null);
+  },
+
+  /** POST .../members/{memberId}/regenerate-qr */
+  regenerateMemberQr: async (
+    cafeId: string,
+    sessionId: string,
+    memberId: string,
+  ): Promise<MemberPaymentResult | null> => {
+    const raw = await apiClient.post<never, unknown>(
+      posSessionPath(
+        cafeId,
+        sessionId,
+        `/members/${encodeURIComponent(memberId)}/regenerate-qr`,
+      ),
+      {},
+    );
+    const list = mapMemberPaymentResults(raw);
+    return list[0] ?? (raw && typeof raw === 'object' ? mapOneMemberPayment(raw as Record<string, unknown>) : null);
   },
 
   /**
