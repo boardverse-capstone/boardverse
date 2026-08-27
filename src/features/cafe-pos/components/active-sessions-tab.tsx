@@ -19,11 +19,9 @@ import {
 import {
   Clock,
   Users,
-  Boxes,
   CreditCard,
   Info,
   LogOut,
-  History,
   ArrowRight,
   CheckCircle2,
 } from "lucide-react";
@@ -33,7 +31,6 @@ export interface ActiveSessionsTabProps {
   onEndSession: (sessionId: string) => void;
   onViewDetail: (sessionId: string) => void;
   onInitiatePaymentFlow: (session: any) => void;
-  onShowBoxHistory?: (boxId: string) => void;
   onResumeSession?: (sessionId: string) => void;
   onResetComponentCheck?: (sessionGameId: string) => void;
 }
@@ -115,7 +112,6 @@ export function ActiveSessionsTab({
   onEndSession,
   onViewDetail,
   onInitiatePaymentFlow,
-  onShowBoxHistory,
   onResumeSession,
   onResetComponentCheck,
 }: ActiveSessionsTabProps) {
@@ -315,34 +311,6 @@ export function ActiveSessionsTab({
                 </div>
               </div>
 
-              {primaryGame && (
-                <div className="flex items-center justify-between rounded-xl border bg-neutral-50 p-3 text-sm">
-                  <div className="min-w-0 space-y-1 pr-2">
-                    <div className="flex items-center gap-1.5 truncate font-bold text-neutral-900">
-                      <Boxes className="size-4 shrink-0 text-neutral-700" />
-                      {primaryGame.gameName}
-                    </div>
-                    <div className="font-mono text-xs font-medium text-neutral-700">
-                      Mã: {primaryGame.boxBarcode}
-                    </div>
-                  </div>
-
-                  {onShowBoxHistory && primaryGame.cafeInventoryBoxId && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        onShowBoxHistory(primaryGame.cafeInventoryBoxId)
-                      }
-                      aria-label={`Xem lịch sử kiểm kê của ${primaryGame.gameName}`}
-                      className="size-10 shrink-0 rounded-lg p-0 text-amber-700 hover:bg-amber-100"
-                    >
-                      <History className="size-4" />
-                    </Button>
-                  )}
-                </div>
-              )}
             </CardContent>
 
             <CardFooter className="grid grid-cols-2 gap-2 border-t">

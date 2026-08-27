@@ -32,17 +32,16 @@ import { EndSessionModal } from "./end-session-modal";
 import { BoxComponentHistoryModal } from "./box-component-history-modal";
 import { PendingBookingsPanel } from "./pending-bookings-panel";
 import { SettlementsTab } from "./settlements-tab";
+import { toast } from "sonner";
 import {
   RefreshCw,
   Play,
   Users,
   Clock,
-  CheckCircle2,
   Settings,
   Wifi,
   WifiOff,
   Loader2,
-  Table2,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -50,19 +49,40 @@ import {
   formatPlayerRange,
   mergePlayerRange,
 } from "../lib/player-range";
+import {
+  focusFrameOnPointerDown,
+  interactiveFrameAmberClass,
+  interactiveFrameClass,
+} from "../lib/interactive-frame";
+import { cn } from "@/lib/utils";
 
-type PosTab = "tables" | "sessions" | "boxes" | "settlements";
+type PosTab = "reception" | "tables" | "sessions" | "boxes" | "settlements";
 
 function parsePosTab(raw: string | null): PosTab {
-  if (raw === "sessions" || raw === "boxes" || raw === "settlements") return raw;
+  if (
+    raw === "reception" ||
+    raw === "sessions" ||
+    raw === "boxes" ||
+    raw === "settlements"
+  ) {
+    return raw;
+  }
   return "tables";
+}
+
+function isOpsTab(tab: PosTab): tab is Exclude<PosTab, "reception"> {
+  return tab !== "reception";
 }
 
 export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const activeTab = parsePosTab(searchParams.get("tab"));
+  const activeTab = (() => {
+    const raw = searchParams.get("tab");
+    if (raw == null && props?.initialBookingCode) return "reception" as PosTab;
+    return parsePosTab(raw);
+  })();
   const setActiveTab = useCallback(
     (tab: PosTab) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -73,6 +93,10 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     },
     [pathname, router, searchParams],
   );
+  const opsTab: Exclude<PosTab, "reception"> = isOpsTab(activeTab)
+    ? activeTab
+    : "tables";
+  const topArea = activeTab === "reception" ? "reception" : "ops";
   const [endingSession, setEndingSession] = useState<any | null>(null);
   const [selectedDetailSessionId, setSelectedDetailSessionId] = useState<
     string | null
@@ -138,6 +162,11 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     name: string;
     minPlayers?: number | null;
     maxPlayers?: number | null;
+  } | null>(null);
+  const [startSessionPrefill, setStartSessionPrefill] = useState<{
+    guestCount: number;
+    guestNames: string[];
+    guestPhones: string[];
   } | null>(null);
 
   const [historyModalState, setHistoryModalState] = useState<{
@@ -266,140 +295,218 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
   };
 
   return (
-    <div className="space-y-5 font-sans text-neutral-900 antialiased">
-      <Card className="gap-0 py-0">
-        <CardContent className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-extrabold tracking-tight text-neutral-950 sm:text-2xl">
-                Quầy POS
-              </h1>
-              <Badge
-                variant="outline"
-                role="status"
-                className={
-                  hubConnected
-                    ? "border-emerald-200 bg-emerald-50 font-semibold text-emerald-800"
-                    : "border-neutral-200 bg-neutral-50 font-semibold text-neutral-700"
-                }
-              >
-                {hubConnected ? <Wifi /> : <WifiOff />}
-                {hubConnected && <Loader2 className="size-3 animate-spin" />}
-                {hubConnected ? "Đang kết nối trực tiếp" : "Mất kết nối trực tiếp"}
-              </Badge>
-            </div>
-            <p className="text-sm font-medium text-neutral-700">
-              Tiếp nhận khách, vận hành bàn và hoàn tất phiên chơi tại một nơi.
-            </p>
+    <div className="min-w-0 space-y-4 font-sans text-neutral-900 antialiased">
+      <Card
+        className={cn("gap-0 py-0", interactiveFrameClass)}
+        tabIndex={0}
+        onPointerDown={focusFrameOnPointerDown}
+      >
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h1 className="text-lg font-extrabold tracking-tight text-neutral-950 sm:text-xl">
+              Quầy POS
+            </h1>
+            <Badge
+              variant="outline"
+              role="status"
+              className={
+                hubConnected
+                  ? "border-emerald-200 bg-emerald-50 font-semibold text-emerald-800"
+                  : "border-neutral-200 bg-neutral-50 font-semibold text-neutral-700"
+              }
+            >
+              {hubConnected ? <Wifi /> : <WifiOff />}
+              {hubConnected ? "Live" : "Offline"}
+            </Badge>
+            <Badge
+              variant="outline"
+              className="border-emerald-200 bg-emerald-50 font-semibold text-emerald-800"
+            >
+              Trống {tables.filter((t) => t.status === "Available").length}/
+              {tables.length}
+            </Badge>
+            <Badge
+              variant="outline"
+              className="border-amber-200 bg-amber-50 font-semibold text-amber-900"
+            >
+              Đang chơi {sessions.length}
+            </Badge>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex min-w-0 flex-1 gap-2 sm:flex-none">
-              <div className="flex min-w-[7.5rem] items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 py-2">
-                <CheckCircle2 className="size-5 shrink-0 text-emerald-700" />
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-900">
-                    Bàn trống
-                  </p>
-                  <p className="text-lg font-extrabold leading-none text-emerald-800">
-                    {tables.filter((t) => t.status === "Available").length}
-                    <span className="text-xs font-semibold text-neutral-600">
-                      /{tables.length}
-                    </span>
-                  </p>
-                </div>
-              </div>
-              <div className="flex min-w-[7.5rem] items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2">
-                <Table2 className="size-5 shrink-0 text-amber-700" />
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-amber-900">
-                    Bàn đang chơi
-                  </p>
-                  <p className="text-lg font-extrabold leading-none text-amber-800">
-                    {sessions.length}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={refreshData}
+              className="h-9 gap-2"
+              aria-label="Làm mới toàn bộ dữ liệu POS"
+            >
+              <RefreshCw className="size-4" />
+              Làm mới
+            </Button>
+            {canConfigureTables && (
               <Button
                 type="button"
                 variant="outline"
-                onClick={refreshData}
-                className="min-h-11 gap-2"
-                aria-label="Làm mới toàn bộ dữ liệu POS"
+                onClick={() => setIsSyncModalOpen(true)}
+                className="h-9 gap-2"
               >
-                <RefreshCw className="size-4" />
-                Làm mới
+                <Settings className="size-4" />
+                Cài đặt bàn
               </Button>
-              {canConfigureTables && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsSyncModalOpen(true)}
-                  className="min-h-11 gap-2"
-                >
-                  <Settings className="size-4" />
-                  Cài đặt bàn
-                </Button>
-              )}
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      <section aria-label="Tiếp nhận và nhận bàn">
-        <PendingBookingsPanel
-          cafeId={cafeId}
-          tables={tables}
-          boxes={assignableBoxes}
-          initialBookingCode={props?.initialBookingCode}
-          onOpenTables={() => setActiveTab("tables")}
-          onConfirmCheckIn={(code, tableId, barcode) =>
-            handleBookingCheckIn(code, tableId, barcode)
-          }
-        />
-      </section>
-
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as PosTab)}
-        className="gap-4"
-      >
-        <div className="overflow-x-auto pb-1">
-          <TabsList variant="line" aria-label="Khu vực vận hành POS" className="h-11 min-w-max">
-            <TabsTrigger value="tables" className="min-h-10 px-4">
-              Sơ đồ bàn ({tables.length})
-            </TabsTrigger>
-            <TabsTrigger value="sessions" className="min-h-10 px-4">
-              Phiên chơi ({sessions.length})
-            </TabsTrigger>
-            <TabsTrigger value="boxes" className="min-h-10 px-4">
-              Kho hộp ({boxes.length})
-            </TabsTrigger>
-            <TabsTrigger value="settlements" className="min-h-10 px-4">
-              Giải ngân
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        {loading ? (
-          <Card>
-            <CardContent
-              className="flex flex-col items-center justify-center gap-3 py-16"
-              aria-live="polite"
+      <div className="min-w-0 space-y-3">
+        <Tabs
+          value={topArea}
+          onValueChange={(value) => {
+            if (value === "reception") setActiveTab("reception");
+            else if (!isOpsTab(activeTab)) setActiveTab("tables");
+          }}
+          className="min-w-0 gap-3"
+        >
+          <div className="max-w-full overflow-x-auto pb-1">
+            <TabsList
+              aria-label="Khu vực chính POS"
+              className="h-auto min-h-11 w-full flex-wrap justify-start"
             >
-              <Loader2 className="size-8 animate-spin text-neutral-500" />
-              <p className="text-sm font-semibold text-neutral-700">
-                Đang tải dữ liệu POS...
-              </p>
-            </CardContent>
-          </Card>
+              <TabsTrigger
+                value="reception"
+                className="min-h-10 flex-none px-3 data-active:border-neutral-900 data-active:font-semibold"
+              >
+                Đặt chỗ & Vãng lai
+              </TabsTrigger>
+              <TabsTrigger
+                value="ops"
+                className="min-h-10 flex-none px-3 data-active:border-neutral-900 data-active:font-semibold"
+              >
+                Quầy vận hành
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        </Tabs>
+
+        {topArea === "reception" ? (
+          <section aria-label="Tiếp nhận khách">
+            <PendingBookingsPanel
+              cafeId={cafeId}
+              tables={tables}
+              boxes={assignableBoxes}
+              layout="sidebar"
+              initialBookingCode={props?.initialBookingCode}
+              onOpenTables={() => setActiveTab("tables")}
+              onRequestStartSession={({ guestName, guestPhone, seats }) => {
+                const freeTable = tables.find((t) => {
+                  const st = String(t.status ?? "")
+                    .toLowerCase()
+                    .replace(/[_\s-]/g, "");
+                  if (st !== "available") return false;
+                  const busy = sessions.some((s) => {
+                    const sid = s.cafeTableId || s.tableId || s.CafeTableId;
+                    if (sid !== t.id) return false;
+                    const sessionStatus = String(
+                      s.status ?? s.Status ?? s.sessionStatus ?? "",
+                    )
+                      .toLowerCase()
+                      .replace(/[_\s-]/g, "");
+                    return (
+                      sessionStatus === "active" ||
+                      sessionStatus === "playing" ||
+                      sessionStatus === "checking" ||
+                      sessionStatus === "unpaid"
+                    );
+                  });
+                  return !busy;
+                });
+                if (!freeTable?.id) {
+                  toast.message(
+                    "Đã giữ chỗ walk-in. Hiện không còn bàn trống — chọn bàn trên sơ đồ khi sẵn sàng.",
+                  );
+                  setActiveTab("tables");
+                  return;
+                }
+                const range = mergePlayerRange(freeTable);
+                const count = Math.max(1, seats);
+                setStartSessionPrefill({
+                  guestCount: count,
+                  guestNames: Array.from({ length: count }, (_, i) =>
+                    i === 0 ? guestName : "",
+                  ),
+                  guestPhones: Array.from({ length: count }, (_, i) =>
+                    i === 0 ? guestPhone : "",
+                  ),
+                });
+                setStartTable({
+                  id: freeTable.id,
+                  name: freeTable.name,
+                  minPlayers: range.min ?? 1,
+                  maxPlayers: range.max,
+                });
+                setActiveTab("tables");
+              }}
+              onConfirmCheckIn={(code, tableId, barcode) =>
+                handleBookingCheckIn(code, tableId, barcode)
+              }
+            />
+          </section>
         ) : (
-          <>
-            <TabsContent value="tables">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+          <section aria-label="Sơ đồ và vận hành" className="min-w-0">
+            <Tabs
+              value={opsTab}
+              onValueChange={(value) => setActiveTab(value as PosTab)}
+              className="gap-3"
+            >
+              <div className="max-w-full overflow-x-auto pb-1">
+                <TabsList
+                  aria-label="Khu vực vận hành POS"
+                  className="h-auto min-h-11 w-full flex-wrap justify-start"
+                >
+                  <TabsTrigger
+                    value="tables"
+                    className="min-h-10 flex-none px-3 data-active:border-neutral-900 data-active:font-semibold"
+                  >
+                    Sơ đồ bàn ({tables.length})
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="sessions"
+                    className="min-h-10 flex-none px-3 data-active:border-neutral-900 data-active:font-semibold"
+                  >
+                    Phiên chơi ({sessions.length})
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="boxes"
+                    className="min-h-10 flex-none px-3 data-active:border-neutral-900 data-active:font-semibold"
+                  >
+                    Kho hộp ({boxes.length})
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="settlements"
+                    className="min-h-10 flex-none px-3 data-active:border-neutral-900 data-active:font-semibold"
+                  >
+                    Giải ngân
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              {loading ? (
+                <Card>
+                  <CardContent
+                    className="flex flex-col items-center justify-center gap-3 py-16"
+                    aria-live="polite"
+                  >
+                    <Loader2 className="size-8 animate-spin text-neutral-500" />
+                    <p className="text-sm font-semibold text-neutral-700">
+                      Đang tải dữ liệu POS...
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <TabsContent value="tables">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {tables.map((table) => {
                   const tableStatus = String(table.status ?? "");
                   const session = sessions.find((s) => {
@@ -436,10 +543,18 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                     <Card
                       key={table.id}
                       size="sm"
+                      tabIndex={0}
+                      onPointerDown={focusFrameOnPointerDown}
                       className={
                         isAvail
-                          ? "border-emerald-200 bg-emerald-50/20"
-                          : "border-amber-200 bg-amber-50/40"
+                          ? cn(
+                              "border-emerald-200 bg-emerald-50/20",
+                              interactiveFrameClass,
+                            )
+                          : cn(
+                              "border-amber-200 bg-amber-50/40",
+                              interactiveFrameAmberClass,
+                            )
                       }
                     >
                       <CardHeader className="border-b">
@@ -476,14 +591,15 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                         {isAvail ? (
                           <Button
                             type="button"
-                            onClick={() =>
+                            onClick={() => {
+                              setStartSessionPrefill(null);
                               setStartTable({
                                 id: table.id,
                                 name: table.name,
                                 minPlayers: displayRange.min,
                                 maxPlayers: displayRange.max,
-                              })
-                            }
+                              });
+                            }}
                             className="min-h-11 w-full gap-2"
                           >
                             <Play className="size-4" />
@@ -524,7 +640,6 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                   setSelectedDetailSessionId(sessionId)
                 }
                 onInitiatePaymentFlow={handleInitiatePaymentFlow}
-                onShowBoxHistory={handleShowBoxHistoryDirectly}
                 onResumeSession={(sessionId) => {
                   void handleResumeSession(sessionId);
                 }}
@@ -544,7 +659,10 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
             </TabsContent>
           </>
         )}
-      </Tabs>
+            </Tabs>
+          </section>
+        )}
+      </div>
 
       {canConfigureTables && (
         <SyncTablesModal
@@ -599,6 +717,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         onOpenChecklist={(gameId) => {
           void handleOpenChecklist(gameId, selectedDetailSessionId);
         }}
+        onShowBoxHistory={handleShowBoxHistoryDirectly}
         onReturnTable={(sessionId) => {
           const targetSes = sessions.find((s) => s.id === sessionId);
           if (targetSes) setEndingSession(targetSes);
@@ -631,10 +750,14 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
 
       <StartSessionModal
         isOpen={!!startTable}
-        onClose={() => setStartTable(null)}
+        onClose={() => {
+          setStartTable(null);
+          setStartSessionPrefill(null);
+        }}
         selectedTable={startTable}
         cafeId={cafeId}
         boxes={assignableBoxes}
+        prefill={startSessionPrefill}
         onStart={handleStartSession}
       />
 

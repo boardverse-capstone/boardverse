@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,12 @@ export interface StartSessionModalProps {
   } | null;
   cafeId: string | null;
   boxes?: PosBoxItem[];
+  /** Prefill khách từ cửa sổ walk-in. */
+  prefill?: {
+    guestCount: number;
+    guestNames: string[];
+    guestPhones: string[];
+  } | null;
   onStart: (
     cafeTableId: string,
     barcode: string,
@@ -75,6 +81,7 @@ export function StartSessionModal({
   selectedTable,
   cafeId,
   boxes = [],
+  prefill = null,
   onStart,
 }: StartSessionModalProps) {
   const [barcode, setBarcode] = useState("");
@@ -96,6 +103,18 @@ export function StartSessionModal({
     missingComponents?: any[];
     hasChecked: boolean;
   } | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !prefill) return;
+    const count = Math.max(1, prefill.guestCount || 1);
+    setGuestCount(count);
+    setGuestNames(
+      Array.from({ length: count }, (_, i) => prefill.guestNames[i] ?? ""),
+    );
+    setGuestPhones(
+      Array.from({ length: count }, (_, i) => prefill.guestPhones[i] ?? ""),
+    );
+  }, [isOpen, prefill]);
 
   const groupedGames = useMemo(() => {
     const map = new Map<string, GroupedGame>();

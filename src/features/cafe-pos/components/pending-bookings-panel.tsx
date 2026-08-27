@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "react-qr-code";
-import { CalendarClock, RefreshCw, QrCode, DoorOpen, Search, AlertTriangle, ShieldCheck } from "lucide-react";
+import { CalendarClock, RefreshCw, QrCode, DoorOpen, Search, AlertTriangle, ShieldCheck, MoreHorizontal, Table2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { apiClient } from "@/core/api/client";
 import { PosCheckInService } from "@/features/pos-check-in/services/pos-check-in.service";
 import { isBoxStatusAvailable } from "@/features/cafe-pos/components/pos-boxes-tab";
@@ -38,6 +51,11 @@ import {
   formatReservationDayLabel,
   todayIsoDate,
 } from "../lib/reservation-date";
+import {
+  focusFrameOnPointerDown,
+  interactiveFrameClass,
+} from "../lib/interactive-frame";
+import { cn } from "@/lib/utils";
 
 interface PendingBookingsPanelProps {
   cafeId: string | null;
@@ -50,7 +68,16 @@ interface PendingBookingsPanelProps {
     gameName: string | null;
   }>;
   initialBookingCode?: string;
+  /** stack = 2 card dọc (cũ); sidebar = tab trong cột trái POS. */
+  layout?: "stack" | "sidebar";
   onOpenTables?: () => void;
+  /** Sau khi giữ chỗ walk-in thành công → mở luồng bắt đầu phiên. */
+  onRequestStartSession?: (payload: {
+    guestName: string;
+    guestPhone: string;
+    seats: number;
+    walkInBookingId?: string;
+  }) => void;
   onConfirmCheckIn?: (
     code: string,
     cafeTableId: string,
@@ -67,6 +94,15 @@ interface WalkInWindowDto {
   availableSeats?: number;
   status?: string;
   expiresAt?: string;
+  /** Có khi BE trả kèm — không bịa nếu thiếu. */
+  tableName?: string;
+  tableNumber?: string;
+}
+
+interface WalkInDraft {
+  guestName: string;
+  guestPhone: string;
+  seats: number;
 }
 
 interface ReservedTable {
@@ -96,14 +132,85 @@ function formatTime(iso?: string | null) {
  * Khung giờ đặt chỗ: BE trả `...T12:00:00Z` nhưng số giờ là giờ quán
  * (trùng preferredStartTime), không phải UTC thật — không cộng timezone local.
  */
-function formatReservationSlot(iso?: string | null) {
-  if (!iso) return "—";
+function parseReservationParts(iso?: string | null) {
+  if (!iso) return null;
   const match = String(iso).match(
     /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/,
   );
-  if (!match) return formatTime(iso);
+  if (!match) return null;
   const [, , month, day, hour, minute] = match;
-  return `${hour}:${minute} ${day}-${month}`;
+  return { month, day, time: `${hour}:${minute}`, dayMonth: `${day}/${month}` };
+}
+
+function formatReservationSlot(iso?: string | null) {
+  const parts = parseReservationParts(iso);
+  if (!parts) return formatTime(iso);
+  return `${parts.time} ${parts.day}-${parts.month}`;
+}
+
+/** Cùng ngày: `13:40 - 17:00 (27/08)`. Khác ngày: giữ đủ hai mốc. */
+function formatReservationTimeRange(
+  start?: string | null,
+  end?: string | null,
+) {
+  const a = parseReservationParts(start);
+  const b = parseReservationParts(end);
+  if (!a && !b) return "—";
+  if (a && b && a.dayMonth === b.dayMonth) {
+    return `${a.time} - ${b.time} (${a.dayMonth})`;
+  }
+  if (a && b) {
+    return `${a.time} ${a.dayMonth} → ${b.time} ${b.dayMonth}`;
+  }
+  return a ? `${a.time} (${a.dayMonth})` : `${b!.time} (${b!.dayMonth})`;
+}
+
+/** Cùng ngày: `13:40 - 17:00`. Khác ngày: kèm ngày rút gọn. */
+function formatWalkInTimeRange(
+  start?: string | null,
+  end?: string | null,
+) {
+  const a = parseReservationParts(start);
+  const b = parseReservationParts(end);
+  if (a && b && a.dayMonth === b.dayMonth) {
+    return `${a.time} - ${b.time}`;
+  }
+  if (a && b) {
+    return `${a.time} (${a.dayMonth}) → ${b.time} (${b.dayMonth})`;
+  }
+  // Fallback: Date local (một số BE trả UTC thật)
+  if (!start && !end) return "—";
+  const startDate = start ? new Date(start) : null;
+  const endDate = end ? new Date(end) : null;
+  const fmtTime = (d: Date) =>
+    d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  const fmtDay = (d: Date) =>
+    d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+  if (
+    startDate &&
+    endDate &&
+    !Number.isNaN(startDate.getTime()) &&
+    !Number.isNaN(endDate.getTime())
+  ) {
+    if (fmtDay(startDate) === fmtDay(endDate)) {
+      return `${fmtTime(startDate)} - ${fmtTime(endDate)}`;
+    }
+    return `${fmtTime(startDate)} (${fmtDay(startDate)}) → ${fmtTime(endDate)} (${fmtDay(endDate)})`;
+  }
+  return formatReservationTimeRange(start, end);
+}
+
+function walkInTableLabel(w: WalkInWindowDto) {
+  const name = w.tableName?.trim();
+  const number = w.tableNumber?.trim();
+  if (name && number && !name.includes(number)) return `${name} · ${number}`;
+  if (name) return name;
+  if (number) return `Bàn ${number}`;
+  return null;
+}
+
+function isBookingCodeQuery(value: string) {
+  return /^[A-Z0-9]{8}$/i.test(value.trim());
 }
 
 function reservationToPreview(
@@ -194,6 +301,27 @@ function normalizeReservationStatus(status?: string | null) {
   return status?.trim().toLowerCase() || "";
 }
 
+function reservationStatusBadgeClass(status?: string | null) {
+  switch (normalizeReservationStatus(status)) {
+    case "confirmed":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    case "holding":
+      return "border-amber-200 bg-amber-50 text-amber-900";
+    case "checkedin":
+      return "border-sky-200 bg-sky-50 text-sky-800";
+    case "completed":
+      return "border-emerald-100 bg-emerald-50/70 text-emerald-700";
+    case "expired":
+      return "border-neutral-200 bg-neutral-50 text-neutral-600";
+    case "cancelled":
+    case "cancelledbycafe":
+    case "cancelledbyplayer":
+      return "border-red-200 bg-red-50 text-red-700";
+    default:
+      return "border-neutral-200 bg-neutral-50 text-neutral-700";
+  }
+}
+
 function matchesReservationStatusFilter(
   status: string | null | undefined,
   filter: ReservationStatusFilter,
@@ -252,16 +380,56 @@ function normalizePlayDate(value?: string | null): string {
 }
 
 function parseWalkInWindows(raw: unknown): WalkInWindowDto[] {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw as WalkInWindowDto[];
-  const r = raw as Record<string, unknown>;
-  const items = r.items ?? r.Items ?? r.data;
-  if (Array.isArray(items)) return items as WalkInWindowDto[];
-  if (items && typeof items === "object") {
-    const nested = (items as Record<string, unknown>).items;
-    if (Array.isArray(nested)) return nested as WalkInWindowDto[];
-  }
-  return [];
+  const pickList = (): unknown[] => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    const r = raw as Record<string, unknown>;
+    const items = r.items ?? r.Items ?? r.data;
+    if (Array.isArray(items)) return items;
+    if (items && typeof items === "object") {
+      const nested = (items as Record<string, unknown>).items;
+      if (Array.isArray(nested)) return nested;
+    }
+    return [];
+  };
+
+  return pickList()
+    .map((item) => {
+      const r = (item ?? {}) as Record<string, unknown>;
+      const id = String(r.id ?? r.Id ?? "");
+      if (!id) return null;
+      const tableName = String(
+        r.tableName ?? r.TableName ?? r.cafeTableName ?? r.CafeTableName ?? "",
+      ).trim();
+      const tableNumber = String(
+        r.tableNumber ?? r.TableNumber ?? r.tableLabel ?? r.TableLabel ?? "",
+      ).trim();
+      return {
+        id,
+        sourceReservationId:
+          r.sourceReservationId != null
+            ? String(r.sourceReservationId)
+            : r.SourceReservationId != null
+              ? String(r.SourceReservationId)
+              : undefined,
+        windowStart:
+          (r.windowStart as string | undefined) ??
+          (r.WindowStart as string | undefined),
+        windowEnd:
+          (r.windowEnd as string | undefined) ??
+          (r.WindowEnd as string | undefined),
+        totalSeats: Number(r.totalSeats ?? r.TotalSeats ?? 0) || undefined,
+        availableSeats:
+          Number(r.availableSeats ?? r.AvailableSeats ?? 0) || undefined,
+        status: String(r.status ?? r.Status ?? "") || undefined,
+        expiresAt:
+          (r.expiresAt as string | undefined) ??
+          (r.ExpiresAt as string | undefined),
+        tableName: tableName || undefined,
+        tableNumber: tableNumber || undefined,
+      } satisfies WalkInWindowDto;
+    })
+    .filter((w): w is WalkInWindowDto => w != null);
 }
 
 function parseTables(raw: unknown): ReservedTable[] {
@@ -288,7 +456,9 @@ export function PendingBookingsPanel({
   tables = [],
   boxes = [],
   initialBookingCode = "",
+  layout = "stack",
   onOpenTables,
+  onRequestStartSession,
   onConfirmCheckIn,
 }: PendingBookingsPanelProps) {
   const [code, setCode] = useState(initialBookingCode.toUpperCase());
@@ -310,9 +480,13 @@ export function PendingBookingsPanel({
   const [reserved, setReserved] = useState<ReservedTable[]>([]);
   const [reservations, setReservations] = useState<CafeReservationListItem[]>([]);
   const [windows, setWindows] = useState<WalkInWindowDto[]>([]);
-  const [walkInGuestName, setWalkInGuestName] = useState("");
-  const [walkInSeats, setWalkInSeats] = useState("1");
+  const [walkInDrafts, setWalkInDrafts] = useState<Record<string, WalkInDraft>>(
+    {},
+  );
   const [walkInBusyId, setWalkInBusyId] = useState<string | null>(null);
+  const [receptionTab, setReceptionTab] = useState<"bookings" | "walkin">(
+    "bookings",
+  );
   const [loading, setLoading] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
@@ -321,11 +495,12 @@ export function PendingBookingsPanel({
     null,
   );
   const appliedInitialCode = useRef(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const todayIso = todayIsoDate();
   const tomorrowIso = addDaysIsoDate(todayIso, 1);
   const [playDate, setPlayDate] = useState(todayIso);
   const [statusFilter, setStatusFilter] =
-    useState<ReservationStatusFilter>("all");
+    useState<ReservationStatusFilter>("confirmed");
   const [reservationSearch, setReservationSearch] = useState("");
   const reservationDayLabel = formatReservationDayLabel(playDate, todayIso);
 
@@ -440,6 +615,14 @@ export function PendingBookingsPanel({
   }, [load]);
 
   useEffect(() => {
+    if (!cafeId) return;
+    const frame = window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [cafeId, playDate]);
+
+  useEffect(() => {
     if (
       barcode &&
       !availableBoxes.some((box) => box.barcode === barcode)
@@ -451,34 +634,87 @@ export function PendingBookingsPanel({
     }
   }, [availableBoxes, barcode]);
 
-  const createWalkIn = async (windowId: string) => {
-    const guestName = walkInGuestName.trim();
-    const seats = Number(walkInSeats);
-    if (!guestName) {
-      toast.error("Nhập tên khách vãng lai.");
+  const createWalkIn = async (window: WalkInWindowDto) => {
+    const maxSeats = Math.max(1, Number(window.availableSeats) || 1);
+    const draft = walkInDrafts[window.id];
+    const guestName = (draft?.guestName ?? "").trim() || "Khách lẻ";
+    const guestPhone = (draft?.guestPhone ?? "").replace(/\s/g, "");
+    const seats = Math.min(Math.max(1, Number(draft?.seats) || 1), maxSeats);
+    if (!guestPhone) {
+      toast.error("Nhập SĐT khách để mở phiên chơi ngay sau khi xếp chỗ.");
       return;
     }
-    if (!Number.isFinite(seats) || seats < 1) {
-      toast.error("Số ghế phải ≥ 1.");
+    if (!/^0[35789]\d{8,9}$/.test(guestPhone)) {
+      toast.error("SĐT phải là số VN 10–11 chữ số, đầu 03/05/07/08/09.");
       return;
     }
-    setWalkInBusyId(windowId);
+    if (guestPhone.length > 20) {
+      toast.error("SĐT tối đa 20 ký tự.");
+      return;
+    }
+    setWalkInBusyId(window.id);
     try {
-      await apiClient.post("/api/v1/reservations/walkin", {
-        walkInWindowId: windowId,
-        guestName,
-        seats,
-        idempotencyKey: `WI-${Date.now()}`,
+      const created: any = await apiClient.post(
+        "/api/v1/reservations/walkin",
+        {
+          walkInWindowId: window.id,
+          guestName,
+          guestPhone,
+          seats,
+          idempotencyKey: `WI-${Date.now()}`,
+        },
+      );
+      const walkInBookingId = String(
+        created?.id ?? created?.data?.id ?? "",
+      );
+      toast.success(`Đã giữ ${seats} ghế cho ${guestName}. Tiếp tục mở phiên.`);
+      setWalkInDrafts((prev) => {
+        const next = { ...prev };
+        delete next[window.id];
+        return next;
       });
-      toast.success("Đã tạo đặt chỗ khách vãng lai.");
-      setWalkInGuestName("");
-      setWalkInSeats("1");
       await load();
+      onRequestStartSession?.({
+        guestName,
+        guestPhone,
+        seats,
+        walkInBookingId: walkInBookingId || undefined,
+      });
     } catch (err: any) {
       toast.error(err?.message || "Không tạo được walk-in.");
     } finally {
       setWalkInBusyId(null);
     }
+  };
+
+  const updateWalkInDraft = (
+    windowId: string,
+    patch: Partial<WalkInDraft>,
+    maxSeats: number,
+  ) => {
+    setWalkInDrafts((prev) => {
+      const current = prev[windowId] ?? {
+        guestName: "",
+        guestPhone: "",
+        seats: 1,
+      };
+      const seats = Math.min(
+        Math.max(1, Number(patch.seats ?? current.seats) || 1),
+        Math.max(1, maxSeats),
+      );
+      return {
+        ...prev,
+        [windowId]: {
+          guestName:
+            patch.guestName !== undefined ? patch.guestName : current.guestName,
+          guestPhone:
+            patch.guestPhone !== undefined
+              ? patch.guestPhone
+              : current.guestPhone,
+          seats,
+        },
+      };
+    });
   };
 
   const closeWalkInWindow = async (windowId: string) => {
@@ -503,6 +739,7 @@ export function PendingBookingsPanel({
     const st = String(w.status || "").toLowerCase();
     return !st || st === "available" || st === "partial";
   });
+  const isSidebar = layout === "sidebar";
 
   const handleCheckBox = async (overrideBarcode?: string) => {
     const codeToCheck = (overrideBarcode ?? barcode).trim();
@@ -604,8 +841,8 @@ export function PendingBookingsPanel({
     }
   };
 
-  const handleLookup = async () => {
-    const trimmed = code.trim();
+  const handleLookup = async (rawCode?: string) => {
+    const trimmed = (rawCode ?? (reservationSearch || code)).trim().toUpperCase();
     if (!trimmed) {
       toast.error("Nhập mã đặt chỗ 8 ký tự.");
       return;
@@ -617,7 +854,7 @@ export function PendingBookingsPanel({
       let item =
         reservations.find(
           (reservation) =>
-            reservation.reservationCode.toUpperCase() === trimmed.toUpperCase(),
+            reservation.reservationCode.toUpperCase() === trimmed,
         ) ?? null;
 
       if (!item) {
@@ -635,6 +872,8 @@ export function PendingBookingsPanel({
           setPlayDate(itemPlayDate);
         }
         setCode(item.reservationCode.toUpperCase());
+        setReservationSearch(item.reservationCode.toUpperCase());
+        setStatusFilter("all");
         setCheckInToken(null);
         setTableId("");
         if (switchedDay) {
@@ -653,6 +892,7 @@ export function PendingBookingsPanel({
       }
     } finally {
       setLookingUp(false);
+      searchInputRef.current?.focus();
     }
   };
 
@@ -663,6 +903,7 @@ export function PendingBookingsPanel({
       return;
     }
     setCode(nextCode.toUpperCase());
+    setReservationSearch(nextCode.toUpperCase());
     setCheckInToken(null);
     setTableId("");
     if (!canOpenCheckInDialog(item.status)) {
@@ -679,6 +920,7 @@ export function PendingBookingsPanel({
     setCheckedBox(null);
     setBarcode("");
     setTableId("");
+    window.requestAnimationFrame(() => searchInputRef.current?.focus());
   };
 
   const handleShowCheckInQr = async () => {
@@ -751,24 +993,83 @@ export function PendingBookingsPanel({
     if (ok) {
       setPreview(null);
       setCode("");
+      setReservationSearch("");
       setCheckInToken(null);
       setTableId("");
       await load();
+      window.requestAnimationFrame(() => searchInputRef.current?.focus());
     }
   };
 
   return (
-    <div className="space-y-4">
-      <Card size="sm">
-        <CardHeader className="border-b">
+    <div
+      className={cn(
+        isSidebar ? "flex h-full min-h-0 flex-col gap-3" : "space-y-4",
+      )}
+    >
+      {isSidebar ? (
+        <div className="flex w-fit max-w-full shrink-0 gap-1 rounded-xl border border-neutral-200 bg-neutral-100/80 p-1">
+          <button
+            type="button"
+            onClick={() => setReceptionTab("bookings")}
+            className={cn(
+              "flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors",
+              receptionTab === "bookings"
+                ? "bg-white text-neutral-950 shadow-sm"
+                : "text-neutral-600 hover:text-neutral-900",
+            )}
+          >
+            <CalendarClock className="size-3.5" />
+            Đặt chỗ ({filteredReservations.length}
+            {filteredReservations.length !== reservations.length
+              ? `/${reservations.length}`
+              : ""}
+            )
+          </button>
+          {SHOW_WALK_IN_WINDOWS ? (
+            <button
+              type="button"
+              onClick={() => setReceptionTab("walkin")}
+              className={cn(
+                "flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors",
+                receptionTab === "walkin"
+                  ? "bg-white text-emerald-900 shadow-sm"
+                  : "text-neutral-600 hover:text-neutral-900",
+              )}
+            >
+              <DoorOpen className="size-3.5" />
+              Vãng lai ({openWindows.length})
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div
+        className={cn(
+          isSidebar && receptionTab !== "bookings" && "hidden",
+          isSidebar && "min-h-0 flex-1",
+        )}
+      >
+      <Card
+        size="sm"
+        tabIndex={0}
+        onPointerDown={focusFrameOnPointerDown}
+        className={cn(
+          interactiveFrameClass,
+          isSidebar && "flex h-full min-h-0 flex-col gap-0 py-0",
+        )}
+      >
+        <CardHeader className={cn("border-b", isSidebar && "py-3")}>
           <div>
             <CardTitle className="flex items-center gap-2 text-lg font-bold text-neutral-950">
               <CalendarClock className="size-4 text-neutral-800" />
-              Tiếp nhận khách đặt chỗ
+              {isSidebar ? "Đặt chỗ trước" : "Tiếp nhận khách đặt chỗ"}
             </CardTitle>
-            <p className="mt-1 text-sm font-medium text-neutral-700">
-              Chọn ngày chơi hoặc nhập mã 8 ký tự trên QR của khách.
-            </p>
+            {!isSidebar ? (
+              <p className="mt-1 text-sm font-medium text-neutral-700">
+                Quét QR hoặc tìm đơn theo ngày để nhận bàn.
+              </p>
+            ) : null}
           </div>
           <CardAction>
             <Button
@@ -785,84 +1086,83 @@ export function PendingBookingsPanel({
           </CardAction>
         </CardHeader>
 
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold text-neutral-900">Ngày chơi</Label>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={playDate === todayIso ? "default" : "outline"}
-                  onClick={() => handlePlayDateChange(todayIso)}
-                >
-                  Hôm nay
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={playDate === tomorrowIso ? "default" : "outline"}
-                  onClick={() => handlePlayDateChange(tomorrowIso)}
-                >
-                  Ngày mai
-                </Button>
-              </div>
+        <CardContent
+          className={cn(
+            "space-y-3",
+            isSidebar && "min-h-0 flex-1 overflow-y-auto",
+          )}
+        >
+          <div
+            className={cn(
+              "flex flex-col gap-2",
+              !isSidebar && "lg:flex-row lg:items-center",
+            )}
+          >
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant={playDate === todayIso ? "default" : "outline"}
+                onClick={() => handlePlayDateChange(todayIso)}
+                className="h-9"
+              >
+                Hôm nay
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={playDate === tomorrowIso ? "default" : "outline"}
+                onClick={() => handlePlayDateChange(tomorrowIso)}
+                className="h-9"
+              >
+                Ngày mai
+              </Button>
               <Input
                 type="date"
                 value={playDate}
                 min={todayIso}
                 onChange={(event) => handlePlayDateChange(event.target.value)}
-                className="min-h-10 w-full sm:max-w-[180px]"
+                className="h-9 w-full min-w-[9.5rem] max-w-[11rem]"
                 aria-label="Chọn ngày chơi"
               />
             </div>
-            <p className="text-xs font-medium text-neutral-700">
-              Đang xem đơn đặt chỗ ngày{" "}
-              <span className="font-semibold text-neutral-900">{reservationDayLabel}</span>.
-            </p>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="reservation-code" className="text-sm font-semibold text-neutral-900">
-              Mã đặt chỗ
-            </Label>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input
-                id="reservation-code"
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    void handleLookup();
-                  }
-                }}
-                placeholder="VD: K7H3NP9X"
-                className="min-h-11 flex-1 font-mono"
-                aria-describedby="reservation-code-help"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                disabled={lookingUp}
-                onClick={() => void handleLookup()}
-                className="min-h-11 gap-2 sm:min-w-28"
-              >
-                <Search className="size-4" />
-                {lookingUp ? "Đang tìm..." : "Tra cứu"}
-              </Button>
-            </div>
-            <p id="reservation-code-help" className="text-xs font-medium text-neutral-700">
-              Tra cứu trong ngày đang chọn.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h4 className="text-base font-bold text-neutral-950">
-                Đơn đặt chỗ {reservationDayLabel}
-              </h4>
-              <Badge variant="secondary">
+            <div className="flex w-full max-w-md min-w-0 items-center gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                <Input
+                  ref={searchInputRef}
+                  id="reservation-search"
+                  value={reservationSearch}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setReservationSearch(
+                      isBookingCodeQuery(next) ||
+                        /^[A-Za-z0-9]*$/.test(next.trim())
+                        ? next.toUpperCase()
+                        : next,
+                    );
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const q = reservationSearch.trim();
+                      if (isBookingCodeQuery(q)) {
+                        void handleLookup(q);
+                      }
+                    }
+                  }}
+                  placeholder="Quét QR, nhập mã, game, bàn..."
+                  className="h-10 pl-9 font-medium"
+                  aria-label="Tìm đơn đặt chỗ"
+                  autoComplete="off"
+                  autoFocus
+                />
+                {lookingUp ? (
+                  <Spinner className="absolute right-3 top-1/2 size-4 -translate-y-1/2" />
+                ) : null}
+              </div>
+              <Badge variant="secondary" className="h-8 shrink-0 px-2.5">
                 {filteredReservations.length}
                 {filteredReservations.length !== reservations.length
                   ? `/${reservations.length}`
@@ -870,192 +1170,386 @@ export function PendingBookingsPanel({
                 đơn
               </Badge>
             </div>
-
-            <div className="flex flex-col gap-2">
-              <Input
-                value={reservationSearch}
-                onChange={(e) => setReservationSearch(e.target.value)}
-                placeholder="Lọc theo mã, tên game hoặc bàn..."
-                className="min-h-10"
-                aria-label="Tìm đơn đặt chỗ"
-              />
-              <div
-                className="flex flex-wrap gap-1.5"
-                role="group"
-                aria-label="Lọc theo trạng thái đơn"
-              >
-                {RESERVATION_STATUS_FILTERS.map((filter) => (
-                  <Button
-                    key={filter.value}
-                    type="button"
-                    size="sm"
-                    variant={statusFilter === filter.value ? "default" : "outline"}
-                    onClick={() => setStatusFilter(filter.value)}
-                    className="h-8 px-2.5 text-xs"
-                  >
-                    {filter.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            {loading && reservations.length === 0 ? (
-              <p className="py-4 text-sm font-medium text-neutral-700" aria-live="polite">
-                Đang tải...
-              </p>
-            ) : reservations.length === 0 ? (
-              <p className="rounded-xl border border-dashed py-5 text-center text-sm font-medium text-neutral-700">
-                Không có đơn đặt chỗ ngày {reservationDayLabel}.
-              </p>
-            ) : filteredReservations.length === 0 ? (
-              <p className="rounded-xl border border-dashed py-5 text-center text-sm font-medium text-neutral-700">
-                Không có đơn khớp bộ lọc hiện tại.
-              </p>
-            ) : (
-              <div className="grid max-h-64 gap-2 overflow-y-auto pr-1 md:grid-cols-2">
-                {filteredReservations.map((item) => {
-                  const selected = selectedReservation?.id === item.id;
-                  const ready = item.status.trim().toLowerCase() === "confirmed";
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => handleSelectReservation(item)}
-                      aria-pressed={selected}
-                      className={`min-h-20 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 ${
-                        selected
-                          ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-200"
-                          : "border-neutral-200 bg-white hover:border-neutral-400"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="min-w-0 truncate text-sm font-bold text-neutral-950">
-                          {item.gameName} · {item.timeSlot}
-                        </p>
-                        <Badge
-                          variant="outline"
-                          className={
-                            ready
-                              ? "border-emerald-200 text-emerald-700"
-                              : "border-amber-200 text-amber-800"
-                          }
-                        >
-                          {ready ? "Có thể nhận bàn" : formatReservationStatusLabel(item.status)}
-                        </Badge>
-                      </div>
-                      <p className="mt-1 text-xs font-medium text-neutral-800">
-                        <span className="font-mono font-semibold text-neutral-900">{item.reservationCode || "—"}</span>
-                        {" · "}
-                        {item.currentPlayers}/{item.maxPlayers} khách
-                        {item.tableNumber ? ` · Bàn ${item.tableNumber}` : ""}
-                      </p>
-                      <p className="mt-1 text-xs font-medium text-neutral-700">
-                        {formatReservationSlot(item.scheduledStartTime)} →{" "}
-                        {formatReservationSlot(item.scheduledEndTime)}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
           </div>
+
+          <Select
+            value={statusFilter}
+            onValueChange={(value) =>
+              setStatusFilter(value as ReservationStatusFilter)
+            }
+          >
+            <SelectTrigger
+              size="sm"
+              className="h-8 w-full max-w-xs"
+              aria-label="Lọc theo trạng thái đơn"
+            >
+              <SelectValue placeholder="Trạng thái" />
+            </SelectTrigger>
+            <SelectContent>
+              {RESERVATION_STATUS_FILTERS.map((filter) => (
+                <SelectItem key={filter.value} value={filter.value}>
+                  {filter.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {loading && reservations.length === 0 ? (
+            <p className="py-4 text-sm font-medium text-neutral-700" aria-live="polite">
+              Đang tải...
+            </p>
+          ) : reservations.length === 0 ? (
+            <p className="rounded-xl border border-dashed py-4 text-center text-sm font-medium text-neutral-700">
+              Không có đơn ngày {reservationDayLabel}.
+            </p>
+          ) : filteredReservations.length === 0 ? (
+            <div className="rounded-xl border border-dashed py-4 text-center">
+              <p className="text-sm font-medium text-neutral-700">
+                Không có đơn khớp bộ lọc.
+              </p>
+              {statusFilter !== "all" ? (
+                <Button
+                  type="button"
+                  variant="link"
+                  className="mt-1 h-auto p-0 text-sm"
+                  onClick={() => setStatusFilter("all")}
+                >
+                  Xem tất cả
+                </Button>
+              ) : null}
+            </div>
+          ) : (
+            <div
+              className={cn(
+                "grid gap-2 overflow-y-auto pr-1",
+                isSidebar
+                  ? "max-h-none grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                  : "max-h-[28rem] md:grid-cols-2",
+              )}
+            >
+              {filteredReservations.map((item) => {
+                const selected = selectedReservation?.id === item.id;
+                const status = normalizeReservationStatus(item.status);
+                const canCheckIn = status === "confirmed";
+                const showQuickAction =
+                  canCheckIn || status === "holding";
+                return (
+                  <div
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={selected}
+                    onClick={() => handleSelectReservation(item)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleSelectReservation(item);
+                      }
+                    }}
+                    className={`rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 ${
+                      selected
+                        ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-200"
+                        : "border-neutral-200 bg-white hover:border-neutral-400"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="min-w-0 truncate text-base font-bold text-neutral-950">
+                        {item.gameName}
+                      </p>
+                      <Badge
+                        variant="outline"
+                        className={`shrink-0 ${reservationStatusBadgeClass(item.status)}`}
+                      >
+                        {formatReservationStatusLabel(item.status)}
+                      </Badge>
+                    </div>
+                    <p className="mt-1.5 font-mono text-sm font-bold tracking-wide text-neutral-900">
+                      {item.reservationCode || "—"}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-neutral-700">
+                      {item.currentPlayers}/{item.maxPlayers} khách
+                      {item.tableNumber ? ` · Bàn ${item.tableNumber}` : ""}
+                      {item.timeSlot ? ` · ${item.timeSlot}` : ""}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-neutral-800">
+                      {formatReservationTimeRange(
+                        item.scheduledStartTime,
+                        item.scheduledEndTime,
+                      )}
+                    </p>
+                    {showQuickAction ? (
+                      <div className="mt-2.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          title={
+                            canCheckIn
+                              ? "Nhận bàn ngay"
+                              : getCheckInStatusMessage(item.status)
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectReservation(item);
+                          }}
+                          className={`h-9 w-full font-bold ${
+                            canCheckIn
+                              ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                              : "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
+                          }`}
+                          variant={canCheckIn ? "default" : "outline"}
+                        >
+                          {canCheckIn ? "Nhận bàn" : "Chưa đủ điều kiện"}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
+      </div>
 
       {SHOW_WALK_IN_WINDOWS && (
-        <Card size="sm" className="border-emerald-200 bg-emerald-50/40">
-        <CardHeader className="border-b border-emerald-200">
+      <div
+        className={cn(
+          isSidebar && receptionTab !== "walkin" && "hidden",
+          isSidebar && "min-h-0 flex-1",
+        )}
+      >
+        <Card
+          size="sm"
+          tabIndex={0}
+          onPointerDown={focusFrameOnPointerDown}
+          className={cn(
+            "border-emerald-200 bg-emerald-50/40",
+            interactiveFrameClass,
+            isSidebar && "flex h-full min-h-0 flex-col gap-0 py-0",
+          )}
+        >
+        <CardHeader className={cn("border-b border-emerald-200", isSidebar && "py-3")}>
           <CardTitle className="flex items-center gap-2 text-base text-emerald-950">
             <DoorOpen className="size-4" />
-            Cửa sổ khách vãng lai
+            {isSidebar ? "Khách vãng lai" : "Cửa sổ khách vãng lai"}
           </CardTitle>
-          <CardAction>
+          <CardAction className="flex items-center gap-2">
             <Badge className="bg-emerald-700 text-white">
               {openWindows.length} khung
             </Badge>
+            {!isSidebar && onOpenTables ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={onOpenTables}
+                className="h-8 gap-1.5 border-emerald-300 text-emerald-900"
+              >
+                <Table2 className="size-3.5" />
+                Sơ đồ bàn
+              </Button>
+            ) : null}
           </CardAction>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label htmlFor="walk-in-guest">Tên khách</Label>
-              <Input
-                id="walk-in-guest"
-                value={walkInGuestName}
-                onChange={(e) => setWalkInGuestName(e.target.value)}
-                placeholder="Nguyễn Văn A"
-                className="min-h-10"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="walk-in-seats">Số ghế</Label>
-              <Input
-                id="walk-in-seats"
-                type="number"
-                min={1}
-                value={walkInSeats}
-                onChange={(e) => setWalkInSeats(e.target.value)}
-                className="min-h-10"
-              />
-            </div>
-          </div>
+        <CardContent
+          className={cn(
+            "space-y-3",
+            isSidebar && "min-h-0 flex-1 overflow-y-auto",
+          )}
+        >
           {openWindows.length === 0 ? (
             <p className="rounded-xl border border-dashed border-emerald-200 py-4 text-center text-sm text-emerald-900/70">
-              Chưa có cửa sổ khách vãng lai ngày {reservationDayLabel}.
+              Chưa có khung vãng lai ngày {reservationDayLabel}.
             </p>
           ) : (
-            <div className="grid max-h-56 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-              {openWindows.map((w) => (
-                <div
-                  key={w.id}
-                  className="flex flex-col gap-2 rounded-xl border border-emerald-200 bg-white p-3"
-                >
-                  <div>
-                    <p className="text-sm font-bold">
-                      Còn {w.availableSeats ?? "—"}/{w.totalSeats ?? "—"} ghế
-                    </p>
-                    <p className="mt-1 text-xs text-neutral-500">
-                      {formatTime(w.windowStart)} → {formatTime(w.windowEnd)}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={walkInBusyId === w.id}
-                      onClick={() => void createWalkIn(w.id)}
-                      className="min-h-9 bg-emerald-700 text-white hover:bg-emerald-800"
-                    >
-                      Tạo walk-in
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={walkInBusyId === w.id}
-                      onClick={() => void closeWalkInWindow(w.id)}
-                      className="min-h-9 border-emerald-300 text-emerald-900"
-                    >
-                      Đóng khung
-                    </Button>
-                    {onOpenTables && (
+            <div
+              className={cn(
+                "grid gap-2 overflow-y-auto pr-1",
+                isSidebar
+                  ? "max-h-none grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                  : "max-h-[28rem] sm:grid-cols-2",
+              )}
+            >
+              {openWindows.map((w) => {
+                const maxSeats = Math.max(1, Number(w.availableSeats) || 1);
+                const draft = walkInDrafts[w.id] ?? {
+                  guestName: "",
+                  guestPhone: "",
+                  seats: 1,
+                };
+                const seats = Math.min(Math.max(1, draft.seats), maxSeats);
+                const tableLabel = walkInTableLabel(w);
+                const busy = walkInBusyId === w.id;
+                return (
+                  <div
+                    key={w.id}
+                    tabIndex={0}
+                    onPointerDown={focusFrameOnPointerDown}
+                    className={cn(
+                      "flex flex-col gap-2.5 rounded-xl border border-emerald-200 bg-white p-3",
+                      interactiveFrameClass,
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-neutral-950">
+                          {tableLabel || "Khung ghế trống"}
+                        </p>
+                        <p className="mt-0.5 text-xs font-semibold text-emerald-800">
+                          Còn {w.availableSeats ?? "—"}/{w.totalSeats ?? "—"} ghế
+                          {" · "}
+                          {formatWalkInTimeRange(w.windowStart, w.windowEnd)}
+                        </p>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            disabled={busy}
+                            className="size-8 shrink-0 text-neutral-600"
+                            aria-label="Thêm thao tác khung"
+                          >
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            disabled={busy}
+                            onClick={() => void closeWalkInWindow(w.id)}
+                          >
+                            <XCircle className="size-4" />
+                            Đóng khung
+                          </DropdownMenuItem>
+                          {onOpenTables ? (
+                            <DropdownMenuItem onClick={onOpenTables}>
+                              <Table2 className="size-4" />
+                              Sơ đồ bàn
+                            </DropdownMenuItem>
+                          ) : null}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor={`walk-in-guest-${w.id}`}
+                          className="text-xs font-semibold text-neutral-700"
+                        >
+                          Tên khách
+                        </Label>
+                        <Input
+                          id={`walk-in-guest-${w.id}`}
+                          value={draft.guestName}
+                          onChange={(e) =>
+                            updateWalkInDraft(
+                              w.id,
+                              { guestName: e.target.value },
+                              maxSeats,
+                            )
+                          }
+                          placeholder="Khách lẻ"
+                          className="h-9"
+                          disabled={busy}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor={`walk-in-phone-${w.id}`}
+                          className="text-xs font-semibold text-neutral-700"
+                        >
+                          SĐT
+                        </Label>
+                        <Input
+                          id={`walk-in-phone-${w.id}`}
+                          type="tel"
+                          inputMode="tel"
+                          value={draft.guestPhone}
+                          onChange={(e) =>
+                            updateWalkInDraft(
+                              w.id,
+                              {
+                                guestPhone: e.target.value.replace(
+                                  /[^\d+\s()-]/g,
+                                  "",
+                                ),
+                              },
+                              maxSeats,
+                            )
+                          }
+                          placeholder="Bắt buộc — để mở phiên"
+                          maxLength={20}
+                          className="h-9"
+                          disabled={busy}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-end gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-neutral-700">
+                          Số ghế
+                        </Label>
+                        <div className="flex h-9 items-center rounded-md border border-neutral-200 bg-white">
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            disabled={busy || seats <= 1}
+                            className="size-8 rounded-none text-base font-bold"
+                            aria-label="Giảm số ghế"
+                            onClick={() =>
+                              updateWalkInDraft(
+                                w.id,
+                                { seats: seats - 1 },
+                                maxSeats,
+                              )
+                            }
+                          >
+                            −
+                          </Button>
+                          <span className="min-w-8 text-center text-sm font-bold tabular-nums">
+                            {seats}
+                          </span>
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            disabled={busy || seats >= maxSeats}
+                            className="size-8 rounded-none text-base font-bold"
+                            aria-label="Tăng số ghế"
+                            onClick={() =>
+                              updateWalkInDraft(
+                                w.id,
+                                { seats: seats + 1 },
+                                maxSeats,
+                              )
+                            }
+                          >
+                            +
+                          </Button>
+                        </div>
+                      </div>
                       <Button
                         type="button"
                         size="sm"
-                        variant="ghost"
-                        onClick={onOpenTables}
-                        className="min-h-9 text-emerald-800"
+                        disabled={busy || maxSeats < 1}
+                        onClick={() => void createWalkIn(w)}
+                        className="h-9 shrink-0 bg-emerald-700 px-3 font-bold text-white hover:bg-emerald-800"
                       >
-                        Sơ đồ bàn
+                        {busy ? "Đang xếp..." : "Xếp bàn nhanh"}
                       </Button>
-                    )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
         </Card>
+      </div>
       )}
 
       <Dialog

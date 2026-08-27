@@ -24,6 +24,7 @@ import {
   Info,
   UserPlus,
   Receipt,
+  History,
 } from "lucide-react";
 
 function gameCheckStatus(game: any) {
@@ -46,6 +47,7 @@ interface SessionDetailModalProps {
   onOpenChecklist: (sessionGameId: string) => void;
   onReturnTable?: (sessionId: string) => void;
   onAddGuest?: (sessionId: string, displayName: string) => Promise<boolean>;
+  onShowBoxHistory?: (boxId: string) => void;
   otherSessions: Array<{
     id: string;
     tableName?: string;
@@ -95,6 +97,7 @@ export function SessionDetailModal({
   onOpenChecklist,
   onReturnTable,
   onAddGuest,
+  onShowBoxHistory,
   otherSessions,
   boxes = [],
   detailRefreshKey = 0,
@@ -312,10 +315,7 @@ export function SessionDetailModal({
                 </span>
                 <div className="font-semibold text-neutral-800">
                   {(() => {
-                    const present =
-                      members.length > 0
-                        ? guests.length
-                        : readPresentCount(detail);
+                    const present = readPresentCount(detail);
                     const range = mergePlayerRange(
                       detail.games?.[0],
                       detail.game,
@@ -383,6 +383,24 @@ export function SessionDetailModal({
                           </div>
 
                           <div className="flex shrink-0 flex-col items-end gap-1.5 sm:flex-row sm:items-center">
+                            {onShowBoxHistory &&
+                              (g.cafeInventoryBoxId || g.CafeInventoryBoxId) && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() =>
+                                    onShowBoxHistory(
+                                      g.cafeInventoryBoxId ||
+                                        g.CafeInventoryBoxId,
+                                    )
+                                  }
+                                  aria-label={`Xem lịch sử kiểm kê của ${g.gameName}`}
+                                  className="size-8 rounded-lg p-0 text-amber-700 hover:bg-amber-100"
+                                >
+                                  <History className="size-4" />
+                                </Button>
+                              )}
                             <span
                               className={`rounded px-2 py-0.5 text-[9px] font-bold uppercase border ${
                                 gameCheckStatus(g) === "verified"

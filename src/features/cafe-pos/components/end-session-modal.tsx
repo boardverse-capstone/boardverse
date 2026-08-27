@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { X, LogOut, Clock, Users, AlertCircle } from "lucide-react";
+import { readPresentCount } from "../lib/player-range";
 
 type ActiveSession = {
   id: string;
   tableName?: string;
+  hostId?: string;
   hostName?: string;
   elapsedMinutes?: number;
   members?: unknown[];
@@ -86,7 +88,7 @@ export function EndSessionModal({
               <Users className="w-3.5 h-3.5 text-neutral-400" /> Tổng số khách:
             </span>
             <span className="font-bold text-neutral-900">
-              {session.members?.length || 0} người
+              {readPresentCount(session) ?? session.members?.length ?? 0} người
             </span>
           </div>
 
