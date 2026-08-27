@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import QRCode from "react-qr-code";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,11 @@ type PayMode = "table" | "split";
 
 function splitQrValue(row: MemberPaymentResult) {
   return row.qrImageUrl || row.paymentUrl || row.transferContent || "";
+}
+
+function isPaidStatus(status: unknown) {
+  const normalized = String(status ?? "").toLowerCase();
+  return normalized === "paid" || normalized === "completed";
 }
 
 function pickAmount(source: any, ...keys: string[]): number {
@@ -96,6 +101,23 @@ export function PayConfirmModal({
   const [qrOrderId, setQrOrderId] = useState("");
   const [payMode, setPayMode] = useState<PayMode>("table");
   const [splitQrList, setSplitQrList] = useState<MemberPaymentResult[]>([]);
+  /** Chặn toast "Thanh toán thành công" bị poll/Reload bắn nhiều lần. */
+  const paidNotifiedRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  const onRefreshPaymentRef = useRef(onRefreshPayment);
+  onCloseRef.current = onClose;
+  onRefreshPaymentRef.current = onRefreshPayment;
+
+  const notifyPaidSuccessOnce = (tableLabel: string, sessionId: string) => {
+    if (paidNotifiedRef.current) return false;
+    paidNotifiedRef.current = true;
+    toast.success(
+      `Thanh toán thành công. ${tableLabel} đã trống, có thể đặt bàn ngay!`,
+      { id: `pos-paid-success-${sessionId}` },
+    );
+    onCloseRef.current();
+    return true;
+  };
 
   useEffect(() => {
     if (!isOpen || !session?.id || !onCheckout) return;
@@ -126,6 +148,7 @@ export function PayConfirmModal({
 
   useEffect(() => {
     if (!isOpen) {
+      paidNotifiedRef.current = false;
       setQrPayload(null);
       setQrAmount(0);
       setQrOrderId("");
@@ -135,29 +158,31 @@ export function PayConfirmModal({
   }, [isOpen]);
 
   useEffect(() => {
+    paidNotifiedRef.current = false;
+  }, [session?.id]);
+
+  useEffect(() => {
     if (
       !isOpen ||
       payMode !== "split" ||
       splitQrList.length === 0 ||
-      !onRefreshPayment ||
+      !onRefreshPaymentRef.current ||
       !session?.id
     ) {
       return;
     }
     let stopped = false;
     let refreshing = false;
+    const sessionId = session.id;
+    const tableLabel = session.tableName || session.tableLabel || "Bàn";
     const tick = async () => {
-      if (stopped || refreshing) return;
+      if (stopped || refreshing || paidNotifiedRef.current) return;
       refreshing = true;
       try {
-        const fresh = await onRefreshPayment(session.id);
-        const status = String(fresh?.status || fresh?.Status || "").toLowerCase();
-        if (status === "paid" || status === "completed") {
-          const tableLabel = session.tableName || session.tableLabel || "Bàn";
-          toast.success(
-            `Thanh toán thành công. ${tableLabel} đã trống, có thể đặt bàn ngay!`,
-          );
-          onClose();
+        const fresh = await onRefreshPaymentRef.current?.(sessionId);
+        if (stopped || paidNotifiedRef.current) return;
+        if (isPaidStatus(fresh?.status ?? fresh?.Status)) {
+          notifyPaidSuccessOnce(tableLabel, sessionId);
         }
       } catch {
         // ignore
@@ -171,34 +196,23 @@ export function PayConfirmModal({
       stopped = true;
       window.clearInterval(id);
     };
-  }, [
-    isOpen,
-    payMode,
-    splitQrList.length,
-    onRefreshPayment,
-    session?.id,
-    onClose,
-    session?.tableName,
-    session?.tableLabel,
-  ]);
+  }, [isOpen, payMode, splitQrList.length, session?.id, session?.tableName, session?.tableLabel]);
 
   useEffect(() => {
-    if (!isOpen || !qrPayload || payMode !== "table" || !onRefreshPayment || !session?.id)
+    if (!isOpen || !qrPayload || payMode !== "table" || !onRefreshPaymentRef.current || !session?.id)
       return;
     let stopped = false;
     let refreshing = false;
+    const sessionId = session.id;
+    const tableLabel = session.tableName || session.tableLabel || "Bàn";
     const tick = async () => {
-      if (stopped || refreshing) return;
+      if (stopped || refreshing || paidNotifiedRef.current) return;
       refreshing = true;
       try {
-        const fresh = await onRefreshPayment(session.id);
-        const status = String(fresh?.status || fresh?.Status || "").toLowerCase();
-        if (status === "paid" || status === "completed") {
-          const tableLabel = session.tableName || session.tableLabel || "Bàn";
-          toast.success(
-            `Thanh toán thành công. ${tableLabel} đã trống, có thể đặt bàn ngay!`,
-          );
-          onClose();
+        const fresh = await onRefreshPaymentRef.current?.(sessionId);
+        if (stopped || paidNotifiedRef.current) return;
+        if (isPaidStatus(fresh?.status ?? fresh?.Status)) {
+          notifyPaidSuccessOnce(tableLabel, sessionId);
         }
       } catch {
         // Bỏ qua — poll sẽ thử lại; 404 sau webhook được xử lý trong onRefreshPayment
@@ -212,7 +226,7 @@ export function PayConfirmModal({
       stopped = true;
       window.clearInterval(id);
     };
-  }, [isOpen, qrPayload, payMode, onRefreshPayment, session?.id, onClose, session?.tableName, session?.tableLabel]);
+  }, [isOpen, qrPayload, payMode, session?.id, session?.tableName, session?.tableLabel]);
 
   if (!isOpen || !session) return null;
 
@@ -363,13 +377,9 @@ export function PayConfirmModal({
         toast.error("Không tải được trạng thái phiên.");
         return;
       }
-      const status = String(fresh?.status || fresh?.Status || "").toLowerCase();
-      if (status === "paid" || status === "completed") {
+      if (isPaidStatus(fresh?.status ?? fresh?.Status)) {
         const tableLabel = session.tableName || session.tableLabel || "Bàn";
-        toast.success(
-          `Thanh toán thành công. ${tableLabel} đã trống, có thể đặt bàn ngay!`,
-        );
-        onClose();
+        notifyPaidSuccessOnce(tableLabel, session.id);
         return;
       }
       toast.message(
