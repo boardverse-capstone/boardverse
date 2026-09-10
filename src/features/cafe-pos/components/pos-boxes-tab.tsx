@@ -48,7 +48,7 @@ export function getAssignedBoxBarcodes(sessions: any[]): Set<string> {
   return set;
 }
 
-/** Chỉ hộp trống và chưa gắn phiên đang chạy — dùng cho picker gán/thêm. */
+/** Hộp Available và không còn nằm trong games của phiên đang chạy. */
 export function filterBoxesAssignableForPos(
   boxes: PosBoxItem[],
   sessions: any[],

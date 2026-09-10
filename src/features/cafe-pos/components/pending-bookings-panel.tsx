@@ -55,11 +55,17 @@ import {
   focusFrameOnPointerDown,
   interactiveFrameClass,
 } from "../lib/interactive-frame";
+import { readPlayerRange } from "../lib/player-range";
 import { cn } from "@/lib/utils";
 
 interface PendingBookingsPanelProps {
   cafeId: string | null;
-  tables?: Array<{ id?: string; name?: string; status?: string }>;
+  tables?: Array<{
+    id?: string;
+    name?: string;
+    status?: string;
+    seatCount?: number;
+  }>;
   boxes?: Array<{
     id: string;
     barcode: string;
@@ -109,6 +115,7 @@ interface ReservedTable {
   id: string;
   name: string;
   status: string;
+  seatCount: number | null;
 }
 
 // Tạm bật để QA có thể gửi request check-in với mọi trạng thái reservation.
@@ -446,6 +453,7 @@ function parseTables(raw: unknown): ReservedTable[] {
         id: String(r.id ?? r.Id ?? ""),
         name: String(r.name ?? r.Name ?? "Bàn"),
         status: String(r.status ?? r.Status ?? ""),
+        seatCount: readPlayerRange(r).max,
       };
     })
     .filter((t) => t.id);
@@ -504,11 +512,18 @@ export function PendingBookingsPanel({
   const [reservationSearch, setReservationSearch] = useState("");
   const reservationDayLabel = formatReservationDayLabel(playDate, todayIso);
 
-  const assignableTables = useMemo(() => {
-    const fromProp = tables.filter((t) => {
-      const st = String(t.status || "").toLowerCase();
-      return t.id && (st === "available" || st === "reserved" || !st);
-    });
+  const assignableTables = useMemo((): ReservedTable[] => {
+    const fromProp = tables
+      .filter((t) => {
+        const st = String(t.status || "").toLowerCase();
+        return t.id && (st === "available" || st === "reserved" || !st);
+      })
+      .map((t) => ({
+        id: String(t.id),
+        name: String(t.name ?? "Bàn"),
+        status: String(t.status ?? ""),
+        seatCount: readPlayerRange(t).max,
+      }));
     if (fromProp.length > 0) return fromProp;
     return reserved;
   }, [tables, reserved]);
@@ -968,6 +983,19 @@ export function PendingBookingsPanel({
     }
     if (!tableId) {
       toast.error("Chọn bàn để nhận khách.");
+      return;
+    }
+    const partySize = Math.max(
+      Number(preview?.registeredMemberCount) || 0,
+      Number(selectedReservation?.currentPlayers) || 0,
+      Number(selectedReservation?.maxPlayers) || 0,
+    );
+    const selectedTable = assignableTables.find((t) => t.id === tableId);
+    const seatCount = selectedTable?.seatCount;
+    if (partySize > 0 && seatCount != null && partySize > seatCount) {
+      toast.error(
+        `Đơn ${partySize} khách — bàn này tối đa ${seatCount} chỗ. Chọn bàn lớn hơn.`,
+      );
       return;
     }
     if (!barcode.trim()) {
@@ -1598,10 +1626,21 @@ export function PendingBookingsPanel({
                         <option value="">Chọn bàn</option>
                         {assignableTables.map((t) => {
                           const statusLabel = formatTableStatusLabel(t.status);
+                          const partySize = Math.max(
+                            Number(preview.registeredMemberCount) || 0,
+                            Number(selectedReservation?.currentPlayers) || 0,
+                            Number(selectedReservation?.maxPlayers) || 0,
+                          );
+                          const tooSmall =
+                            partySize > 0 &&
+                            t.seatCount != null &&
+                            partySize > t.seatCount;
                           return (
-                            <option key={t.id} value={t.id}>
+                            <option key={t.id} value={t.id} disabled={tooSmall}>
                               {t.name}
+                              {t.seatCount != null ? ` · ${t.seatCount} chỗ` : ""}
                               {statusLabel ? ` · ${statusLabel}` : ""}
+                              {tooSmall ? " · Không đủ chỗ" : ""}
                             </option>
                           );
                         })}

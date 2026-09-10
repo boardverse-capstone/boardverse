@@ -1,52 +1,22 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
-import Link from 'next/link';
+import { useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { ArrowUpDown, Eye, MoreHorizontal } from 'lucide-react';
+import { ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CommonPagination } from '@/components/common/pagination';
-import {
-  APPLICATION_ACTION_LABELS,
-  PARTNER_APPLICATION_STATUS_FILTERS,
-} from '@/core/constants/partner-registration';
-import { ROUTES } from '@/core/constants/routes';
+import { PARTNER_APPLICATION_STATUS_FILTERS } from '@/core/constants/partner-registration';
 import { useListQueryState } from '@/shared/hooks/useListQueryState';
 import { usePendingPartners } from '../hooks/usePendingPartners';
-import { useApproveRegistration } from '../hooks/useApproveRegistration';
-import { useRejectRegistration } from '../hooks/useRejectRegistration';
-import { ApproveRegistrationDialog } from './approve-registration-dialog';
-import { RejectRegistrationDialog } from './reject-registration-dialog';
+import { RegistrationDetailDialog } from './registration-detail-dialog';
 import { PartnerDataTable } from './partner-data-table';
 import { PartnerStatusBadges } from './partner-status-badges';
-import type { ApplicationPrimaryAction, PartnerActionTarget, PartnerApplication } from '../types/partner.interface';
-import { formatWorkingHours, toPartnerActionTarget } from '../utils/partner.mapper';
-import {
-  canRejectApplication,
-  getApplicationPrimaryAction,
-} from '../utils/application-workflow';
+import type { PartnerApplication } from '../types/partner.interface';
+import { formatWorkingHours } from '../utils/partner.mapper';
 
-interface PartnerPendingTableHandlers {
-  onPrimaryAction: (partner: PartnerActionTarget, action: ApplicationPrimaryAction) => void;
-  onRejectClick: (partner: PartnerActionTarget) => void;
-  getDetailHref: (id: string) => string;
-}
-
-function createColumns({
-  onPrimaryAction,
-  onRejectClick,
-  getDetailHref,
-}: PartnerPendingTableHandlers): ColumnDef<PartnerApplication>[] {
+function createColumns(): ColumnDef<PartnerApplication>[] {
   return [
     {
       accessorKey: 'cafeName',
@@ -117,56 +87,6 @@ function createColumns({
         />
       ),
     },
-    {
-      id: 'actions',
-      cell: ({ row }) => {
-        const partner = toPartnerActionTarget(row.original);
-        const primaryAction = getApplicationPrimaryAction(partner);
-        const canReject = canRejectApplication(row.original);
-
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Mở menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-              <DropdownMenuItem asChild>
-                <Link href={getDetailHref(partner.id)}>
-                  <Eye className="mr-2 h-4 w-4" />
-                  Xem chi tiết
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigator.clipboard.writeText(partner.id)}>
-                Sao chép mã đơn
-              </DropdownMenuItem>
-              {primaryAction && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-emerald-600"
-                    onClick={() => onPrimaryAction(partner, primaryAction)}
-                  >
-                    {APPLICATION_ACTION_LABELS[primaryAction]}
-                  </DropdownMenuItem>
-                </>
-              )}
-              {canReject && (
-                <DropdownMenuItem
-                  className="text-rose-600"
-                  onClick={() => onRejectClick(partner)}
-                >
-                  {APPLICATION_ACTION_LABELS.REJECT}
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
-      },
-    },
   ];
 }
 
@@ -183,12 +103,8 @@ export function PartnerPendingTable() {
     setLimit,
     setSearch,
     setRole: setStatusFilter,
-    detailHref,
   } = useListQueryState({ defaultLimit: DEFAULT_PAGE_SIZE, defaultRole: 'all' });
-  const [selectedPartner, setSelectedPartner] = useState<PartnerActionTarget | null>(null);
-  const [selectedAction, setSelectedAction] = useState<ApplicationPrimaryAction | null>(null);
-  const [approveOpen, setApproveOpen] = useState(false);
-  const [rejectOpen, setRejectOpen] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = usePendingPartners({
     page,
@@ -196,54 +112,13 @@ export function PartnerPendingTable() {
     search,
     status: statusFilter,
   });
-  const approveMutation = useApproveRegistration();
-  const rejectMutation = useRejectRegistration();
-
-  const getDetailHref = useCallback(
-    (id: string) => detailHref(ROUTES.ADMIN.REGISTRATION_DETAIL(id), ROUTES.ADMIN.REGISTRATIONS),
-    [detailHref],
-  );
-
-  const columns = useMemo(
-    () =>
-      createColumns({
-        onPrimaryAction: (partner, action) => {
-          setSelectedPartner(partner);
-          setSelectedAction(action);
-          setApproveOpen(true);
-        },
-        onRejectClick: (partner) => {
-          setSelectedPartner(partner);
-          setRejectOpen(true);
-        },
-        getDetailHref,
-      }),
-    [getDetailHref],
-  );
-
-  const handleApprove = () => {
-    if (!selectedPartner) return;
-    approveMutation.mutate(selectedPartner.id, {
-      onSuccess: () => {
-        setApproveOpen(false);
-        setSelectedPartner(null);
-        setSelectedAction(null);
-      },
-    });
-  };
-
-  const handleReject = (reason: string) => {
-    if (!selectedPartner) return;
-    rejectMutation.mutate(
-      { id: selectedPartner.id, payload: { reason } },
-      {
-        onSuccess: () => {
-          setRejectOpen(false);
-          setSelectedPartner(null);
-        },
-      },
-    );
-  };
+  const { data: pendingCountData } = usePendingPartners({
+    page: 1,
+    limit: 1,
+    status: 'PENDING',
+  });
+  const pendingCount = pendingCountData?.meta.totalItems;
+  const columns = useMemo(() => createColumns(), []);
 
   if (isLoading) {
     return <div className="text-sm p-4 text-muted-foreground">Đang tải danh sách dữ liệu...</div>;
@@ -295,15 +170,24 @@ export function PartnerPendingTable() {
             <TabsTrigger
               key={filter.value}
               value={filter.value}
-              className="data-[state=active]:bg-amber-600 data-[state=active]:text-white"
+              className="group gap-1.5 data-[state=active]:bg-amber-600 data-[state=active]:text-white"
             >
               {filter.label}
+              {filter.value === 'PENDING' && pendingCount != null ? (
+                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-amber-200 px-1.5 text-[11px] font-semibold text-amber-900 group-data-[state=active]:bg-white/25 group-data-[state=active]:text-white">
+                  {pendingCount}
+                </span>
+              ) : null}
             </TabsTrigger>
           ))}
         </TabsList>
       </Tabs>
 
-      <PartnerDataTable columns={columns} data={data?.data ?? []} />
+      <PartnerDataTable
+        columns={columns}
+        data={data?.data ?? []}
+        onRowClick={(row) => setDetailId(row.id)}
+      />
 
       {data?.meta && (
         <CommonPagination
@@ -315,21 +199,12 @@ export function PartnerPendingTable() {
         />
       )}
 
-      <ApproveRegistrationDialog
-        partner={selectedPartner}
-        action={selectedAction}
-        open={approveOpen}
-        onOpenChange={setApproveOpen}
-        onConfirm={handleApprove}
-        isPending={approveMutation.isPending}
-      />
-
-      <RejectRegistrationDialog
-        partner={selectedPartner}
-        open={rejectOpen}
-        onOpenChange={setRejectOpen}
-        onConfirm={handleReject}
-        isPending={rejectMutation.isPending}
+      <RegistrationDetailDialog
+        applicationId={detailId}
+        open={!!detailId}
+        onOpenChange={(open) => {
+          if (!open) setDetailId(null);
+        }}
       />
     </div>
   );

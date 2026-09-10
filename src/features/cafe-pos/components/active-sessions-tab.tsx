@@ -20,19 +20,23 @@ import {
   Clock,
   Users,
   CreditCard,
-  Info,
   LogOut,
   ArrowRight,
   CheckCircle2,
+  ClipboardCheck,
+  Pause,
+  Play,
 } from "lucide-react";
 
 export interface ActiveSessionsTabProps {
   sessions: any[];
   onEndSession: (sessionId: string) => void;
   onViewDetail: (sessionId: string) => void;
+  onOpenInventory: (session: any) => void;
   onInitiatePaymentFlow: (session: any) => void;
   onResumeSession?: (sessionId: string) => void;
-  onResetComponentCheck?: (sessionGameId: string) => void;
+  onPauseSession?: (sessionId: string) => void;
+  onResumePause?: (sessionId: string) => void;
 }
 
 function normStatus(value: unknown) {
@@ -111,9 +115,11 @@ export function ActiveSessionsTab({
   sessions,
   onEndSession,
   onViewDetail,
+  onOpenInventory,
   onInitiatePaymentFlow,
   onResumeSession,
-  onResetComponentCheck,
+  onPauseSession,
+  onResumePause,
 }: ActiveSessionsTabProps) {
   const activeSessions = (sessions || []).filter((s) => !isPaidByApi(s));
 
@@ -140,6 +146,7 @@ export function ActiveSessionsTab({
         const isReturned = isReturnedByApi(ses);
         const isCheckDone = isCheckDoneByApi(ses);
         const isPaidDone = isPaidByApi(ses);
+        const isPaused = Boolean(ses.isPaused ?? ses.IsPaused);
         const nextAction = !isReturned
           ? "return"
           : !isCheckDone
@@ -172,7 +179,7 @@ export function ActiveSessionsTab({
           if (isPaidDone) return;
           if (!isReturned) {
             toast.error(
-              "Chưa trả bàn. Thứ tự: Trả bàn → Chi tiết (kiểm kê) → Thanh toán.",
+              "Chưa trả bàn. Thứ tự: Trả bàn → Kiểm kê → Thanh toán.",
               {
                 duration: 8000,
                 action: {
@@ -185,12 +192,12 @@ export function ActiveSessionsTab({
           }
           if (!isCheckDone) {
             toast.error(
-              "Chưa kiểm kê. Mở Chi tiết để kiểm kê linh kiện trước khi thanh toán.",
+              "Chưa kiểm kê. Bấm Kiểm kê trên thẻ phiên trước khi thanh toán.",
               {
                 duration: 8000,
                 action: {
-                  label: "Chi tiết",
-                  onClick: () => openDetail(),
+                  label: "Kiểm kê",
+                  onClick: () => onOpenInventory(ses),
                 },
               },
             );
@@ -203,7 +210,16 @@ export function ActiveSessionsTab({
           <Card
             key={ses.id}
             size="sm"
-            className={`gap-0 transition-colors ${
+            role="button"
+            tabIndex={0}
+            onClick={openDetail}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openDetail();
+              }
+            }}
+            className={`cursor-pointer gap-0 transition-colors ${
               isUnpaid
                 ? "border-amber-300 bg-amber-50/30"
                 : "border-neutral-200 hover:border-neutral-300"
@@ -233,7 +249,9 @@ export function ActiveSessionsTab({
                       ? "Chờ thanh toán"
                       : isChecking
                         ? "Đang kiểm kê"
-                        : formatSessionStatusLabel(ses.status) || "Đang chơi"}
+                        : isPaused
+                          ? "Tạm dừng giờ chơi"
+                          : formatSessionStatusLabel(ses.status) || "Đang chơi"}
                   </Badge>
               </CardAction>
             </CardHeader>
@@ -313,8 +331,11 @@ export function ActiveSessionsTab({
 
             </CardContent>
 
-            <CardFooter className="grid grid-cols-2 gap-2 border-t">
-              {isChecking && !isCheckDone && onResumeSession ? (
+            <CardFooter
+              className="grid grid-cols-2 gap-2 border-t"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {isChecking && !isUnpaid && !isPaidDone && onResumeSession ? (
                 <Button
                   type="button"
                   size="sm"
@@ -325,25 +346,32 @@ export function ActiveSessionsTab({
                   Khôi phục phiên (tiếp tục chơi)
                 </Button>
               ) : null}
-              {isCheckDone && !isUnpaid && !isPaidDone && onResetComponentCheck ? (
+              {!isReturned && (onPauseSession || onResumePause) ? (
                 <Button
                   type="button"
                   size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    const gid =
-                      primaryGame?.id ||
-                      primaryGame?.sessionGameId ||
-                      ses.games?.[0]?.id;
-                    if (!gid) {
-                      toast.error("Không tìm thấy mã game trong phiên để reset.");
-                      return;
-                    }
-                    onResetComponentCheck(gid);
-                  }}
-                  className="min-h-11 gap-2 rounded-lg font-semibold col-span-2 text-neutral-600"
+                  variant="outline"
+                  onClick={() =>
+                    isPaused
+                      ? onResumePause?.(ses.id)
+                      : onPauseSession?.(ses.id)
+                  }
+                  className={`col-span-2 min-h-11 gap-2 rounded-lg font-semibold ${
+                    isPaused
+                      ? "border-sky-300 bg-sky-50 text-sky-800"
+                      : "border-amber-300 bg-amber-50 text-amber-900"
+                  }`}
                 >
-                  Reset kiểm kê
+                  {isPaused ? (
+                    <Play className="size-4 shrink-0" />
+                  ) : (
+                    <Pause className="size-4 shrink-0" />
+                  )}
+                  <span>
+                    {isPaused
+                      ? "Tiếp tục giờ chơi"
+                      : "Tạm dừng giờ chơi"}
+                  </span>
                 </Button>
               ) : null}
               <Button
@@ -380,23 +408,37 @@ export function ActiveSessionsTab({
 
               <Button
                 type="button"
-                variant="outline"
                 size="sm"
-                onClick={openDetail}
+                onClick={() => {
+                  if (!isReturned) {
+                    toast.error(
+                      "Chưa trả bàn. Thứ tự: Trả bàn → Kiểm kê → Thanh toán.",
+                      {
+                        duration: 8000,
+                        action: {
+                          label: "Trả bàn",
+                          onClick: () => onEndSession(ses.id),
+                        },
+                      },
+                    );
+                    return;
+                  }
+                  onOpenInventory(ses);
+                }}
                 className={`min-h-11 gap-2 rounded-lg font-semibold shadow-none ${
-                  isCheckDone
-                    ? "text-emerald-800 border-emerald-200 bg-emerald-50"
-                    : nextAction === "inventory"
-                      ? "border-amber-500 bg-amber-500 text-white ring-2 ring-amber-200 ring-offset-2 hover:bg-amber-600 hover:text-white"
-                      : "text-neutral-500 border-neutral-200"
+                  nextAction === "inventory"
+                    ? "bg-amber-500 text-white ring-2 ring-amber-200 ring-offset-2 hover:bg-amber-600 hover:text-white"
+                    : isCheckDone
+                      ? "text-emerald-800 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
+                      : "border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
                 }`}
               >
                 {isCheckDone ? (
-                  <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+                  <CheckCircle2 className="size-4 shrink-0" />
                 ) : (
-                  <Info className="size-4 shrink-0 text-neutral-500" />
+                  <ClipboardCheck className="size-4 shrink-0" />
                 )}
-                <span>Chi tiết</span>
+                <span>Kiểm kê</span>
               </Button>
 
               <Button

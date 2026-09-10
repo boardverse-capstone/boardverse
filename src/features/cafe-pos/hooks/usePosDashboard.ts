@@ -224,12 +224,14 @@ export function usePosDashboard(opts?: {
   const [unpaidSessions, setUnpaidSessions] = useState<any[]>([]);
 
   // 1. Tải tất cả dữ liệu nền (Tables, Active Sessions, Boxes)
-  const fetchAllData = useCallback(async (cId?: string) => {
+  const fetchAllData = useCallback(async (cId?: string, options?: { showLoading?: boolean }) => {
     const currentCafeId = cId || cafeId;
     if (!currentCafeId) return;
 
     try {
-      setLoading(true);
+      if (options?.showLoading) {
+        setLoading(true);
+      }
 
       // GET /api/cafes/{cafeId}/pos/sessions/active (Chuẩn Endpoint Active Sessions)
       const [sessionsRes, tablesRes, boxesRes]: any = await Promise.all([
@@ -436,7 +438,7 @@ export function usePosDashboard(opts?: {
           const cid = list[0].id ?? list[0].Id ?? list[0].cafeId;
           setCafeId(cid);
           isInitialFetched.current = true;
-          await fetchAllData(cid);
+          await fetchAllData(cid, { showLoading: true });
         } else {
           setLoading(false);
         }
@@ -598,7 +600,9 @@ export function usePosDashboard(opts?: {
         memberUserIds,
         applyDeposit,
       });
-      toast.success("Đã thanh toán một phần cho member đã chọn.");
+      toast.success(
+        "Đã đánh dấu về sớm (SUSPENDED_MUTATION). Có thể Ghép sang phiên khác, rồi Kiểm kê → Thanh toán.",
+      );
       await fetchAllData(cafeId);
       return true;
     } catch (err: any) {
@@ -806,6 +810,36 @@ export function usePosDashboard(opts?: {
         },
       );
       return null;
+    }
+  };
+
+  /** POST .../sessions/{id}/pause — dừng timer, phiên vẫn ACTIVE (L-05) */
+  const handlePauseSession = async (sessionId: string) => {
+    if (!cafeId) return false;
+    try {
+      await apiClient.post(`/api/cafes/${cafeId}/pos/sessions/${sessionId}/pause`);
+      toast.success("Đã tạm dừng giờ chơi.");
+      await fetchAllData(cafeId);
+      return true;
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể tạm dừng phiên chơi.");
+      return false;
+    }
+  };
+
+  /** POST .../sessions/{id}/resume-pause — chạy lại timer khi đang pause */
+  const handleResumePause = async (sessionId: string) => {
+    if (!cafeId) return false;
+    try {
+      await apiClient.post(
+        `/api/cafes/${cafeId}/pos/sessions/${sessionId}/resume-pause`,
+      );
+      toast.success("Đã tiếp tục giờ chơi.");
+      await fetchAllData(cafeId);
+      return true;
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể tiếp tục giờ chơi.");
+      return false;
     }
   };
 
@@ -1197,6 +1231,8 @@ const handleFetchBoxHistory = useCallback(
     unpaidSessions,
     handleFetchUnpaidSessions,
     handleFetchPaidSessions,
+    handlePauseSession,
+    handleResumePause,
     handleResumeSession,
     handleResetComponentCheck,
     handleCheckoutSession,

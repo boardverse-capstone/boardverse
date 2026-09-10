@@ -23,6 +23,7 @@ import { CheckoutConfirmModal } from "./checkout-confirm-modal";
 import { PayConfirmModal } from "./checkout-pay-modal";
 import { ComponentChecklistModal } from "./component-checklist-modal";
 import { SessionDetailModal } from "./session-detail-modal";
+import { SessionInventoryModal } from "./session-inventory-modal";
 import { PosBoxesTab, filterBoxesAssignableForPos } from "./pos-boxes-tab";
 import { StartSessionModal } from "./start-session-modal";
 import {
@@ -83,24 +84,45 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     if (raw == null && props?.initialBookingCode) return "reception" as PosTab;
     return parsePosTab(raw);
   })();
-  const setActiveTab = useCallback(
-    (tab: PosTab) => {
+  const patchPosQuery = useCallback(
+    (patch: Record<string, string | null>) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (tab === "tables") params.delete("tab");
-      else params.set("tab", tab);
+      for (const [key, value] of Object.entries(patch)) {
+        if (!value) params.delete(key);
+        else params.set(key, value);
+      }
       const query = params.toString();
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
     },
     [pathname, router, searchParams],
+  );
+  const setActiveTab = useCallback(
+    (tab: PosTab) => {
+      patchPosQuery({
+        tab: tab === "tables" ? null : tab,
+      });
+    },
+    [patchPosQuery],
   );
   const opsTab: Exclude<PosTab, "reception"> = isOpsTab(activeTab)
     ? activeTab
     : "tables";
   const topArea = activeTab === "reception" ? "reception" : "ops";
   const [endingSession, setEndingSession] = useState<any | null>(null);
-  const [selectedDetailSessionId, setSelectedDetailSessionId] = useState<
-    string | null
-  >(null);
+  const selectedDetailSessionId = searchParams.get("session");
+  const inventorySessionId = searchParams.get("inventory");
+  const setSelectedDetailSessionId = useCallback(
+    (sessionId: string | null) => {
+      patchPosQuery({ session: sessionId });
+    },
+    [patchPosQuery],
+  );
+  const setInventorySessionId = useCallback(
+    (sessionId: string | null) => {
+      patchPosQuery({ inventory: sessionId });
+    },
+    [patchPosQuery],
+  );
   const [detailRefreshKey, setDetailRefreshKey] = useState(0);
   const {
     cafeId,
@@ -123,6 +145,8 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     handleComponentCheck,
     handleCheckoutSession,
     handlePaySession,
+    handlePauseSession,
+    handleResumePause,
     handleResumeSession,
     handleResetComponentCheck,
     handleFetchPaidSessions,
@@ -144,7 +168,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     },
   });
 
-  /** Hộp có thể gán/thêm phiên — không gồm InUse hoặc barcode đang gắn session live. */
+  /** Hộp Available và chưa nằm trên phiên live (GET sessions.games). */
   const assignableBoxes = useMemo(
     () => filterBoxesAssignableForPos(boxes, sessions),
     [boxes, sessions],
@@ -270,18 +294,6 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     setHistoryModalState({ isOpen: false, data: null, targetSession: null });
     if (targetSession) {
       setCheckoutSession(targetSession);
-    }
-  };
-
-  const handleShowBoxHistoryDirectly = async (boxId: string) => {
-    if (!handleFetchBoxHistory) return;
-    const historyRes = await handleFetchBoxHistory(boxId);
-    if (historyRes) {
-      setHistoryModalState({
-        isOpen: true,
-        data: historyRes,
-        targetSession: null,
-      });
     }
   };
 
@@ -639,12 +651,23 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                 onViewDetail={(sessionId: string) =>
                   setSelectedDetailSessionId(sessionId)
                 }
+                onOpenInventory={(session) => {
+                  const id = session?.id || session?.sessionId;
+                  if (!id) {
+                    toast.error("Không tìm thấy phiên để kiểm kê.");
+                    return;
+                  }
+                  setInventorySessionId(id);
+                }}
                 onInitiatePaymentFlow={handleInitiatePaymentFlow}
                 onResumeSession={(sessionId) => {
                   void handleResumeSession(sessionId);
                 }}
-                onResetComponentCheck={(sessionGameId) => {
-                  void handleResetComponentCheck(sessionGameId);
+                onPauseSession={(sessionId) => {
+                  void handlePauseSession(sessionId);
+                }}
+                onResumePause={(sessionId) => {
+                  void handleResumePause(sessionId);
                 }}
               />
             </TabsContent>
@@ -678,6 +701,20 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         onClose={() => setChecklistData(null)}
         sessionGameData={checklistData}
         onSubmitCheck={handleChecklistSubmitOnly}
+      />
+
+      <SessionInventoryModal
+        isOpen={!!inventorySessionId}
+        session={
+          sessions.find(
+            (s) => (s.id || s.sessionId) === inventorySessionId,
+          ) || null
+        }
+        onClose={() => setInventorySessionId(null)}
+        onOpenChecklist={(sessionGameId) => {
+          void handleOpenChecklist(sessionGameId, inventorySessionId);
+        }}
+        onResetComponentCheck={handleResetComponentCheck}
       />
 
       <BoxComponentHistoryModal
@@ -714,10 +751,6 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         sessionId={selectedDetailSessionId}
         cafeId={cafeId}
         onFetchDetail={handleGetSessionDetail}
-        onOpenChecklist={(gameId) => {
-          void handleOpenChecklist(gameId, selectedDetailSessionId);
-        }}
-        onShowBoxHistory={handleShowBoxHistoryDirectly}
         onReturnTable={(sessionId) => {
           const targetSes = sessions.find((s) => s.id === sessionId);
           if (targetSes) setEndingSession(targetSes);
@@ -725,21 +758,53 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         onAddGuest={handleAddGuest}
         boxes={assignableBoxes}
         detailRefreshKey={detailRefreshKey}
+        playingUserIds={[
+          ...new Set(
+            sessions.flatMap((session) => {
+              const status = String(session.status ?? session.Status ?? "")
+                .toLowerCase()
+                .replace(/[_\s-]/g, "");
+              if (status === "paid" || status === "completed") return [];
+              const ids: string[] = [];
+              const hostId = session.hostId || session.HostId;
+              if (hostId) ids.push(String(hostId));
+              for (const member of session.members || session.Members || []) {
+                const uid = member.userId || member.UserId;
+                if (uid) ids.push(String(uid));
+              }
+              return ids;
+            }),
+          ),
+        ]}
         otherSessions={sessions
           .filter((session) => {
-            const id = session.id || session.sessionId;
-            const status = String(session.status ?? session.Status ?? "").toLowerCase();
+            const id = String(session.id || session.sessionId || "");
+            const status = String(session.status ?? session.Status ?? "")
+              .toLowerCase()
+              .replace(/[_\s-]/g, "");
             return (
-              id &&
-              id !== selectedDetailSessionId &&
+              Boolean(id) &&
+              id !== String(selectedDetailSessionId || "") &&
               status !== "paid" &&
-              status !== "completed"
+              status !== "completed" &&
+              status !== "closed"
             );
           })
           .map((session) => ({
-            id: session.id || session.sessionId,
-            tableName: session.tableName || session.tableLabel,
+            id: String(session.id || session.sessionId),
+            tableName:
+              session.tableName ||
+              session.TableName ||
+              session.tableLabel ||
+              session.TableLabel ||
+              session.cafeTableName ||
+              session.CafeTableName,
             status: session.status || session.Status,
+            memberUserIds: (session.members || session.Members || [])
+              .map((member: { userId?: string; UserId?: string }) =>
+                String(member.userId || member.UserId || ""),
+              )
+              .filter(Boolean),
           }))}
         onAttachGame={handleAttachSessionGame}
         onAddMembers={handleAddSessionMembers}

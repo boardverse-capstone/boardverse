@@ -10,6 +10,11 @@ import type {
   UpdateMasterGameComponentRequest,
   UpdateMasterGameMetadataRequest,
   UpdateMasterGameThumbnailRequest,
+  BggSearchHit,
+  BggGamePreview,
+  BggComponentKindOption,
+  ImportBggGameRequest,
+  ImportBggGameResult,
 } from '../types/master-game.interface';
 import {
   mapApiMasterGameComponent,
@@ -21,12 +26,59 @@ export const ADMIN_MASTER_GAME_QUERY_KEYS = {
   catalog: 'admin-master-game-catalog',
   components: 'admin-master-game-components',
   categories: 'admin-master-game-categories',
+  bggSearch: 'admin-bgg-search',
+  bggPreview: 'admin-bgg-preview',
+  bggComponentCatalog: 'admin-bgg-component-catalog',
 } as const;
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function unwrapList(raw: unknown): unknown[] {
+  if (Array.isArray(raw)) return raw;
+  const root = asRecord(raw);
+  const nested = root?.data ?? root?.items ?? root?.Items;
+  if (Array.isArray(nested)) return nested;
+  const inner = asRecord(nested);
+  const innerList = inner?.data ?? inner?.items;
+  return Array.isArray(innerList) ? innerList : [];
+}
+
+function unwrapObject(raw: unknown): Record<string, unknown> {
+  const root = asRecord(raw);
+  const nested = root?.data;
+  return asRecord(nested) ?? root ?? {};
+}
+
+function readCatalogKind(raw: unknown): number | string | null {
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const asNumber = Number(trimmed);
+  if (Number.isFinite(asNumber) && String(asNumber) === trimmed) return asNumber;
+  return trimmed;
+}
+
+function mapCatalogRow(item: unknown): BggComponentKindOption | null {
+  const row = asRecord(item);
+  if (!row) return null;
+  const kind = readCatalogKind(row.kind ?? row.Kind ?? row.value ?? row.Value);
+  if (kind == null) return null;
+  return {
+    kind,
+    nameEn: String(row.nameEn ?? row.NameEn ?? row.name ?? row.Name ?? '').trim(),
+    nameVi: String(row.nameVi ?? row.NameVi ?? '').trim(),
+  };
+}
 
 function toComponentBody(payload: CreateMasterGameComponentRequest | UpdateMasterGameComponentRequest) {
   return {
     componentName: payload.name,
-    componentKind: Number.isFinite(Number(payload.type)) ? Number(payload.type) : payload.type,
+    componentKind: payload.componentKind,
     defaultQuantity: payload.defaultQuantity,
   };
 }
@@ -62,7 +114,10 @@ export const AdminMasterGameService = {
           const row = item as Record<string, unknown>;
           const id = String(row.id ?? row.Id ?? row.gameTemplateId ?? row.GameTemplateId ?? '');
           const name = String(row.name ?? row.Name ?? row.title ?? row.Title ?? id);
-          return id ? { id, name } : null;
+          const thumbnail = String(
+            row.thumbnailUrl ?? row.ThumbnailUrl ?? row.imageUrl ?? row.ImageUrl ?? '',
+          ).trim();
+          return id ? { id, name, thumbnailUrl: thumbnail || null } : null;
         })
         .filter((item): item is MasterGameCatalogOption => Boolean(item));
     };
@@ -157,5 +212,84 @@ export const AdminMasterGameService = {
     payload: UpdateMasterGameThumbnailRequest,
   ): Promise<unknown> => {
     return apiClient.patch(`/api/v1/admin/master-games/${gameTemplateId}/thumbnail`, payload);
+  },
+
+  /** GET /api/v1/bgg/component-catalog */
+  listComponentCatalog: async (): Promise<BggComponentKindOption[]> => {
+    const raw = await apiClient.get<never, unknown>('/api/v1/bgg/component-catalog');
+    const rows = unwrapList(raw)
+      .map(mapCatalogRow)
+      .filter((item): item is BggComponentKindOption => Boolean(item));
+    if (rows.length === 0 && unwrapList(raw).length > 0) {
+      throw new Error('API component-catalog trả dữ liệu không có field kind.');
+    }
+    return rows;
+  },
+
+  /** GET /api/v1/bgg/search?query= */
+  searchBgg: async (query: string): Promise<BggSearchHit[]> => {
+    const raw = await apiClient.get<never, unknown>('/api/v1/bgg/search', {
+      params: { query: query.trim() },
+    });
+    return unwrapList(raw)
+      .map((item) => {
+        const row = asRecord(item);
+        if (!row) return null;
+        const bggId = Number(row.bggId ?? row.BggId);
+        const name = String(row.name ?? row.Name ?? '').trim();
+        if (!Number.isFinite(bggId) || bggId <= 0 || !name) return null;
+        const yearRaw = row.yearPublished ?? row.YearPublished;
+        const year = Number(yearRaw);
+        return {
+          bggId,
+          name,
+          yearPublished: Number.isFinite(year) && year > 0 ? year : null,
+        };
+      })
+      .filter((item): item is BggSearchHit => Boolean(item));
+  },
+
+  /** GET /api/v1/bgg/games/{bggId} */
+  previewBggGame: async (
+    bggId: number,
+    curatedComponentsOnly = false,
+  ): Promise<BggGamePreview> => {
+    const raw = await apiClient.get<never, unknown>(`/api/v1/bgg/games/${bggId}`, {
+      params: { curatedComponentsOnly },
+    });
+    const row = unwrapObject(raw);
+    const components = unwrapList(row.components ?? row.Components);
+    const minPlayers = Number(row.minPlayers ?? row.MinPlayers);
+    const maxPlayers = Number(row.maxPlayers ?? row.MaxPlayers);
+    const playTime = Number(row.playTimeMinutes ?? row.PlayTimeMinutes ?? row.playingTime);
+    const year = Number(row.yearPublished ?? row.YearPublished);
+    return {
+      bggId: Number(row.bggId ?? row.BggId ?? bggId),
+      name: String(row.name ?? row.Name ?? ''),
+      yearPublished: Number.isFinite(year) && year > 0 ? year : null,
+      minPlayers: Number.isFinite(minPlayers) && minPlayers > 0 ? minPlayers : null,
+      maxPlayers: Number.isFinite(maxPlayers) && maxPlayers > 0 ? maxPlayers : null,
+      playTimeMinutes: Number.isFinite(playTime) && playTime > 0 ? playTime : null,
+      description: String(row.description ?? row.Description ?? '').trim() || null,
+      hasCuratedComponents: Boolean(row.hasCuratedComponents ?? row.HasCuratedComponents),
+      componentResolutionNote: String(
+        row.componentResolutionNote ?? row.ComponentResolutionNote ?? '',
+      ).trim() || null,
+      componentCount: components.length,
+    };
+  },
+
+  /** POST /api/v1/bgg/import */
+  importBggGame: async (payload: ImportBggGameRequest): Promise<ImportBggGameResult> => {
+    const raw = await apiClient.post<never, unknown>('/api/v1/bgg/import', payload);
+    const row = unwrapObject(raw);
+    return {
+      gameTemplateId: String(row.gameTemplateId ?? row.GameTemplateId ?? ''),
+      bggId: Number(row.bggId ?? row.BggId ?? payload.bggId),
+      name: String(row.name ?? row.Name ?? ''),
+      created: Boolean(row.created ?? row.Created),
+      componentCount: Number(row.componentCount ?? row.ComponentCount ?? 0),
+      categoryCount: Number(row.categoryCount ?? row.CategoryCount ?? 0),
+    };
   },
 };

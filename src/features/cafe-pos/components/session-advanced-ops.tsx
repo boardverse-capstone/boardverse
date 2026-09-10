@@ -70,7 +70,9 @@ type SessionAdvancedOpsProps = {
     id: string;
     tableName?: string;
     status?: string;
+    memberUserIds?: string[];
   }>;
+  playingUserIds?: string[];
   busy?: boolean;
   onAttachGame: (barcode: string) => Promise<boolean>;
   onAddMembers: (userIds: string[]) => Promise<boolean>;
@@ -90,6 +92,17 @@ function readMemberId(member: any) {
   return String(member?.userId ?? member?.UserId ?? member?.id ?? "");
 }
 
+/** Id bản ghi ActiveSessionMember — body merge dùng field này (`memberId`), không dùng userId. */
+function readSessionMemberRowId(member: any) {
+  return String(
+    member?.id ??
+      member?.Id ??
+      member?.memberId ??
+      member?.MemberId ??
+      "",
+  ).trim();
+}
+
 function readMemberName(member: any) {
   return String(
     member?.userName ??
@@ -102,6 +115,33 @@ function readMemberName(member: any) {
 
 function readGameId(game: any) {
   return String(game?.sessionGameId ?? game?.id ?? "");
+}
+
+function memberLeaveLabel(member: any) {
+  const st = String(member?.status ?? member?.Status ?? "")
+    .toLowerCase()
+    .replace(/[_\s-]/g, "");
+  if (st.includes("suspend")) return "Đã đánh dấu về sớm";
+  if (st === "playing") return "Còn trong phiên";
+  if (st === "finished") return "Đã xong";
+  return "";
+}
+
+function isSuspendedForMerge(member: any) {
+  const st = String(member?.status ?? member?.Status ?? "")
+    .toLowerCase()
+    .replace(/[_\s-]/g, "");
+  return st.includes("suspend");
+}
+
+/** BR-13: Guest_Slot — BE field isGuestSlot / userId null. */
+function isGuestSlotMember(member: any) {
+  if (member?.isGuestSlot === true || member?.IsGuestSlot === true) return true;
+  if (member?.isHost === true || member?.IsHost === true) return false;
+  const uid = String(member?.userId ?? member?.UserId ?? "").trim();
+  if (!uid) return true;
+  const rowId = String(member?.id ?? member?.Id ?? "");
+  return rowId.startsWith("guest-slot-") || rowId.startsWith("guest-auto-");
 }
 
 function Section({
@@ -145,6 +185,7 @@ export function SessionAdvancedOps({
   detail,
   boxes = [],
   otherSessions,
+  playingUserIds = [],
   busy = false,
   onAttachGame,
   onAddMembers,
@@ -162,6 +203,7 @@ export function SessionAdvancedOps({
   const [searchResults, setSearchResults] = useState<CustomerUser[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<CustomerUser[]>([]);
   const [searching, setSearching] = useState(false);
+  const [searchTried, setSearchTried] = useState(false);
   const [lossGameId, setLossGameId] = useState("");
   const [lossComponents, setLossComponents] = useState<ComponentChecklistItem[]>(
     [],
@@ -179,14 +221,51 @@ export function SessionAdvancedOps({
   const [opsOpen, setOpsOpen] = useState(false);
 
   const games = detail?.games ?? detail?.Games ?? [];
-  const members = useMemo(
-    () =>
-      (detail?.members ?? detail?.Members ?? []).filter((member: any) => {
-        const id = readMemberId(member);
-        return id && !id.startsWith("guest-slot-") && !id.startsWith("guest-auto-");
-      }),
-    [detail],
-  );
+  const members = useMemo(() => {
+    const raw = (detail?.members ?? detail?.Members ?? []).filter((member: any) => {
+      const id = readMemberId(member);
+      return id && !id.startsWith("guest-slot-") && !id.startsWith("guest-auto-");
+    });
+    const hostId = String(detail?.hostId ?? detail?.HostId ?? "").trim();
+    const hostName = String(detail?.hostName ?? detail?.HostName ?? "").trim();
+    if (!hostId) return raw;
+    const already = raw.some((member: any) => {
+      const id = readMemberId(member);
+      const name = readMemberName(member).trim().toLowerCase();
+      return id === hostId || (hostName.length > 0 && name === hostName.toLowerCase());
+    });
+    if (already) return raw;
+    return [
+      {
+        userId: hostId,
+        userName: hostName || "Host",
+        isHost: true,
+      },
+      ...raw,
+    ];
+  }, [detail]);
+
+  useEffect(() => {
+    const guestIds = new Set(
+      members
+        .filter(isGuestSlotMember)
+        .map((member: any) => readSessionMemberRowId(member))
+        .filter(Boolean),
+    );
+    if (guestIds.size === 0) return;
+    setPartialMemberIds((current) => {
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of current) {
+        if (guestIds.has(id)) {
+          changed = true;
+          continue;
+        }
+        next.add(id);
+      }
+      return changed ? next : current;
+    });
+  }, [members]);
 
   const groupedGames = useMemo(() => {
     const map = new Map<string, GroupedGame>();
@@ -226,6 +305,8 @@ export function SessionAdvancedOps({
   const status = String(
     detail?.status ?? detail?.Status ?? detail?.sessionStatus ?? "",
   ).toLowerCase();
+  const lifecycle = status.replace(/[_\s-]/g, "");
+  const canMarkEarlyLeave = lifecycle === "checking";
   const disabled =
     busy ||
     pendingAction !== null ||
@@ -272,23 +353,58 @@ export function SessionAdvancedOps({
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      toast.error("Nhập tên, email hoặc số điện thoại để tìm.");
+  const playingUserIdSet = useMemo(() => {
+    const ids = new Set<string>();
+    for (const member of detail?.members || detail?.Members || []) {
+      const id = String(member?.userId ?? member?.UserId ?? "").trim();
+      if (id) ids.add(id);
+    }
+    for (const session of otherSessions) {
+      for (const id of session.memberUserIds || []) {
+        if (id) ids.add(id);
+      }
+    }
+    for (const id of playingUserIds) {
+      if (id) ids.add(id);
+    }
+    return ids;
+  }, [detail, otherSessions, playingUserIds]);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSearchResults([]);
+      setSearchTried(false);
+      setSearching(false);
       return;
     }
+
+    let cancelled = false;
     setSearching(true);
-    try {
-      setSearchResults(
-        await PosCheckInService.searchCustomerUsers(searchQuery.trim()),
-      );
-    } catch {
-      setSearchResults([]);
-      toast.error("Không tìm được khách hàng.");
-    } finally {
-      setSearching(false);
-    }
-  };
+    const timer = window.setTimeout(() => {
+      void PosCheckInService.searchCustomerUsers(q)
+        .then((results) => {
+          if (!cancelled) {
+            setSearchResults(results);
+            setSearchTried(true);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setSearchResults([]);
+            setSearchTried(true);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [searchQuery]);
 
   const togglePartialMember = (id: string) => {
     setPartialMemberIds((current) => {
@@ -335,6 +451,13 @@ export function SessionAdvancedOps({
           icon={<Barcode className="size-4 text-neutral-600" />}
           title="Gán thêm hộp game"
         >
+          {lifecycle === "checking" ? (
+            <p className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1.5 text-[11px] font-medium text-sky-900">
+              BE chỉ gắn hộp khi phiên ACTIVE và hộp Available. Hộp đang trên
+              phiên (đã kiểm kê) không hiện vì còn InUse. Bấm Khôi phục phiên
+              trên thẻ bàn rồi thêm hộp khác.
+            </p>
+          ) : null}
           <div className="flex gap-2">
             <Input
               value={barcode}
@@ -404,7 +527,6 @@ export function SessionAdvancedOps({
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
-                  void handleSearch();
                 }
               }}
               placeholder="Tên, email hoặc SĐT"
@@ -416,7 +538,6 @@ export function SessionAdvancedOps({
               size="sm"
               variant="outline"
               disabled={disabled || searching}
-              onClick={() => void handleSearch()}
               className="h-8 border-neutral-200 px-2.5"
               aria-label="Tìm khách hàng"
             >
@@ -424,25 +545,42 @@ export function SessionAdvancedOps({
             </Button>
           </div>
 
+          {searching ? (
+            <p className="text-[11px] text-neutral-500">Đang tìm khách...</p>
+          ) : null}
+
+          {searchTried && !searching && searchResults.length === 0 ? (
+            <p className="text-[11px] text-neutral-500">
+              Không tìm thấy user khớp.
+            </p>
+          ) : null}
+
           {searchResults.length > 0 && (
             <div className="max-h-28 space-y-1 overflow-y-auto rounded-lg border border-neutral-200 p-1">
               {searchResults.map((user) => {
                 const selected = selectedUsers.some((item) => item.id === user.id);
+                const playing = playingUserIdSet.has(user.id);
                 return (
                   <button
                     key={user.id}
                     type="button"
-                    disabled={disabled || selected}
-                    onClick={() =>
-                      setSelectedUsers((current) => [...current, user])
-                    }
+                    disabled={disabled || selected || playing}
+                    onClick={() => {
+                      if (playing) {
+                        toast.error("Người này đang chơi, không thêm vào bàn được.");
+                        return;
+                      }
+                      setSelectedUsers((current) => [...current, user]);
+                    }}
                     className="w-full rounded-md px-2 py-1.5 text-left hover:bg-neutral-100 disabled:opacity-50"
                   >
                     <span className="block text-xs font-semibold text-neutral-900">
                       {user.fullName || user.username}
                     </span>
                     <span className="block truncate text-[10px] text-neutral-500">
-                      {user.email || user.phone || user.username}
+                      {playing
+                        ? "Đang chơi — không thêm được"
+                        : user.email || user.phone || user.username}
                     </span>
                   </button>
                 );
@@ -482,7 +620,29 @@ export function SessionAdvancedOps({
               }
               void runAction(
                 "members",
-                () => onAddMembers(selectedUsers.map((user) => user.id)),
+                async () => {
+                  const guidRe =
+                    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                  const blocked = selectedUsers.filter((user) =>
+                    playingUserIdSet.has(user.id),
+                  );
+                  if (blocked.length > 0) {
+                    toast.error(
+                      "Người đang chơi không thêm vào bàn được.",
+                    );
+                    return false;
+                  }
+                  const userIds = selectedUsers
+                    .map((user) => user.id.trim())
+                    .filter((id) => guidRe.test(id));
+                  if (userIds.length === 0) {
+                    toast.error(
+                      "Không lấy được mã user từ người đã chọn. Tìm lại rồi chọn từ danh sách.",
+                    );
+                    return false;
+                  }
+                  return onAddMembers(userIds);
+                },
                 () => {
                   setSelectedUsers([]);
                   setSearchResults([]);
@@ -602,16 +762,48 @@ export function SessionAdvancedOps({
 
         <Section
           icon={<Split className="size-4 text-neutral-600" />}
-          title="Thanh toán một phần"
+          title="Người về sớm"
+          defaultOpen
         >
+          <p className="text-[11px] leading-relaxed text-neutral-600">
+            Chỉ đánh dấu member có tài khoản về trước. Khách vô danh (BR-13)
+            không tách nhóm — gộp hóa đơn host hoặc thu tiền mặt tại quầy. Thứ
+            tự: Trả bàn → đánh dấu → Kiểm kê → Thanh toán.
+          </p>
+          {!canMarkEarlyLeave ? (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] font-medium text-amber-900">
+              Cần Trả bàn trước (phiên phải ở trạng thái kiểm kê). BE trả 409 nếu
+              gọi khi còn đang chơi.
+            </p>
+          ) : null}
           <div className="max-h-28 space-y-1.5 overflow-y-auto">
-            {members.length === 0 ? (
+            {members.filter((m: any) => !isGuestSlotMember(m)).length === 0 ? (
               <p className="text-[11px] text-neutral-500">
-                Phiên chưa có member tài khoản.
+                Không có member tài khoản để đánh dấu về sớm (chỉ còn khách vô
+                danh / trống).
               </p>
             ) : (
               members.map((member: any) => {
-                const id = readMemberId(member);
+                const id = readSessionMemberRowId(member);
+                if (!id) return null;
+                const guest = isGuestSlotMember(member);
+                const leaveLabel = memberLeaveLabel(member);
+                if (guest) {
+                  return (
+                    <div
+                      key={id}
+                      className="flex items-center gap-2 rounded-md border border-neutral-100 px-2 py-1.5 text-xs font-medium text-neutral-500 opacity-70"
+                    >
+                      <Checkbox checked={false} disabled />
+                      <span className="min-w-0 flex-1 truncate">
+                        {readMemberName(member)} (Khách vô danh)
+                      </span>
+                      <span className="shrink-0 text-[10px] text-amber-800">
+                        Không tách được
+                      </span>
+                    </div>
+                  );
+                }
                 return (
                   <label
                     key={id}
@@ -620,9 +812,21 @@ export function SessionAdvancedOps({
                     <Checkbox
                       checked={partialMemberIds.has(id)}
                       onCheckedChange={() => togglePartialMember(id)}
-                      disabled={disabled}
+                      disabled={
+                        disabled ||
+                        !canMarkEarlyLeave ||
+                        isSuspendedForMerge(member)
+                      }
                     />
-                    <span className="truncate">{readMemberName(member)}</span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {readMemberName(member)}
+                      {member.isHost || member.IsHost ? " (Host)" : ""}
+                    </span>
+                    {leaveLabel ? (
+                      <span className="shrink-0 text-[10px] text-neutral-500">
+                        {leaveLabel}
+                      </span>
+                    ) : null}
                   </label>
                 );
               })
@@ -632,26 +836,43 @@ export function SessionAdvancedOps({
             <Checkbox
               checked={applyDeposit}
               onCheckedChange={(checked) => setApplyDeposit(checked === true)}
-              disabled={disabled}
+              disabled={disabled || !canMarkEarlyLeave}
             />
             Áp dụng tiền cọc
           </label>
           <Button
             type="button"
             size="sm"
-            disabled={disabled || partialMemberIds.size === 0}
+            disabled={
+              disabled ||
+              !canMarkEarlyLeave ||
+              Array.from(partialMemberIds).every((id) => {
+                const member = members.find(
+                  (item: any) => readSessionMemberRowId(item) === id,
+                );
+                return !member || isGuestSlotMember(member);
+              })
+            }
             onClick={() => {
-              if (partialMemberIds.size === 0) {
-                toast.error("Chọn ít nhất một member để thanh toán.");
+              if (!canMarkEarlyLeave) {
+                toast.error("Trả bàn trước khi đánh dấu người về sớm.");
+                return;
+              }
+              const eligibleIds = Array.from(partialMemberIds).filter((id) => {
+                const member = members.find(
+                  (item: any) => readSessionMemberRowId(item) === id,
+                );
+                return member && !isGuestSlotMember(member);
+              });
+              if (eligibleIds.length === 0) {
+                toast.error(
+                  "Chọn ít nhất một member có tài khoản (không chọn khách vô danh).",
+                );
                 return;
               }
               void runAction(
                 "partial",
-                () =>
-                  onPartialCheckout(
-                    Array.from(partialMemberIds),
-                    applyDeposit,
-                  ),
+                () => onPartialCheckout(eligibleIds, applyDeposit),
                 () => setPartialMemberIds(new Set()),
               );
             }}
@@ -659,7 +880,7 @@ export function SessionAdvancedOps({
           >
             {pendingAction === "partial"
               ? "Đang xử lý..."
-              : "Thanh toán member đã chọn"}
+              : "Đánh dấu về sớm"}
           </Button>
         </Section>
 
@@ -668,6 +889,17 @@ export function SessionAdvancedOps({
             icon={<UsersRound className="size-4 text-neutral-600" />}
             title="Ghép sang phiên khác"
           >
+            <p className="text-[11px] leading-relaxed text-neutral-600">
+              Chỉ ghép được member đã đánh dấu về sớm (
+              <span className="font-semibold">SUSPENDED_MUTATION</span>). Thứ
+              tự: Trả bàn → Người về sớm → Ghép sang bàn đích đang chơi.
+            </p>
+            {members.filter(isSuspendedForMerge).length === 0 ? (
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] font-medium text-amber-900">
+                Chưa có ai ở trạng thái chờ ghép. Vào mục Người về sớm để đánh
+                dấu trước.
+              </p>
+            ) : null}
             <div className="grid gap-2 sm:grid-cols-2">
               <select
                 value={mergeMemberId}
@@ -676,10 +908,11 @@ export function SessionAdvancedOps({
                 className="h-8 w-full rounded-md border border-neutral-200 bg-white px-2 text-xs text-neutral-900 disabled:opacity-50"
               >
                 <option value="">Chọn thành viên cần chuyển</option>
-                {members.map((member: any) => {
-                  const id = readMemberId(member);
+                {members.filter(isSuspendedForMerge).map((member: any) => {
+                  const rowId = readSessionMemberRowId(member);
+                  if (!rowId) return null;
                   return (
-                    <option key={id} value={id}>
+                    <option key={rowId} value={rowId}>
                       {readMemberName(member)}
                     </option>
                   );
@@ -692,18 +925,39 @@ export function SessionAdvancedOps({
                 className="h-8 w-full rounded-md border border-neutral-200 bg-white px-2 text-xs text-neutral-900 disabled:opacity-50"
               >
                 <option value="">Chọn bàn muốn gộp sang</option>
-                {otherSessions.map((session) => (
-                  <option key={session.id} value={session.id}>
-                    {session.tableName || `Phiên ${session.id.slice(0, 8)}`}
-                  </option>
-                ))}
+                {(() => {
+                  const activeTargets = otherSessions.filter((session) => {
+                    const st = String(session.status ?? "")
+                      .toLowerCase()
+                      .replace(/[_\s-]/g, "");
+                    return st === "active" || st === "playing";
+                  });
+                  if (activeTargets.length === 0) {
+                    return (
+                      <option value="" disabled>
+                        Không có bàn ACTIVE để ghép sang
+                      </option>
+                    );
+                  }
+                  return activeTargets.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {session.tableName ||
+                        `Phiên ${session.id.slice(0, 8)}`}
+                    </option>
+                  ));
+                })()}
               </select>
             </div>
             <Button
               type="button"
               size="sm"
               variant="outline"
-              disabled={disabled || !mergeMemberId || !targetSessionId}
+              disabled={
+                disabled ||
+                !mergeMemberId ||
+                !targetSessionId ||
+                members.filter(isSuspendedForMerge).length === 0
+              }
               onClick={() => {
                 if (!mergeMemberId || !targetSessionId) {
                   toast.error("Chọn thành viên và bàn muốn gộp sang.");

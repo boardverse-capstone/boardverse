@@ -9,6 +9,7 @@ import {
   SortingState,
   useReactTable,
 } from '@tanstack/react-table';
+import { cn } from '@/lib/utils';
 import {
   Table,
   TableBody,
@@ -22,12 +23,14 @@ interface PartnerDataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   emptyMessage?: string;
+  onRowClick?: (row: TData) => void;
 }
 
 export function PartnerDataTable<TData, TValue>({
   columns,
   data,
   emptyMessage = 'Không có đơn đăng ký nào cần xử lý.',
+  onRowClick,
 }: PartnerDataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
 
@@ -59,7 +62,14 @@ export function PartnerDataTable<TData, TValue>({
         <TableBody>
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id} className="hover:bg-amber-50/40">
+              <TableRow
+                key={row.id}
+                className={cn(
+                  'hover:bg-amber-50/40',
+                  onRowClick && 'cursor-pointer',
+                )}
+                onClick={() => onRowClick?.(row.original)}
+              >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

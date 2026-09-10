@@ -22,6 +22,18 @@ export const PARTNER_QUERY_KEYS = {
   detail: 'partner-detail',
 } as const;
 
+/** GET query `status` — BE enum: PendingApproval | Approved | Rejected */
+function toApiApplicationStatus(status?: string): string | undefined {
+  if (!status || status === 'all') return undefined;
+  const map: Record<string, string> = {
+    PENDING: 'PendingApproval',
+    PENDING_APPROVAL: 'PendingApproval',
+    APPROVED: 'Approved',
+    REJECTED: 'Rejected',
+  };
+  return map[status] ?? map[status.toUpperCase()] ?? status;
+}
+
 export const PartnerService = {
   getPendingApplications: async (
     params: PartnerApplicationListParams,
@@ -30,7 +42,7 @@ export const PartnerService = {
       params: {
         // GET /api/admin/cafe-partner-applications — query: search, status, page, pageSize
         search: params.search || undefined,
-        status: params.status && params.status !== 'all' ? params.status : undefined,
+        status: toApiApplicationStatus(params.status),
         page: params.page,
         pageSize: params.limit,
       },

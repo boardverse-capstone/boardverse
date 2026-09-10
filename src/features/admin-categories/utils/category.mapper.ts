@@ -37,12 +37,12 @@ export function mapApiCategory(raw: RawGameCategory): GameCategory {
 export function mapCategoryToApiPayload(
   payload: CreateCategoryRequest | UpdateCategoryRequest,
 ) {
-  return {
-    name: payload.name,
-    slug: payload.slug,
-    sortOrder: payload.displayOrder,
-    isActive: payload.isActive,
-  };
+  const body: Record<string, unknown> = {};
+  if (payload.name !== undefined) body.name = payload.name;
+  if (payload.slug !== undefined) body.slug = payload.slug;
+  if (payload.displayOrder !== undefined) body.sortOrder = payload.displayOrder;
+  if (payload.isActive !== undefined) body.isActive = payload.isActive;
+  return body;
 }
 
 export function normalizeCategoryList(

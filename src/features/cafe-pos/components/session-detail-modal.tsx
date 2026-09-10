@@ -10,7 +10,6 @@ import {
 } from "../lib/player-range";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
 import { useAuthStore } from "@/features/auth/store/auth.store";
 import { apiClient } from "@/core/api/client";
 import { SessionAdvancedOps } from "./session-advanced-ops";
@@ -19,23 +18,71 @@ import {
   User,
   Users,
   Boxes,
-  Barcode,
   Timer,
   Info,
   UserPlus,
   Receipt,
-  History,
+  Dices,
 } from "lucide-react";
 
-function gameCheckStatus(game: any) {
-  return String(game?.checkStatus ?? game?.CheckStatus ?? "")
-    .toLowerCase()
-    .replace(/[_\s-]/g, "");
+function beHttpUrl(...candidates: unknown[]): string | null {
+  for (const value of candidates) {
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  }
+  return null;
 }
 
-function isGameChecked(game: any) {
-  const status = gameCheckStatus(game);
-  return status === "verified" || status === "missingcomponents";
+function imageFromSessionGame(game: any): string | null {
+  const template = game?.gameTemplate ?? game?.GameTemplate ?? {};
+  return beHttpUrl(
+    game?.thumbnailUrl,
+    game?.ThumbnailUrl,
+    game?.imageUrl,
+    game?.ImageUrl,
+    game?.coverUrl,
+    game?.CoverUrl,
+    game?.coverImageUrl,
+    game?.CoverImageUrl,
+    game?.gameThumbnailUrl,
+    game?.GameThumbnailUrl,
+    template?.thumbnailUrl,
+    template?.ThumbnailUrl,
+    template?.imageUrl,
+    template?.ImageUrl,
+  );
+}
+
+function imageFromInventoryRow(row: any): string | null {
+  return beHttpUrl(
+    row?.thumbnailUrl,
+    row?.ThumbnailUrl,
+    row?.imageUrl,
+    row?.ImageUrl,
+    row?.coverUrl,
+    row?.CoverUrl,
+    row?.coverImageUrl,
+    row?.CoverImageUrl,
+  );
+}
+
+function unwrapInventoryRows(raw: any): any[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  const level1 = raw.data ?? raw.Data ?? raw.items ?? raw.Items;
+  if (Array.isArray(level1)) return level1;
+  if (level1 && typeof level1 === "object") {
+    const nested = level1.data ?? level1.Data ?? level1.items ?? level1.Items;
+    if (Array.isArray(nested)) return nested;
+  }
+  return [];
+}
+
+function inventoryTotalPages(raw: any): number {
+  const meta = raw?.meta ?? raw?.Meta ?? raw?.data?.meta ?? raw?.data?.Meta;
+  const pages = Number(meta?.totalPages ?? meta?.TotalPages ?? 1);
+  return Number.isFinite(pages) && pages > 0 ? pages : 1;
 }
 
 interface SessionDetailModalProps {
@@ -44,15 +91,15 @@ interface SessionDetailModalProps {
   sessionId: string | null;
   cafeId?: string | null;
   onFetchDetail: (sessionId: string) => Promise<any>;
-  onOpenChecklist: (sessionGameId: string) => void;
   onReturnTable?: (sessionId: string) => void;
   onAddGuest?: (sessionId: string, displayName: string) => Promise<boolean>;
-  onShowBoxHistory?: (boxId: string) => void;
   otherSessions: Array<{
     id: string;
     tableName?: string;
     status?: string;
+    memberUserIds?: string[];
   }>;
+  playingUserIds?: string[];
   boxes?: Array<{
     id: string;
     cafeGameInventoryId: string;
@@ -94,11 +141,10 @@ export function SessionDetailModal({
   sessionId,
   cafeId,
   onFetchDetail,
-  onOpenChecklist,
   onReturnTable,
   onAddGuest,
-  onShowBoxHistory,
   otherSessions,
+  playingUserIds = [],
   boxes = [],
   detailRefreshKey = 0,
   onAttachGame,
@@ -111,6 +157,9 @@ export function SessionDetailModal({
   const [fetchingId, setFetchingId] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
   const [addingGuest, setAddingGuest] = useState(false);
+  const [gameImageByKey, setGameImageByKey] = useState<Record<string, string>>(
+    {},
+  );
   const staffId = useAuthStore((s) => s.user?.id);
   const staffUsername = useAuthStore((s) => s.user?.username);
 
@@ -132,6 +181,112 @@ export function SessionDetailModal({
       ignore = true;
     };
   }, [isOpen, sessionId, onFetchDetail]);
+
+  useEffect(() => {
+    if (!isOpen || !cafeId) return;
+    let ignore = false;
+
+    const loadInventoryImages = async () => {
+      const map: Record<string, string> = {};
+      let page = 1;
+      let totalPages = 1;
+
+      try {
+        do {
+          const res: any = await apiClient.get(
+            `/api/cafes/${cafeId}/inventory`,
+            {
+              params: {
+                pageNumber: page,
+                pageSize: 100,
+                sortDescending: true,
+              },
+            },
+          );
+          const payload = res?.data ?? res;
+          const rows = unwrapInventoryRows(payload);
+          totalPages = inventoryTotalPages(payload);
+          for (const row of rows) {
+            const url = imageFromInventoryRow(row);
+            if (!url) continue;
+            const keys = [
+              row.gameTemplateId,
+              row.GameTemplateId,
+              row.id,
+              row.Id,
+              row.inventoryId,
+              row.InventoryId,
+              String(row.gameName ?? row.GameName ?? "")
+                .trim()
+                .toLowerCase(),
+            ];
+            for (const key of keys) {
+              const normalized = String(key ?? "")
+                .trim()
+                .toLowerCase();
+              if (normalized) map[normalized] = url;
+            }
+          }
+          page += 1;
+        } while (page <= totalPages && page <= 10);
+
+        if (!ignore) setGameImageByKey(map);
+      } catch {
+        if (!ignore) setGameImageByKey({});
+      }
+    };
+
+    void loadInventoryImages();
+    return () => {
+      ignore = true;
+    };
+  }, [isOpen, cafeId]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const games = detail?.games;
+    if (!Array.isArray(games) || games.length === 0) return;
+
+    const missingIds = [
+      ...new Set(
+        games
+          .filter((game: any) => !imageFromSessionGame(game))
+          .map((game: any) =>
+            String(game.gameTemplateId || game.GameTemplateId || "").trim(),
+          )
+          .filter((id: string) => id && !gameImageByKey[id.toLowerCase()]),
+      ),
+    ];
+    if (missingIds.length === 0) return;
+
+    let ignore = false;
+    void Promise.all(
+      missingIds.map(async (id) => {
+        try {
+          const res: any = await apiClient.get(
+            `/api/v1/board-games/${id}/details`,
+          );
+          const row = res?.data ?? res;
+          const url = imageFromInventoryRow(row);
+          return url ? ([id.toLowerCase(), url] as const) : null;
+        } catch {
+          return null;
+        }
+      }),
+    ).then((pairs) => {
+      if (ignore) return;
+      const extra: Record<string, string> = {};
+      for (const pair of pairs) {
+        if (pair) extra[pair[0]] = pair[1];
+      }
+      if (Object.keys(extra).length === 0) return;
+      setGameImageByKey((prev) => ({ ...prev, ...extra }));
+    });
+
+    return () => {
+      ignore = true;
+    };
+  }, [isOpen, detail, gameImageByKey]);
 
   // Reload chi tiết sau khi kiểm kê xong 1 hộp (quay lại catalog còn lại)
   useEffect(() => {
@@ -247,8 +402,14 @@ export function SessionDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 p-3 backdrop-blur-xs sm:p-4">
-      <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 p-3 backdrop-blur-xs sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 px-5 py-3">
           <div className="flex min-w-0 items-center gap-2">
             <div className="rounded-lg border border-neutral-200 bg-neutral-100 p-2 text-neutral-800">
@@ -362,104 +523,55 @@ export function SessionDetailModal({
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {detail.games?.map((g: any) => (
-                        <div
-                          key={g.id || g.sessionGameId}
-                          className="flex items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-white p-3 shadow-2xs"
-                        >
-                          <div className="min-w-0 space-y-0.5">
-                            <div className="truncate text-xs font-bold text-neutral-950">
+                      {detail.games?.map((g: any) => {
+                        const templateId = String(
+                          g.gameTemplateId || g.GameTemplateId || "",
+                        )
+                          .trim()
+                          .toLowerCase();
+                        const inventoryId = String(
+                          g.cafeGameInventoryId ||
+                            g.CafeGameInventoryId ||
+                            g.inventoryId ||
+                            g.InventoryId ||
+                            "",
+                        )
+                          .trim()
+                          .toLowerCase();
+                        const nameKey = String(g.gameName || "")
+                          .trim()
+                          .toLowerCase();
+                        const imageUrl =
+                          imageFromSessionGame(g) ||
+                          (templateId ? gameImageByKey[templateId] : null) ||
+                          (inventoryId ? gameImageByKey[inventoryId] : null) ||
+                          (nameKey ? gameImageByKey[nameKey] : null);
+
+                        return (
+                          <div
+                            key={g.id || g.sessionGameId}
+                            className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3 shadow-2xs"
+                          >
+                            <div className="size-12 shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100">
+                              {imageUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={imageUrl}
+                                  alt={g.gameName || "Game"}
+                                  className="size-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex size-full items-center justify-center text-neutral-400">
+                                  <Dices className="size-5" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 truncate text-xs font-bold text-neutral-950">
                               {g.gameName}
                             </div>
-                            <div className="flex items-center gap-1 font-mono text-[11px] text-neutral-500">
-                              <Barcode className="size-3 shrink-0 text-neutral-400" />
-                              <span className="truncate">{g.boxBarcode}</span>
-                            </div>
-                            {formatPlayerRange(readPlayerRange(g)) && (
-                              <div className="text-[11px] font-semibold text-neutral-600">
-                                {formatPlayerRange(readPlayerRange(g))}
-                              </div>
-                            )}
                           </div>
-
-                          <div className="flex shrink-0 flex-col items-end gap-1.5 sm:flex-row sm:items-center">
-                            {onShowBoxHistory &&
-                              (g.cafeInventoryBoxId || g.CafeInventoryBoxId) && (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() =>
-                                    onShowBoxHistory(
-                                      g.cafeInventoryBoxId ||
-                                        g.CafeInventoryBoxId,
-                                    )
-                                  }
-                                  aria-label={`Xem lịch sử kiểm kê của ${g.gameName}`}
-                                  className="size-8 rounded-lg p-0 text-amber-700 hover:bg-amber-100"
-                                >
-                                  <History className="size-4" />
-                                </Button>
-                              )}
-                            <span
-                              className={`rounded px-2 py-0.5 text-[9px] font-bold uppercase border ${
-                                gameCheckStatus(g) === "verified"
-                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                  : "border-amber-200 bg-amber-50 text-amber-800"
-                              }`}
-                            >
-                              {gameCheckStatus(g) === "verified"
-                                ? "Đã kiểm kê · Đủ"
-                                : gameCheckStatus(g) === "missingcomponents"
-                                  ? "Đã kiểm kê · Thiếu"
-                                  : "Chưa kiểm kê"}
-                            </span>
-
-                            {!isGameChecked(g) && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  const status = String(
-                                    detail.status ??
-                                      detail.Status ??
-                                      detail.sessionStatus ??
-                                      "",
-                                  )
-                                    .toLowerCase()
-                                    .replace(/[_\s-]/g, "");
-                                  const returned =
-                                    status === "checking" ||
-                                    status === "unpaid" ||
-                                    status === "paid" ||
-                                    Boolean(detail.isCheckingInventory);
-                                  if (!returned) {
-                                    toast.error(
-                                      "Chưa trả bàn. Thứ tự: Trả bàn → kiểm kê → Thanh toán.",
-                                      {
-                                        duration: 8000,
-                                        action: {
-                                          label: "Trả bàn",
-                                          onClick: () => {
-                                            onClose();
-                                            onReturnTable?.(sessionId);
-                                          },
-                                        },
-                                      },
-                                    );
-                                    return;
-                                  }
-                                  onOpenChecklist(g.id || g.sessionGameId);
-                                }}
-                                className="h-7 rounded-lg border-neutral-200 px-2 text-[10px] font-bold"
-                              >
-                                Kiểm kê
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -536,6 +648,7 @@ export function SessionDetailModal({
                     detail={detail}
                     boxes={boxes}
                     otherSessions={otherSessions}
+                    playingUserIds={playingUserIds}
                     onAttachGame={(barcode) =>
                       onAttachGame(sessionId, barcode)
                     }

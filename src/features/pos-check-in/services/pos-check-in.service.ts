@@ -1428,37 +1428,23 @@ export const PosCheckInService = {
     sessionId: string,
     payload: AddSessionMembersPayload,
   ): Promise<CafeSessionDetail> => {
-    
-
-    try {
-      const raw = await apiClient.post<never, unknown>(
-        posSessionPath(cafeId, sessionId, '/members/add'),
-        payload,
-      );
-      return mapApiSession(raw);
-    } catch {
-      const current = await PosCheckInService.getSession(cafeId, sessionId).catch(() => null);
-      return {
-        sessionId,
-        bookingId: current?.bookingId || sessionId,
-        tableId: current?.tableId || '',
-        tableLabel: current?.tableLabel || 'Bàn',
-        cafeId,
-        game: current?.game || {
-          id: 'game',
-          name: 'Board Game',
-          imageUrl: '',
-          minPlayers: 1,
-          maxPlayers: 8,
-        },
-        startedAt: current?.startedAt || new Date().toISOString(),
-        presentCount: (current?.presentCount ?? 0) + payload.userIds.length,
-        memberIds: [...(current?.memberIds ?? []), ...payload.userIds],
-        depositCreditTotal: current?.depositCreditTotal ?? 0,
-        billingModel: current?.billingModel || 'BY_HOUR',
-        status: current?.status || 'Active',
-      };
+    const guidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const userIds = (payload.userIds || [])
+      .map((id) => String(id ?? '').trim())
+      .filter((id) => guidRe.test(id));
+    if (userIds.length === 0) {
+      throw new Error('Cần chọn user có mã hệ thống (GUID) để thêm vào phiên.');
     }
+
+    const raw = await apiClient.post<never, unknown>(
+      posSessionPath(cafeId, sessionId, '/members/add'),
+      {
+        userIds,
+        memberUserIds: userIds,
+      },
+    );
+    return mapApiSession(raw);
   },
 
   /** POST .../games — body: AttachGameRequestDto { gameBarcode } */
@@ -1629,38 +1615,46 @@ export const PosCheckInService = {
     };
   },
 
-  /** POST .../merge — body: { memberUserId, targetSessionId } */
+  /** POST .../merge — body: { memberId, targetSessionId } (memberId = ActiveSessionMember.Id) */
   mergeSessions: async (
     cafeId: string,
     sourceSessionId: string,
     payload: MergeSessionsPayload,
   ): Promise<CafeSessionDetail> => {
-    
+    const memberId = String(payload.memberUserId ?? '').trim();
+    if (!memberId) {
+      throw new Error('Thiếu mã thành viên trong phiên để ghép.');
+    }
 
     const raw = await apiClient.post<never, unknown>(
       sessionPath(cafeId, sourceSessionId, '/merge'),
       {
-        memberId: payload.memberUserId,
-        memberUserId: payload.memberUserId,
+        memberId,
         targetSessionId: payload.targetSessionId,
       },
     );
     return mapApiSession(raw);
   },
 
-  /** POST .../partial-checkout — body: { memberUserIds, applyDeposit } */
+  /** POST .../partial-checkout — body: { memberIds } = ActiveSessionMember.Id[] */
   partialCheckout: async (
     cafeId: string,
     sessionId: string,
     payload: PartialCheckoutPayload,
   ): Promise<SessionBill> => {
-    
+    const guidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const memberIds = (payload.memberUserIds || [])
+      .map((id) => String(id ?? '').trim())
+      .filter((id) => guidRe.test(id));
+    if (memberIds.length === 0) {
+      throw new Error('Cần chọn ít nhất 1 thành viên (memberId) để đánh dấu về sớm.');
+    }
 
     const raw = await apiClient.post<never, unknown>(
       sessionPath(cafeId, sessionId, '/partial-checkout'),
       {
-        memberIds: payload.memberUserIds,
-        memberUserIds: payload.memberUserIds,
+        memberIds,
         applyDeposit: payload.applyDeposit ?? true,
       },
     );
@@ -2442,54 +2436,80 @@ export const PosCheckInService = {
 
   searchCustomerUsers: async (query: string): Promise<{ id: string; username: string; fullName?: string; email?: string; phone?: string; avatarUrl?: string }[]> => {
     const q = query.trim();
-    if (!q) return [];
+    if (q.length < 2) return [];
+
+    const mapUser = (u: Record<string, unknown>) => {
+      const nested =
+        u.user && typeof u.user === 'object'
+          ? (u.user as Record<string, unknown>)
+          : null;
+      const id = String(
+        u.userId ??
+          u.UserId ??
+          u.id ??
+          u.Id ??
+          nested?.userId ??
+          nested?.UserId ??
+          nested?.id ??
+          nested?.Id ??
+          '',
+      ).trim();
+      const guidRe =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!guidRe.test(id)) return null;
+      const username = String(
+        u.username ??
+          u.Username ??
+          nested?.username ??
+          u.fullName ??
+          u.FullName ??
+          'Khách hàng',
+      );
+      return {
+        id,
+        username,
+        fullName: u.fullName || u.FullName ? String(u.fullName ?? u.FullName) : undefined,
+        email: u.email || u.Email ? String(u.email ?? u.Email) : undefined,
+        phone: u.phone || u.Phone || u.phoneNumber || u.PhoneNumber
+          ? String(u.phone ?? u.Phone ?? u.phoneNumber ?? u.PhoneNumber)
+          : undefined,
+        avatarUrl: u.avatarUrl || u.AvatarUrl ? String(u.avatarUrl ?? u.AvatarUrl) : undefined,
+      };
+    };
+
+    const unwrapUsers = (raw: unknown): Record<string, unknown>[] => {
+      if (Array.isArray(raw)) return raw as Record<string, unknown>[];
+      if (!raw || typeof raw !== 'object') return [];
+      const r = raw as Record<string, unknown>;
+      const nested = r.items ?? r.Items ?? r.data ?? r.Data;
+      if (Array.isArray(nested)) return nested as Record<string, unknown>[];
+      return [];
+    };
+
+    let friends: ReturnType<typeof mapUser>[] = [];
+    try {
+      friends = unwrapUsers(
+        await apiClient.get<never, unknown>(`/api/v1/friends/search`, {
+          params: { q, limit: 20 },
+        }),
+      )
+        .map(mapUser)
+        .filter((u): u is NonNullable<typeof u> => Boolean(u));
+    } catch {
+      friends = [];
+    }
+    if (friends.length > 0) return friends;
 
     try {
-      const res = await apiClient.get<never, { userId?: string; id?: string; username?: string; fullName?: string; email?: string; phone?: string; avatarUrl?: string }[]>(
-        `/api/v1/friends/search?q=${encodeURIComponent(q)}`
-      );
-      if (Array.isArray(res) && res.length > 0) {
-        return res.map((u) => ({
-          id: u.userId || u.id || '',
-          username: u.username || u.fullName || 'Khách hàng',
-          fullName: u.fullName,
-          email: u.email,
-          phone: u.phone,
-          avatarUrl: u.avatarUrl,
-        }));
-      }
+      return unwrapUsers(
+        await apiClient.get<never, unknown>(`/api/usermanagement/users`, {
+          params: { search: q, pageSize: 8 },
+        }),
+      )
+        .map(mapUser)
+        .filter((u): u is NonNullable<typeof u> => Boolean(u));
     } catch {
-      // Fallback
+      return [];
     }
-
-    try {
-      const res = await apiClient.get<never, { items?: { id: string; username?: string; fullName?: string; email?: string; phone?: string; avatarUrl?: string }[] }>(
-        `/api/usermanagement/users?search=${encodeURIComponent(q)}&pageSize=8`
-      );
-      const items = ((res as { items?: unknown[] })?.items || (Array.isArray(res) ? res : [])) as Record<string, unknown>[];
-      if (Array.isArray(items) && items.length > 0) {
-        return items.map((u) => ({
-          id: String(u.id || ''),
-          username: String(u.username || u.fullName || 'Khách hàng'),
-          fullName: u.fullName ? String(u.fullName) : undefined,
-          email: u.email ? String(u.email) : undefined,
-          phone: u.phone ? String(u.phone) : undefined,
-          avatarUrl: u.avatarUrl ? String(u.avatarUrl) : undefined,
-        }));
-      }
-    } catch {
-      // Fallback
-    }
-
-    const isPhone = /^\d{8,11}$/.test(q);
-    const isEmail = q.includes('@');
-    return [
-      {
-        id: `user-${q.toLowerCase().replace(/[^a-z0-9]/g, '') || 'guest'}`,
-        username: isEmail ? q.split('@')[0] : isPhone ? `Khách SĐT ${q}` : q,
-        email: isEmail ? q : `${q.toLowerCase().replace(/\s+/g, '')}@gmail.com`,
-        phone: isPhone ? q : '0987654321',
-      },
-    ];
   },
 };
