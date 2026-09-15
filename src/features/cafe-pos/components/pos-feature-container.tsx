@@ -386,16 +386,16 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
               className="h-auto min-h-11 w-full flex-wrap justify-start"
             >
               <TabsTrigger
+                value="ops"
+                className="min-h-10 flex-none px-3 font-semibold data-active:border-neutral-900"
+              >
+                Quầy vận hành
+              </TabsTrigger>
+              <TabsTrigger
                 value="reception"
                 className="min-h-10 flex-none px-3 data-active:border-neutral-900 data-active:font-semibold"
               >
                 Đặt chỗ & Vãng lai
-              </TabsTrigger>
-              <TabsTrigger
-                value="ops"
-                className="min-h-10 flex-none px-3 data-active:border-neutral-900 data-active:font-semibold"
-              >
-                Quầy vận hành
               </TabsTrigger>
             </TabsList>
           </div>
@@ -521,6 +521,12 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {tables.map((table) => {
                   const tableStatus = String(table.status ?? "");
+                  const unavailableWithoutSession = [
+                    "Reserved",
+                    "Cleaning",
+                    "Maintenance",
+                    "EventInProgress",
+                  ].includes(tableStatus);
                   const session = sessions.find((s) => {
                     const sid =
                       s.cafeTableId || s.tableId || s.CafeTableId;
@@ -537,9 +543,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                       st === "unpaid"
                     );
                   });
-                  // BE: Available | InUse | Reserved | EventInProgress — InUse khi session Active/Checking/Unpaid
-                  const isAvail =
-                    tableStatus === "Available" && !session;
+                  const isAvail = !session && !unavailableWithoutSession;
                   const playerRange = mergePlayerRange(
                     session?.games?.[0],
                     session?.game,

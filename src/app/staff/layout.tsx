@@ -16,7 +16,6 @@ import { AuthLoading } from "@/features/auth/components/auth-loading";
 import { UserRole } from "@/core/constants/roles";
 import { ROUTES } from "@/core/constants/routes";
 import type { NavItem } from "@/components/layout/nav-main";
-import { Trophy } from "lucide-react";
 
 const STAFF_NAV: NavItem[] = [
   {
@@ -28,11 +27,6 @@ const STAFF_NAV: NavItem[] = [
     title: "Web POS",
     url: ROUTES.STAFF.POS,
     icon: <IconDeviceDesktop />,
-  },
-  {
-    title: "Giải đấu",
-    url: ROUTES.STAFF.TOURNAMENT,
-    icon: <Trophy className="w-5 h-5" />,
   },
   {
     title: "Kho game",
