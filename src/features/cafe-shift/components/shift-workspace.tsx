@@ -17,6 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/features/auth/store/auth.store';
 import { formatCurrencyVnd } from '@/features/staff-cafe/utils/inventory.mapper';
 import type { CafeShift } from '../types/cafe-shift.interface';
 import {
@@ -55,6 +56,21 @@ export function ShiftWorkspace() {
   const [pageSize, setPageSize] = useState(10);
   const [openingCash, setOpeningCash] = useState('0');
   const [closingCash, setClosingCash] = useState('');
+
+  const authUser = useAuthStore((s) => s.user);
+
+  const getUserLabel = (username?: string, userId?: string) => {
+    if (username && !/^[0-9a-fA-F-]{36}$/.test(username)) {
+      return username;
+    }
+    if (userId && authUser?.id === userId && authUser.username) {
+      return authUser.username;
+    }
+    if (userId) {
+      return userId;
+    }
+    return '—';
+  };
 
   const current = useCurrentShift(cafeId);
   const history = useShiftHistory(cafeId, page, pageSize);
@@ -210,8 +226,12 @@ export function ShiftWorkspace() {
                           <TableRow key={shift.id}>
                             <TableCell>{formatDateTime(shift.openedAt)}</TableCell>
                             <TableCell>{formatDateTime(shift.closedAt)}</TableCell>
-                            <TableCell>{shift.openedByUsername || '—'}</TableCell>
-                            <TableCell>{shift.closedByUsername || '—'}</TableCell>
+                            <TableCell>
+                              {getUserLabel(shift.openedByUsername, shift.openedByUserId)}
+                            </TableCell>
+                            <TableCell>
+                              {getUserLabel(shift.closedByUsername, shift.closedByUserId)}
+                            </TableCell>
                             <TableCell className="text-right">
                               {formatCurrencyVnd(shift.openingCashBalance ?? 0)}
                             </TableCell>

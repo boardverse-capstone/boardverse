@@ -29,14 +29,18 @@ function mapShift(raw: unknown): CafeShift | null {
   const id = str(r, 'id', 'Id');
   if (!id) return null;
   const statusRaw = str(r, 'status', 'Status').toLowerCase();
+  const rawOpenedName = str(r, 'openedByUsername', 'OpenedByUsername', 'openedByName', 'OpenedByName', 'openedByEmail', 'OpenedByEmail', 'openedBy', 'OpenedBy');
+  const rawClosedName = str(r, 'closedByUsername', 'ClosedByUsername', 'closedByName', 'ClosedByName', 'closedByEmail', 'ClosedByEmail', 'closedBy', 'ClosedBy');
+  const isGuid = (val: string) => /^[0-9a-fA-F-]{36}$/.test(val);
+
   return {
     id,
     cafeId: str(r, 'cafeId', 'CafeId'),
     cafeName: str(r, 'cafeName', 'CafeName') || undefined,
     openedByUserId: str(r, 'openedByUserId', 'OpenedByUserId') || undefined,
-    openedByUsername: str(r, 'openedByUsername', 'OpenedByUsername') || undefined,
+    openedByUsername: rawOpenedName && !isGuid(rawOpenedName) ? rawOpenedName : undefined,
     closedByUserId: str(r, 'closedByUserId', 'ClosedByUserId') || undefined,
-    closedByUsername: str(r, 'closedByUsername', 'ClosedByUsername') || undefined,
+    closedByUsername: rawClosedName && !isGuid(rawClosedName) ? rawClosedName : undefined,
     openedAt: str(r, 'openedAt', 'OpenedAt') || undefined,
     closedAt: str(r, 'closedAt', 'ClosedAt') || undefined,
     openingCashBalance: num(r, 'openingCashBalance', 'OpeningCashBalance'),
@@ -77,20 +81,24 @@ export const CafeShiftService = {
     page = 1,
     pageSize = 10,
   ): Promise<CafeShiftList> => {
-    const raw = await apiClient.get<never, unknown>('/api/shifts', {
+    const raw = await apiClient.get<never, unknown>('/api/shifts/history', {
       params: { cafeId, page, pageSize },
     });
     const r = rec(raw);
-    const list = r.items ?? r.Items;
+    const list = Array.isArray(raw)
+      ? raw
+      : (r.shifts ?? r.Shifts ?? r.items ?? r.Items);
     const items = Array.isArray(list)
       ? list.map(mapShift).filter((s): s is CafeShift => Boolean(s))
       : [];
+    const totalCount = num(r, 'totalCount', 'TotalCount', 'total', 'Total', 'totalShifts', 'TotalShifts') || items.length;
+    const totalPages = num(r, 'totalPages', 'TotalPages') || Math.max(1, Math.ceil(totalCount / (pageSize || 10)));
     return {
       items,
       page: num(r, 'page', 'Page') || page,
       pageSize: num(r, 'pageSize', 'PageSize') || pageSize,
-      totalCount: num(r, 'totalCount', 'TotalCount') || items.length,
-      totalPages: num(r, 'totalPages', 'TotalPages') || 1,
+      totalCount,
+      totalPages,
     };
   },
 
