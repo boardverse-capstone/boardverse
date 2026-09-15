@@ -400,43 +400,43 @@ function parseWalkInWindows(raw: unknown): WalkInWindowDto[] {
     return [];
   };
 
-  return pickList()
-    .map((item) => {
-      const r = (item ?? {}) as Record<string, unknown>;
-      const id = String(r.id ?? r.Id ?? "");
-      if (!id) return null;
-      const tableName = String(
-        r.tableName ?? r.TableName ?? r.cafeTableName ?? r.CafeTableName ?? "",
-      ).trim();
-      const tableNumber = String(
-        r.tableNumber ?? r.TableNumber ?? r.tableLabel ?? r.TableLabel ?? "",
-      ).trim();
-      return {
-        id,
-        sourceReservationId:
-          r.sourceReservationId != null
-            ? String(r.sourceReservationId)
-            : r.SourceReservationId != null
-              ? String(r.SourceReservationId)
-              : undefined,
-        windowStart:
-          (r.windowStart as string | undefined) ??
-          (r.WindowStart as string | undefined),
-        windowEnd:
-          (r.windowEnd as string | undefined) ??
-          (r.WindowEnd as string | undefined),
-        totalSeats: Number(r.totalSeats ?? r.TotalSeats ?? 0) || undefined,
-        availableSeats:
-          Number(r.availableSeats ?? r.AvailableSeats ?? 0) || undefined,
-        status: String(r.status ?? r.Status ?? "") || undefined,
-        expiresAt:
-          (r.expiresAt as string | undefined) ??
-          (r.ExpiresAt as string | undefined),
-        tableName: tableName || undefined,
-        tableNumber: tableNumber || undefined,
-      } satisfies WalkInWindowDto;
-    })
-    .filter((w): w is WalkInWindowDto => w != null);
+  const windows: WalkInWindowDto[] = [];
+  for (const item of pickList()) {
+    const r = (item ?? {}) as Record<string, unknown>;
+    const id = String(r.id ?? r.Id ?? "");
+    if (!id) continue;
+    const tableName = String(
+      r.tableName ?? r.TableName ?? r.cafeTableName ?? r.CafeTableName ?? "",
+    ).trim();
+    const tableNumber = String(
+      r.tableNumber ?? r.TableNumber ?? r.tableLabel ?? r.TableLabel ?? "",
+    ).trim();
+    windows.push({
+      id,
+      sourceReservationId:
+        r.sourceReservationId != null
+          ? String(r.sourceReservationId)
+          : r.SourceReservationId != null
+            ? String(r.SourceReservationId)
+            : undefined,
+      windowStart:
+        (r.windowStart as string | undefined) ??
+        (r.WindowStart as string | undefined),
+      windowEnd:
+        (r.windowEnd as string | undefined) ??
+        (r.WindowEnd as string | undefined),
+      totalSeats: Number(r.totalSeats ?? r.TotalSeats ?? 0) || undefined,
+      availableSeats:
+        Number(r.availableSeats ?? r.AvailableSeats ?? 0) || undefined,
+      status: String(r.status ?? r.Status ?? "") || undefined,
+      expiresAt:
+        (r.expiresAt as string | undefined) ??
+        (r.ExpiresAt as string | undefined),
+      tableName: tableName || undefined,
+      tableNumber: tableNumber || undefined,
+    });
+  }
+  return windows;
 }
 
 function parseTables(raw: unknown): ReservedTable[] {

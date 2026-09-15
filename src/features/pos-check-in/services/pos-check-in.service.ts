@@ -2486,7 +2486,7 @@ export const PosCheckInService = {
       return [];
     };
 
-    let friends: ReturnType<typeof mapUser>[] = [];
+    let friends: NonNullable<ReturnType<typeof mapUser>>[] = [];
     try {
       friends = unwrapUsers(
         await apiClient.get<never, unknown>(`/api/v1/friends/search`, {
