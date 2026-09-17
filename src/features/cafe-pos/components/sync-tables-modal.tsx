@@ -14,6 +14,7 @@ import {
   ArrowDown,
   LayoutGrid,
 } from "lucide-react";
+import { NumberStepper } from "./number-stepper";
 
 export interface TableItem {
   id?: string;
@@ -205,21 +206,17 @@ export function SyncTablesModal({
             }}
             className="h-9 text-xs bg-white border-neutral-200 rounded-lg flex-1"
           />
-          <div className="flex items-center gap-1 bg-white border border-neutral-200 px-2 h-9 rounded-lg shrink-0">
-            <Users className="w-3.5 h-3.5 text-neutral-400" />
-            <input
-              type="number"
-              min={1}
-              max={50}
-              title="Số chỗ tối đa"
-              value={newSeatCount}
-              onChange={(e) => setNewSeatCount(parseInt(e.target.value) || 4)}
-              className="w-8 text-xs font-mono font-bold text-center bg-transparent focus:outline-none"
-            />
-            <span className="text-[10px] text-neutral-400 font-semibold">
-              chỗ
-            </span>
-          </div>
+          <NumberStepper
+            value={newSeatCount}
+            onChange={setNewSeatCount}
+            min={1}
+            max={50}
+            size="sm"
+            unit="chỗ"
+            ariaLabelDec="Giảm số chỗ"
+            ariaLabelInc="Tăng số chỗ"
+            className="shrink-0"
+          />
           <Button
             type="button"
             onClick={handleAddTable}
@@ -267,22 +264,19 @@ export function SyncTablesModal({
                 />
 
                 {/* SỬA SỐ GHẾ */}
-                <div className="flex items-center gap-1 bg-white border border-neutral-200 px-2 h-8 rounded-lg shrink-0">
-                  <Users className="w-3 h-3 text-neutral-400" />
-                  <input
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={table.seatCount}
-                    onChange={(e) =>
-                      handleUpdateTableField(index, "seatCount", e.target.value)
-                    }
-                    className="w-8 text-xs font-mono font-bold text-center bg-transparent focus:outline-none"
-                  />
-                  <span className="text-[10px] text-neutral-400 font-medium">
-                    chỗ
-                  </span>
-                </div>
+                <NumberStepper
+                  value={table.seatCount}
+                  onChange={(next) =>
+                    handleUpdateTableField(index, "seatCount", next)
+                  }
+                  min={1}
+                  max={50}
+                  size="sm"
+                  unit="chỗ"
+                  ariaLabelDec={`Giảm số chỗ của ${table.name}`}
+                  ariaLabelInc={`Tăng số chỗ của ${table.name}`}
+                  className="shrink-0"
+                />
 
                 {/* NÚT UP/DOWN NHANH */}
                 <div className="flex items-center gap-0.5 shrink-0">

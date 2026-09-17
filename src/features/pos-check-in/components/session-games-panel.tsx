@@ -29,6 +29,7 @@ import type {
   ComponentChecklist,
   ComponentChecklistItem,
 } from '../types/pos-check-in.interface';
+import { NumberStepper } from '@/features/cafe-pos/components/number-stepper';
 
 interface SessionGamesPanelProps {
   cafeId: string;
@@ -841,23 +842,29 @@ export function SessionGamesPanel({
                       {components.map((c) => (
                         <div
                           key={c.componentId}
-                          className="grid grid-cols-[1fr_72px] items-center gap-2 rounded-md border p-2 text-xs"
+                          className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-md border p-2 text-xs"
                         >
                           <div>
                             <p className="font-medium">{c.componentName}</p>
                             <p className="text-muted-foreground">Kỳ vọng: {c.expectedQuantity}</p>
                           </div>
-                          <Input
-                            type="number"
-                            min={0}
-                            className="h-8 text-xs"
+                          <NumberStepper
                             value={actualByComponent[c.componentId] ?? c.expectedQuantity}
-                            onChange={(e) =>
+                            onChange={(next) =>
                               setActualByComponent((prev) => ({
                                 ...prev,
-                                [c.componentId]: Math.max(0, Number(e.target.value) || 0),
+                                [c.componentId]: Math.max(0, next),
                               }))
                             }
+                            min={0}
+                            max={Math.max(
+                              c.expectedQuantity,
+                              actualByComponent[c.componentId] ?? 0,
+                            )}
+                            size="sm"
+                            ariaLabelDec={`Giảm ${c.componentName}`}
+                            ariaLabelInc={`Tăng ${c.componentName}`}
+                            className="w-fit"
                           />
                         </div>
                       ))}
@@ -912,13 +919,16 @@ export function SessionGamesPanel({
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="loss-qty">Số lượng thiếu</Label>
-                  <Input
+                  <NumberStepper
                     id="loss-qty"
-                    type="number"
+                    value={Math.max(1, Number(lossQty) || 1)}
+                    onChange={(next) => setLossQty(Math.max(1, next))}
                     min={1}
-                    value={lossQty}
-                    onChange={(e) => setLossQty(Math.max(1, Number(e.target.value) || 1))}
-                    className="bg-white text-xs"
+                    max={999}
+                    size="sm"
+                    ariaLabelDec="Giảm số lượng thiếu"
+                    ariaLabelInc="Tăng số lượng thiếu"
+                    className="w-fit"
                   />
                 </div>
                 <div className="space-y-1.5">

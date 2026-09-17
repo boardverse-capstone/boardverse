@@ -11,8 +11,10 @@ import { cn } from '@/lib/utils';
 import { useAlternativeGames } from '../hooks/usePosCheckIn';
 import { usePosBoxes } from '../hooks/usePosBoxes';
 import { useCreatePosSession } from '../hooks/usePosMutations';
+import { useGameCoverLookup } from '../hooks/useGameCoverLookup';
 import { PosCheckInService } from '../services/pos-check-in.service';
 import type { ActivatedSession, CafeTable, PosGameBox } from '../types/pos-check-in.interface';
+import { NumberStepper } from '@/features/cafe-pos/components/number-stepper';
 
 interface PosWalkInPanelProps {
   cafeId?: string;
@@ -92,6 +94,8 @@ export function PosWalkInPanel({
     () => availableBoxes.find((b) => b.barcode === barcode) || null,
     [availableBoxes, barcode],
   );
+
+  const coverLookup = useGameCoverLookup(cafeId, availableBoxes);
 
   const gameLimits = useMemo(() => {
     if (!selectedBox) return { minPlayers: 1, maxPlayers: 8 };
@@ -257,7 +261,7 @@ export function PosWalkInPanel({
 
         {selectedBox ? (
           <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
-            <BoxThumb src={selectedBox.imageUrl} alt={selectedBox.gameName || selectedBox.barcode} />
+            <BoxThumb src={coverLookup.lookup(selectedBox)} alt={selectedBox.gameName || selectedBox.barcode} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{selectedBox.gameName || 'Hộp game'}</p>
               <p className="truncate font-mono text-[11px] text-muted-foreground">
@@ -334,7 +338,7 @@ export function PosWalkInPanel({
                         selected ? 'bg-emerald-50 ring-1 ring-emerald-300' : 'hover:bg-muted/60',
                       )}
                     >
-                      <BoxThumb src={box.imageUrl} alt={box.gameName || box.barcode} />
+                      <BoxThumb src={coverLookup.lookup(box)} alt={box.gameName || box.barcode} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium">
                           {box.gameName || 'Hộp game'}
@@ -371,14 +375,14 @@ export function PosWalkInPanel({
                 <Users className="h-3.5 w-3.5" />
                 Số người chơi *
               </Label>
-              <Input
-                id="walkin-player-count"
-                type="number"
+              <NumberStepper
+                value={playerCount}
+                onChange={(next) => handlePlayerCountChange(String(next))}
                 min={gameLimits.minPlayers}
                 max={gameLimits.maxPlayers}
-                value={playerCount}
-                onChange={(e) => handlePlayerCountChange(e.target.value)}
-                className="h-9 w-24 text-sm"
+                size="md"
+                ariaLabelDec="Giảm số người chơi"
+                ariaLabelInc="Tăng số người chơi"
               />
             </div>
             <p className="pb-1 text-xs text-muted-foreground">

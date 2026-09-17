@@ -7,6 +7,7 @@ import { apiClient } from "@/core/api/client";
 import { UserRole, normalizePortalRole } from "@/core/constants/roles";
 import { useAuthStore } from "@/features/auth/store/auth.store";
 import { PosCheckInService } from "@/features/pos-check-in/services/pos-check-in.service";
+import { normalizePosBoxesList } from "@/features/pos-check-in/utils/pos-check-in.mapper";
 
 function myCafesPath(role: UserRole | null): string {
   if (role === UserRole.Staff) return "/api/staff/my-cafes";
@@ -33,8 +34,14 @@ function isSessionNotFoundError(err: unknown) {
 }
 
 function isPaidSessionStatus(status: unknown) {
-  const normalized = String(status ?? "").toLowerCase();
-  return normalized === "paid" || normalized === "completed";
+  const normalized = String(status ?? "")
+    .toLowerCase()
+    .replace(/[_\s-]/g, "");
+  return (
+    normalized === "paid" ||
+    normalized === "completed" ||
+    normalized === "closed"
+  );
 }
 
 /** Phiên terminal — không còn trên tab phiên / không giữ bàn InUse. */
@@ -307,8 +314,10 @@ export function usePosDashboard(opts?: {
       const rawTables = tablesRes?.data || tablesRes || [];
       setTables(rawTables.sort((a: any, b: any) => a.sortOrder - b.sortOrder));
 
-      // Cập nhật danh sách kho hộp game vật lý
-      setBoxes(boxesRes?.data || boxesRes || []);
+      // Cập nhật danh sách kho hộp game vật lý (normalize để trích xuất imageUrl)
+      setBoxes(
+        normalizePosBoxesList(boxesRes?.data ?? boxesRes ?? []),
+      );
     } catch (err: any) {
       console.error("Lỗi cập nhật POS Dashboard:", err);
     } finally {
@@ -1132,11 +1141,62 @@ const handleScanBarcode = async () => {
 
   const completePaidCheckout = useCallback(
     async (sessionId: string) => {
+      console.info(
+        "[pos] completePaidCheckout for",
+        sessionId,
+        "cafeId",
+        cafeId,
+      );
       setCheckoutSession(null);
-      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-      if (cafeId) await fetchAllData(cafeId);
+      setSessions((prev) =>
+        prev.filter(
+          (s) => s.id !== sessionId && (s as any).sessionId !== sessionId,
+        ),
+      );
+      // Tab "Phiên chơi" render từ unpaidSessions — phải reload state này
+      // (fetchAllData chỉ re-load /sessions/active, không chạm /sessions/unpaid).
+      setUnpaidSessions((prev) =>
+        prev.filter(
+          (s) => s.id !== sessionId && (s as any).sessionId !== sessionId,
+        ),
+      );
+      if (cafeId) {
+        await Promise.all([
+          fetchAllData(cafeId),
+          handleFetchUnpaidSessions(0),
+        ]);
+        // Lọc lại lần nữa sau khi BE đã có thời gian commit — tránh race
+        // condition khi BE flip session status chậm hơn fetchAllData.
+        setSessions((prev) =>
+          prev.filter(
+            (s) =>
+              s.id !== sessionId && (s as any).sessionId !== sessionId,
+          ),
+        );
+        setUnpaidSessions((prev) =>
+          prev.filter(
+            (s) =>
+              s.id !== sessionId && (s as any).sessionId !== sessionId,
+          ),
+        );
+      }
+      console.info(
+        "[pos] completePaidCheckout done for",
+        sessionId,
+      );
     },
-    [cafeId, fetchAllData],
+    [cafeId, fetchAllData, handleFetchUnpaidSessions],
+  );
+
+  /**
+   * Bypass poll: dùng khi BE đã xác nhận Paid qua response trực tiếp
+   * (vd Chia tiền — /payment-status trả totalPaid === totalAmount).
+   */
+  const forceCompleteSession = useCallback(
+    async (sessionId: string) => {
+      await completePaidCheckout(sessionId);
+    },
+    [completePaidCheckout],
   );
 
   /** Poll GET session — webhook SePay có thể xóa phiên khỏi active ngay sau khi PAID. */
@@ -1149,6 +1209,15 @@ const handleScanBarcode = async () => {
         );
         const detail = res?.data || res;
         const status = detail?.status ?? detail?.Status;
+
+        console.info(
+          "[pos] handleRefreshCheckoutPayment poll",
+          sessionId,
+          "status:",
+          status,
+          "isPaid:",
+          isPaidSessionStatus(status),
+        );
 
         if (isPaidSessionStatus(status)) {
           await completePaidCheckout(sessionId);
@@ -1248,6 +1317,7 @@ const handleFetchBoxHistory = useCallback(
     handleMergeSessionMember,
     handleManualConfirmCash,
     handleRefreshCheckoutPayment,
+    forceCompleteSession,
     canConfigureTables,
     role,
   };

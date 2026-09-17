@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Search,
-  Box,
   Barcode,
   Copy,
   Check,
@@ -13,6 +12,8 @@ import {
   X,
   Layers,
 } from "lucide-react";
+import { GameCoverThumb } from "./game-cover-thumb";
+import { useGameCoverLookup } from "@/features/pos-check-in/hooks/useGameCoverLookup";
 
 export interface PosBoxItem {
   id: string;
@@ -21,6 +22,8 @@ export interface PosBoxItem {
   gameName: string;
   barcode: string;
   status: string;
+  /** Ảnh bìa game (có thể có hoặc không). */
+  imageUrl?: string | null;
 }
 
 /** Hộp Available mới được gán / thêm vào phiên. */
@@ -65,6 +68,7 @@ export function filterBoxesAssignableForPos(
 
 interface PosBoxesTabProps {
   boxes: PosBoxItem[];
+  cafeId?: string | null;
 }
 
 interface GroupedGame {
@@ -75,10 +79,11 @@ interface GroupedGame {
   allBoxes: PosBoxItem[];
 }
 
-export function PosBoxesTab({ boxes }: PosBoxesTabProps) {
+export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [copiedBarcode, setCopiedBarcode] = useState<string | null>(null);
   const [selectedGame, setSelectedGame] = useState<GroupedGame | null>(null);
+  const { lookup } = useGameCoverLookup(cafeId, boxes);
 
   // 1. Sao chép Barcode
   const handleCopyBarcode = (barcode: string, e?: React.MouseEvent) => {
@@ -156,6 +161,13 @@ export function PosBoxesTab({ boxes }: PosBoxesTabProps) {
           {filteredGroups.map((group) => {
             const firstAvailableBox = group.availableBoxes[0];
             const hasAvailable = group.availableBoxes.length > 0;
+            const sampleBox = group.allBoxes[0];
+            const coverSrc = lookup({
+              gameTemplateId: group.gameTemplateId,
+              gameName: group.gameName,
+              cafeGameInventoryId: sampleBox?.id ?? sampleBox?.cafeGameInventoryId,
+              imageUrl: sampleBox?.imageUrl,
+            });
 
             return (
               <div
@@ -165,9 +177,12 @@ export function PosBoxesTab({ boxes }: PosBoxesTabProps) {
               >
                 {/* BÊN TRÁI: ICON VÀ TÊN GAME */}
                 <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                  <div className="w-10 h-10 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-neutral-700 shrink-0 group-hover:bg-neutral-950 group-hover:text-white transition-colors">
-                    <Box className="w-5 h-5" />
-                  </div>
+                  <GameCoverThumb
+                    src={coverSrc}
+                    alt={group.gameName}
+                    initials={group.gameName}
+                    size="md"
+                  />
                   <div className="min-w-0 space-y-0.5">
                     <h4 className="font-extrabold text-sm text-neutral-950 truncate">
                       {group.gameName}
@@ -254,30 +269,45 @@ export function PosBoxesTab({ boxes }: PosBoxesTabProps) {
               {selectedGame.allBoxes.map((box, index) => {
                 const isAvail = box.status === "Available";
                 const isCopied = copiedBarcode === box.barcode;
+                const coverSrc = lookup({
+                  gameTemplateId: selectedGame.gameTemplateId,
+                  gameName: selectedGame.gameName,
+                  cafeGameInventoryId: box.id || box.cafeGameInventoryId,
+                  imageUrl: box.imageUrl,
+                  barcode: box.barcode,
+                });
 
                 return (
                   <div
                     key={box.id}
-                    className="flex items-center justify-between p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 hover:border-neutral-300 transition-colors"
+                    className="flex items-center justify-between gap-3 p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 hover:border-neutral-300 transition-colors"
                   >
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-neutral-900">
-                          {box.gameName} #{index + 1}
-                        </span>
-                        <span
-                          className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${
-                            isAvail
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : "bg-amber-100 text-amber-800 border-amber-200"
-                          }`}
-                        >
-                          {isAvail ? "Sẵn sàng" : "Đang dùng"}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 text-[11px] font-mono text-neutral-500">
-                        <Barcode className="w-3 h-3 text-neutral-400" />
-                        <span>{box.barcode}</span>
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <GameCoverThumb
+                        src={coverSrc}
+                        alt={box.gameName}
+                        initials={box.gameName}
+                        size="sm"
+                      />
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-xs text-neutral-900 truncate">
+                            {box.gameName} #{index + 1}
+                          </span>
+                          <span
+                            className={`px-1.5 py-0.2 rounded text-[9px] font-bold border ${
+                              isAvail
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-amber-100 text-amber-800 border-amber-200"
+                            }`}
+                          >
+                            {isAvail ? "Sẵn sàng" : "Đang dùng"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 text-[11px] font-mono text-neutral-500">
+                          <Barcode className="w-3 h-3 text-neutral-400" />
+                          <span className="truncate">{box.barcode}</span>
+                        </div>
                       </div>
                     </div>
 

@@ -62,7 +62,7 @@ export interface CheckoutPayModalProps {
   onCheckout?: (sessionId: string) => Promise<any>;
   onPay: (
     sessionId: string,
-    payloadData?: { notes?: string }    
+    payloadData?: { notes?: string }
   ) => Promise<any>;
   /** Xác nhận tiền mặt qua staff flow (manual-confirm) — port từ pos-check-in */
   onManualConfirmCash?: (
@@ -72,6 +72,8 @@ export interface CheckoutPayModalProps {
   ) => Promise<boolean>;
   /** GET session lại sau khi khách CK (không có webhook). */
   onRefreshPayment?: (sessionId: string) => Promise<any | null>;
+  /** Chia tiền xong — BE đã trả totalPaid === totalAmount. Reload POS state ngay. */
+  onSplitBillPaid?: (sessionId: string) => Promise<void>;
 }
 
 // Danh sách các trường hợp ghi chú phổ biến
@@ -91,6 +93,7 @@ export function PayConfirmModal({
   onCheckout,
   onPay,
   onRefreshPayment,
+  onSplitBillPaid,
 }: CheckoutPayModalProps) {
   const [selectedPreset, setSelectedPreset] =
     useState<string>("Không bị mất đồ");
@@ -568,13 +571,22 @@ export function PayConfirmModal({
             sessionId={String(session.id)}
             notes={finalNotes}
             onQrListChange={setSplitQrList}
-            onAllPaid={() => {
+            onAllPaid={async () => {
+              console.info(
+                "[split-bill] onAllPaid triggered for session",
+                session.id,
+              );
               const tableLabel =
                 session.tableName || session.tableLabel || "Bàn";
               toast.success(
                 `Đã thu đủ theo khách. ${tableLabel} trống — xem hóa đơn tại tab Giải ngân.`,
               );
-              void onRefreshPayment?.(session.id);
+              // Chia tiền đã thu đủ → BE đã xử lý xong session, không cần poll lại.
+              if (onSplitBillPaid) {
+                await onSplitBillPaid(session.id);
+              } else {
+                void onRefreshPayment?.(session.id);
+              }
               onClose();
             }}
           />

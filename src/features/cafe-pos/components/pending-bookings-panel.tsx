@@ -40,6 +40,8 @@ import {
 import { apiClient } from "@/core/api/client";
 import { PosCheckInService } from "@/features/pos-check-in/services/pos-check-in.service";
 import { isBoxStatusAvailable } from "@/features/cafe-pos/components/pos-boxes-tab";
+import { GameCoverThumb } from "@/features/cafe-pos/components/game-cover-thumb";
+import { useGameCoverLookup } from "@/features/pos-check-in/hooks/useGameCoverLookup";
 import type {
   CafeReservationListItem,
   PosBookingPreview,
@@ -72,6 +74,7 @@ interface PendingBookingsPanelProps {
     status: string;
     gameTemplateId: string | null;
     gameName: string | null;
+    imageUrl?: string | null;
   }>;
   initialBookingCode?: string;
   /** stack = 2 card dọc (cũ); sidebar = tab trong cột trái POS. */
@@ -511,6 +514,7 @@ export function PendingBookingsPanel({
     useState<ReservationStatusFilter>("confirmed");
   const [reservationSearch, setReservationSearch] = useState("");
   const reservationDayLabel = formatReservationDayLabel(playDate, todayIso);
+  const { lookup: lookupCover } = useGameCoverLookup(cafeId, boxes);
 
   const assignableTables = useMemo((): ReservedTable[] => {
     const fromProp = tables
@@ -1261,6 +1265,20 @@ export function PendingBookingsPanel({
                 const canCheckIn = status === "confirmed";
                 const showQuickAction =
                   canCheckIn || status === "holding";
+                // Tìm hộp Available khớp tên game → dùng lookup tra imageUrl
+                const matchedBox = boxes.find(
+                  (box) =>
+                    box.gameTemplateId === item.gameId ||
+                    (item.gameName &&
+                      (box.gameName ?? "").trim().toLowerCase() ===
+                        item.gameName.trim().toLowerCase()),
+                );
+                const coverSrc = lookupCover({
+                  gameTemplateId: item.gameId,
+                  gameName: item.gameName,
+                  cafeGameInventoryId: matchedBox?.id,
+                  imageUrl: matchedBox?.imageUrl,
+                });
                 return (
                   <div
                     key={item.id}
@@ -1280,31 +1298,41 @@ export function PendingBookingsPanel({
                         : "border-neutral-200 bg-white hover:border-neutral-400"
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="min-w-0 truncate text-base font-bold text-neutral-950">
-                        {item.gameName}
-                      </p>
-                      <Badge
-                        variant="outline"
-                        className={`shrink-0 ${reservationStatusBadgeClass(item.status)}`}
-                      >
-                        {formatReservationStatusLabel(item.status)}
-                      </Badge>
+                    <div className="flex items-start gap-2.5">
+                      <GameCoverThumb
+                        src={coverSrc}
+                        alt={item.gameName || "Game"}
+                        initials={item.gameName}
+                        size="sm"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="min-w-0 truncate text-base font-bold text-neutral-950">
+                            {item.gameName}
+                          </p>
+                          <Badge
+                            variant="outline"
+                            className={`shrink-0 ${reservationStatusBadgeClass(item.status)}`}
+                          >
+                            {formatReservationStatusLabel(item.status)}
+                          </Badge>
+                        </div>
+                        <p className="mt-1.5 font-mono text-sm font-bold tracking-wide text-neutral-900">
+                          {item.reservationCode || "—"}
+                        </p>
+                        <p className="mt-1 text-xs font-medium text-neutral-700">
+                          {item.currentPlayers}/{item.maxPlayers} khách
+                          {item.tableNumber ? ` · Bàn ${item.tableNumber}` : ""}
+                          {item.timeSlot ? ` · ${item.timeSlot}` : ""}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-neutral-800">
+                          {formatReservationTimeRange(
+                            item.scheduledStartTime,
+                            item.scheduledEndTime,
+                          )}
+                        </p>
+                      </div>
                     </div>
-                    <p className="mt-1.5 font-mono text-sm font-bold tracking-wide text-neutral-900">
-                      {item.reservationCode || "—"}
-                    </p>
-                    <p className="mt-1 text-xs font-medium text-neutral-700">
-                      {item.currentPlayers}/{item.maxPlayers} khách
-                      {item.tableNumber ? ` · Bàn ${item.tableNumber}` : ""}
-                      {item.timeSlot ? ` · ${item.timeSlot}` : ""}
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-neutral-800">
-                      {formatReservationTimeRange(
-                        item.scheduledStartTime,
-                        item.scheduledEndTime,
-                      )}
-                    </p>
                     {showQuickAction ? (
                       <div className="mt-2.5">
                         <Button
@@ -1720,26 +1748,43 @@ export function PendingBookingsPanel({
 
                       {checkedBox ? (
                         <div className="space-y-2 rounded-lg border bg-white p-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="truncate font-semibold text-neutral-950">
-                                {checkedBox.gameName || "Hộp game"}
-                              </p>
-                              <p className="mt-0.5 font-mono text-xs font-medium text-neutral-700">
-                                {checkedBox.barcode}
-                              </p>
+                          <div className="flex items-start gap-3">
+                            <GameCoverThumb
+                              src={lookupCover({
+                                gameTemplateId:
+                                  availableBoxes.find(
+                                    (b) => b.barcode === checkedBox.barcode,
+                                  )?.gameTemplateId ?? null,
+                                gameName: checkedBox.gameName,
+                                cafeGameInventoryId: checkedBox.id,
+                                imageUrl: null,
+                                barcode: checkedBox.barcode,
+                              })}
+                              alt={checkedBox.gameName || "Hộp game"}
+                              initials={checkedBox.gameName}
+                              size="md"
+                            />
+                            <div className="flex flex-1 items-start justify-between gap-2 min-w-0">
+                              <div className="min-w-0">
+                                <p className="truncate font-semibold text-neutral-950">
+                                  {checkedBox.gameName || "Hộp game"}
+                                </p>
+                                <p className="mt-0.5 font-mono text-xs font-medium text-neutral-700">
+                                  {checkedBox.barcode}
+                                </p>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  String(checkedBox.status).toLowerCase() ===
+                                  "available"
+                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                    : "border-amber-200 bg-amber-50 text-amber-800"
+                                }
+                              >
+                                {formatBoxStatusLabel(checkedBox.status)}
+                              </Badge>
                             </div>
-                            <Badge
-                              variant="outline"
-                              className={
-                                String(checkedBox.status).toLowerCase() ===
-                                "available"
-                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                  : "border-amber-200 bg-amber-50 text-amber-800"
-                              }
-                            >
-                              {formatBoxStatusLabel(checkedBox.status)}
-                            </Badge>
                           </div>
 
                           {(checkedBox.missingComponents?.length ?? 0) > 0 ? (

@@ -1,7 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Banknote, FileDown, Receipt, RefreshCw, X } from "lucide-react";
+import {
+  Banknote,
+  CheckCircle2,
+  Clock,
+  FileDown,
+  Loader2,
+  Receipt,
+  RefreshCw,
+  Wallet,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/core/api/client";
@@ -157,6 +167,58 @@ function formatSettlementStatusLabel(status?: string | null) {
   }
 }
 
+/** Style badge theo settlement status — màu sắc giúp scan nhanh. */
+function getSettlementStatusStyle(status?: string | null) {
+  const key = String(status ?? "")
+    .toLowerCase()
+    .replace(/[_\s-]/g, "");
+  switch (key) {
+    case "pending":
+      return {
+        wrap: "border-amber-200 bg-amber-50 text-amber-800",
+        dot: "bg-amber-500",
+        Icon: Clock,
+      };
+    case "processing":
+      return {
+        wrap: "border-sky-200 bg-sky-50 text-sky-800",
+        dot: "bg-sky-500",
+        Icon: Loader2,
+      };
+    case "retrying":
+      return {
+        wrap: "border-orange-200 bg-orange-50 text-orange-800",
+        dot: "bg-orange-500",
+        Icon: RefreshCw,
+      };
+    case "completed":
+    case "succeeded":
+      return {
+        wrap: "border-emerald-200 bg-emerald-50 text-emerald-800",
+        dot: "bg-emerald-500",
+        Icon: CheckCircle2,
+      };
+    case "failed":
+      return {
+        wrap: "border-rose-200 bg-rose-50 text-rose-800",
+        dot: "bg-rose-500",
+        Icon: X,
+      };
+    case "overridden":
+      return {
+        wrap: "border-violet-200 bg-violet-50 text-violet-800",
+        dot: "bg-violet-500",
+        Icon: CheckCircle2,
+      };
+    default:
+      return {
+        wrap: "border-neutral-200 bg-neutral-50 text-neutral-700",
+        dot: "bg-neutral-400",
+        Icon: Clock,
+      };
+  }
+}
+
 /** Tab giải ngân — UI theo style cafe-pos, data từ PosCheckInService. */
 export function SettlementsTab({
   cafeId,
@@ -268,41 +330,92 @@ export function SettlementsTab({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start">
         <div className="space-y-2">
-          <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">
-            Giải ngân đang chờ
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-amber-700">
+              <span className="inline-block size-1.5 rounded-full bg-amber-500" />
+              Giải ngân đang chờ
+            </p>
+            {items.length > 0 ? (
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                {items.length} mục
+              </span>
+            ) : null}
+          </div>
           {items.length === 0 ? (
-            <p className="text-xs text-neutral-400">Không có giải ngân đang chờ.</p>
-          ) : (
-            items.map((item) => (
-              <div
-                key={item.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-neutral-200 bg-white px-4 py-3 shadow-2xs"
-              >
-                <div className="min-w-0 space-y-0.5">
-                  <p className="flex items-center gap-1.5 text-sm font-bold text-neutral-950">
-                    <Banknote className="h-4 w-4 shrink-0 text-neutral-600" />
-                    {formatCurrency(item.netTransferAmount || item.depositAmount)}
-                  </p>
-                  <p className="font-mono text-[11px] text-neutral-400">
-                    {formatTime(item.createdAt)} · {item.id.slice(0, 8)}…
-                  </p>
-                </div>
-                <span className="rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[10px] font-bold text-neutral-700">
-                  {formatSettlementStatusLabel(item.status)}
-                </span>
+            <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-neutral-200 bg-neutral-50/60 px-4 py-8 text-center">
+              <div className="flex size-10 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                <Wallet className="h-5 w-5" />
               </div>
-            ))
+              <p className="text-xs font-medium text-neutral-600">
+                Không có giải ngân đang chờ.
+              </p>
+              <p className="text-[11px] text-neutral-400">
+                Mọi giải ngân đã được xử lý xong.
+              </p>
+            </div>
+          ) : (
+            items.map((item) => {
+              const statusStyle = getSettlementStatusStyle(item.status);
+              const StatusIcon = statusStyle.Icon;
+              return (
+                <div
+                  key={item.id}
+                  className="group flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50/80 via-white to-orange-50/40 px-4 py-3 shadow-2xs transition-all hover:border-amber-300 hover:shadow-sm"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-sm">
+                      <Banknote className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="text-sm font-bold text-neutral-950">
+                        {formatCurrency(
+                          item.netTransferAmount || item.depositAmount,
+                        )}
+                      </p>
+                      <p className="font-mono text-[11px] text-neutral-400">
+                        {formatTime(item.createdAt)} · {item.id.slice(0, 8)}…
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[10px] font-bold ${statusStyle.wrap}`}
+                  >
+                    <StatusIcon
+                      className={`h-3 w-3 ${statusStyle.Icon === Loader2 || statusStyle.Icon === RefreshCw ? "animate-spin" : ""}`}
+                    />
+                    {formatSettlementStatusLabel(item.status)}
+                  </span>
+                </div>
+              );
+            })
           )}
         </div>
 
         {onFetchPaidSessions ? (
           <div className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">
-              Phiên đã thanh toán (UTC hôm nay)
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-emerald-700">
+                <span className="inline-block size-1.5 rounded-full bg-emerald-500" />
+                Phiên đã thanh toán (UTC hôm nay)
+              </p>
+              {paidSessions.length > 0 ? (
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                  {paidSessions.length} phiên
+                </span>
+              ) : null}
+            </div>
             {paidSessions.length === 0 ? (
-              <p className="text-xs text-neutral-400">Chưa có phiên Paid hôm nay.</p>
+              <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-neutral-200 bg-neutral-50/60 px-4 py-8 text-center">
+                <div className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+                <p className="text-xs font-medium text-neutral-600">
+                  Chưa có phiên Paid hôm nay.
+                </p>
+                <p className="text-[11px] text-neutral-400">
+                  Phiên đã thanh toán sẽ xuất hiện ở đây.
+                </p>
+              </div>
             ) : (
               paidSessions.map((ses: any) => {
                 const id = String(ses.id || ses.sessionId || "");
@@ -313,13 +426,18 @@ export function SettlementsTab({
                 return (
                   <div
                     key={id || Math.random()}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/40 px-4 py-3"
+                    className="group flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/40 px-4 py-3 shadow-2xs transition-all hover:border-emerald-300 hover:shadow-sm"
                   >
-                    <div className="min-w-0 space-y-0.5">
-                      <p className="text-sm font-bold text-neutral-950">{table}</p>
-                      <p className="font-mono text-[11px] text-neutral-400">
-                        #{id.slice(0, 8)}
-                      </p>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
+                        <CheckCircle2 className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="text-sm font-bold text-neutral-950">{table}</p>
+                        <p className="font-mono text-[11px] text-neutral-400">
+                          #{id.slice(0, 8)}
+                        </p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold text-emerald-800">

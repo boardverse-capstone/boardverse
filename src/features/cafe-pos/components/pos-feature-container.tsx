@@ -43,6 +43,12 @@ import {
   Wifi,
   WifiOff,
   Loader2,
+  Table2,
+  Gamepad2,
+  Box,
+  Banknote,
+  Store,
+  UserCheck,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -159,6 +165,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     handlePartialCheckout,
     handleMergeSessionMember,
     handleRefreshCheckoutPayment,
+    forceCompleteSession,
     canConfigureTables,
   } = usePosDashboard({
     initialBookingCode: props?.initialBookingCode,
@@ -167,6 +174,17 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
       setEndingSession(session);
     },
   });
+
+  /**
+   * Chia tiền xong — BE đã xác nhận Paid qua response /payment-status.
+   * Gọi thẳng forceCompleteSession (bypass poll /pos/sessions/{id}).
+   */
+  const handleSplitBillPaid = useCallback(
+    async (sessionId: string) => {
+      await forceCompleteSession(sessionId);
+    },
+    [forceCompleteSession],
+  );
 
   /** Hộp Available và chưa nằm trên phiên live (GET sessions.games). */
   const assignableBoxes = useMemo(
@@ -383,18 +401,20 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
           <div className="max-w-full overflow-x-auto pb-1">
             <TabsList
               aria-label="Khu vực chính POS"
-              className="h-auto min-h-11 w-full flex-wrap justify-start"
+              className="inline-flex h-auto min-h-11 w-fit flex-wrap justify-start gap-1 bg-neutral-100/80 p-1"
             >
               <TabsTrigger
                 value="ops"
-                className="min-h-10 flex-none px-3 font-semibold data-active:border-neutral-900"
+                className="min-h-10 gap-1.5 px-3 font-semibold data-active:border-neutral-900"
               >
+                <Store className="size-3.5" />
                 Quầy vận hành
               </TabsTrigger>
               <TabsTrigger
                 value="reception"
-                className="min-h-10 flex-none px-3 data-active:border-neutral-900 data-active:font-semibold"
+                className="min-h-10 gap-1.5 px-3 data-active:border-neutral-900 data-active:font-semibold"
               >
+                <UserCheck className="size-3.5" />
                 Đặt chỗ & Vãng lai
               </TabsTrigger>
             </TabsList>
@@ -474,30 +494,34 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
               <div className="max-w-full overflow-x-auto pb-1">
                 <TabsList
                   aria-label="Khu vực vận hành POS"
-                  className="h-auto min-h-11 w-full flex-wrap justify-start"
+                  className="inline-flex h-auto min-h-11 w-fit flex-wrap justify-start gap-1 bg-neutral-100/80 p-1"
                 >
                   <TabsTrigger
                     value="tables"
-                    className="min-h-10 flex-none px-3 data-active:border-neutral-900 data-active:font-semibold"
+                    className="min-h-10 gap-1.5 px-3 data-active:border-neutral-900 data-active:font-semibold"
                   >
+                    <Table2 className="size-3.5" />
                     Sơ đồ bàn ({tables.length})
                   </TabsTrigger>
                   <TabsTrigger
                     value="sessions"
-                    className="min-h-10 flex-none px-3 data-active:border-neutral-900 data-active:font-semibold"
+                    className="min-h-10 gap-1.5 px-3 data-active:border-neutral-900 data-active:font-semibold"
                   >
+                    <Gamepad2 className="size-3.5" />
                     Phiên chơi ({sessions.length})
                   </TabsTrigger>
                   <TabsTrigger
                     value="boxes"
-                    className="min-h-10 flex-none px-3 data-active:border-neutral-900 data-active:font-semibold"
+                    className="min-h-10 gap-1.5 px-3 data-active:border-neutral-900 data-active:font-semibold"
                   >
+                    <Box className="size-3.5" />
                     Kho hộp ({boxes.length})
                   </TabsTrigger>
                   <TabsTrigger
                     value="settlements"
-                    className="min-h-10 flex-none px-3 data-active:border-neutral-900 data-active:font-semibold"
+                    className="min-h-10 gap-1.5 px-3 data-active:border-neutral-900 data-active:font-semibold"
                   >
+                    <Banknote className="size-3.5" />
                     Giải ngân
                   </TabsTrigger>
                 </TabsList>
@@ -676,7 +700,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
               />
             </TabsContent>
             <TabsContent value="boxes">
-              <PosBoxesTab boxes={boxes} />
+              <PosBoxesTab boxes={boxes} cafeId={cafeId} />
             </TabsContent>
             <TabsContent value="settlements">
               <SettlementsTab
@@ -747,6 +771,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         onCheckout={handleCheckoutSession}
         onPay={handlePaySession}
         onRefreshPayment={handleRefreshCheckoutPayment}
+        onSplitBillPaid={handleSplitBillPaid}
       />
 
       <SessionDetailModal

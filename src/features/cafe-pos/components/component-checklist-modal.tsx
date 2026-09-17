@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   X,
   ClipboardCheck,
@@ -11,6 +10,7 @@ import {
   Boxes,
   Zap,
 } from "lucide-react";
+import { NumberStepper } from "./number-stepper";
 
 export interface ComponentCheckItem {
   componentId: string;
@@ -197,15 +197,14 @@ export function ComponentChecklistModal({
                   <span className="text-[10px] text-neutral-500 font-bold uppercase">
                     Thực tế:
                   </span>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={item.expectedQuantity}
+                  <NumberStepper
                     value={item.actualQuantity}
-                    onChange={(e) =>
-                      handleQuantityChange(index, parseInt(e.target.value) || 0)
-                    }
-                    className="w-16 h-8 text-xs font-mono font-bold text-center bg-white border-neutral-200 rounded-lg"
+                    onChange={(next) => handleQuantityChange(index, next)}
+                    min={0}
+                    max={Math.max(item.expectedQuantity, item.actualQuantity)}
+                    size="sm"
+                    ariaLabelDec={`Giảm ${item.componentName}`}
+                    ariaLabelInc={`Tăng ${item.componentName}`}
                   />
 
                   {isMissing ? (

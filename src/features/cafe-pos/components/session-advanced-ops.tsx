@@ -25,6 +25,7 @@ import { PosCheckInService } from "@/features/pos-check-in/services/pos-check-in
 import type { ComponentChecklistItem } from "@/features/pos-check-in/types/pos-check-in.interface";
 import type { PosBoxItem } from "./pos-boxes-tab";
 import { isBoxStatusAvailable } from "./pos-boxes-tab";
+import { NumberStepper } from "./number-stepper";
 
 type InventoryLossPayload = {
   sessionGameId: string;
@@ -707,14 +708,16 @@ export function SessionAdvancedOps({
               className="h-8 border-neutral-200 text-xs"
             />
           )}
-          <Input
-            type="number"
+          <NumberStepper
+            value={Math.max(1, Number(missingQuantity) || 1)}
+            onChange={(next) => setMissingQuantity(String(next))}
             min={1}
-            value={missingQuantity}
-            onChange={(event) => setMissingQuantity(event.target.value)}
+            max={999}
+            size="sm"
             disabled={disabled}
-            aria-label="Số lượng thiếu"
-            className="h-8 border-neutral-200 text-xs"
+            ariaLabelDec="Giảm số lượng thiếu"
+            ariaLabelInc="Tăng số lượng thiếu"
+            className="w-fit"
           />
           <Textarea
             value={lossNotes}
