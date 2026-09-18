@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,7 +25,7 @@ export function createInventoryColumns(cafeId: string): ColumnDef<InventoryListI
       ),
       cell: ({ row }) => (
         <div className="flex min-w-[180px] items-center gap-3">
-          <div className="relative size-12 shrink-0 overflow-hidden rounded-md bg-muted">
+          <div className="relative size-12 shrink-0 overflow-hidden rounded-md border-2 border-violet-300 bg-muted shadow-[inset_0_-1px_0_rgba(0,0,0,0.1)]">
             {row.original.imageUrl ? (
               <Image
                 src={row.original.imageUrl}
@@ -34,14 +35,16 @@ export function createInventoryColumns(cafeId: string): ColumnDef<InventoryListI
                 sizes="48px"
               />
             ) : (
-              <div className="flex size-full items-center justify-center text-[10px] text-muted-foreground">
+              <div className="flex size-full items-center justify-center font-mono text-[10px] font-extrabold uppercase tracking-widest text-violet-400">
                 N/A
               </div>
             )}
           </div>
           <div className="min-w-0">
-            <div className="truncate font-semibold">{row.original.name}</div>
-            <div className="truncate text-xs text-muted-foreground">
+            <div className="truncate font-mono text-xs font-extrabold uppercase tracking-wide text-violet-950">
+              ► {row.original.name}
+            </div>
+            <div className="truncate font-mono text-[10px] font-bold uppercase tracking-widest text-violet-500">
               {row.original.minPlayers > 0
                 ? `${row.original.minPlayers}–${row.original.maxPlayers} người`
                 : null}
@@ -81,7 +84,8 @@ export function createInventoryColumns(cafeId: string): ColumnDef<InventoryListI
       id: 'components',
       header: 'Linh kiện',
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
+        <span className="inline-flex items-center gap-1 rounded-md border-2 border-violet-300 bg-violet-50 px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase tracking-widest text-violet-800 shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]">
+          <span className="size-1.5 animate-pulse rounded-full bg-violet-500 shadow-[0_0_4px_currentColor]" />
           {row.original.componentPenalties.length} mục
         </span>
       ),
@@ -94,14 +98,27 @@ export function createInventoryColumns(cafeId: string): ColumnDef<InventoryListI
           (max, item) => Math.max(max, item.penaltyFee),
           0,
         );
-        return maxFee > 0 ? formatCurrencyVnd(maxFee) : '—';
+        return maxFee > 0 ? (
+          <span className="font-mono text-xs font-extrabold uppercase tracking-wide text-amber-700">
+            ⚠ {formatCurrencyVnd(maxFee)}
+          </span>
+        ) : (
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-violet-400">
+            ▸ —
+          </span>
+        );
       },
     },
     {
       id: 'actions',
       header: '',
       cell: ({ row }) => (
-        <Button variant="outline" size="sm" asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(e) => e.stopPropagation()}
+          asChild
+        >
           <Link href={ROUTES.STAFF.INVENTORY_DETAIL(cafeId, row.original.inventoryId)}>
             <Eye className="mr-2 h-4 w-4" />
             Chi tiết
@@ -119,6 +136,7 @@ interface InventoryListTableProps {
 }
 
 export function InventoryListTable({ cafeId, data, isLoading }: InventoryListTableProps) {
+  const router = useRouter();
   const columns = createInventoryColumns(cafeId);
 
   if (isLoading) {
@@ -130,6 +148,7 @@ export function InventoryListTable({ cafeId, data, isLoading }: InventoryListTab
       columns={columns}
       data={data}
       emptyMessage="Không có mục nào trong kho game."
+      onRowClick={(item) => router.push(ROUTES.STAFF.INVENTORY_DETAIL(cafeId, item.inventoryId))}
     />
   );
 }

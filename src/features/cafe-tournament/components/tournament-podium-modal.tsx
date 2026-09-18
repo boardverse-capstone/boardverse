@@ -4,6 +4,10 @@ import React from "react";
 import { TournamentParticipant } from "../types/tournament.types";
 import { Button } from "@/components/ui/button";
 import { Trophy, Medal, Award, X, Sparkles } from "lucide-react";
+import {
+  backdropCloseHandler,
+  useDismissOnBackdrop,
+} from "../lib/use-dismiss-on-backdrop";
 
 interface Props {
   isOpen: boolean;
@@ -24,6 +28,9 @@ export function TournamentPodiumModal({
   tournamentTitle,
   participants,
 }: Props) {
+  // Click ra ngoài backdrop hoặc nhấn Escape để đóng
+  useDismissOnBackdrop(isOpen, onClose);
+
   if (!isOpen) return null;
 
   // 1. Lọc bỏ người chơi có 0 điểm Swiss hoặc không có điểm
@@ -85,8 +92,14 @@ export function TournamentPodiumModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-neutral-200 rounded-3xl max-w-4xl w-full p-6 space-y-6 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[92vh] flex flex-col">
+    <div
+      className="fixed inset-0 bg-neutral-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={backdropCloseHandler(onClose)}
+    >
+      <div
+        className="bg-white border border-neutral-200 rounded-3xl max-w-4xl w-full p-6 space-y-6 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[92vh] flex flex-col"
+        onClick={(event) => event.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b pb-4 shrink-0">
           <div className="flex items-center gap-3">

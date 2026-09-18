@@ -15,6 +15,10 @@ import {
   LayoutGrid,
 } from "lucide-react";
 import { NumberStepper } from "./number-stepper";
+import {
+  backdropCloseHandler,
+  useDismissOnBackdrop,
+} from "../lib/use-dismiss-on-backdrop";
 
 export interface TableItem {
   id?: string;
@@ -48,6 +52,16 @@ export function SyncTablesModal({
   // Drag & drop index trackers
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
+
+  // Click ra ngoài backdrop hoặc nhấn Escape để đóng
+  useDismissOnBackdrop(
+    isOpen,
+    () => {
+      if (saving) return;
+      onClose();
+    },
+    { busy: saving },
+  );
 
   if (isOpen !== prevIsOpen) {
     setPrevIsOpen(isOpen);
@@ -169,8 +183,20 @@ export function SyncTablesModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
+    <div
+      className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+      onClick={backdropCloseHandler(
+        () => {
+          if (saving) return;
+          onClose();
+        },
+        saving,
+      )}
+    >
+      <div
+        className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
         {/* HEADER MODAL */}
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
           <h3 className="font-bold text-base text-neutral-950 flex items-center gap-2">

@@ -16,6 +16,8 @@ import {
   mergePlayerRange,
   readPresentCount,
 } from "../lib/player-range";
+import { arcadeCardClass, scoreNumberClass } from "../lib/game-theme";
+import { cn } from "@/lib/utils";
 import {
   Clock,
   Users,
@@ -125,11 +127,13 @@ export function ActiveSessionsTab({
 
   if (!activeSessions || activeSessions.length === 0) {
     return (
-      <Card>
+      <Card className="border-2 border-dashed border-neutral-300 bg-neutral-50/40">
         <CardContent className="space-y-3 py-12 text-center">
           <Users className="mx-auto size-10 text-neutral-400" />
-          <h3 className="font-bold text-neutral-900">Không có bàn nào đang hoạt động</h3>
-          <p className="text-sm text-neutral-500">
+          <h3 className="font-mono text-xs font-bold uppercase tracking-widest text-neutral-700">
+            ▸ KHÔNG CÓ PHIÊN HOẠT ĐỘNG
+          </h3>
+          <p className="font-mono text-[11px] uppercase text-neutral-500">
             Vào tab Sơ đồ bàn để bắt đầu phiên cho lượt khách mới.
           </p>
         </CardContent>
@@ -219,39 +223,52 @@ export function ActiveSessionsTab({
                 openDetail();
               }
             }}
-            className={`cursor-pointer gap-0 transition-colors ${
+            className={cn(
+              arcadeCardClass,
+              "cursor-pointer gap-0 transition-all hover:translate-y-[-2px]",
               isUnpaid
-                ? "border-amber-300 bg-amber-50/30"
-                : "border-neutral-200 hover:border-neutral-300"
-            }`}
+                ? "border-2 border-amber-400 bg-amber-50/40 shadow-[2px_2px_0_rgba(245,158,11,0.3)]"
+                : "border-2 border-neutral-300 bg-white hover:border-neutral-400",
+            )}
           >
-            <CardHeader className="border-b">
+            <CardHeader className="border-b-2 border-current/10">
               <div className="flex items-center gap-2">
-                  <CardTitle className="text-lg font-bold text-neutral-950">
+                  <CardTitle className="font-mono text-lg font-extrabold tracking-tight text-neutral-950">
                     {ses.tableName}
                   </CardTitle>
-                  <span className="font-mono text-xs font-medium text-neutral-700">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-neutral-500">
                     #{ses.id.slice(0, 6)}
                   </span>
               </div>
               <CardAction>
                   <Badge
                     variant="outline"
-                    className={`${
+                    className={cn(
+                      "gap-1 border-2 px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase tracking-widest shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)]",
                       isUnpaid || (isChecking && isCheckDone)
-                        ? "border-amber-300 bg-amber-100 text-amber-800"
+                        ? "border-amber-400 bg-amber-100 text-amber-900"
                         : isChecking
-                          ? "border-blue-200 bg-blue-50 text-blue-700"
-                          : "border-emerald-200 bg-emerald-50 text-emerald-700"
-                    }`}
+                          ? "border-blue-400 bg-blue-100 text-blue-800"
+                          : "border-emerald-400 bg-emerald-100 text-emerald-800",
+                    )}
                   >
+                    <span
+                      className={cn(
+                        "inline-block size-1.5 rounded-full shadow-[0_0_6px_currentColor]",
+                        isUnpaid || (isChecking && isCheckDone)
+                          ? "bg-amber-500"
+                          : isChecking
+                            ? "bg-blue-500"
+                            : "bg-emerald-500 animate-pulse",
+                      )}
+                    />
                     {isUnpaid || (isChecking && isCheckDone)
-                      ? "Chờ thanh toán"
+                      ? "CHỜ THANH TOÁN"
                       : isChecking
-                        ? "Đang kiểm kê"
+                        ? "ĐANG KIỂM KÊ"
                         : isPaused
-                          ? "Tạm dừng giờ chơi"
-                          : formatSessionStatusLabel(ses.status) || "Đang chơi"}
+                          ? "TẠM DỪNG"
+                          : "ĐANG CHƠI"}
                   </Badge>
               </CardAction>
             </CardHeader>
@@ -268,22 +285,24 @@ export function ActiveSessionsTab({
                     aria-current={step.current ? "step" : undefined}
                   >
                     <span
-                      className={`relative z-10 flex size-7 items-center justify-center rounded-full border text-xs font-bold ${
+                      className={cn(
+                        "relative z-10 flex size-7 items-center justify-center border-2 font-mono text-xs font-extrabold shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]",
                         step.done
-                          ? "border-emerald-600 bg-emerald-600 text-white"
+                          ? "border-emerald-700 bg-emerald-500 text-white"
                           : step.current
-                            ? "border-neutral-900 bg-neutral-900 text-white"
-                            : "border-neutral-200 bg-white text-neutral-400"
-                      }`}
+                            ? "border-indigo-700 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.25),0_0_8px_rgba(99,102,241,0.4)]"
+                            : "border-neutral-300 bg-white text-neutral-400",
+                      )}
                     >
                       {step.done ? <CheckCircle2 className="size-4" /> : index + 1}
                     </span>
                     <span
-                      className={`text-xs font-medium ${
+                      className={cn(
+                        "text-[10px] font-mono font-bold uppercase tracking-widest",
                         step.current || step.done
                           ? "text-neutral-900"
-                          : "text-neutral-400"
-                      }`}
+                          : "text-neutral-400",
+                      )}
                     >
                       {step.label}
                     </span>
@@ -291,21 +310,21 @@ export function ActiveSessionsTab({
                 ))}
               </ol>
 
-              <div className="grid grid-cols-2 gap-3 rounded-xl border bg-neutral-50 p-3 text-sm">
+              <div className="grid grid-cols-2 gap-3 rounded-md border-2 border-neutral-900/15 bg-neutral-100/60 p-3 font-mono text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)]">
                 <div>
-                  <span className="flex items-center gap-1 text-xs font-bold uppercase text-neutral-700">
-                    <Clock className="size-3.5" /> Đã chơi
+                  <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-neutral-700">
+                    <Clock className="size-3.5" /> THỜI GIAN
                   </span>
-                  <div className="mt-1 font-mono font-bold text-neutral-900">
-                    {Number(ses.elapsedMinutes ?? ses.ElapsedMinutes ?? 0)} phút
+                  <div className={cn(scoreNumberClass, "mt-1 text-neutral-900")}>
+                    {Number(ses.elapsedMinutes ?? ses.ElapsedMinutes ?? 0)} MIN
                   </div>
                 </div>
 
                 <div>
-                  <span className="flex items-center gap-1 text-xs font-bold uppercase text-neutral-700">
-                    <Users className="size-3.5" /> Số khách
+                  <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-neutral-700">
+                    <Users className="size-3.5" /> NHÓM
                   </span>
-                  <div className="mt-1 font-semibold text-neutral-900">
+                  <div className={cn(scoreNumberClass, "mt-1 text-neutral-900")}>
                     {(() => {
                       const present = readPresentCount(ses);
                       const range = mergePlayerRange(
@@ -316,14 +335,14 @@ export function ActiveSessionsTab({
                       const presentLabel =
                         present != null ? `${present}` : "—";
                       if (range.min != null && range.max != null) {
-                        return `${presentLabel} · ${range.min}–${range.max} người`;
+                        return `${presentLabel}/${range.max} PPL`;
                       }
                       if (range.max != null) {
-                        return `${presentLabel}/${range.max} người`;
+                        return `${presentLabel}/${range.max} PPL`;
                       }
                       return present != null
-                        ? `${present} người`
-                        : "Chưa có số khách";
+                        ? `${present} PPL`
+                        : "—";
                     })()}
                   </div>
                 </div>
@@ -332,7 +351,7 @@ export function ActiveSessionsTab({
             </CardContent>
 
             <CardFooter
-              className="grid grid-cols-2 gap-2 border-t"
+              className="grid grid-cols-2 gap-2 border-t-2 border-current/10"
               onClick={(event) => event.stopPropagation()}
             >
               {isChecking && !isUnpaid && !isPaidDone && onResumeSession ? (
@@ -341,9 +360,9 @@ export function ActiveSessionsTab({
                   size="sm"
                   variant="outline"
                   onClick={() => onResumeSession(ses.id)}
-                  className="min-h-11 gap-2 rounded-lg font-semibold col-span-2 border-sky-300 text-sky-800 bg-sky-50"
+                  className="col-span-2 min-h-11 gap-2 border-2 border-sky-400 bg-sky-100 font-bold uppercase tracking-wider text-sky-800 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] hover:bg-sky-200"
                 >
-                  Khôi phục phiên (tiếp tục chơi)
+                  ► Tiếp tục phiên
                 </Button>
               ) : null}
               {!isReturned && (onPauseSession || onResumePause) ? (
@@ -356,11 +375,12 @@ export function ActiveSessionsTab({
                       ? onResumePause?.(ses.id)
                       : onPauseSession?.(ses.id)
                   }
-                  className={`col-span-2 min-h-11 gap-2 rounded-lg font-semibold ${
+                  className={cn(
+                    "col-span-2 min-h-11 gap-2 border-2 font-bold uppercase tracking-wider shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)]",
                     isPaused
-                      ? "border-sky-300 bg-sky-50 text-sky-800"
-                      : "border-amber-300 bg-amber-50 text-amber-900"
-                  }`}
+                      ? "border-sky-400 bg-sky-100 text-sky-800"
+                      : "border-amber-400 bg-amber-100 text-amber-900",
+                  )}
                 >
                   {isPaused ? (
                     <Play className="size-4 shrink-0" />
@@ -369,8 +389,8 @@ export function ActiveSessionsTab({
                   )}
                   <span>
                     {isPaused
-                      ? "Tiếp tục giờ chơi"
-                      : "Tạm dừng giờ chơi"}
+                      ? "► Chạy tiếp đồng hồ"
+                      : "⏸ Tạm dừng đồng hồ"}
                   </span>
                 </Button>
               ) : null}
@@ -390,13 +410,14 @@ export function ActiveSessionsTab({
                     ? "Đã trả bàn"
                     : "Trả bàn — kết thúc giờ chơi, chuyển sang kiểm kê. Chưa thu tiền, bàn chưa trống."
                 }
-                className={`min-h-11 gap-2 rounded-lg font-semibold shadow-none disabled:opacity-100 ${
+                className={cn(
+                  "min-h-11 gap-2 border-2 font-bold uppercase tracking-wider shadow-none disabled:opacity-100",
                   isReturned
-                    ? "text-emerald-700 bg-emerald-50 hover:bg-emerald-50 hover:text-emerald-700"
+                    ? "border-emerald-400 bg-emerald-50 text-emerald-800"
                     : nextAction === "return"
-                      ? "bg-amber-500 text-white ring-2 ring-amber-200 ring-offset-2 hover:bg-amber-600 hover:text-white"
-                      : "text-neutral-500 hover:text-rose-700 hover:bg-rose-50"
-                }`}
+                      ? "border-amber-500 bg-gradient-to-b from-amber-500 to-amber-600 text-white shadow-[inset_0_-3px_0_rgba(0,0,0,0.2),0_0_12px_rgba(245,158,11,0.4)] ring-2 ring-amber-200 ring-offset-2 hover:from-amber-500 hover:to-amber-500"
+                      : "border-neutral-300 bg-white text-neutral-600 hover:border-rose-300 hover:text-rose-700 hover:bg-rose-50",
+                )}
               >
                 {isReturned ? (
                   <CheckCircle2 className="size-4 shrink-0" />
@@ -425,13 +446,14 @@ export function ActiveSessionsTab({
                   }
                   onOpenInventory(ses);
                 }}
-                className={`min-h-11 gap-2 rounded-lg font-semibold shadow-none ${
+                className={cn(
+                  "min-h-11 gap-2 border-2 font-bold uppercase tracking-wider shadow-none",
                   nextAction === "inventory"
-                    ? "bg-amber-500 text-white ring-2 ring-amber-200 ring-offset-2 hover:bg-amber-600 hover:text-white"
+                    ? "border-amber-500 bg-gradient-to-b from-amber-500 to-amber-600 text-white shadow-[inset_0_-3px_0_rgba(0,0,0,0.2),0_0_12px_rgba(245,158,11,0.4)] ring-2 ring-amber-200 ring-offset-2 hover:from-amber-500 hover:to-amber-500"
                     : isCheckDone
-                      ? "text-emerald-800 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
-                      : "border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
-                }`}
+                      ? "border-emerald-400 bg-emerald-100 text-emerald-800"
+                      : "border-neutral-300 bg-white text-neutral-600",
+                )}
               >
                 {isCheckDone ? (
                   <CheckCircle2 className="size-4 shrink-0" />
@@ -446,22 +468,21 @@ export function ActiveSessionsTab({
                 size="sm"
                 disabled={isPaidDone}
                 onClick={openPay}
-                className={`col-span-2 min-h-11 gap-2 rounded-lg font-semibold shadow-none ${
+                className={cn(
+                  "col-span-2 min-h-11 gap-2 border-2 font-bold uppercase tracking-wider shadow-none",
                   isPaidDone
-                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-50"
+                    ? "border-emerald-400 bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
                     : nextAction === "pay"
-                      ? "bg-emerald-600 text-white ring-2 ring-emerald-200 ring-offset-2 hover:bg-emerald-700"
-                      : "bg-neutral-100 text-neutral-400 hover:bg-neutral-100"
-                }`}
+                      ? "border-emerald-700 bg-gradient-to-b from-emerald-500 to-emerald-600 text-white shadow-[inset_0_-3px_0_rgba(0,0,0,0.2),0_0_12px_rgba(16,185,129,0.4)] ring-2 ring-emerald-200 ring-offset-2 hover:from-emerald-500 hover:to-emerald-500"
+                      : "border-neutral-300 bg-neutral-100 text-neutral-400 hover:bg-neutral-100",
+                )}
               >
                 {isPaidDone ? (
                   <CheckCircle2 className="size-4 shrink-0" />
                 ) : (
                   <CreditCard className="size-4 shrink-0" />
                 )}
-                <span>
-                  Thanh toán
-                </span>
+                <span>{isPaidDone ? "ĐÃ THANH TOÁN" : "THANH TOÁN NGAY"}</span>
                 {!isPaidDone && <ArrowRight className="size-4 shrink-0" />}
               </Button>
             </CardFooter>

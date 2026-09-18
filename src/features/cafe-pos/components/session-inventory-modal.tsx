@@ -1,9 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { ClipboardCheck, X } from "lucide-react";
+import { ClipboardCheck, X, Zap, RotateCcw, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import {
+  backdropCloseHandler,
+  useDismissOnBackdrop,
+} from "../lib/use-dismiss-on-backdrop";
 
 function gameCheckStatus(game: any) {
   return String(game?.checkStatus ?? game?.CheckStatus ?? "")
@@ -18,9 +22,9 @@ function isGameChecked(game: any) {
 
 function statusLabel(game: any) {
   const status = gameCheckStatus(game);
-  if (status === "verified") return "Đã kiểm kê · Đủ";
-  if (status === "missingcomponents") return "Đã kiểm kê · Thiếu";
-  return "Chưa kiểm kê";
+  if (status === "verified") return { text: "Đã kiểm kê · Đủ", color: "emerald" };
+  if (status === "missingcomponents") return { text: "Đã kiểm kê · Thiếu", color: "amber" };
+  return { text: "Chưa kiểm kê", color: "violet" };
 }
 
 function gameId(game: any) {
@@ -40,6 +44,8 @@ export function SessionInventoryModal({
   onOpenChecklist: (sessionGameId: string) => void;
   onResetComponentCheck: (sessionGameId: string) => Promise<unknown>;
 }) {
+  useDismissOnBackdrop(isOpen, onClose);
+
   if (!isOpen || !session) return null;
 
   const games = session.games || session.Games || [];
@@ -56,72 +62,108 @@ export function SessionInventoryModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 p-3 backdrop-blur-xs sm:p-4"
-      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/70 p-3 backdrop-blur-xs sm:p-4"
+      onClick={backdropCloseHandler(onClose)}
     >
       <div
-        className="flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl"
+        className="flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 shadow-[6px_6px_0_rgba(234,179,8,0.4)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 px-5 py-3">
-          <div>
-            <h3 className="flex items-center gap-2 text-base font-bold text-neutral-950">
-              <ClipboardCheck className="size-5 text-amber-600" />
-              Kiểm kê hộp game
-            </h3>
-            <p className="text-xs text-neutral-500">
-              {session.tableName || "Phiên"} · {games.length} hộp
-            </p>
+        {/* CRT scanlines + LED corners */}
+        <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_3px,rgba(255,255,255,0.05)_3px,rgba(255,255,255,0.05)_4px)]" />
+        <span className="pointer-events-none absolute -left-0.5 -top-0.5 size-2 animate-pulse rounded-full bg-amber-500 shadow-[0_0_10px_currentColor]" />
+        <span className="pointer-events-none absolute -right-0.5 -bottom-0.5 size-2 animate-pulse rounded-full bg-orange-500 shadow-[0_0_10px_currentColor] [animation-delay:0.4s]" />
+        <span className="pointer-events-none absolute -right-0.5 -top-0.5 size-1.5 animate-pulse rounded-full bg-yellow-400 shadow-[0_0_8px_currentColor]" />
+        <span className="pointer-events-none absolute -left-0.5 -bottom-0.5 size-1.5 animate-pulse rounded-full bg-violet-500 shadow-[0_0_8px_currentColor] [animation-delay:0.2s]" />
+
+        {/* HEADER */}
+        <div className="relative flex shrink-0 items-center justify-between border-b-2 border-amber-300/70 bg-gradient-to-r from-amber-100 via-yellow-100 to-orange-100 px-5 py-3">
+          <div className="flex items-center gap-3">
+            {/* Icon với glow */}
+            <div className="relative p-2.5 rounded-xl border-2 border-amber-400 bg-gradient-to-br from-amber-400 to-orange-500 shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_0_12px_rgba(234,179,8,0.5)]">
+              <ClipboardCheck className="size-5 text-white" />
+              <span className="absolute -right-1 -top-1 size-2 animate-pulse rounded-full bg-yellow-400 shadow-[0_0_8px_currentColor]" />
+            </div>
+            <div>
+              <h3 className="font-mono text-sm font-extrabold uppercase tracking-widest text-amber-950">
+                ► Kiểm kê hộp game
+              </h3>
+              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-700">
+                <span className="text-amber-400">▸</span> {session.tableName || "Phiên"} · {games.length} hộp
+              </p>
+            </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-neutral-400 hover:text-neutral-950"
+            className="rounded-xl border-2 border-amber-300 bg-white p-1.5 font-mono text-amber-500 shadow-[2px_2px_0_rgba(234,179,8,0.3)] transition-all hover:border-amber-500 hover:bg-amber-50"
             aria-label="Đóng"
           >
             <X className="size-5" />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-5 py-4">
+        {/* GAME LIST */}
+        <div className="relative min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3">
           {games.length === 0 ? (
-            <p className="py-8 text-center text-sm text-neutral-500">
-              Phiên chưa có hộp game.
-            </p>
+            <div className="flex flex-col items-center justify-center py-12">
+              <span className="size-16 rounded-full border-4 border-dashed border-amber-300 bg-amber-50 flex items-center justify-center mb-4 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)]">
+                <ClipboardCheck className="size-8 text-amber-400" />
+              </span>
+              <p className="font-mono text-sm font-extrabold uppercase tracking-widest text-amber-600">
+                ▸ Phiên chưa có hộp game.
+              </p>
+            </div>
           ) : (
             games.map((game: any) => {
               const id = gameId(game);
               const checked = isGameChecked(game);
+              const { text: statusText, color } = statusLabel(game);
               return (
                 <div
                   key={id || game.gameName}
-                  className="space-y-2 rounded-xl border border-neutral-200 p-3"
+                  className={[
+                    "relative overflow-hidden rounded-xl border-2 p-3 shadow-[2px_2px_0_rgba(0,0,0,0.15)] transition-all",
+                    checked
+                      ? "border-emerald-400 bg-gradient-to-br from-emerald-50 via-white to-teal-50 shadow-[2px_2px_0_rgba(16,185,129,0.3)]"
+                      : "border-amber-400 bg-gradient-to-br from-amber-50 via-white to-orange-50 shadow-[2px_2px_0_rgba(234,179,8,0.3)]",
+                  ].join(" ")}
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  {/* LED indicator */}
+                  <span className={[
+                    "pointer-events-none absolute right-3 top-3 size-1.5 animate-pulse rounded-full shadow-[0_0_6px_currentColor]",
+                    checked ? "bg-emerald-500" : "bg-amber-500",
+                  ].join(" ")} />
+
+                  <div className="flex items-start justify-between gap-2 pr-6">
                     <div className="min-w-0">
-                      <p className="truncate font-semibold text-neutral-950">
-                        {game.gameName || "Game"}
+                      <p className="truncate font-mono text-xs font-extrabold uppercase tracking-wide text-amber-950">
+                        ► {game.gameName || "Game"}
                       </p>
-                      <p className="truncate font-mono text-[11px] text-neutral-500">
-                        {game.boxBarcode || game.barcode || id}
+                      <p className="truncate font-mono text-[10px] font-bold uppercase tracking-widest text-amber-600">
+                        <span className="text-amber-400">#</span> {game.boxBarcode || game.barcode || id}
                       </p>
                     </div>
                     <span
-                      className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
-                        checked
-                          ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                          : "border border-amber-200 bg-amber-50 text-amber-800"
-                      }`}
+                      className={[
+                        "shrink-0 rounded-lg border-2 px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase tracking-widest shadow-[inset_0_-1px_0_rgba(0,0,0,0.1)]",
+                        color === "emerald"
+                          ? "border-emerald-400 bg-gradient-to-b from-emerald-400 to-emerald-600 text-white shadow-[0_0_8px_rgba(16,185,129,0.4),inset_0_-1px_0_rgba(0,0,0,0.2)]"
+                          : color === "amber"
+                          ? "border-amber-400 bg-gradient-to-b from-amber-400 to-orange-500 text-white shadow-[0_0_8px_rgba(234,179,8,0.4),inset_0_-1px_0_rgba(0,0,0,0.2)]"
+                          : "border-violet-400 bg-gradient-to-b from-violet-400 to-purple-600 text-white shadow-[0_0_8px_rgba(139,92,246,0.4),inset_0_-1px_0_rgba(0,0,0,0.2)]",
+                      ].join(" ")}
                     >
-                      {statusLabel(game)}
+                      {color === "emerald" && <CheckCircle2 className="inline w-3 h-3 mr-0.5" />}
+                      {color === "amber" && <AlertTriangle className="inline w-3 h-3 mr-0.5" />}
+                      {statusText}
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+
+                  <div className="mt-2.5 flex flex-wrap gap-2">
                     {!checked ? (
-                      <Button
+                      <button
                         type="button"
-                        size="sm"
-                        className="h-8 bg-amber-500 text-xs font-semibold text-white hover:bg-amber-600"
                         onClick={() => {
                           if (!canCheck) {
                             toast.error("Trả bàn trước khi kiểm kê.");
@@ -133,15 +175,14 @@ export function SessionInventoryModal({
                           }
                           onOpenChecklist(id);
                         }}
+                        className="inline-flex h-8 items-center gap-1 rounded-lg border-2 border-amber-600 bg-gradient-to-b from-amber-500 to-orange-600 px-3 font-mono text-[11px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.25),2px_2px_0_rgba(0,0,0,0.15)] transition-all hover:from-amber-400 hover:to-orange-500"
                       >
+                        <Zap className="w-3.5 h-3.5 text-yellow-300" />
                         Kiểm kê
-                      </Button>
+                      </button>
                     ) : (
-                      <Button
+                      <button
                         type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-8 text-xs font-semibold"
                         onClick={() => {
                           if (!id) return;
                           void (async () => {
@@ -150,9 +191,11 @@ export function SessionInventoryModal({
                             onOpenChecklist(id);
                           })();
                         }}
+                        className="inline-flex h-8 items-center gap-1 rounded-lg border-2 border-violet-400 bg-gradient-to-b from-violet-400 to-purple-600 px-3 font-mono text-[11px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.25),2px_2px_0_rgba(139,92,246,0.35)] transition-all hover:from-violet-300 hover:to-purple-500"
                       >
+                        <RotateCcw className="w-3.5 h-3.5" />
                         Kiểm kê lại
-                      </Button>
+                      </button>
                     )}
                   </div>
                 </div>

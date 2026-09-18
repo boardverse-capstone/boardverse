@@ -24,6 +24,10 @@ import {
   Receipt,
   Dices,
 } from "lucide-react";
+import {
+  backdropCloseHandler,
+  useDismissOnBackdrop,
+} from "../lib/use-dismiss-on-backdrop";
 
 function beHttpUrl(...candidates: unknown[]): string | null {
   for (const value of candidates) {
@@ -362,6 +366,12 @@ export function SessionDetailModal({
     };
   }, [isOpen, sessionId, cafeId]);
 
+  // Click ra ngoài backdrop hoặc nhấn Escape để đóng
+  useDismissOnBackdrop(isOpen, () => {
+    if (addingGuest) return;
+    onClose();
+  }, { busy: addingGuest });
+
   if (!isOpen || !sessionId) return null;
 
   const members = detail?.members || detail?.Members || [];
@@ -404,22 +414,36 @@ export function SessionDetailModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 p-3 backdrop-blur-xs sm:p-4"
-      onClick={onClose}
+      onClick={backdropCloseHandler(
+        () => {
+          if (addingGuest) return;
+          onClose();
+        },
+        addingGuest,
+      )}
     >
       <div
-        className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl"
+        className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-emerald-200/60 bg-white shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 px-5 py-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="rounded-lg border border-neutral-200 bg-neutral-100 p-2 text-neutral-800">
+        <div className="relative flex shrink-0 items-center justify-between overflow-hidden border-b border-emerald-200/60 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 px-5 py-3 text-white">
+          <div className="pointer-events-none absolute -top-10 -right-10 size-32 rounded-full bg-white/15 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-8 left-1/3 size-24 rounded-full bg-yellow-300/20 blur-2xl" />
+          <div className="relative flex min-w-0 items-center gap-3">
+            <div className="rounded-xl border border-white/30 bg-white/20 p-2 text-white shadow-lg backdrop-blur-sm">
               <Info className="size-4" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-base font-bold text-neutral-950">
-                Chi Tiết Phiên Chơi POS
-              </h3>
-              <p className="truncate font-mono text-[11px] text-neutral-500">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-extrabold tracking-tight text-white drop-shadow-sm">
+                  Chi Tiết Phiên Chơi POS
+                </h3>
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/30 bg-white/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm">
+                  <span className="size-1.5 animate-pulse rounded-full bg-yellow-300" />
+                  Live
+                </span>
+              </div>
+              <p className="truncate font-mono text-[11px] font-medium text-white/80">
                 ID: {sessionId}
               </p>
             </div>
@@ -427,7 +451,7 @@ export function SessionDetailModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-neutral-400 hover:text-neutral-950"
+            className="relative rounded-lg p-1.5 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
             aria-label="Đóng"
           >
             <X className="size-5" />
@@ -440,41 +464,45 @@ export function SessionDetailModal({
           </div>
         ) : detail ? (
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-5 py-4">
-            {/* Meta — một hàng ngang */}
-            <div className="grid shrink-0 grid-cols-2 gap-2 rounded-xl border border-neutral-200/80 bg-neutral-50 p-3 text-xs sm:grid-cols-3 lg:grid-cols-5">
-              <div>
-                <span className="text-[10px] font-bold uppercase text-neutral-400">
+            {/* Meta — một hàng ngang, mỗi ô một màu */}
+            <div className="grid shrink-0 grid-cols-2 gap-2 lg:grid-cols-5">
+              <div className="rounded-xl border border-blue-200/80 bg-gradient-to-br from-blue-50 to-blue-100/70 p-3 shadow-xs">
+                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-700">
+                  <Boxes className="size-3" />
                   Vị trí bàn
                 </span>
-                <div className="text-sm font-extrabold text-neutral-950">
+                <div className="mt-0.5 text-sm font-extrabold text-blue-950">
                   {detail.tableName || detail.tableLabel}
                 </div>
               </div>
-              <div>
-                <span className="text-[10px] font-bold uppercase text-neutral-400">
+              <div className="rounded-xl border border-purple-200/80 bg-gradient-to-br from-purple-50 to-fuchsia-100/70 p-3 shadow-xs">
+                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-purple-700">
+                  <User className="size-3" />
                   Người phụ trách
                 </span>
-                <div className="truncate font-semibold text-neutral-800">
+                <div className="mt-0.5 truncate font-semibold text-purple-950">
                   {detail.hostName || "—"}
                 </div>
               </div>
-              <div>
-                <span className="text-[10px] font-bold uppercase text-neutral-400">
+              <div className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 to-orange-100/70 p-3 shadow-xs">
+                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                  <Timer className="size-3" />
                   Thời gian đã chơi
                 </span>
-                <div className="flex items-center gap-1 font-mono font-bold text-amber-700">
-                  <Timer className="size-3.5" />
+                <div className="mt-0.5 flex items-center gap-1 font-mono text-sm font-extrabold text-amber-900">
+                  <Timer className="size-3.5 text-amber-600" />
                   {Number(
                     detail.elapsedMinutes ?? detail.ElapsedMinutes ?? 0,
                   )}{" "}
                   phút
                 </div>
               </div>
-              <div>
-                <span className="text-[10px] font-bold uppercase text-neutral-400">
+              <div className="rounded-xl border border-pink-200/80 bg-gradient-to-br from-pink-50 to-rose-100/70 p-3 shadow-xs">
+                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-pink-700">
+                  <Users className="size-3" />
                   Số người
                 </span>
-                <div className="font-semibold text-neutral-800">
+                <div className="mt-0.5 font-semibold text-pink-950">
                   {(() => {
                     const present = readPresentCount(detail);
                     const range = mergePlayerRange(
@@ -490,11 +518,12 @@ export function SessionDetailModal({
                   })()}
                 </div>
               </div>
-              <div className="col-span-2 sm:col-span-1">
-                <span className="text-[10px] font-bold uppercase text-neutral-400">
-                  Thời điểm bắt đầu
+              <div className="col-span-2 rounded-xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 to-teal-100/70 p-3 shadow-xs sm:col-span-1">
+                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                  <Timer className="size-3" />
+                  Bắt đầu
                 </span>
-                <div className="font-mono font-semibold text-neutral-900">
+                <div className="mt-0.5 font-mono text-sm font-bold text-emerald-950">
                   {detail.startedAt
                     ? new Date(detail.startedAt).toLocaleString("vi-VN", {
                         hour: "2-digit",
@@ -512,13 +541,12 @@ export function SessionDetailModal({
             <div className="grid min-h-0 flex-1 gap-4 overflow-hidden lg:grid-cols-12">
               <div className="flex min-h-0 flex-col gap-3 overflow-y-auto lg:col-span-5">
                 <div className="space-y-2">
-                  <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-neutral-900">
-                    <Boxes className="size-4 text-neutral-600" /> Hộp Game (
-                    {detail.games?.length || 0})
+                  <h4 className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-100 to-teal-100 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-emerald-800">
+                    <Boxes className="size-4 text-emerald-600" /> Hộp Game ({detail.games?.length || 0})
                   </h4>
 
                   {(detail.games?.length || 0) === 0 ? (
-                    <div className="rounded-xl border border-dashed border-neutral-200 p-3 text-center text-xs text-neutral-400">
+                    <div className="rounded-xl border border-dashed border-emerald-200 bg-emerald-50/50 p-3 text-center text-xs font-medium text-emerald-700/70">
                       Chưa gán hộp game vật lý nào cho bàn này.
                     </div>
                   ) : (
@@ -550,23 +578,23 @@ export function SessionDetailModal({
                         return (
                           <div
                             key={g.id || g.sessionGameId}
-                            className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3 shadow-2xs"
+                            className="group flex items-center gap-3 rounded-xl border border-emerald-200/70 bg-gradient-to-r from-white via-emerald-50/40 to-teal-50/40 p-3 shadow-xs transition-all hover:border-emerald-400 hover:shadow-md"
                           >
-                            <div className="size-12 shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100">
+                            <div className="size-12 shrink-0 overflow-hidden rounded-lg border-2 border-emerald-200 bg-gradient-to-br from-emerald-100 to-teal-100 shadow-inner">
                               {imageUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
                                   src={imageUrl}
                                   alt={g.gameName || "Game"}
-                                  className="size-full object-cover"
+                                  className="size-full object-cover transition-transform group-hover:scale-110"
                                 />
                               ) : (
-                                <div className="flex size-full items-center justify-center text-neutral-400">
+                                <div className="flex size-full items-center justify-center text-emerald-500">
                                   <Dices className="size-5" />
                                 </div>
                               )}
                             </div>
-                            <div className="min-w-0 truncate text-xs font-bold text-neutral-950">
+                            <div className="min-w-0 truncate text-xs font-bold text-emerald-950">
                               {g.gameName}
                             </div>
                           </div>
@@ -577,22 +605,31 @@ export function SessionDetailModal({
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-neutral-900">
-                    <Users className="size-4 text-neutral-600" /> Khách (
-                    {guests.length || 0})
+                  <h4 className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-pink-100 to-rose-100 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-pink-800">
+                    <Users className="size-4 text-pink-600" /> Khách ({guests.length || 0})
                   </h4>
                   <div className="flex flex-wrap gap-1.5">
-                    {guests.map((m: any) => (
-                      <span
-                        key={m.id || m.userId}
-                        className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-100 px-2 py-1 text-[11px] font-semibold text-neutral-800"
-                      >
-                        <User className="size-3 text-neutral-400" />
-                        {m.userName || m.displayName || m.id}
-                      </span>
-                    ))}
+                    {guests.map((m: any, idx: number) => {
+                      const palette = [
+                        "border-pink-200 bg-pink-50 text-pink-800",
+                        "border-purple-200 bg-purple-50 text-purple-800",
+                        "border-blue-200 bg-blue-50 text-blue-800",
+                        "border-amber-200 bg-amber-50 text-amber-800",
+                        "border-teal-200 bg-teal-50 text-teal-800",
+                      ];
+                      const tone = palette[idx % palette.length];
+                      return (
+                        <span
+                          key={m.id || m.userId}
+                          className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold shadow-xs ${tone}`}
+                        >
+                          <User className="size-3 opacity-60" />
+                          {m.userName || m.displayName || m.id}
+                        </span>
+                      );
+                    })}
                     {guests.length === 0 && (
-                      <span className="text-[11px] text-neutral-400">
+                      <span className="rounded-lg border border-dashed border-pink-200 bg-pink-50/40 px-3 py-2 text-[11px] font-medium text-pink-600/70">
                         Chưa có thành viên / khách vãng lai.
                       </span>
                     )}
@@ -604,7 +641,7 @@ export function SessionDetailModal({
                         value={guestName}
                         onChange={(e) => setGuestName(e.target.value)}
                         placeholder="Tên khách vãng lai..."
-                        className="h-8 border-neutral-200 text-xs"
+                        className="h-8 border-pink-200 bg-white text-xs focus-visible:border-pink-400 focus-visible:ring-pink-200"
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
@@ -617,7 +654,7 @@ export function SessionDetailModal({
                         size="sm"
                         disabled={addingGuest || !guestName.trim()}
                         onClick={() => void handleAddGuest()}
-                        className="h-8 shrink-0 bg-neutral-950 px-2.5 text-[10px] font-bold uppercase text-white"
+                        className="h-8 shrink-0 bg-gradient-to-r from-pink-500 to-rose-500 px-3 text-[10px] font-bold uppercase text-white shadow-sm hover:from-pink-600 hover:to-rose-600"
                       >
                         <UserPlus className="mr-1 size-3" />
                         {addingGuest ? "..." : "Thêm"}
@@ -626,16 +663,17 @@ export function SessionDetailModal({
                   )}
                 </div>
 
-                <div className="space-y-2 rounded-xl border border-neutral-200 bg-neutral-50/60 p-3">
-                  <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-neutral-900">
-                    <Receipt className="size-4 text-neutral-600" />
+                <div className="relative overflow-hidden rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 p-3 shadow-xs">
+                  <div className="pointer-events-none absolute -top-6 -right-6 size-20 rounded-full bg-yellow-300/30 blur-2xl" />
+                  <h4 className="relative flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-800">
+                    <Receipt className="size-4 text-amber-600" />
                     Hóa đơn
                   </h4>
-                  <p className="text-[11px] leading-relaxed text-neutral-600">
-                    Receipt chỉ có khi phiên đã <strong>Paid</strong>. Sau thanh
+                  <p className="relative mt-1 text-[11px] leading-relaxed text-amber-900/80">
+                    Receipt chỉ có khi phiên đã <strong className="text-amber-950">thanh toán</strong>. Sau thanh
                     toán phiên biến mất khỏi tab phiên — vào tab{" "}
-                    <strong>Giải ngân</strong> → mục phiên đã thanh toán →{" "}
-                    <strong>Hóa đơn</strong>.
+                    <strong className="text-amber-950">Giải ngân</strong> → mục phiên đã thanh toán →{" "}
+                    <strong className="text-amber-950">Hóa đơn</strong>.
                   </p>
                 </div>
               </div>
@@ -684,12 +722,14 @@ export function SessionDetailModal({
           </div>
         )}
 
-        <div className="flex shrink-0 justify-end border-t border-neutral-100 px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between border-t border-emerald-100 bg-gradient-to-r from-emerald-50/60 via-teal-50/60 to-cyan-50/60 px-5 py-3">
+          <p className="text-[10px] font-medium tracking-wider text-emerald-700/70 uppercase">
+            💡 Tip: Tắt modal không thoát phiên — quay lại tab Phiên là thấy ngay.
+          </p>
           <Button
             type="button"
-            variant="outline"
             onClick={onClose}
-            className="h-9 rounded-lg border-neutral-200 px-4 text-xs"
+            className="h-9 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 px-5 text-xs font-bold text-white shadow-sm hover:from-emerald-600 hover:to-teal-600"
           >
             Đóng
           </Button>

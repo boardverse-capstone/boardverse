@@ -89,19 +89,36 @@ export function InventoryWorkspace() {
       />
 
       <Tabs value={activeTab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="titles">Tựa game</TabsTrigger>
-          <TabsTrigger value="boxes">Hộp vật lý</TabsTrigger>
+        <TabsList className="relative inline-flex h-12 w-fit items-center justify-center gap-1 rounded-lg border-2 border-violet-500 bg-gradient-to-r from-violet-700 via-purple-700 to-fuchsia-700 p-1 shadow-[3px_3px_0_rgba(139,92,246,0.4)]">
+          {/* CRT scanlines */}
+          <div className="pointer-events-none absolute inset-0 rounded-lg bg-[repeating-linear-gradient(0deg,transparent_0,transparent_2px,rgba(255,255,255,0.05)_2px,rgba(255,255,255,0.05)_4px)]" />
+          {/* LED góc */}
+          <span className="pointer-events-none absolute -left-1 -top-1 size-2 animate-pulse rounded-full bg-yellow-300 shadow-[0_0_6px_currentColor]" />
+          <span className="pointer-events-none absolute -right-1 -bottom-1 size-2 animate-pulse rounded-full bg-cyan-300 shadow-[0_0_6px_currentColor] [animation-delay:0.3s]" />
+          <TabsTrigger
+            value="titles"
+            className="relative inline-flex h-9 items-center justify-center gap-1.5 rounded-md font-mono text-xs font-extrabold uppercase tracking-widest text-white/70 transition-all hover:bg-white/10 hover:text-white data-[state=active]:border-2 data-[state=active]:border-yellow-300 data-[state=active]:bg-gradient-to-b data-[state=active]:from-violet-500 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_rgba(0,0,0,0.3),0_0_10px_rgba(250,204,21,0.5)]"
+          >
+            ► Tựa Game
+          </TabsTrigger>
+          <TabsTrigger
+            value="boxes"
+            className="relative inline-flex h-9 items-center justify-center gap-1.5 rounded-md font-mono text-xs font-extrabold uppercase tracking-widest text-white/70 transition-all hover:bg-white/10 hover:text-white data-[state=active]:border-2 data-[state=active]:border-yellow-300 data-[state=active]:bg-gradient-to-b data-[state=active]:from-fuchsia-500 data-[state=active]:to-pink-600 data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_rgba(0,0,0,0.3),0_0_10px_rgba(250,204,21,0.5)]"
+          >
+            ► Hộp Vật Lý
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="titles" className="mt-4 space-y-4">
-          <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
+          <div className="relative flex flex-col gap-3 overflow-hidden rounded-lg border-2 border-violet-400 bg-gradient-to-r from-violet-100/60 via-white to-purple-100/60 p-3 shadow-[2px_2px_0_rgba(139,92,246,0.3)] md:flex-row md:flex-wrap md:items-end">
+            <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_3px,rgba(255,255,255,0.05)_3px,rgba(255,255,255,0.05)_4px)]" />
+            <span className="pointer-events-none absolute right-2 top-2 size-1.5 animate-pulse rounded-full bg-violet-500 shadow-[0_0_6px_currentColor]" />
             <Input
-              placeholder="Tìm theo tên game hoặc barcode..."
+              placeholder="▸ Tìm theo tên game hoặc barcode..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="min-w-0 flex-1 md:max-w-sm"
+              className="min-w-0 flex-1 border-2 border-violet-300 bg-white font-mono text-xs font-bold focus-visible:border-violet-500 focus-visible:ring-violet-300 md:max-w-sm"
             />
             <Select
               value={status}
@@ -110,12 +127,12 @@ export function InventoryWorkspace() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-full md:w-[180px]">
+              <SelectTrigger className="w-full border-2 border-violet-300 bg-white font-mono text-xs font-bold md:w-[180px]">
                 <SelectValue placeholder="Trạng thái" />
               </SelectTrigger>
               <SelectContent>
                 {INVENTORY_STATUS_FILTERS.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
+                  <SelectItem key={item.value} value={item.value} className="font-mono text-xs font-bold">
                     {item.label}
                   </SelectItem>
                 ))}
@@ -123,16 +140,16 @@ export function InventoryWorkspace() {
             </Select>
             <button
               type="button"
-              className="inline-flex h-9 items-center justify-center rounded-md border px-4 text-sm font-medium hover:bg-muted"
+              className="group inline-flex h-9 items-center justify-center gap-1.5 rounded-md border-2 border-violet-700 bg-gradient-to-b from-violet-500 to-violet-600 px-4 font-mono text-xs font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_2px_0_rgba(0,0,0,0.15)] hover:from-violet-500 hover:to-violet-500"
               onClick={handleSearch}
             >
-              Tìm kiếm
+              <span className="text-yellow-300">►</span> Tìm Kiếm
             </button>
           </div>
 
           {isError ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-              Không thể tải kho game.{' '}
+            <div className="rounded-lg border-2 border-rose-400 bg-gradient-to-r from-rose-100 via-pink-50 to-fuchsia-100 p-4 font-mono text-xs font-bold text-rose-700 shadow-[2px_2px_0_rgba(244,63,94,0.4)]">
+              <span className="mr-2">⚠</span> Không thể tải kho game.{' '}
               <button type="button" className="underline" onClick={() => refetch()}>
                 Thử lại
               </button>

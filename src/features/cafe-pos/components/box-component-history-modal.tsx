@@ -11,6 +11,10 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  backdropCloseHandler,
+  useDismissOnBackdrop,
+} from "../lib/use-dismiss-on-backdrop";
 
 export interface BoxComponentHistoryModalProps {
   isOpen: boolean;
@@ -25,11 +29,20 @@ export function BoxComponentHistoryModal({
   historyData,
   onConfirmProceed,
 }: BoxComponentHistoryModalProps) {
+  // Click ra ngoài backdrop hoặc nhấn Escape để đóng
+  useDismissOnBackdrop(isOpen, onClose);
+
   if (!isOpen || !historyData) return null;
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl animate-in fade-in-50 duration-150">
+    <div
+      className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+      onClick={backdropCloseHandler(onClose)}
+    >
+      <div
+        className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl animate-in fade-in-50 duration-150"
+        onClick={(event) => event.stopPropagation()}
+      >
         {/* HEADER MODAL */}
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
           <div className="flex items-center gap-2.5">

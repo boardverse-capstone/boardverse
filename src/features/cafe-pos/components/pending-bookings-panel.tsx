@@ -58,6 +58,11 @@ import {
   interactiveFrameClass,
 } from "../lib/interactive-frame";
 import { readPlayerRange } from "../lib/player-range";
+import {
+  arcadeCardClass,
+  hexChipClass,
+  statusOrbClass,
+} from "../lib/game-theme";
 import { cn } from "@/lib/utils";
 
 interface PendingBookingsPanelProps {
@@ -75,6 +80,15 @@ interface PendingBookingsPanelProps {
     gameTemplateId: string | null;
     gameName: string | null;
     imageUrl?: string | null;
+  }>;
+  /** Phiên live — dùng để phân biệt bàn InUse có session (Đang dùng) vs không session (Trống). */
+  sessions?: Array<{
+    id?: string;
+    cafeTableId?: string;
+    tableId?: string;
+    status?: string;
+    Status?: string;
+    sessionStatus?: string;
   }>;
   initialBookingCode?: string;
   /** stack = 2 card dọc (cũ); sidebar = tab trong cột trái POS. */
@@ -119,6 +133,8 @@ interface ReservedTable {
   name: string;
   status: string;
   seatCount: number | null;
+  /** true = đang có phiên live → hiện "Đang dùng"; false = trống thực sự → hiện "Trống". */
+  hasSession: boolean;
 }
 
 // Tạm bật để QA có thể gửi request check-in với mọi trạng thái reservation.
@@ -364,10 +380,14 @@ function formatBoxStatusLabel(status?: string | null) {
   }
 }
 
-function formatTableStatusLabel(status?: string | null) {
-  switch (String(status ?? "")
+function formatTableStatusLabel(status?: string | null, hasSession?: boolean) {
+  const st = String(status ?? "")
     .toLowerCase()
-    .replace(/[_\s-]/g, "")) {
+    .replace(/[_\s-]/g, "");
+  // Nếu bàn InUse nhưng KHÔNG có session → hiện "Trống" thay vì "Đang dùng"
+  // để tránh nhầm lẫn với bàn thực sự đang chơi.
+  if (hasSession === false && st === "inuse") return "Trống";
+  switch (st) {
     case "available":
       return "Trống";
     case "occupied":
@@ -377,6 +397,32 @@ function formatTableStatusLabel(status?: string | null) {
       return "Đã giữ";
     default:
       return status?.trim() || "";
+  }
+}
+
+/** Trả về label + Tailwind color class cho badge trạng thái bàn. */
+function getTableStatusMeta(status?: string | null, hasSession?: boolean): {
+  label: string;
+  badgeClass: string;
+} {
+  const st = String(status ?? "")
+    .toLowerCase()
+    .replace(/[_\s-]/g, "");
+
+  if (hasSession === false && st === "inuse") {
+    return { label: "Trống", badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-200" };
+  }
+
+  switch (st) {
+    case "available":
+      return { label: "Trống", badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-200" };
+    case "occupied":
+    case "inuse":
+      return { label: "Đang dùng", badgeClass: "bg-amber-100 text-amber-800 border-amber-200" };
+    case "reserved":
+      return { label: "Đã giữ", badgeClass: "bg-blue-100 text-blue-800 border-blue-200" };
+    default:
+      return { label: status?.trim() || "", badgeClass: "bg-neutral-100 text-neutral-700 border-neutral-200" };
   }
 }
 
@@ -457,6 +503,7 @@ function parseTables(raw: unknown): ReservedTable[] {
         name: String(r.name ?? r.Name ?? "Bàn"),
         status: String(r.status ?? r.Status ?? ""),
         seatCount: readPlayerRange(r).max,
+        hasSession: Boolean(r.hasSession ?? r.HasSession ?? false),
       };
     })
     .filter((t) => t.id);
@@ -466,6 +513,7 @@ export function PendingBookingsPanel({
   cafeId,
   tables = [],
   boxes = [],
+  sessions = [],
   initialBookingCode = "",
   layout = "stack",
   onOpenTables,
@@ -501,6 +549,7 @@ export function PendingBookingsPanel({
   const [loading, setLoading] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [tableDropdownOpen, setTableDropdownOpen] = useState(false);
   const [creatingQr, setCreatingQr] = useState(false);
   const [checkInToken, setCheckInToken] = useState<PosCheckInTokenDto | null>(
     null,
@@ -520,17 +569,50 @@ export function PendingBookingsPanel({
     const fromProp = tables
       .filter((t) => {
         const st = String(t.status || "").toLowerCase();
-        return t.id && (st === "available" || st === "reserved" || !st);
+        // InUse mà chưa có phiên live vẫn là bàn trống (chưa mở phiên) — match
+        // với logic header badge "Trống X/Y" và sơ đồ bàn để tránh đếm thiếu.
+        const isOpenStatus =
+          st === "available" ||
+          st === "reserved" ||
+          st === "inuse" ||
+          !st;
+        return t.id && isOpenStatus;
       })
-      .map((t) => ({
-        id: String(t.id),
-        name: String(t.name ?? "Bàn"),
-        status: String(t.status ?? ""),
-        seatCount: readPlayerRange(t).max,
-      }));
+      .map((t) => {
+        const tableId = String(t.id ?? "");
+        const hasSession = sessions.some((s) => {
+          const sid = s.cafeTableId || s.tableId;
+          if (sid !== tableId) return false;
+          const st = String(s.status ?? s.Status ?? s.sessionStatus ?? "")
+            .toLowerCase()
+            .replace(/[_\s-]/g, "");
+          return (
+            st === "active" ||
+            st === "playing" ||
+            st === "checking" ||
+            st === "unpaid"
+          );
+        });
+        return {
+          id: String(t.id),
+          name: String(t.name ?? "Bàn"),
+          status: String(t.status ?? ""),
+          seatCount: readPlayerRange(t).max,
+          hasSession,
+        };
+      });
     if (fromProp.length > 0) return fromProp;
-    return reserved;
+    // Fallback: khi dùng reserved (từ BE cũ), coi như chưa có session info.
+    return reserved.map((t) => ({ ...t, hasSession: false }));
   }, [tables, reserved]);
+
+  // Bàn trống thật sự để hiển thị trong dropdown "Bàn phục vụ".
+  // Bàn có session active (đang dùng thực sự) bị loại — staff không cần chọn
+  // bàn đang có người chơi để nhận đơn mới.
+  const availableForCheckIn = useMemo(
+    () => assignableTables.filter((t) => !t.hasSession),
+    [assignableTables],
+  );
 
   const selectedReservation = useMemo(
     () =>
@@ -625,11 +707,21 @@ export function PendingBookingsPanel({
     setCheckInToken(null);
   };
 
+  const previewRef = useRef(preview);
+  useEffect(() => {
+    previewRef.current = preview;
+  }, [preview]);
+
   useEffect(() => {
     // Initial fetch and polling intentionally synchronize remote POS state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-    const id = window.setInterval(() => void load(), 60_000);
+    // 15s polling: khách đặt bàn online cần hiện ngay — 60s quá chậm.
+    // Tạm dừng khi đang mở dialog check-in để tránh reload đè state nhập liệu.
+    const id = window.setInterval(() => {
+      if (previewRef.current) return;
+      void load();
+    }, 15_000);
     return () => window.clearInterval(id);
   }, [load]);
 
@@ -939,6 +1031,7 @@ export function PendingBookingsPanel({
     setCheckedBox(null);
     setBarcode("");
     setTableId("");
+    setTableDropdownOpen(false);
     window.requestAnimationFrame(() => searchInputRef.current?.focus());
   };
 
@@ -1040,15 +1133,15 @@ export function PendingBookingsPanel({
       )}
     >
       {isSidebar ? (
-        <div className="flex w-fit max-w-full shrink-0 gap-1 rounded-xl border border-neutral-200 bg-neutral-100/80 p-1">
+        <div className="flex w-fit max-w-full shrink-0 gap-1 rounded-lg border-2 border-neutral-300 bg-neutral-200/80 p-1 shadow-[2px_2px_0_rgba(0,0,0,0.08)]">
           <button
             type="button"
             onClick={() => setReceptionTab("bookings")}
             className={cn(
-              "flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors",
+              "flex h-9 items-center justify-center gap-1.5 rounded-md border-2 px-3 font-mono text-xs font-bold uppercase tracking-wider transition-all",
               receptionTab === "bookings"
-                ? "bg-white text-neutral-950 shadow-sm"
-                : "text-neutral-600 hover:text-neutral-900",
+                ? "border-pink-500 bg-white text-pink-700 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1)]"
+                : "border-transparent text-neutral-600 hover:bg-white/60 hover:text-neutral-900",
             )}
           >
             <CalendarClock className="size-3.5" />
@@ -1063,14 +1156,14 @@ export function PendingBookingsPanel({
               type="button"
               onClick={() => setReceptionTab("walkin")}
               className={cn(
-                "flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors",
+                "flex h-9 items-center justify-center gap-1.5 rounded-md border-2 px-3 font-mono text-xs font-bold uppercase tracking-wider transition-all",
                 receptionTab === "walkin"
-                  ? "bg-white text-emerald-900 shadow-sm"
-                  : "text-neutral-600 hover:text-neutral-900",
+                  ? "border-emerald-500 bg-white text-emerald-700 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1)]"
+                  : "border-transparent text-neutral-600 hover:bg-white/60 hover:text-neutral-900",
               )}
             >
               <DoorOpen className="size-3.5" />
-              Vãng lai ({openWindows.length})
+              Khách vãng lai ({openWindows.length})
             </button>
           ) : null}
         </div>
@@ -1087,19 +1180,20 @@ export function PendingBookingsPanel({
         tabIndex={0}
         onPointerDown={focusFrameOnPointerDown}
         className={cn(
+          arcadeCardClass,
           interactiveFrameClass,
           isSidebar && "flex h-full min-h-0 flex-col gap-0 py-0",
         )}
       >
-        <CardHeader className={cn("border-b", isSidebar && "py-3")}>
-          <div>
-            <CardTitle className="flex items-center gap-2 text-lg font-bold text-neutral-950">
+        <CardHeader className={cn("border-b-2 border-current/10", isSidebar && "py-3")}>
+          <div className="relative">
+            <CardTitle className="flex items-center gap-2 font-mono text-base font-extrabold uppercase tracking-tight text-neutral-950">
               <CalendarClock className="size-4 text-neutral-800" />
-              {isSidebar ? "Đặt chỗ trước" : "Tiếp nhận khách đặt chỗ"}
+              {isSidebar ? "Hàng đợi đặt chỗ" : "Nhận bàn theo đặt chỗ"}
             </CardTitle>
             {!isSidebar ? (
-              <p className="mt-1 text-sm font-medium text-neutral-700">
-                Quét QR hoặc tìm đơn theo ngày để nhận bàn.
+              <p className="mt-1 font-mono text-[11px] font-medium uppercase tracking-wide text-neutral-600">
+                ▸ Quét QR hoặc tìm đơn theo ngày để nhận bàn.
               </p>
             ) : null}
           </div>
@@ -1109,7 +1203,7 @@ export function PendingBookingsPanel({
               variant="outline"
               onClick={() => void load()}
               disabled={loading}
-              className="min-h-10 gap-2"
+              className="min-h-10 gap-2 border-2 font-mono text-xs font-bold uppercase tracking-wider shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] transition-all hover:translate-y-[-1px]"
               aria-label="Làm mới danh sách đặt chỗ"
             >
               <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
@@ -1292,11 +1386,12 @@ export function PendingBookingsPanel({
                         handleSelectReservation(item);
                       }
                     }}
-                    className={`rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 ${
+                    className={cn(
+                      "rounded-md border-2 p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
                       selected
-                        ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-200"
-                        : "border-neutral-200 bg-white hover:border-neutral-400"
-                    }`}
+                        ? "border-emerald-500 bg-emerald-50 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08),0_0_10px_rgba(16,185,129,0.3)]"
+                        : "border-neutral-300 bg-white hover:border-neutral-400 hover:shadow-[2px_2px_0_rgba(0,0,0,0.08)]",
+                    )}
                   >
                     <div className="flex items-start gap-2.5">
                       <GameCoverThumb
@@ -1307,25 +1402,28 @@ export function PendingBookingsPanel({
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="min-w-0 truncate text-base font-bold text-neutral-950">
+                          <p className="min-w-0 truncate text-base font-extrabold text-neutral-950">
                             {item.gameName}
                           </p>
                           <Badge
                             variant="outline"
-                            className={`shrink-0 ${reservationStatusBadgeClass(item.status)}`}
+                            className={cn(
+                              "shrink-0 border-2 px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase tracking-widest shadow-[inset_0_-1px_0_rgba(0,0,0,0.06)]",
+                              reservationStatusBadgeClass(item.status),
+                            )}
                           >
                             {formatReservationStatusLabel(item.status)}
                           </Badge>
                         </div>
-                        <p className="mt-1.5 font-mono text-sm font-bold tracking-wide text-neutral-900">
-                          {item.reservationCode || "—"}
+                        <p className="mt-1.5 font-mono text-sm font-bold uppercase tracking-widest text-neutral-900">
+                          ▸ {item.reservationCode || "—"}
                         </p>
                         <p className="mt-1 text-xs font-medium text-neutral-700">
-                          {item.currentPlayers}/{item.maxPlayers} khách
+                          {item.currentPlayers}/{item.maxPlayers} PPL
                           {item.tableNumber ? ` · Bàn ${item.tableNumber}` : ""}
                           {item.timeSlot ? ` · ${item.timeSlot}` : ""}
                         </p>
-                        <p className="mt-1 text-xs font-semibold text-neutral-800">
+                        <p className="mt-1 font-mono text-[11px] font-bold uppercase text-neutral-800">
                           {formatReservationTimeRange(
                             item.scheduledStartTime,
                             item.scheduledEndTime,
@@ -1347,14 +1445,15 @@ export function PendingBookingsPanel({
                             e.stopPropagation();
                             handleSelectReservation(item);
                           }}
-                          className={`h-9 w-full font-bold ${
+                          className={cn(
+                            "h-9 w-full border-2 font-mono text-xs font-bold uppercase tracking-wider shadow-[inset_0_-2px_0_rgba(0,0,0,0.1)]",
                             canCheckIn
-                              ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                              : "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"
-                          }`}
+                              ? "border-emerald-700 bg-gradient-to-b from-emerald-500 to-emerald-600 text-white hover:from-emerald-500 hover:to-emerald-500"
+                              : "border-amber-400 bg-amber-100 text-amber-900 hover:bg-amber-200",
+                          )}
                           variant={canCheckIn ? "default" : "outline"}
                         >
-                          {canCheckIn ? "Nhận bàn" : "Chưa đủ điều kiện"}
+                          ► {canCheckIn ? "Nhận bàn" : "Đang khóa"}
                         </Button>
                       </div>
                     ) : null}
@@ -1379,19 +1478,21 @@ export function PendingBookingsPanel({
           tabIndex={0}
           onPointerDown={focusFrameOnPointerDown}
           className={cn(
-            "border-emerald-200 bg-emerald-50/40",
+            "border-emerald-400 bg-emerald-50/40",
+            arcadeCardClass,
             interactiveFrameClass,
             isSidebar && "flex h-full min-h-0 flex-col gap-0 py-0",
           )}
         >
-        <CardHeader className={cn("border-b border-emerald-200", isSidebar && "py-3")}>
-          <CardTitle className="flex items-center gap-2 text-base text-emerald-950">
+        <CardHeader className={cn("border-b-2 border-emerald-200", isSidebar && "py-3")}>
+          <CardTitle className="flex items-center gap-2 font-mono text-base font-extrabold uppercase tracking-tight text-emerald-950">
             <DoorOpen className="size-4" />
-            {isSidebar ? "Khách vãng lai" : "Cửa sổ khách vãng lai"}
+            {isSidebar ? "Hàng chờ vãng lai" : "Cửa sổ khách vãng lai"}
           </CardTitle>
           <CardAction className="flex items-center gap-2">
-            <Badge className="bg-emerald-700 text-white">
-              {openWindows.length} khung
+            <Badge className="border-2 border-emerald-700 bg-emerald-600 font-mono text-[10px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]">
+              <span className={cn(statusOrbClass, "mr-1 bg-white")} />
+              {openWindows.length} open
             </Badge>
             {!isSidebar && onOpenTables ? (
               <Button
@@ -1399,10 +1500,10 @@ export function PendingBookingsPanel({
                 size="sm"
                 variant="outline"
                 onClick={onOpenTables}
-                className="h-8 gap-1.5 border-emerald-300 text-emerald-900"
+                className="h-8 gap-1.5 border-2 border-emerald-400 font-mono text-xs font-bold uppercase tracking-wider text-emerald-900 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] hover:bg-emerald-100"
               >
                 <Table2 className="size-3.5" />
-                Sơ đồ bàn
+                ► Sơ đồ bàn
               </Button>
             ) : null}
           </CardAction>
@@ -1414,8 +1515,8 @@ export function PendingBookingsPanel({
           )}
         >
           {openWindows.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-emerald-200 py-4 text-center text-sm text-emerald-900/70">
-              Chưa có khung vãng lai ngày {reservationDayLabel}.
+            <p className="rounded-md border-2 border-dashed border-emerald-300 py-4 text-center font-mono text-xs uppercase tracking-widest text-emerald-900/70">
+              ▸ Không có khung giờ vãng lai cho {reservationDayLabel}
             </p>
           ) : (
             <div
@@ -1442,17 +1543,17 @@ export function PendingBookingsPanel({
                     tabIndex={0}
                     onPointerDown={focusFrameOnPointerDown}
                     className={cn(
-                      "flex flex-col gap-2.5 rounded-xl border border-emerald-200 bg-white p-3",
+                      "flex flex-col gap-2.5 rounded-md border-2 border-emerald-300 bg-white p-3 shadow-[2px_2px_0_rgba(16,185,129,0.2)]",
                       interactiveFrameClass,
                     )}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-neutral-950">
-                          {tableLabel || "Khung ghế trống"}
+                        <p className="truncate font-mono text-sm font-extrabold uppercase tracking-tight text-neutral-950">
+                          ► {tableLabel || "Chỗ trống"}
                         </p>
-                        <p className="mt-0.5 text-xs font-semibold text-emerald-800">
-                          Còn {w.availableSeats ?? "—"}/{w.totalSeats ?? "—"} ghế
+                        <p className="mt-0.5 font-mono text-[11px] font-bold uppercase tracking-wide text-emerald-800">
+                          GHẾ {w.availableSeats ?? "—"}/{w.totalSeats ?? "—"}
                           {" · "}
                           {formatWalkInTimeRange(w.windowStart, w.windowEnd)}
                         </p>
@@ -1464,7 +1565,7 @@ export function PendingBookingsPanel({
                             size="icon-sm"
                             variant="ghost"
                             disabled={busy}
-                            className="size-8 shrink-0 text-neutral-600"
+                            className="size-8 shrink-0 border-2 border-neutral-300 text-neutral-600 hover:bg-neutral-100"
                             aria-label="Thêm thao tác khung"
                           >
                             <MoreHorizontal className="size-4" />
@@ -1593,9 +1694,9 @@ export function PendingBookingsPanel({
                         size="sm"
                         disabled={busy || maxSeats < 1}
                         onClick={() => void createWalkIn(w)}
-                        className="h-9 shrink-0 bg-emerald-700 px-3 font-bold text-white hover:bg-emerald-800"
+                        className="h-9 shrink-0 border-2 border-emerald-800 bg-gradient-to-b from-emerald-600 to-emerald-700 px-3 font-mono text-xs font-extrabold uppercase tracking-wider text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_2px_0_rgba(0,0,0,0.15)] hover:from-emerald-500 hover:to-emerald-600"
                       >
-                        {busy ? "Đang xếp..." : "Xếp bàn nhanh"}
+                        ► {busy ? "Đang gán…" : "Gán bàn"}
                       </Button>
                     </div>
                   </div>
@@ -1644,35 +1745,121 @@ export function PendingBookingsPanel({
                 <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto md:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] md:overflow-hidden">
                   <div className="space-y-3 md:overflow-y-auto md:pr-1">
                     <div className="space-y-2">
-                      <Label htmlFor="check-in-table">Bàn phục vụ</Label>
-                      <select
-                        id="check-in-table"
-                        value={tableId}
-                        onChange={(e) => setTableId(e.target.value)}
-                        className="min-h-11 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
-                      >
-                        <option value="">Chọn bàn</option>
-                        {assignableTables.map((t) => {
-                          const statusLabel = formatTableStatusLabel(t.status);
-                          const partySize = Math.max(
-                            Number(preview.registeredMemberCount) || 0,
-                            Number(selectedReservation?.currentPlayers) || 0,
-                            Number(selectedReservation?.maxPlayers) || 0,
-                          );
-                          const tooSmall =
-                            partySize > 0 &&
-                            t.seatCount != null &&
-                            partySize > t.seatCount;
-                          return (
-                            <option key={t.id} value={t.id} disabled={tooSmall}>
-                              {t.name}
-                              {t.seatCount != null ? ` · ${t.seatCount} chỗ` : ""}
-                              {statusLabel ? ` · ${statusLabel}` : ""}
-                              {tooSmall ? " · Không đủ chỗ" : ""}
-                            </option>
-                          );
-                        })}
-                      </select>
+                      <Label> Bàn phục vụ</Label>
+                      {/* Wrapper relative — dropdown overlay không thay đổi layout */}
+                      <div className="relative">
+                        {/* Nút trigger */}
+                        <button
+                          type="button"
+                          onClick={() => setTableDropdownOpen((v) => !v)}
+                          className="flex min-h-11 w-full items-center justify-between rounded-md border border-neutral-200 bg-white px-3 text-sm hover:border-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+                        >
+                          <span className={tableId ? "font-medium text-neutral-900" : "text-neutral-500"}>
+                            {tableId
+                              ? `Đã chọn: ${availableForCheckIn.find((t) => t.id === tableId)?.name ?? assignableTables.find((t) => t.id === tableId)?.name ?? tableId}`
+                              : "Chọn bàn phục vụ"}
+                          </span>
+                          <svg
+                            className={cn(
+                              "size-4 shrink-0 text-neutral-500 transition-transform",
+                              tableDropdownOpen && "rotate-180",
+                            )}
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="m6 9 6 6 6-6"/>
+                          </svg>
+                        </button>
+
+                        {/* Dropdown overlay — absolute, không thay đổi kích thước dialog */}
+                        {tableDropdownOpen && (
+                          <>
+                            {/* Backdrop click outside để đóng */}
+                            <div
+                              className="fixed inset-0 z-40"
+                              onClick={() => setTableDropdownOpen(false)}
+                            />
+                            <div className="absolute left-0 right-0 top-full z-50 mt-1 flex flex-wrap gap-2 rounded-lg border border-neutral-200 bg-white p-3 shadow-xl">
+                              {availableForCheckIn.length === 0 ? (
+                                <p className="text-sm text-neutral-500">Không có bàn trống.</p>
+                              ) : (
+                                availableForCheckIn.map((t) => {
+                                  const statusMeta = getTableStatusMeta(t.status, t.hasSession);
+                                  const partySize = Math.max(
+                                    Number(preview?.registeredMemberCount) || 0,
+                                    Number(selectedReservation?.currentPlayers) || 0,
+                                    Number(selectedReservation?.maxPlayers) || 0,
+                                  );
+                                  const tooSmall =
+                                    partySize > 0 &&
+                                    t.seatCount != null &&
+                                    partySize > t.seatCount;
+                                  const selected = tableId === t.id;
+                                  return (
+                                    <button
+                                      key={t.id}
+                                      type="button"
+                                      onClick={() => {
+                                        if (!tooSmall) {
+                                          setTableId(t.id);
+                                          setTableDropdownOpen(false);
+                                        }
+                                      }}
+                                      disabled={tooSmall}
+                                      title={
+                                        tooSmall
+                                          ? `Đơn ${partySize} khách — bàn này tối đa ${t.seatCount} chỗ`
+                                          : undefined
+                                      }
+                                      className={cn(
+                                        "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400",
+                                        selected
+                                          ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-300 text-emerald-900"
+                                          : tooSmall
+                                            ? "cursor-not-allowed border-neutral-200 bg-neutral-50 text-neutral-400"
+                                            : "border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400 hover:bg-neutral-50",
+                                      )}
+                                    >
+                                      {/* Icon bàn */}
+                                      <svg className="size-4 shrink-0 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M3 3h18v10H3z"/>
+                                        <path d="M3 13h18"/>
+                                        <path d="M5 17v2a2 2 0 002 2h10a2 2 0 002-2v-2"/>
+                                      </svg>
+                                      <span className="font-semibold">{t.name}</span>
+                                      {/* Số chỗ */}
+                                      {t.seatCount != null ? (
+                                        <span className="flex items-center gap-0.5 text-xs text-neutral-600">
+                                          <svg className="size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                                            <circle cx="9" cy="7" r="4"/>
+                                            <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+                                            <path d="M16 3.13a4 4 0 010 7.75"/>
+                                          </svg>
+                                          {t.seatCount}
+                                        </span>
+                                      ) : null}
+                                      {/* Badge trạng thái */}
+                                      <span
+                                        className={cn(
+                                          "ml-auto shrink-0 rounded-full border px-1.5 py-0.5 text-xs font-semibold",
+                                          statusMeta.badgeClass,
+                                        )}
+                                      >
+                                        {statusMeta.label}
+                                      </span>
+                                    </button>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50/80 p-3">
@@ -1824,40 +2011,13 @@ export function PendingBookingsPanel({
                   </div>
 
                   <div className="flex min-h-0 flex-col rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 md:overflow-y-auto">
-                    <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-bold text-emerald-950">
-                          Mã QR mời khách quét
-                        </p>
-                        <p className="text-xs font-medium text-emerald-900">
-                          Bắt buộc hiện QR trước khi xác nhận.
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={creatingQr || !(
-                          selectedReservation?.id ||
-                          (preview?.raw &&
-                            typeof preview.raw === "object" &&
-                            (preview.raw as Record<string, unknown>).id)
-                        )}
-                        onClick={() => void handleShowCheckInQr()}
-                        className="min-h-10 gap-2 border-emerald-300 text-emerald-900"
-                      >
-                        {creatingQr ? (
-                          <Spinner className="size-4" />
-                        ) : checkInToken ? (
-                          <RefreshCw className="size-4" />
-                        ) : (
-                          <QrCode className="size-4" />
-                        )}
-                        {creatingQr
-                          ? "Đang tạo..."
-                          : checkInToken
-                            ? "Tạo lại"
-                            : "Hiện mã QR"}
-                      </Button>
+                    <div className="mb-3">
+                      <p className="text-sm font-bold text-emerald-950">
+                        Mã QR mời khách quét
+                      </p>
+                      <p className="text-xs font-medium text-emerald-900">
+                        Bắt buộc hiện QR trước khi xác nhận.
+                      </p>
                     </div>
 
                     {checkInToken?.qrPayload ? (
@@ -1876,10 +2036,51 @@ export function PendingBookingsPanel({
                             Khách mở app BoardVerse và quét mã này.
                           </p>
                         </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={creatingQr || !(
+                            selectedReservation?.id ||
+                            (preview?.raw &&
+                              typeof preview.raw === "object" &&
+                              (preview.raw as Record<string, unknown>).id)
+                          )}
+                          onClick={() => void handleShowCheckInQr()}
+                          className="mt-1 gap-1.5 text-emerald-900 hover:bg-emerald-100"
+                        >
+                          {creatingQr ? (
+                            <Spinner className="size-3.5" />
+                          ) : (
+                            <RefreshCw className="size-3.5" />
+                          )}
+                          {creatingQr ? "Đang tạo..." : "Tạo lại mã QR"}
+                        </Button>
                       </div>
                     ) : (
-                      <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-emerald-200 px-3 py-8 text-center text-xs text-emerald-900/70">
-                        Chưa có mã QR. Bấm &quot;Hiện mã QR&quot; để tạo.
+                      <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-emerald-200 px-3 py-6 text-center">
+                        <div className="rounded-full border border-dashed border-emerald-300 bg-white p-3">
+                          <QrCode className="size-8 text-emerald-700/60" />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="default"
+                          disabled={creatingQr || !(
+                            selectedReservation?.id ||
+                            (preview?.raw &&
+                              typeof preview.raw === "object" &&
+                              (preview.raw as Record<string, unknown>).id)
+                          )}
+                          onClick={() => void handleShowCheckInQr()}
+                          className="mt-1 min-h-10 gap-2 bg-emerald-600 text-white hover:bg-emerald-700"
+                        >
+                          {creatingQr ? (
+                            <Spinner className="size-4" />
+                          ) : (
+                            <QrCode className="size-4" />
+                          )}
+                          {creatingQr ? "Đang tạo..." : "Hiện mã QR"}
+                        </Button>
                       </div>
                     )}
                   </div>

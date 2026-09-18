@@ -17,6 +17,12 @@ import { Button } from "@/components/ui/button";
 import { apiClient } from "@/core/api/client";
 import { PosCheckInService } from "@/features/pos-check-in/services/pos-check-in.service";
 import type { CafeSettlementPending } from "@/features/pos-check-in/types/pos-check-in.interface";
+import {
+  arcadeCardClass,
+  hexChipClass,
+  statusOrbClass,
+} from "../lib/game-theme";
+import { cn } from "@/lib/utils";
 
 interface SettlementsTabProps {
   cafeId: string | null;
@@ -94,7 +100,7 @@ function exportReceiptPdf(receipt: any) {
     ${escapeHtml(receipt?.tableName || "Bàn")} · ${escapeHtml(receipt?.gameName || "Game")}<br/>
     Thời lượng: ${escapeHtml(receipt?.durationMinutes ?? "—")} phút · Thanh toán: ${escapeHtml(paidAt)}
   </p>
-  <div class="row"><span>Subtotal</span><span>${escapeHtml(Number(receipt?.totalSubtotal || 0).toLocaleString("vi-VN"))}đ</span></div>
+    <div class="row"><span>Tạm tính</span><span>${escapeHtml(Number(receipt?.totalSubtotal || 0).toLocaleString("vi-VN"))}đ</span></div>
   <div class="row"><span>Phạt</span><span>${escapeHtml(Number(receipt?.totalPenalty || 0).toLocaleString("vi-VN"))}đ</span></div>
   <div class="row"><span>Cọc trừ</span><span>${escapeHtml(Number(receipt?.totalDepositApplied || 0).toLocaleString("vi-VN"))}đ</span></div>
   <div class="row total"><span>Tổng</span><span>${escapeHtml(Number(receipt?.grandTotal || 0).toLocaleString("vi-VN"))}đ</span></div>
@@ -136,7 +142,7 @@ function exportReceiptPdf(receipt: any) {
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
       toast.message(
-        "Chọn “Lưu dưới dạng PDF” / “Save as PDF” trong hộp thoại in.",
+        "Chọn “Lưu dưới dạng PDF” trong hộp thoại in.",
       );
     } catch {
       cleanup();
@@ -231,6 +237,16 @@ export function SettlementsTab({
   const [receipt, setReceipt] = useState<any | null>(null);
   const [loadingReceiptId, setLoadingReceiptId] = useState<string | null>(null);
 
+  // Nhấn Escape để đóng modal receipt
+  useEffect(() => {
+    if (!receipt) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setReceipt(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [receipt]);
+
   const load = useCallback(async () => {
     if (!cafeId) return;
     setLoading(true);
@@ -264,7 +280,7 @@ export function SettlementsTab({
     } catch (err: any) {
       setReceipt(null);
       toast.error(
-        err?.message || "Không tải được hóa đơn (cần phiên đã Paid).",
+        err?.message || "Không tải được hóa đơn (cần phiên đã thanh toán).",
       );
     } finally {
       setLoadingReceiptId(null);
@@ -273,33 +289,36 @@ export function SettlementsTab({
 
   if (!cafeId) {
     return (
-      <div className="py-12 text-center text-xs text-neutral-400">
-        Chưa có quán để tải giải ngân.
+      <div className="py-12 text-center font-mono text-xs uppercase tracking-widest text-neutral-400">
+        ▸ Chưa chọn quán
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="py-12 text-center text-xs text-neutral-400 animate-pulse">
-        Đang tải giải ngân...
+      <div className="space-y-2 py-12 text-center font-mono text-xs uppercase tracking-widest text-neutral-400">
+        <Loader2 className="mx-auto size-6 animate-spin" />
+        Đang tải danh sách giải ngân…
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50/50 p-4 text-xs text-rose-700">
-        <p>{error}</p>
+      <div className="space-y-3 rounded-lg border-2 border-rose-300 bg-rose-50/50 p-4 text-xs text-rose-700">
+        <p className="font-mono font-bold uppercase tracking-wide">
+          ⚠ {error}
+        </p>
         <Button
           type="button"
           size="sm"
           variant="outline"
           onClick={() => void load()}
-          className="h-8 text-xs"
+          className="h-8 border-2 font-mono text-xs font-bold uppercase tracking-wider"
         >
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-          Thử lại
+          ► Thử lại
         </Button>
       </div>
     );
@@ -307,8 +326,8 @@ export function SettlementsTab({
 
   if (items.length === 0 && paidSessions.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-neutral-200 bg-white py-12 text-center text-xs text-neutral-400">
-        Không có giải ngân đang chờ và chưa có phiên đã thanh toán hôm nay.
+      <div className="rounded-lg border-2 border-dashed border-neutral-300 bg-white py-12 text-center font-mono text-xs uppercase tracking-widest text-neutral-400">
+        ▸ Không có yêu cầu giải ngân nào hôm nay
       </div>
     );
   }
@@ -321,36 +340,36 @@ export function SettlementsTab({
           size="sm"
           variant="outline"
           onClick={() => void load()}
-          className="h-8 border-neutral-200 text-xs font-bold"
+          className="h-8 border-2 font-mono text-xs font-bold uppercase tracking-wider shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] transition-all hover:translate-y-[-1px]"
         >
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-          Làm mới
+          ► Làm mới
         </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-amber-700">
-              <span className="inline-block size-1.5 rounded-full bg-amber-500" />
-              Giải ngân đang chờ
+            <p className="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-widest text-amber-700">
+              <span className={cn(statusOrbClass, "bg-amber-500")} />
+              Yêu cầu chờ giải ngân
             </p>
             {items.length > 0 ? (
-              <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                {items.length} mục
+              <span className={cn(hexChipClass, "border border-amber-300 bg-amber-100 text-amber-800")}>
+                ► {items.length} ITEMS
               </span>
             ) : null}
           </div>
           {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-neutral-200 bg-neutral-50/60 px-4 py-8 text-center">
-              <div className="flex size-10 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50/60 px-4 py-8 text-center">
+              <div className="flex size-10 items-center justify-center rounded-md border-2 border-amber-300 bg-amber-100 text-amber-600 shadow-[inset_0_-2px_0_rgba(0,0,0,0.06)]">
                 <Wallet className="h-5 w-5" />
               </div>
-              <p className="text-xs font-medium text-neutral-600">
-                Không có giải ngân đang chờ.
+              <p className="font-mono text-xs font-bold uppercase tracking-widest text-neutral-600">
+                ▸ Không có yêu cầu nào
               </p>
-              <p className="text-[11px] text-neutral-400">
-                Mọi giải ngân đã được xử lý xong.
+              <p className="font-mono text-[11px] uppercase tracking-wider text-neutral-400">
+                Tất cả đã được xử lý.
               </p>
             </div>
           ) : (
@@ -360,25 +379,31 @@ export function SettlementsTab({
               return (
                 <div
                   key={item.id}
-                  className="group flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50/80 via-white to-orange-50/40 px-4 py-3 shadow-2xs transition-all hover:border-amber-300 hover:shadow-sm"
+                  className={cn(
+                    arcadeCardClass,
+                    "group flex flex-wrap items-center justify-between gap-3 border-2 border-amber-200 bg-gradient-to-br from-amber-50/80 via-white to-orange-50/40 px-4 py-3 transition-all hover:translate-y-[-2px]",
+                  )}
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-sm">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-md border-2 border-amber-700 bg-gradient-to-b from-amber-400 to-orange-500 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]">
                       <Banknote className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 space-y-0.5">
-                      <p className="text-sm font-bold text-neutral-950">
+                      <p className="font-mono text-sm font-extrabold text-neutral-950">
                         {formatCurrency(
                           item.netTransferAmount || item.depositAmount,
                         )}
                       </p>
-                      <p className="font-mono text-[11px] text-neutral-400">
-                        {formatTime(item.createdAt)} · {item.id.slice(0, 8)}…
+                      <p className="font-mono text-[10px] uppercase tracking-widest text-neutral-400">
+                        ▸ {formatTime(item.createdAt)} · {item.id.slice(0, 8)}…
                       </p>
                     </div>
                   </div>
                   <span
-                    className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[10px] font-bold ${statusStyle.wrap}`}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-md border-2 px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase tracking-widest shadow-[inset_0_-1px_0_rgba(0,0,0,0.06)]",
+                      statusStyle.wrap,
+                    )}
                   >
                     <StatusIcon
                       className={`h-3 w-3 ${statusStyle.Icon === Loader2 || statusStyle.Icon === RefreshCw ? "animate-spin" : ""}`}
@@ -394,26 +419,26 @@ export function SettlementsTab({
         {onFetchPaidSessions ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-emerald-700">
-                <span className="inline-block size-1.5 rounded-full bg-emerald-500" />
+              <p className="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-widest text-emerald-700">
+                <span className={cn(statusOrbClass, "bg-emerald-500")} />
                 Phiên đã thanh toán (UTC hôm nay)
               </p>
               {paidSessions.length > 0 ? (
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                  {paidSessions.length} phiên
+                <span className={cn(hexChipClass, "border border-emerald-300 bg-emerald-100 text-emerald-800")}>
+                  ► {paidSessions.length} SESSIONS
                 </span>
               ) : null}
             </div>
             {paidSessions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-neutral-200 bg-neutral-50/60 px-4 py-8 text-center">
-                <div className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+              <div className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50/60 px-4 py-8 text-center">
+                <div className="flex size-10 items-center justify-center rounded-md border-2 border-emerald-300 bg-emerald-100 text-emerald-600 shadow-[inset_0_-2px_0_rgba(0,0,0,0.06)]">
                   <CheckCircle2 className="h-5 w-5" />
                 </div>
-                <p className="text-xs font-medium text-neutral-600">
-                  Chưa có phiên Paid hôm nay.
+                <p className="font-mono text-xs font-bold uppercase tracking-widest text-neutral-600">
+                  ▸ Không có phiên đã thanh toán hôm nay
                 </p>
-                <p className="text-[11px] text-neutral-400">
-                  Phiên đã thanh toán sẽ xuất hiện ở đây.
+                <p className="font-mono text-[11px] uppercase tracking-wider text-neutral-400">
+                  Phiên đã thanh toán sẽ hiển thị tại đây.
                 </p>
               </div>
             ) : (
@@ -426,21 +451,26 @@ export function SettlementsTab({
                 return (
                   <div
                     key={id || Math.random()}
-                    className="group flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/40 px-4 py-3 shadow-2xs transition-all hover:border-emerald-300 hover:shadow-sm"
+                    className={cn(
+                      arcadeCardClass,
+                      "group flex flex-wrap items-center justify-between gap-3 border-2 border-emerald-200 bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/40 px-4 py-3 transition-all hover:translate-y-[-2px]",
+                    )}
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-md border-2 border-emerald-700 bg-gradient-to-b from-emerald-500 to-teal-600 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]">
                         <CheckCircle2 className="h-4 w-4" />
                       </div>
                       <div className="min-w-0 space-y-0.5">
-                        <p className="text-sm font-bold text-neutral-950">{table}</p>
-                        <p className="font-mono text-[11px] text-neutral-400">
+                        <p className="font-mono text-sm font-extrabold uppercase tracking-tight text-neutral-950">
+                          ► {table}
+                        </p>
+                        <p className="font-mono text-[10px] uppercase tracking-widest text-neutral-400">
                           #{id.slice(0, 8)}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-emerald-800">
+                      <span className="font-mono text-sm font-extrabold tabular-nums text-emerald-800">
                         {formatCurrency(total)}
                       </span>
                       {id ? (
@@ -450,10 +480,10 @@ export function SettlementsTab({
                           variant="outline"
                           disabled={loadingReceiptId === id}
                           onClick={() => void loadReceipt(id)}
-                          className="h-8 gap-1.5 border-emerald-300 bg-white text-xs font-bold text-emerald-900"
+                          className="h-8 gap-1.5 border-2 border-emerald-400 bg-white font-mono text-xs font-extrabold uppercase tracking-widest text-emerald-900 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] hover:bg-emerald-50"
                         >
                           <Receipt className="size-3.5" />
-                          {loadingReceiptId === id ? "Đang tải..." : "Hóa đơn"}
+                          {loadingReceiptId === id ? "Đang tải…" : "► Phiếu"}
                         </Button>
                       ) : null}
                     </div>
@@ -466,8 +496,16 @@ export function SettlementsTab({
       </div>
 
       {receipt ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 p-4 backdrop-blur-xs">
-          <div className="max-h-[90vh] w-full max-w-md space-y-4 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 p-4 backdrop-blur-xs"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setReceipt(null);
+          }}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-md space-y-4 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="flex items-start justify-between gap-2 border-b border-neutral-100 pb-3">
               <div>
                 <h3 className="flex items-center gap-1.5 text-base font-bold text-neutral-950">
@@ -494,7 +532,7 @@ export function SettlementsTab({
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
                 <span className="text-[10px] uppercase text-neutral-400">
-                  Subtotal
+                  Tạm tính
                 </span>
                 <p className="font-mono font-semibold">
                   {Number(receipt.totalSubtotal || 0).toLocaleString("vi-VN")}đ

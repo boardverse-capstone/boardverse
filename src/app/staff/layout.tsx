@@ -6,7 +6,6 @@ import {
   IconLayoutDashboard,
   IconCalendar,
   IconClipboard,
-  IconHelp,
   IconDeviceDesktop,
   IconPackage,
 } from "@tabler/icons-react";
@@ -42,11 +41,6 @@ const STAFF_NAV: NavItem[] = [
     title: "Báo cáo ca",
     url: ROUTES.STAFF.REPORTS,
     icon: <IconClipboard />,
-  },
-  {
-    title: "Hỗ trợ",
-    url: "/staff/help",
-    icon: <IconHelp />,
   },
 ];
 

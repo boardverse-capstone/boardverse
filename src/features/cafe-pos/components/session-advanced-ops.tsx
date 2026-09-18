@@ -150,33 +150,107 @@ function Section({
   title,
   children,
   defaultOpen = false,
+  tone = "neutral",
 }: {
   icon: React.ReactNode;
   title: string;
   children: React.ReactNode;
   defaultOpen?: boolean;
+  tone?:
+    | "neutral"
+    | "blue"
+    | "pink"
+    | "amber"
+    | "violet"
+    | "emerald"
+    | "rose"
+    | "cyan"
+    | "orange";
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
+  const toneStyles: Record<
+    NonNullable<typeof tone>,
+    { card: string; header: string; title: string; icon: string }
+  > = {
+    neutral: {
+      card: "border-neutral-200 bg-white",
+      header: "from-neutral-100 to-neutral-50",
+      title: "text-neutral-900",
+      icon: "text-neutral-600",
+    },
+    blue: {
+      card: "border-blue-200/70 bg-gradient-to-br from-blue-50/50 via-white to-cyan-50/40",
+      header: "from-blue-100 to-cyan-100",
+      title: "text-blue-800",
+      icon: "text-blue-600",
+    },
+    pink: {
+      card: "border-pink-200/70 bg-gradient-to-br from-pink-50/50 via-white to-rose-50/40",
+      header: "from-pink-100 to-rose-100",
+      title: "text-pink-800",
+      icon: "text-pink-600",
+    },
+    amber: {
+      card: "border-amber-200/70 bg-gradient-to-br from-amber-50/50 via-white to-orange-50/40",
+      header: "from-amber-100 to-orange-100",
+      title: "text-amber-800",
+      icon: "text-amber-600",
+    },
+    violet: {
+      card: "border-violet-200/70 bg-gradient-to-br from-violet-50/50 via-white to-purple-50/40",
+      header: "from-violet-100 to-purple-100",
+      title: "text-violet-800",
+      icon: "text-violet-600",
+    },
+    emerald: {
+      card: "border-emerald-200/70 bg-gradient-to-br from-emerald-50/50 via-white to-teal-50/40",
+      header: "from-emerald-100 to-teal-100",
+      title: "text-emerald-800",
+      icon: "text-emerald-600",
+    },
+    rose: {
+      card: "border-rose-200/70 bg-gradient-to-br from-rose-50/50 via-white to-pink-50/40",
+      header: "from-rose-100 to-pink-100",
+      title: "text-rose-800",
+      icon: "text-rose-600",
+    },
+    cyan: {
+      card: "border-cyan-200/70 bg-gradient-to-br from-cyan-50/50 via-white to-sky-50/40",
+      header: "from-cyan-100 to-sky-100",
+      title: "text-cyan-800",
+      icon: "text-cyan-600",
+    },
+    orange: {
+      card: "border-orange-200/70 bg-gradient-to-br from-orange-50/50 via-white to-amber-50/40",
+      header: "from-orange-100 to-amber-100",
+      title: "text-orange-800",
+      icon: "text-orange-600",
+    },
+  };
+  const t = toneStyles[tone];
+
   return (
-    <section className="h-fit rounded-xl border border-neutral-200 bg-white">
+    <section
+      className={`h-fit overflow-hidden rounded-xl border shadow-xs transition-shadow hover:shadow-sm ${t.card}`}
+    >
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-neutral-50"
+        className={`flex w-full items-center justify-between gap-2 bg-gradient-to-r ${t.header} px-3 py-2.5 text-left transition-colors hover:brightness-95`}
         aria-expanded={open}
       >
-        <h5 className="flex min-w-0 items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-neutral-900">
+        <h5 className={`flex min-w-0 items-center gap-1.5 text-xs font-bold uppercase tracking-wider ${t.title}`}>
           {icon}
           <span className="truncate">{title}</span>
         </h5>
         <ChevronDown
-          className={`size-4 shrink-0 text-neutral-500 transition-transform ${
+          className={`size-4 shrink-0 transition-transform ${
             open ? "rotate-180" : ""
-          }`}
+          } ${t.icon}`}
         />
       </button>
-      {open ? <div className="space-y-3 border-t border-neutral-100 p-3">{children}</div> : null}
+      {open ? <div className="space-y-3 border-t border-neutral-100/80 bg-white/40 p-3 backdrop-blur-xs">{children}</div> : null}
     </section>
   );
 }
@@ -200,6 +274,20 @@ export function SessionAdvancedOps({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerSearch, setPickerSearch] = useState("");
   const [pickerGame, setPickerGame] = useState<GroupedGame | null>(null);
+
+  // Nhấn Escape để đóng picker game
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setPickerOpen(false);
+        setPickerGame(null);
+        setPickerSearch("");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pickerOpen]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<CustomerUser[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<CustomerUser[]>([]);
@@ -421,26 +509,29 @@ export function SessionAdvancedOps({
       <button
         type="button"
         onClick={() => setOpsOpen((open) => !open)}
-        className="flex w-full items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-left hover:border-neutral-400 hover:bg-neutral-100/80"
+        className="relative flex w-full items-center justify-between gap-2 overflow-hidden rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 px-3 py-2.5 text-left text-white shadow-md transition-all hover:shadow-lg hover:brightness-105"
         aria-expanded={opsOpen}
       >
-        <div className="min-w-0">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-900">
+        <div className="pointer-events-none absolute -top-8 -right-8 size-24 rounded-full bg-white/20 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-6 left-1/3 size-16 rounded-full bg-yellow-300/20 blur-xl" />
+        <div className="relative min-w-0">
+          <h4 className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-white drop-shadow-sm">
+            <span className="size-1.5 animate-pulse rounded-full bg-yellow-300" />
             Thao tác bổ sung
           </h4>
           {(status === "paid" || status === "completed") && (
-            <p className="mt-0.5 text-[11px] font-medium text-neutral-500">
+            <p className="mt-0.5 text-[11px] font-medium text-white/90">
               Phiên đã hoàn tất nên các thao tác đã bị khóa.
             </p>
           )}
           {!opsOpen ? (
-            <p className="mt-0.5 text-[11px] text-neutral-500">
+            <p className="mt-0.5 text-[11px] text-white/85">
               Bấm để mở gán hộp, thêm member, hao hụt, thanh toán một phần…
             </p>
           ) : null}
         </div>
         <ChevronDown
-          className={`size-5 shrink-0 text-neutral-500 transition-transform ${
+          className={`relative size-5 shrink-0 text-white transition-transform ${
             opsOpen ? "rotate-180" : ""
           }`}
         />
@@ -449,8 +540,9 @@ export function SessionAdvancedOps({
       {opsOpen ? (
       <div className="grid items-start gap-3 sm:grid-cols-2">
         <Section
-          icon={<Barcode className="size-4 text-neutral-600" />}
+          icon={<Barcode className="size-4" />}
           title="Gán thêm hộp game"
+          tone="blue"
         >
           {lifecycle === "checking" ? (
             <p className="rounded-md border border-sky-200 bg-sky-50 px-2 py-1.5 text-[11px] font-medium text-sky-900">
@@ -471,7 +563,7 @@ export function SessionAdvancedOps({
               type="button"
               size="sm"
               disabled={disabled || !barcode.trim()}
-              className="h-8 shrink-0 bg-neutral-950 px-3 text-xs text-white"
+              className="h-8 shrink-0 bg-gradient-to-r from-blue-600 to-cyan-600 px-3 text-xs font-bold text-white shadow-sm hover:from-blue-700 hover:to-cyan-700"
               onClick={() => {
                 if (!barcode.trim()) {
                   toast.error("Nhập hoặc chọn mã vạch hộp game.");
@@ -507,19 +599,20 @@ export function SessionAdvancedOps({
               setPickerGame(null);
               setPickerSearch("");
             }}
-            className="flex w-full items-center justify-between gap-2 rounded-lg border border-dashed border-neutral-300 bg-white px-3 py-2 text-left hover:border-neutral-500 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full items-center justify-between gap-2 rounded-lg border border-dashed border-blue-300 bg-white/70 px-3 py-2 text-left hover:border-blue-500 hover:bg-blue-50/70 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-neutral-700">
-              <Layers className="size-3.5 text-neutral-500" />
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-blue-700">
+              <Layers className="size-3.5 text-blue-500" />
               Hoặc chọn từ kho (game → hộp)
             </span>
-            <ChevronRight className="size-4 shrink-0 text-neutral-400" />
+            <ChevronRight className="size-4 shrink-0 text-blue-400" />
           </button>
         </Section>
 
         <Section
-          icon={<UserPlus className="size-4 text-neutral-600" />}
+          icon={<UserPlus className="size-4" />}
           title="Thêm member đến muộn"
+          tone="pink"
         >
           <div className="flex gap-2">
             <Input
@@ -532,14 +625,14 @@ export function SessionAdvancedOps({
               }}
               placeholder="Tên, email hoặc SĐT"
               disabled={disabled}
-              className="h-8 border-neutral-200 text-xs"
+              className="h-8 border-pink-200 bg-white text-xs focus-visible:border-pink-400 focus-visible:ring-pink-200"
             />
             <Button
               type="button"
               size="sm"
               variant="outline"
               disabled={disabled || searching}
-              className="h-8 border-neutral-200 px-2.5"
+              className="h-8 border-pink-200 px-2.5 text-pink-600 hover:bg-pink-50 hover:text-pink-700"
               aria-label="Tìm khách hàng"
             >
               <Search className="size-3.5" />
@@ -547,17 +640,17 @@ export function SessionAdvancedOps({
           </div>
 
           {searching ? (
-            <p className="text-[11px] text-neutral-500">Đang tìm khách...</p>
+            <p className="text-[11px] font-medium text-pink-600">Đang tìm khách...</p>
           ) : null}
 
           {searchTried && !searching && searchResults.length === 0 ? (
-            <p className="text-[11px] text-neutral-500">
+            <p className="text-[11px] font-medium text-pink-600/80">
               Không tìm thấy user khớp.
             </p>
           ) : null}
 
           {searchResults.length > 0 && (
-            <div className="max-h-28 space-y-1 overflow-y-auto rounded-lg border border-neutral-200 p-1">
+            <div className="max-h-28 space-y-1 overflow-y-auto rounded-lg border border-pink-200/70 bg-white/70 p-1">
               {searchResults.map((user) => {
                 const selected = selectedUsers.some((item) => item.id === user.id);
                 const playing = playingUserIdSet.has(user.id);
@@ -573,12 +666,12 @@ export function SessionAdvancedOps({
                       }
                       setSelectedUsers((current) => [...current, user]);
                     }}
-                    className="w-full rounded-md px-2 py-1.5 text-left hover:bg-neutral-100 disabled:opacity-50"
+                    className="w-full rounded-md px-2 py-1.5 text-left hover:bg-pink-100 disabled:opacity-50"
                   >
-                    <span className="block text-xs font-semibold text-neutral-900">
+                    <span className="block text-xs font-semibold text-pink-950">
                       {user.fullName || user.username}
                     </span>
-                    <span className="block truncate text-[10px] text-neutral-500">
+                    <span className="block truncate text-[10px] text-pink-700/80">
                       {playing
                         ? "Đang chơi — không thêm được"
                         : user.email || user.phone || user.username}
@@ -601,7 +694,7 @@ export function SessionAdvancedOps({
                       current.filter((item) => item.id !== user.id),
                     )
                   }
-                  className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-[10px] font-semibold text-neutral-700"
+                  className="rounded-md border border-pink-300 bg-gradient-to-r from-pink-100 to-rose-100 px-2 py-1 text-[10px] font-semibold text-pink-800 hover:from-pink-200 hover:to-rose-200"
                   title="Bấm để bỏ chọn"
                 >
                   {user.fullName || user.username} ×
@@ -651,7 +744,7 @@ export function SessionAdvancedOps({
                 },
               );
             }}
-            className="h-8 w-full bg-neutral-950 text-xs text-white"
+            className="h-8 w-full bg-gradient-to-r from-pink-600 to-rose-600 text-xs font-bold text-white shadow-sm hover:from-pink-700 hover:to-rose-700"
           >
             {pendingAction === "members"
               ? "Đang thêm..."
@@ -660,8 +753,9 @@ export function SessionAdvancedOps({
         </Section>
 
         <Section
-          icon={<Boxes className="size-4 text-neutral-600" />}
+          icon={<Boxes className="size-4" />}
           title="Ghi nhận hao hụt"
+          tone="amber"
         >
           <select
             value={lossGameId}
@@ -670,7 +764,7 @@ export function SessionAdvancedOps({
               setComponentTemplateId("");
             }}
             disabled={disabled}
-            className="h-8 w-full rounded-md border border-neutral-200 bg-white px-2 text-xs text-neutral-900 disabled:opacity-50"
+            className="h-8 w-full rounded-md border border-amber-300 bg-white px-2 text-xs text-amber-950 focus:border-amber-500 focus:outline-hidden disabled:opacity-50"
           >
             <option value="">Chọn hộp game trong phiên</option>
             {games.map((game: any) => {
@@ -690,7 +784,7 @@ export function SessionAdvancedOps({
               value={componentTemplateId}
               onChange={(event) => setComponentTemplateId(event.target.value)}
               disabled={disabled}
-              className="h-8 w-full rounded-md border border-neutral-200 bg-white px-2 text-xs text-neutral-900 disabled:opacity-50"
+              className="h-8 w-full rounded-md border border-amber-300 bg-white px-2 text-xs text-amber-950 focus:border-amber-500 focus:outline-hidden disabled:opacity-50"
             >
               <option value="">Chọn linh kiện từ checklist</option>
               {lossComponents.map((item) => (
@@ -705,7 +799,7 @@ export function SessionAdvancedOps({
               onChange={(event) => setComponentTemplateId(event.target.value)}
               placeholder="Component template ID (nếu không tải được checklist)"
               disabled={disabled}
-              className="h-8 border-neutral-200 text-xs"
+              className="h-8 border-amber-200 text-xs focus-visible:border-amber-400 focus-visible:ring-amber-200"
             />
           )}
           <NumberStepper
@@ -757,16 +851,16 @@ export function SessionAdvancedOps({
                 },
               );
             }}
-            className="h-8 w-full border-amber-300 text-xs font-semibold text-amber-900"
+            className="h-8 w-full bg-gradient-to-r from-amber-500 to-orange-600 text-xs font-bold text-white shadow-sm hover:from-amber-600 hover:to-orange-700"
           >
             {pendingAction === "loss" ? "Đang ghi nhận..." : "Ghi nhận hao hụt"}
           </Button>
         </Section>
 
         <Section
-          icon={<Split className="size-4 text-neutral-600" />}
+          icon={<Split className="size-4" />}
           title="Người về sớm"
-          defaultOpen
+          tone="rose"
         >
           <p className="text-[11px] leading-relaxed text-neutral-600">
             Chỉ đánh dấu member có tài khoản về trước. Khách vô danh (BR-13)
@@ -810,7 +904,7 @@ export function SessionAdvancedOps({
                 return (
                   <label
                     key={id}
-                    className="flex cursor-pointer items-center gap-2 rounded-md border border-neutral-100 px-2 py-1.5 text-xs font-medium text-neutral-800"
+                    className="flex cursor-pointer items-center gap-2 rounded-md border border-rose-200/80 bg-white/60 px-2 py-1.5 text-xs font-medium text-rose-900 transition-colors hover:border-rose-400 hover:bg-rose-50"
                   >
                     <Checkbox
                       checked={partialMemberIds.has(id)}
@@ -879,7 +973,7 @@ export function SessionAdvancedOps({
                 () => setPartialMemberIds(new Set()),
               );
             }}
-            className="h-8 w-full bg-neutral-950 text-xs text-white"
+            className="h-8 w-full bg-gradient-to-r from-rose-600 to-pink-600 text-xs font-bold text-white shadow-sm hover:from-rose-700 hover:to-pink-700"
           >
             {pendingAction === "partial"
               ? "Đang xử lý..."
@@ -889,8 +983,9 @@ export function SessionAdvancedOps({
 
         <div className="md:col-span-2">
           <Section
-            icon={<UsersRound className="size-4 text-neutral-600" />}
+            icon={<UsersRound className="size-4" />}
             title="Ghép sang phiên khác"
+            tone="cyan"
           >
             <p className="text-[11px] leading-relaxed text-neutral-600">
               Chỉ ghép được member đã đánh dấu về sớm (
@@ -908,7 +1003,7 @@ export function SessionAdvancedOps({
                 value={mergeMemberId}
                 onChange={(event) => setMergeMemberId(event.target.value)}
                 disabled={disabled}
-                className="h-8 w-full rounded-md border border-neutral-200 bg-white px-2 text-xs text-neutral-900 disabled:opacity-50"
+                className="h-8 w-full rounded-md border border-cyan-300 bg-white px-2 text-xs text-cyan-950 focus:border-cyan-500 focus:outline-hidden disabled:opacity-50"
               >
                 <option value="">Chọn thành viên cần chuyển</option>
                 {members.filter(isSuspendedForMerge).map((member: any) => {
@@ -925,7 +1020,7 @@ export function SessionAdvancedOps({
                 value={targetSessionId}
                 onChange={(event) => setTargetSessionId(event.target.value)}
                 disabled={disabled}
-                className="h-8 w-full rounded-md border border-neutral-200 bg-white px-2 text-xs text-neutral-900 disabled:opacity-50"
+                className="h-8 w-full rounded-md border border-cyan-300 bg-white px-2 text-xs text-cyan-950 focus:border-cyan-500 focus:outline-hidden disabled:opacity-50"
               >
                 <option value="">Chọn bàn muốn gộp sang</option>
                 {(() => {
@@ -975,7 +1070,7 @@ export function SessionAdvancedOps({
                   },
                 );
               }}
-              className="h-8 w-full border-neutral-300 text-xs font-semibold"
+              className="h-8 w-full bg-gradient-to-r from-cyan-600 to-sky-600 text-xs font-bold text-white shadow-sm hover:from-cyan-700 hover:to-sky-700"
             >
               {pendingAction === "merge"
                 ? "Đang chuyển..."
@@ -987,8 +1082,20 @@ export function SessionAdvancedOps({
       ) : null}
 
       {pickerOpen ? (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-neutral-950/50 p-4 backdrop-blur-xs">
-          <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl">
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-neutral-950/50 p-4 backdrop-blur-xs"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setPickerOpen(false);
+              setPickerGame(null);
+              setPickerSearch("");
+            }
+          }}
+        >
+          <div
+            className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
               <div className="flex min-w-0 items-center gap-2">
                 {pickerGame ? (

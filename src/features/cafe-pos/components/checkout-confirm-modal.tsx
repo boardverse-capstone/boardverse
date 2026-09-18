@@ -16,6 +16,10 @@ import {
   ShieldCheck,
   Loader2,
 } from "lucide-react";
+import {
+  backdropCloseHandler,
+  useDismissOnBackdrop,
+} from "../lib/use-dismiss-on-backdrop";
 
 export interface CheckoutConfirmModalProps {
   isOpen: boolean;
@@ -69,6 +73,12 @@ export function CheckoutConfirmModal({
       fetchHistory();
     }
   }, [isOpen, session, onFetchHistory]);
+
+  // Click ra ngoài backdrop hoặc nhấn Escape để đóng
+  useDismissOnBackdrop(isOpen, () => {
+    if (loading || loadingHistory) return;
+    handleCloseModal();
+  }, { busy: loading || loadingHistory });
 
   if (!isOpen || !session) return null;
 
@@ -159,8 +169,17 @@ export function CheckoutConfirmModal({
   const invoiceData = apiResponse?.data || apiResponse;
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-neutral-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl animate-in fade-in-50 duration-150 max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+      onClick={backdropCloseHandler(() => {
+        if (loading || loadingHistory) return;
+        handleCloseModal();
+      }, loading || loadingHistory)}
+    >
+      <div
+        className="bg-white border border-neutral-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl animate-in fade-in-50 duration-150 max-h-[90vh] overflow-y-auto"
+        onClick={(event) => event.stopPropagation()}
+      >
         {/* HEADER MODAL */}
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
           <div className="flex items-center gap-2">
@@ -180,8 +199,8 @@ export function CheckoutConfirmModal({
             <div>
               <h3 className="font-bold text-base text-neutral-950">
                 {apiResponse
-                  ? "Hóa Đơn Chốt Phiên (UNPAID)"
-                  : "Xem Trước & Confirm Checkout"}
+                  ? "Hóa đơn chốt phiên (CHƯA THANH TOÁN)"
+                  : "Xem trước & Xác nhận chốt phiên"}
               </h3>
               <p className="text-[11px] text-neutral-500 font-medium">
                 Bàn:{" "}
@@ -291,7 +310,7 @@ export function CheckoutConfirmModal({
                 className="h-9 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg px-4 flex items-center gap-1.5 shadow-2xs"
               >
                 <span>
-                  {loading ? "Đang xử lý..." : "Confirm & Chạy API Checkout"}
+                  {loading ? "Đang xử lý..." : "Xác nhận & Chạy API Checkout"}
                 </span>
                 <ArrowRight className="w-4 h-4" />
               </Button>
@@ -314,7 +333,7 @@ export function CheckoutConfirmModal({
                     #{invoiceData?.id?.slice(0, 8)}
                   </strong>
                   <span className="px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded font-bold uppercase ml-1">
-                    {invoiceData?.status || "UNPAID"}
+                    {invoiceData?.status || "CHƯA TT"}
                   </span>
                 </div>
               </div>
@@ -366,7 +385,7 @@ export function CheckoutConfirmModal({
               <div className="space-y-2 text-xs border-t border-neutral-100 pt-3">
                 <div className="flex justify-between items-center">
                   <span className="text-neutral-600">
-                    Tiền giờ chơi (Subtotal):
+                    Tiền giờ chơi (Tạm tính):
                   </span>
                   <span className="font-mono font-bold text-neutral-900">
                     {Number(invoiceData?.subtotal || 0).toLocaleString("vi-VN")}
@@ -433,7 +452,7 @@ export function CheckoutConfirmModal({
                 ✓ Đơn đã chuyển sang Đơn Chờ Thanh Toán (UNPAID)
               </span>
               <span className="font-mono text-[10px] font-bold bg-amber-200 px-1.5 py-0.5 rounded">
-                READY FOR PAY
+                SẴN SÀNG THANH TOÁN
               </span>
             </div>
 

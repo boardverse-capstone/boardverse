@@ -12,6 +12,10 @@ import {
   Save,
   Check,
 } from "lucide-react";
+import {
+  backdropCloseHandler,
+  useDismissOnBackdrop,
+} from "../lib/use-dismiss-on-backdrop";
 
 interface PosTable {
   id: string;
@@ -46,6 +50,16 @@ export function ReorderTablesModal({
   // Drag & drop index trackers
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
+
+  // Click ra ngoài backdrop hoặc nhấn Escape để đóng
+  useDismissOnBackdrop(
+    isOpen,
+    () => {
+      if (saving) return;
+      onClose();
+    },
+    { busy: saving },
+  );
 
   // 🎯 ĐỒNG BỘ STATE TRỰC TIẾP TRONG LÚC RENDER (Không dùng useEffect)
   if (isOpen !== prevIsOpen) {
@@ -146,8 +160,20 @@ export function ReorderTablesModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
+    <div
+      className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+      onClick={backdropCloseHandler(
+        () => {
+          if (saving) return;
+          onClose();
+        },
+        saving,
+      )}
+    >
+      <div
+        className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
         {/* HEADER MODAL */}
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
           <div className="flex items-center gap-2">
