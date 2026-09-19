@@ -560,7 +560,7 @@ export function PendingBookingsPanel({
   const tomorrowIso = addDaysIsoDate(todayIso, 1);
   const [playDate, setPlayDate] = useState(todayIso);
   const [statusFilter, setStatusFilter] =
-    useState<ReservationStatusFilter>("confirmed");
+    useState<ReservationStatusFilter>("holding");
   const [reservationSearch, setReservationSearch] = useState("");
   const reservationDayLabel = formatReservationDayLabel(playDate, todayIso);
   const { lookup: lookupCover } = useGameCoverLookup(cafeId, boxes);
@@ -1220,8 +1220,8 @@ export function PendingBookingsPanel({
         >
           <div
             className={cn(
-              "flex flex-col gap-2",
-              !isSidebar && "lg:flex-row lg:items-center",
+              "flex flex-wrap items-center gap-2",
+              !isSidebar && "lg:flex-nowrap",
             )}
           >
             <div className="flex flex-wrap items-center gap-1.5">
@@ -1248,13 +1248,13 @@ export function PendingBookingsPanel({
                 value={playDate}
                 min={todayIso}
                 onChange={(event) => handlePlayDateChange(event.target.value)}
-                className="h-9 w-full min-w-[9.5rem] max-w-[11rem]"
+                className="h-9 w-auto min-w-[9.5rem] max-w-[11rem]"
                 aria-label="Chọn ngày chơi"
               />
             </div>
 
-            <div className="flex w-full max-w-md min-w-0 items-center gap-2">
-              <div className="relative min-w-0 flex-1">
+            <div className="flex shrink-0 items-center gap-2">
+              <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
                 <Input
                   ref={searchInputRef}
@@ -1278,8 +1278,8 @@ export function PendingBookingsPanel({
                       }
                     }
                   }}
-                  placeholder="Quét QR, nhập mã, game, bàn..."
-                  className="h-10 pl-9 font-medium"
+                  placeholder="Tìm mã, game, bàn..."
+                  className="h-9 w-64 pl-9 font-medium"
                   aria-label="Tìm đơn đặt chỗ"
                   autoComplete="off"
                   autoFocus
@@ -1288,7 +1288,7 @@ export function PendingBookingsPanel({
                   <Spinner className="absolute right-3 top-1/2 size-4 -translate-y-1/2" />
                 ) : null}
               </div>
-              <Badge variant="secondary" className="h-8 shrink-0 px-2.5">
+              <Badge variant="secondary" className="h-9 shrink-0 px-2.5">
                 {filteredReservations.length}
                 {filteredReservations.length !== reservations.length
                   ? `/${reservations.length}`
@@ -1296,29 +1296,29 @@ export function PendingBookingsPanel({
                 đơn
               </Badge>
             </div>
-          </div>
 
-          <Select
-            value={statusFilter}
-            onValueChange={(value) =>
-              setStatusFilter(value as ReservationStatusFilter)
-            }
-          >
-            <SelectTrigger
-              size="sm"
-              className="h-8 w-full max-w-xs"
-              aria-label="Lọc theo trạng thái đơn"
+            <Select
+              value={statusFilter}
+              onValueChange={(value) =>
+                setStatusFilter(value as ReservationStatusFilter)
+              }
             >
-              <SelectValue placeholder="Trạng thái" />
-            </SelectTrigger>
-            <SelectContent>
-              {RESERVATION_STATUS_FILTERS.map((filter) => (
-                <SelectItem key={filter.value} value={filter.value}>
-                  {filter.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <SelectTrigger
+                size="sm"
+                className="h-9 w-auto min-w-[10rem] shrink-0"
+                aria-label="Lọc theo trạng thái đơn"
+              >
+                <SelectValue placeholder="Trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
+                {RESERVATION_STATUS_FILTERS.map((filter) => (
+                  <SelectItem key={filter.value} value={filter.value}>
+                    {filter.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {loading && reservations.length === 0 ? (
             <p className="py-4 text-sm font-medium text-neutral-700" aria-live="polite">

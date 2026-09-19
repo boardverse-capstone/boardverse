@@ -9,12 +9,16 @@ import type {
   RawInventoryListItem,
   RawInventoryListResponse,
   StaffWorkingCafe,
+  CafeReservation,
+  CafeLobby,
 } from '../types/cafe.interface';
 import {
   mapApiInventoryDetail,
   mapApiStaffWorkingCafe,
   normalizeInventoryListResponse,
   normalizeNearbyCafeList,
+  normalizeCafeReservationList,
+  normalizeCafeLobbyList,
 } from '../utils/inventory.mapper';
 
 export const STAFF_CAFE_QUERY_KEYS = {
@@ -22,6 +26,8 @@ export const STAFF_CAFE_QUERY_KEYS = {
   nearbyCafes: 'staff-nearby-cafes',
   inventoryList: 'staff-inventory-list',
   inventoryDetail: 'staff-inventory-detail',
+  cafeReservations: 'staff-cafe-reservations',
+  cafeLobbies: 'staff-cafe-lobbies',
 } as const;
 
 function unwrapList<T>(raw: T[] | { data?: T[] } | null | undefined): T[] {
@@ -109,5 +115,59 @@ export const StaffCafeService = {
       `/api/cafes/${cafeId}/inventory/${inventoryId}`,
     );
     return mapApiInventoryDetail(raw);
+  },
+
+  /**
+   * GET /api/cafes/{cafeId}/reservations
+   * Lấy danh sách reservation của quán cho Staff/Manager
+   */
+  getCafeReservations: async (
+    cafeId: string,
+    params: {
+      status?: string;
+      playDate?: string;
+      pageNumber?: number;
+      pageSize?: number;
+    } = {},
+  ): Promise<PaginatedResponse<CafeReservation>> => {
+    const raw = await apiClient.get<never, unknown>(
+      `/api/cafes/${cafeId}/reservations`,
+      {
+        params: {
+          status: params.status || undefined,
+          playDate: params.playDate || undefined,
+          pageNumber: params.pageNumber ?? 1,
+          pageSize: params.pageSize ?? 20,
+        },
+      },
+    );
+    return normalizeCafeReservationList(raw);
+  },
+
+  /**
+   * GET /api/cafes/{cafeId}/lobbies
+   * Lấy danh sách lobby của quán cho Staff/Manager
+   */
+  getCafeLobbies: async (
+    cafeId: string,
+    params: {
+      status?: string;
+      playDate?: string;
+      pageNumber?: number;
+      pageSize?: number;
+    } = {},
+  ): Promise<PaginatedResponse<CafeLobby>> => {
+    const raw = await apiClient.get<never, unknown>(
+      `/api/cafes/${cafeId}/lobbies`,
+      {
+        params: {
+          status: params.status || undefined,
+          playDate: params.playDate || undefined,
+          pageNumber: params.pageNumber ?? 1,
+          pageSize: params.pageSize ?? 20,
+        },
+      },
+    );
+    return normalizeCafeLobbyList(raw);
   },
 };

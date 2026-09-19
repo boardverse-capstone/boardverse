@@ -1,6 +1,6 @@
 'use client';
 
-import { Calendar, Coffee, TrendingUp } from 'lucide-react';
+import { Calendar, Coffee, TrendingUp, Users } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

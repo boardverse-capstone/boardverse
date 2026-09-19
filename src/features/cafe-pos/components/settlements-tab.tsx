@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Banknote,
+  CalendarDays,
   CheckCircle2,
   Clock,
   FileDown,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { apiClient } from "@/core/api/client";
 import { PosCheckInService } from "@/features/pos-check-in/services/pos-check-in.service";
 import type { CafeSettlementPending } from "@/features/pos-check-in/types/pos-check-in.interface";
@@ -237,6 +239,10 @@ export function SettlementsTab({
   const [receipt, setReceipt] = useState<any | null>(null);
   const [loadingReceiptId, setLoadingReceiptId] = useState<string | null>(null);
 
+  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const [pendingDate, setPendingDate] = useState(todayIso);
+  const [paidDate, setPaidDate] = useState(todayIso);
+
   // Nhấn Escape để đóng modal receipt
   useEffect(() => {
     if (!receipt) return;
@@ -247,28 +253,72 @@ export function SettlementsTab({
     return () => window.removeEventListener("keydown", onKey);
   }, [receipt]);
 
+  const loadPending = useCallback(async () => {
+    if (!cafeId) return;
+    try {
+      // Backend hiện chưa hỗ trợ filter pending theo ngày — luôn lấy toàn bộ pending.
+      const data = await PosCheckInService.getPendingSettlements(cafeId);
+      setItems(data);
+    } catch (err) {
+      throw err;
+    }
+  }, [cafeId]);
+
+  const loadPaid = useCallback(
+    async (date: string) => {
+      if (!onFetchPaidSessions) return;
+      const paid = await onFetchPaidSessions(date, date);
+      setPaidSessions(Array.isArray(paid) ? paid : []);
+    },
+    [onFetchPaidSessions],
+  );
+
   const load = useCallback(async () => {
     if (!cafeId) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await PosCheckInService.getPendingSettlements(cafeId);
-      setItems(data);
-      if (onFetchPaidSessions) {
-        const paid = await onFetchPaidSessions();
-        setPaidSessions(Array.isArray(paid) ? paid : []);
-      }
+      await loadPending();
+      await loadPaid(paidDate);
     } catch (err) {
       setError((err as Error)?.message || "Không tải được settlements.");
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [cafeId, onFetchPaidSessions]);
+  }, [cafeId, loadPending, loadPaid, paidDate]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const handlePaidDateChange = useCallback(
+    (next: string) => {
+      setPaidDate(next);
+      if (!cafeId || !onFetchPaidSessions) return;
+      setLoading(true);
+      onFetchPaidSessions(next, next)
+        .then((paid) => setPaidSessions(Array.isArray(paid) ? paid : []))
+        .catch((err: Error) => {
+          toast.error(err?.message || "Không tải được phiên đã thanh toán.");
+          setPaidSessions([]);
+        })
+        .finally(() => setLoading(false));
+    },
+    [cafeId, onFetchPaidSessions],
+  );
+
+  const handlePendingDateChange = useCallback(
+    (next: string) => {
+      setPendingDate(next);
+      if (next !== todayIso) {
+        toast.message(
+          "Yêu cầu giải ngân hiện chỉ lấy theo thời điểm hiện tại, không lọc theo ngày.",
+        );
+      }
+    },
+    [todayIso],
+  );
 
   const loadReceipt = async (sessionId: string) => {
     setLoadingReceiptId(sessionId);
@@ -327,7 +377,7 @@ export function SettlementsTab({
   if (items.length === 0 && paidSessions.length === 0) {
     return (
       <div className="rounded-lg border-2 border-dashed border-neutral-300 bg-white py-12 text-center font-mono text-xs uppercase tracking-widest text-neutral-400">
-        ▸ Không có yêu cầu giải ngân nào hôm nay
+        ▸ Không có yêu cầu giải ngân nào
       </div>
     );
   }
@@ -349,7 +399,7 @@ export function SettlementsTab({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start">
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center gap-2">
             <p className="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-widest text-amber-700">
               <span className={cn(statusOrbClass, "bg-amber-500")} />
               Yêu cầu chờ giải ngân
@@ -359,6 +409,28 @@ export function SettlementsTab({
                 ► {items.length} ITEMS
               </span>
             ) : null}
+            <div className="ml-auto flex items-center gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant={pendingDate === todayIso ? "default" : "outline"}
+                onClick={() => handlePendingDateChange(todayIso)}
+                className="h-8 font-mono text-xs"
+              >
+                Hôm nay
+              </Button>
+              <div className="relative">
+                <CalendarDays className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-neutral-400" />
+                <Input
+                  type="date"
+                  value={pendingDate}
+                  min={todayIso}
+                  onChange={(event) => handlePendingDateChange(event.target.value)}
+                  className="h-8 w-auto min-w-[9rem] pl-7 font-mono text-xs"
+                  aria-label="Chọn ngày — yêu cầu giải ngân"
+                />
+              </div>
+            </div>
           </div>
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50/60 px-4 py-8 text-center">
@@ -418,25 +490,46 @@ export function SettlementsTab({
 
         {onFetchPaidSessions ? (
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center gap-2">
               <p className="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-widest text-emerald-700">
                 <span className={cn(statusOrbClass, "bg-emerald-500")} />
-                Phiên đã thanh toán (UTC hôm nay)
+                Phiên đã thanh toán
               </p>
               {paidSessions.length > 0 ? (
                 <span className={cn(hexChipClass, "border border-emerald-300 bg-emerald-100 text-emerald-800")}>
                   ► {paidSessions.length} SESSIONS
                 </span>
               ) : null}
+              <div className="ml-auto flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={paidDate === todayIso ? "default" : "outline"}
+                  onClick={() => handlePaidDateChange(todayIso)}
+                  className="h-8 font-mono text-xs"
+                >
+                  Hôm nay
+                </Button>
+                <div className="relative">
+                  <CalendarDays className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-neutral-400" />
+                  <Input
+                    type="date"
+                    value={paidDate}
+                    onChange={(event) => handlePaidDateChange(event.target.value)}
+                    className="h-8 w-auto min-w-[9rem] pl-7 font-mono text-xs"
+                    aria-label="Chọn ngày — phiên đã thanh toán"
+                  />
+                </div>
+              </div>
             </div>
             {paidSessions.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50/60 px-4 py-8 text-center">
                 <div className="flex size-10 items-center justify-center rounded-md border-2 border-emerald-300 bg-emerald-100 text-emerald-600 shadow-[inset_0_-2px_0_rgba(0,0,0,0.06)]">
                   <CheckCircle2 className="h-5 w-5" />
                 </div>
-                <p className="font-mono text-xs font-bold uppercase tracking-widest text-neutral-600">
-                  ▸ Không có phiên đã thanh toán hôm nay
-                </p>
+              <p className="font-mono text-xs font-bold uppercase tracking-widest text-neutral-600">
+                ▸ Không có phiên đã thanh toán {paidDate === todayIso ? "hôm nay" : `ngày ${paidDate}`}
+              </p>
                 <p className="font-mono text-[11px] uppercase tracking-wider text-neutral-400">
                   Phiên đã thanh toán sẽ hiển thị tại đây.
                 </p>
