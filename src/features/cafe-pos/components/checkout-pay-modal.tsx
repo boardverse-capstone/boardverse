@@ -915,9 +915,7 @@ export function PayConfirmModal({
           className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
-          onClick={(event) =>
-            backdropCloseHandler(event, () => setZoomedQr(null))
-          }
+          onClick={backdropCloseHandler(() => setZoomedQr(null))}
         >
           <div
             className="relative flex max-h-[92vh] w-full max-w-md flex-col items-center gap-3 overflow-y-auto rounded-2xl border-2 border-amber-400 bg-gradient-to-br from-white via-amber-50 to-yellow-50 p-6 shadow-2xl"

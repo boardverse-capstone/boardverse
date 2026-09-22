@@ -2134,9 +2134,7 @@ export function PendingBookingsPanel({
           className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
-          onClick={(event) =>
-            backdropCloseHandler(event, () => setZoomedCheckInQr(false))
-          }
+          onClick={backdropCloseHandler(() => setZoomedCheckInQr(false))}
         >
           <div
             className="relative flex max-h-[92vh] w-full max-w-md flex-col items-center gap-3 overflow-y-auto rounded-2xl border-2 border-orange-400 bg-gradient-to-br from-white via-orange-50 to-amber-50 p-6 shadow-2xl"
