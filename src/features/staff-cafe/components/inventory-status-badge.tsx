@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Badge } from '@/components/ui/badge';
 import { INVENTORY_STATUS_COLORS, INVENTORY_STATUS_LABELS } from '@/core/constants/inventory';
@@ -9,18 +9,18 @@ interface InventoryStatusBadgeProps {
   className?: string;
 }
 
-// LED màu theo status để arcade style
+// LED mÃ u theo status Ä‘á»ƒ arcade style
 const STATUS_LED: Record<string, string> = {
-  AVAILABLE: 'bg-emerald-500',
-  Available: 'bg-emerald-500',
-  INUSE: 'bg-sky-500',
-  InUse: 'bg-sky-500',
-  RENTED: 'bg-blue-500',
-  Rented: 'bg-blue-500',
+  AVAILABLE: 'bg-orange-500',
+  Available: 'bg-orange-500',
+  INUSE: 'bg-amber-500',
+  InUse: 'bg-amber-500',
+  RENTED: 'bg-orange-500',
+  Rented: 'bg-orange-500',
   MAINTENANCE: 'bg-amber-500',
   Maintenance: 'bg-amber-500',
-  DAMAGED: 'bg-rose-500',
-  Damaged: 'bg-rose-500',
+  DAMAGED: 'bg-amber-500',
+  Damaged: 'bg-amber-500',
 };
 
 export function InventoryStatusBadge({ status, className }: InventoryStatusBadgeProps) {

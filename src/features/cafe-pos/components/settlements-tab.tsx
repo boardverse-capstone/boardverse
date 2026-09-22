@@ -189,8 +189,8 @@ function getSettlementStatusStyle(status?: string | null) {
       };
     case "processing":
       return {
-        wrap: "border-sky-200 bg-sky-50 text-sky-800",
-        dot: "bg-sky-500",
+        wrap: "border-orange-200 bg-orange-50 text-orange-800",
+        dot: "bg-orange-500",
         Icon: Loader2,
       };
     case "retrying":
@@ -202,20 +202,20 @@ function getSettlementStatusStyle(status?: string | null) {
     case "completed":
     case "succeeded":
       return {
-        wrap: "border-emerald-200 bg-emerald-50 text-emerald-800",
-        dot: "bg-emerald-500",
+        wrap: "border-orange-200 bg-orange-50 text-orange-800",
+        dot: "bg-orange-500",
         Icon: CheckCircle2,
       };
     case "failed":
       return {
-        wrap: "border-rose-200 bg-rose-50 text-rose-800",
-        dot: "bg-rose-500",
+        wrap: "border-orange-200 bg-orange-50 text-orange-800",
+        dot: "bg-orange-500",
         Icon: X,
       };
     case "overridden":
       return {
-        wrap: "border-violet-200 bg-violet-50 text-violet-800",
-        dot: "bg-violet-500",
+        wrap: "border-amber-200 bg-amber-50 text-amber-800",
+        dot: "bg-amber-500",
         Icon: CheckCircle2,
       };
     default:
@@ -356,7 +356,7 @@ export function SettlementsTab({
 
   if (error) {
     return (
-      <div className="space-y-3 rounded-lg border-2 border-rose-300 bg-rose-50/50 p-4 text-xs text-rose-700">
+      <div className="space-y-3 rounded-lg border-2 border-orange-300 bg-orange-50/50 p-4 text-xs text-orange-700">
         <p className="font-mono font-bold uppercase tracking-wide">
           ⚠ {error}
         </p>
@@ -491,12 +491,12 @@ export function SettlementsTab({
         {onFetchPaidSessions ? (
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-widest text-emerald-700">
-                <span className={cn(statusOrbClass, "bg-emerald-500")} />
+              <p className="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-widest text-orange-700">
+                <span className={cn(statusOrbClass, "bg-orange-500")} />
                 Phiên đã thanh toán
               </p>
               {paidSessions.length > 0 ? (
-                <span className={cn(hexChipClass, "border border-emerald-300 bg-emerald-100 text-emerald-800")}>
+                <span className={cn(hexChipClass, "border border-orange-300 bg-orange-100 text-orange-800")}>
                   ► {paidSessions.length} SESSIONS
                 </span>
               ) : null}
@@ -524,7 +524,7 @@ export function SettlementsTab({
             </div>
             {paidSessions.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50/60 px-4 py-8 text-center">
-                <div className="flex size-10 items-center justify-center rounded-md border-2 border-emerald-300 bg-emerald-100 text-emerald-600 shadow-[inset_0_-2px_0_rgba(0,0,0,0.06)]">
+                <div className="flex size-10 items-center justify-center rounded-md border-2 border-orange-300 bg-orange-100 text-orange-600 shadow-[inset_0_-2px_0_rgba(0,0,0,0.06)]">
                   <CheckCircle2 className="h-5 w-5" />
                 </div>
               <p className="font-mono text-xs font-bold uppercase tracking-widest text-neutral-600">
@@ -546,11 +546,11 @@ export function SettlementsTab({
                     key={id || Math.random()}
                     className={cn(
                       arcadeCardClass,
-                      "group flex flex-wrap items-center justify-between gap-3 border-2 border-emerald-200 bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/40 px-4 py-3 transition-all hover:translate-y-[-2px]",
+                      "group flex flex-wrap items-center justify-between gap-3 border-2 border-orange-200 bg-gradient-to-br from-orange-50/80 via-white to-amber-50/40 px-4 py-3 transition-all hover:translate-y-[-2px]",
                     )}
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-md border-2 border-emerald-700 bg-gradient-to-b from-emerald-500 to-teal-600 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-md border-2 border-orange-700 bg-gradient-to-b from-orange-500 to-amber-600 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]">
                         <CheckCircle2 className="h-4 w-4" />
                       </div>
                       <div className="min-w-0 space-y-0.5">
@@ -563,7 +563,7 @@ export function SettlementsTab({
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm font-extrabold tabular-nums text-emerald-800">
+                      <span className="font-mono text-sm font-extrabold tabular-nums text-orange-800">
                         {formatCurrency(total)}
                       </span>
                       {id ? (
@@ -573,7 +573,7 @@ export function SettlementsTab({
                           variant="outline"
                           disabled={loadingReceiptId === id}
                           onClick={() => void loadReceipt(id)}
-                          className="h-8 gap-1.5 border-2 border-emerald-400 bg-white font-mono text-xs font-extrabold uppercase tracking-widest text-emerald-900 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] hover:bg-emerald-50"
+                          className="h-8 gap-1.5 border-2 border-orange-400 bg-white font-mono text-xs font-extrabold uppercase tracking-widest text-orange-900 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] hover:bg-orange-50"
                         >
                           <Receipt className="size-3.5" />
                           {loadingReceiptId === id ? "Đang tải…" : "► Phiếu"}
@@ -650,7 +650,7 @@ export function SettlementsTab({
               </div>
               <div>
                 <span className="text-[10px] uppercase text-neutral-400">Tổng</span>
-                <p className="font-mono font-bold text-emerald-800">
+                <p className="font-mono font-bold text-orange-800">
                   {Number(receipt.grandTotal || 0).toLocaleString("vi-VN")}đ
                 </p>
               </div>

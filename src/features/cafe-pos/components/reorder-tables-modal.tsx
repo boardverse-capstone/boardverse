@@ -290,7 +290,7 @@ export function ReorderTablesModal({
           >
             {savedSuccess ? (
               <>
-                <Check className="w-4 h-4 text-emerald-400" />
+                <Check className="w-4 h-4 text-orange-400" />
                 <span>Đã lưu thành công!</span>
               </>
             ) : (

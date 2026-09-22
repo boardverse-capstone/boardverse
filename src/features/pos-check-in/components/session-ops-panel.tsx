@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { Gamepad2, Receipt, Users } from 'lucide-react';
@@ -15,7 +15,7 @@ import { SessionTimer } from './session-timer';
 interface SessionOpsPanelProps {
   booking: TableBooking;
   onCompleted?: () => void;
-  /** Khi không có ActiveSession thật — mở lại form check-in */
+  /** Khi khÃ´ng cÃ³ ActiveSession tháº­t â€” má»Ÿ láº¡i form check-in */
   onSessionMissing?: () => void;
 }
 
@@ -23,11 +23,11 @@ export function SessionOpsPanel({ booking, onCompleted, onSessionMissing }: Sess
   const { data: session, isLoading, isError, isFetched } = useActiveSession(booking.id);
   const { data: floorPlan } = useFloorPlan(booking.cafeId);
   const [tab, setTab] = useState('members');
-  /** Giữ CHECKING / đã kiểm kê trên parent — tránh mất khi đổi tab (unmount Games) */
+  /** Giá»¯ CHECKING / Ä‘Ã£ kiá»ƒm kÃª trÃªn parent â€” trÃ¡nh máº¥t khi Ä‘á»•i tab (unmount Games) */
   const [gameChecking, setGameChecking] = useState(false);
   const [componentsVerified, setComponentsVerified] = useState(false);
 
-  // Hydrate từ localStorage sau reload (GET thường vẫn Active dù đã End)
+  // Hydrate tá»« localStorage sau reload (GET thÆ°á»ng váº«n Active dÃ¹ Ä‘Ã£ End)
   useEffect(() => {
     if (!session?.sessionId || typeof window === 'undefined') return;
     try {
@@ -55,7 +55,7 @@ export function SessionOpsPanel({ booking, onCompleted, onSessionMissing }: Sess
         setComponentsVerified(true);
       }
     } else if (session.status === 'Active') {
-      // GET Active nhưng đã End/UNPAID trước reload — giữ UI, không xóa LS
+      // GET Active nhÆ°ng Ä‘Ã£ End/UNPAID trÆ°á»›c reload â€” giá»¯ UI, khÃ´ng xÃ³a LS
       try {
         if (localStorage.getItem(`pos_unpaid_${session.sessionId}`) === 'true') {
           setGameChecking(true);
@@ -87,17 +87,17 @@ export function SessionOpsPanel({ booking, onCompleted, onSessionMissing }: Sess
 
   if (isFetched && (isError || !session)) {
     return (
-      <div className="space-y-3 rounded-lg border border-rose-200 bg-rose-50 p-3">
-        <p className="text-sm text-rose-700">
-          Không tìm thấy phiên chơi đang hoạt động trên server (booking có thể chưa
-          check-in thành công).
+      <div className="space-y-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
+        <p className="text-sm text-orange-700">
+          KhÃ´ng tÃ¬m tháº¥y phiÃªn chÆ¡i Ä‘ang hoáº¡t Ä‘á»™ng trÃªn server (booking cÃ³ thá»ƒ chÆ°a
+          check-in thÃ nh cÃ´ng).
         </p>
         <button
           type="button"
-          className="inline-flex h-9 items-center justify-center rounded-md bg-emerald-600 px-3 text-sm font-medium text-white hover:bg-emerald-700"
+          className="inline-flex h-9 items-center justify-center rounded-md bg-orange-600 px-3 text-sm font-medium text-white hover:bg-orange-700"
           onClick={() => onSessionMissing?.()}
         >
-          Quay lại check-in / mở phiên
+          Quay láº¡i check-in / má»Ÿ phiÃªn
         </button>
       </div>
     );
@@ -127,7 +127,7 @@ export function SessionOpsPanel({ booking, onCompleted, onSessionMissing }: Sess
         <div>
           <p className="text-sm font-semibold">{session.tableLabel}</p>
           <p className="text-xs text-muted-foreground">
-            {session.game.name} · {livePlayerCount} người
+            {session.game.name} Â· {livePlayerCount} ngÆ°á»i
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -144,7 +144,7 @@ export function SessionOpsPanel({ booking, onCompleted, onSessionMissing }: Sess
         <TabsList className="grid h-auto w-full grid-cols-3">
           <TabsTrigger value="members" className="gap-1 py-2 text-xs sm:text-sm">
             <Users className="h-3.5 w-3.5" />
-            Thành viên
+            ThÃ nh viÃªn
           </TabsTrigger>
           <TabsTrigger value="game" className="gap-1 py-2 text-xs sm:text-sm">
             <Gamepad2 className="h-3.5 w-3.5" />
@@ -152,11 +152,11 @@ export function SessionOpsPanel({ booking, onCompleted, onSessionMissing }: Sess
           </TabsTrigger>
           <TabsTrigger value="checkout" className="gap-1 py-2 text-xs sm:text-sm">
             <Receipt className="h-3.5 w-3.5" />
-            Thanh toán
+            Thanh toÃ¡n
           </TabsTrigger>
         </TabsList>
 
-        {/* Không dùng TabsContent — tránh Radix Presence ẩn panel (tab trắng) */}
+        {/* KhÃ´ng dÃ¹ng TabsContent â€” trÃ¡nh Radix Presence áº©n panel (tab tráº¯ng) */}
         {tab === 'members' ? (
           <div className="mt-0">
             <SessionMembersPanel

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -55,7 +55,7 @@ export function EditGameDialog({
     text: string;
   } | null>(null);
 
-  // GET /api/cafes/{cafeId}/inventory/{inventoryId} - Lấy chi tiết cấu hình game
+  // GET /api/cafes/{cafeId}/inventory/{inventoryId} - Láº¥y chi tiáº¿t cáº¥u hÃ¬nh game
   useEffect(() => {
     if (!isOpen || !inventoryId) return;
 
@@ -70,7 +70,7 @@ export function EditGameDialog({
         setStatus(detail.status);
         setPenalties(detail.componentPenalties || []);
       } catch (err: any) {
-        console.error("Lỗi tải chi tiết game:", err.message);
+        console.error("Lá»—i táº£i chi tiáº¿t game:", err.message);
       }
     };
 
@@ -83,7 +83,7 @@ export function EditGameDialog({
     setPenalties(updated);
   };
 
-  // PUT /api/cafes/{cafeId}/inventory/{inventoryId} - Cập nhật thay đổi
+  // PUT /api/cafes/{cafeId}/inventory/{inventoryId} - Cáº­p nháº­t thay Ä‘á»•i
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inventoryId) return;
@@ -109,7 +109,7 @@ export function EditGameDialog({
       );
       setMessage({
         type: "success",
-        text: "Cập nhật hồ sơ kho game thành công!",
+        text: "Cáº­p nháº­t há»“ sÆ¡ kho game thÃ nh cÃ´ng!",
       });
       setTimeout(() => {
         onSuccess();
@@ -117,7 +117,7 @@ export function EditGameDialog({
         setMessage(null);
       }, 1200);
     } catch (err: any) {
-      setMessage({ type: "error", text: err.message || "Cập nhật thất bại." });
+      setMessage({ type: "error", text: err.message || "Cáº­p nháº­t tháº¥t báº¡i." });
     } finally {
       setLoading(false);
     }
@@ -125,15 +125,15 @@ export function EditGameDialog({
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
-      {/* CẬP NHẬT: Bo góc rounded-xl, viền mảnh neutral, đổ bóng mịn nhẹ nhàng */}
+      {/* Cáº¬P NHáº¬T: Bo gÃ³c rounded-xl, viá»n máº£nh neutral, Ä‘á»• bÃ³ng má»‹n nháº¹ nhÃ ng */}
       <AlertDialogContent className="bg-white border border-neutral-200/80 rounded-xl p-6 shadow-[0px_8px_24px_rgba(0,0,0,0.06)] max-w-lg mx-auto text-neutral-900">
         <AlertDialogHeader className="border-b border-neutral-100 pb-3 mb-4 space-y-1">
           <AlertDialogTitle className="text-lg font-bold tracking-tight text-neutral-900">
-            Chỉnh Sửa Kho Game: {gameName}
+            Chá»‰nh Sá»­a Kho Game: {gameName}
           </AlertDialogTitle>
           <AlertDialogDescription className="text-xs font-medium text-neutral-500">
-            Thay đổi số lượng hộp hiện có, cập nhật trạng thái hoạt động hoặc
-            tùy chỉnh biểu phí đền bù linh kiện.
+            Thay Ä‘á»•i sá»‘ lÆ°á»£ng há»™p hiá»‡n cÃ³, cáº­p nháº­t tráº¡ng thÃ¡i hoáº¡t Ä‘á»™ng hoáº·c
+            tÃ¹y chá»‰nh biá»ƒu phÃ­ Ä‘á»n bÃ¹ linh kiá»‡n.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
@@ -142,20 +142,20 @@ export function EditGameDialog({
             className={`p-3 mb-4 text-xs font-semibold border rounded-lg ${
               message.type === "success"
                 ? "bg-neutral-50 border-neutral-200 text-neutral-900"
-                : "bg-red-50 border-red-100 text-red-600"
+                : "bg-orange-50 border-orange-100 text-orange-600"
             }`}
           >
-            {message.type === "success" ? "✓ " : "⚠️ "}
+            {message.type === "success" ? "âœ“ " : "âš ï¸ "}
             {message.text}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* GRID: Đã tích hợp cả ô nhập số lượng lẫn chọn trạng thái song song cho cân đối */}
+          {/* GRID: ÄÃ£ tÃ­ch há»£p cáº£ Ã´ nháº­p sá»‘ lÆ°á»£ng láº«n chá»n tráº¡ng thÃ¡i song song cho cÃ¢n Ä‘á»‘i */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field>
               <label className="block text-[11px] font-semibold text-neutral-600 uppercase mb-1.5 tracking-wide">
-                Số lượng hộp hiện có *
+                Sá»‘ lÆ°á»£ng há»™p hiá»‡n cÃ³ *
               </label>
               <Input
                 type="number"
@@ -169,14 +169,14 @@ export function EditGameDialog({
 
             <Field>
               <label className="block text-[11px] font-semibold text-neutral-600 uppercase mb-1.5 tracking-wide">
-                Trạng thái kho *
+                Tráº¡ng thÃ¡i kho *
               </label>
               <Select
                 value={status}
                 onValueChange={(value) => setStatus(value)}
               >
                 <SelectTrigger className="w-full h-9 px-3 py-2 border border-neutral-200 bg-white font-medium text-sm rounded-lg focus:ring-1 focus:ring-neutral-400 focus-visible:ring-1 focus-visible:ring-neutral-400 focus-visible:ring-offset-0 text-left text-neutral-900">
-                  <SelectValue placeholder="Chọn trạng thái..." />
+                  <SelectValue placeholder="Chá»n tráº¡ng thÃ¡i..." />
                 </SelectTrigger>
 
                 <SelectContent className="bg-white border border-neutral-200 rounded-lg shadow-[0px_4px_12px_rgba(0,0,0,0.05)] text-neutral-900">
@@ -203,10 +203,10 @@ export function EditGameDialog({
             </Field>
           </div>
 
-          {/* ĐIỀU CHỈNH PHÍ PHẠT LINH KIỆN */}
+          {/* ÄIá»€U CHá»ˆNH PHÃ PHáº T LINH KIá»†N */}
           <div className="space-y-2">
             <label className="block text-[11px] font-bold text-neutral-800 uppercase tracking-wide">
-              Điều chỉnh phí phạt linh kiện ({penalties.length} mục)
+              Äiá»u chá»‰nh phÃ­ pháº¡t linh kiá»‡n ({penalties.length} má»¥c)
             </label>
 
             {penalties.length > 0 ? (
@@ -235,19 +235,19 @@ export function EditGameDialog({
               </div>
             ) : (
               <p className="text-xs font-medium text-neutral-400 italic p-4 border border-dashed border-neutral-200 rounded-xl text-center bg-neutral-50/40">
-                Tựa game này không có cấu trúc linh kiện riêng lẻ để điều chỉnh.
+                Tá»±a game nÃ y khÃ´ng cÃ³ cáº¥u trÃºc linh kiá»‡n riÃªng láº» Ä‘á»ƒ Ä‘iá»u chá»‰nh.
               </p>
             )}
           </div>
 
-          {/* FOOTER ACTIONS: Đồng bộ nút bấm phẳng, gradient và shadow chìm đổ khối */}
+          {/* FOOTER ACTIONS: Äá»“ng bá»™ nÃºt báº¥m pháº³ng, gradient vÃ  shadow chÃ¬m Ä‘á»• khá»‘i */}
           <AlertDialogFooter className="pt-3 border-t border-neutral-100 flex sm:items-center gap-2">
             <AlertDialogCancel
               type="button"
               onClick={onClose}
               className="h-9 border border-neutral-200 bg-white text-neutral-700 font-semibold text-xs uppercase tracking-wider rounded-lg px-5 hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
             >
-              Hủy
+              Há»§y
             </AlertDialogCancel>
 
             <Button
@@ -258,10 +258,10 @@ export function EditGameDialog({
               {loading ? (
                 <>
                   <span className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                  <span>ĐANG LƯU...</span>
+                  <span>ÄANG LÆ¯U...</span>
                 </>
               ) : (
-                "Lưu thay đổi"
+                "LÆ°u thay Ä‘á»•i"
               )}
             </Button>
           </AlertDialogFooter>

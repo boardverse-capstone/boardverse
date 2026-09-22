@@ -363,18 +363,18 @@ export function StartSessionModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-950/40 p-4 backdrop-blur-xs"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 p-4 backdrop-blur-xs"
       onClick={backdropCloseHandler(() => {
         if (loading || checkingBox) return;
         handleCloseModal();
       }, loading || checkingBox)}
     >
       <div
-        className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border-2 border-indigo-400/70 bg-white shadow-[4px_4px_0_rgba(99,102,241,0.25),0_10px_30px_rgba(0,0,0,0.15)] animate-in fade-in-50 duration-150"
+        className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border-2 border-neutral-400/70 bg-white shadow-[4px_4px_0_rgba(120,120,120,0.25),0_10px_30px_rgba(0,0,0,0.15)] animate-in fade-in-50 duration-150"
         onClick={(event) => event.stopPropagation()}
       >
         {/* HEADER */}
-        <div className="relative shrink-0 overflow-hidden border-b-2 border-indigo-700/30 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 px-5 py-3 text-white shadow-[inset_0_-3px_0_rgba(0,0,0,0.18)]">
+        <div className="relative shrink-0 overflow-hidden border-b-2 border-neutral-700/30 bg-gradient-to-br from-neutral-600 via-amber-600 to-orange-600 px-5 py-3 text-white shadow-[inset_0_-3px_0_rgba(0,0,0,0.18)]">
           <div className="pointer-events-none absolute -top-8 -right-8 size-24 rounded-full bg-white/15 blur-2xl" />
           <div className="pointer-events-none absolute -bottom-6 left-1/3 size-16 rounded-full bg-yellow-300/20 blur-xl" />
           {/* CRT scanlines */}
@@ -412,15 +412,15 @@ export function StartSessionModal({
           className="grid min-h-0 flex-1 gap-0 overflow-hidden md:grid-cols-2"
         >
           {/* CỘT TRÁI: BARCODE + PICKER GAME */}
-          <div className="space-y-4 overflow-y-auto border-b border-indigo-100 bg-gradient-to-br from-indigo-50/30 via-white to-purple-50/20 p-5 md:border-b-0 md:border-r">
+          <div className="space-y-4 overflow-y-auto border-b border-neutral-100 bg-gradient-to-br from-neutral-50/30 via-white to-amber-50/20 p-5 md:border-b-0 md:border-r">
             <div className="space-y-1.5">
-              <label className="flex items-center gap-1 text-xs font-bold text-indigo-800">
-                <Barcode className="size-3.5 text-indigo-500" /> Mã vạch hộp
+              <label className="flex items-center gap-1 text-xs font-bold text-neutral-800">
+                <Barcode className="size-3.5 text-neutral-500" /> Mã vạch hộp
                 game
               </label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Package className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-indigo-400" />
+                  <Package className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
                   <Input
                     type="text"
                     placeholder="Nhập hoặc quét mã vạch (vd: BV-a4...)"
@@ -429,7 +429,7 @@ export function StartSessionModal({
                       setBarcode(e.target.value);
                       setBoxInspection(null);
                     }}
-                    className="h-9 rounded-lg border-indigo-200 bg-white pl-9 font-mono text-xs focus-visible:border-indigo-400 focus-visible:ring-indigo-200"
+                    className="h-9 rounded-lg border-neutral-200 bg-white pl-9 font-mono text-xs focus-visible:border-neutral-400 focus-visible:ring-neutral-200"
                     autoFocus
                   />
                 </div>
@@ -456,18 +456,18 @@ export function StartSessionModal({
                   setPickerGame(null);
                   setPickerSearch("");
                 }}
-                className="group/picker flex w-full items-center justify-between gap-2 overflow-hidden rounded-lg border-2 border-dashed border-violet-400 bg-gradient-to-r from-violet-100 via-purple-50 to-fuchsia-100 px-3 py-2 text-left shadow-[2px_2px_0_rgba(139,92,246,0.4)] transition-all hover:-translate-y-0.5 hover:border-violet-500 hover:shadow-[3px_3px_0_rgba(139,92,246,0.55)]"
+                className="group/picker flex w-full items-center justify-between gap-2 overflow-hidden rounded-lg border-2 border-dashed border-amber-400 bg-gradient-to-r from-amber-100 via-neutral-50 to-orange-100 px-3 py-2 text-left shadow-[2px_2px_0_rgba(245,158,11,0.4)] transition-all hover:-translate-y-0.5 hover:border-amber-500 hover:shadow-[3px_3px_0_rgba(217,130,50,0.55)]"
               >
-                <span className="flex items-center gap-1.5 font-mono text-xs font-extrabold uppercase tracking-widest text-violet-800">
-                  <Layers className="size-3.5 text-violet-600" />
+                <span className="flex items-center gap-1.5 font-mono text-xs font-extrabold uppercase tracking-widest text-amber-800">
+                  <Layers className="size-3.5 text-amber-600" />
                   ► Hoặc chọn từ kho (game → hộp)
                 </span>
-                <ChevronRight className="size-4 shrink-0 text-violet-600 transition-transform group-hover/picker:translate-x-0.5" />
+                <ChevronRight className="size-4 shrink-0 text-amber-600 transition-transform group-hover/picker:translate-x-0.5" />
               </button>
             </div>
 
             {boxInspection && boxInspection.hasChecked && (
-              <div className="space-y-2 rounded-xl border border-cyan-200/70 bg-gradient-to-br from-cyan-50/50 via-white to-sky-50/40 p-3 animate-in fade-in-50 duration-150">
+              <div className="space-y-2 rounded-xl border border-orange-200/70 bg-gradient-to-br from-orange-50/50 via-white to-amber-50/40 p-3 animate-in fade-in-50 duration-150">
                 <div className="flex items-center gap-2">
                   <GameCoverThumb
                     src={coverLookup.lookup({
@@ -481,11 +481,11 @@ export function StartSessionModal({
                     className="size-12 shrink-0 rounded-md"
                   />
                   <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                    <span className="flex min-w-0 items-center gap-1 truncate text-xs font-bold text-cyan-950">
-                      <Package className="size-3.5 shrink-0 text-cyan-600" />
+                    <span className="flex min-w-0 items-center gap-1 truncate text-xs font-bold text-orange-950">
+                      <Package className="size-3.5 shrink-0 text-orange-600" />
                       <span className="truncate">{boxInspection.gameName}</span>
                     </span>
-                    <span className="shrink-0 rounded-md border border-cyan-200 bg-white/70 px-1.5 py-0.5 font-mono text-[10px] font-bold text-cyan-700">
+                    <span className="shrink-0 rounded-md border border-orange-200 bg-white/70 px-1.5 py-0.5 font-mono text-[10px] font-bold text-orange-700">
                       {boxInspection.barcode}
                     </span>
                   </div>
@@ -494,7 +494,7 @@ export function StartSessionModal({
                   min: boxInspection.minPlayers ?? null,
                   max: boxInspection.maxPlayers ?? null,
                 }) && (
-                  <div className="text-[11px] font-semibold text-cyan-800">
+                  <div className="text-[11px] font-semibold text-orange-800">
                     {formatPlayerRange({
                       min: boxInspection.minPlayers ?? null,
                       max: boxInspection.maxPlayers ?? null,
@@ -504,9 +504,9 @@ export function StartSessionModal({
 
                 {boxInspection.missingComponents &&
                 boxInspection.missingComponents.length > 0 ? (
-                  <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg space-y-1.5">
-                    <div className="text-[10px] font-bold text-rose-800 uppercase flex items-center gap-1">
-                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                  <div className="p-2.5 bg-orange-50 border border-orange-200 rounded-lg space-y-1.5">
+                    <div className="text-[10px] font-bold text-orange-800 uppercase flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5 text-orange-600" />
                       Cảnh báo: Hộp game ghi nhận thiếu{" "}
                       {boxInspection.missingComponents.length} loại linh kiện!
                     </div>
@@ -515,12 +515,12 @@ export function StartSessionModal({
                         (comp: any, idx: number) => (
                           <div
                             key={comp.componentId || idx}
-                            className="bg-white border border-rose-100 px-2 py-1 rounded text-[11px] flex items-center justify-between shadow-2xs"
+                            className="bg-white border border-orange-100 px-2 py-1 rounded text-[11px] flex items-center justify-between shadow-2xs"
                           >
                             <span className="font-bold text-neutral-800">
                               • {comp.componentName}
                             </span>
-                            <span className="font-mono font-bold text-rose-600 text-[10px]">
+                            <span className="font-mono font-bold text-orange-600 text-[10px]">
                               Thiếu {comp.missingQuantity || 1} (
                               {comp.componentKind || "Mảnh"})
                             </span>
@@ -528,14 +528,14 @@ export function StartSessionModal({
                         ),
                       )}
                     </div>
-                    <p className="text-[10px] text-rose-700 italic">
+                    <p className="text-[10px] text-orange-700 italic">
                       * Nhân viên hãy nhắc khách hàng tình trạng thiếu đồ trước
                       khi giao!
                     </p>
                   </div>
                 ) : (
-                  <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-1.5 text-[11px] text-emerald-800 font-medium">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div className="p-2 bg-orange-50 border border-orange-200 rounded-lg flex items-center gap-1.5 text-[11px] text-orange-800 font-medium">
+                    <ShieldCheck className="w-4 h-4 text-orange-600 shrink-0" />
                     <span>
                       Hộp đầy đủ linh kiện, sẵn sàng bàn giao cho khách.
                     </span>
@@ -547,13 +547,13 @@ export function StartSessionModal({
 
           {/* CỘT PHẢI: KHÁCH + ACTIONS */}
           <div className="flex min-h-0 flex-col overflow-hidden">
-            <div className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-br from-pink-50/30 via-white to-rose-50/20 p-5">
+            <div className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-br from-orange-50/30 via-white to-amber-50/20 p-5">
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <label className="flex items-center gap-1 text-xs font-bold text-pink-800">
-                    <Users className="size-3.5 text-pink-500" /> Khách vãng lai
+                  <label className="flex items-center gap-1 text-xs font-bold text-orange-800">
+                    <Users className="size-3.5 text-orange-500" /> Khách vãng lai
                   </label>
-                  <span className="text-[11px] font-medium text-pink-700/80">
+                  <span className="text-[11px] font-medium text-orange-700/80">
                     Tối thiểu {minPlayers} · Tối đa {maxPlayers} người
                   </span>
                 </div>
@@ -571,10 +571,10 @@ export function StartSessionModal({
                   {guestNames.map((name, idx) => (
                     <div
                       key={idx}
-                      className="space-y-1 rounded-lg border border-pink-200/60 bg-white/60 p-2"
+                      className="space-y-1 rounded-lg border border-orange-200/60 bg-white/60 p-2"
                     >
                       <div className="flex items-center gap-1.5">
-                        <UserPlus className="size-3.5 shrink-0 text-pink-400" />
+                        <UserPlus className="size-3.5 shrink-0 text-orange-400" />
                         <Input
                           type="text"
                           placeholder={`Tên khách ${idx + 1} (để trống = Khách ${idx + 1})`}
@@ -586,11 +586,11 @@ export function StartSessionModal({
                               ),
                             )
                           }
-                          className="h-8 rounded-lg border-pink-200 bg-white text-xs focus-visible:border-pink-400 focus-visible:ring-pink-200"
+                          className="h-8 rounded-lg border-orange-200 bg-white text-xs focus-visible:border-orange-400 focus-visible:ring-orange-200"
                         />
                       </div>
                       <div className="flex items-center gap-1.5 pl-5">
-                        <Phone className="size-3.5 shrink-0 text-pink-400" />
+                        <Phone className="size-3.5 shrink-0 text-orange-400" />
                         <Input
                           type="tel"
                           inputMode="tel"
@@ -607,7 +607,7 @@ export function StartSessionModal({
                               ),
                             )
                           }
-                          className="h-8 rounded-lg border-pink-200 bg-white font-mono text-xs focus-visible:border-pink-400 focus-visible:ring-pink-200"
+                          className="h-8 rounded-lg border-orange-200 bg-white font-mono text-xs focus-visible:border-orange-400 focus-visible:ring-orange-200"
                         />
                       </div>
                     </div>
@@ -616,19 +616,19 @@ export function StartSessionModal({
               </div>
             </div>
 
-            <div className="flex shrink-0 justify-end gap-2 border-t border-pink-100 bg-white/80 px-5 py-3 backdrop-blur-xs">
+            <div className="flex shrink-0 justify-end gap-2 border-t border-orange-100 bg-white/80 px-5 py-3 backdrop-blur-xs">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleCloseModal}
-                className="h-9 rounded-lg border-pink-200 text-xs text-pink-700 hover:bg-pink-50"
+                className="h-9 rounded-lg border-orange-200 text-xs text-orange-700 hover:bg-orange-50"
               >
                 Hủy
               </Button>
               <Button
                 type="submit"
                 disabled={loading || !barcode.trim()}
-                className="flex h-9 items-center gap-1.5 rounded-md border-2 border-rose-700 bg-gradient-to-b from-pink-500 to-rose-600 px-4 font-mono text-xs font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_0_12px_rgba(244,63,94,0.3)] hover:from-pink-500 hover:to-rose-500"
+                className="flex h-9 items-center gap-1.5 rounded-md border-2 border-orange-700 bg-gradient-to-b from-orange-500 to-orange-600 px-4 font-mono text-xs font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_0_12px_rgba(249,115,22,0.3)] hover:from-orange-500 hover:to-orange-500"
               >
                 <Play className="size-3.5" />
                 <span>{loading ? "Đang xử lý…" : "► XÁC NHẬN MỞ BÀN"}</span>
@@ -640,7 +640,7 @@ export function StartSessionModal({
 
       {pickerOpen && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-violet-950/50 p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-neutral-950/50 p-4 backdrop-blur-xs"
           onClick={backdropCloseHandler(() => {
             setPickerOpen(false);
             setPickerGame(null);
@@ -648,10 +648,10 @@ export function StartSessionModal({
           })}
         >
           <div
-            className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border-2 border-violet-500/70 bg-white shadow-[4px_4px_0_rgba(139,92,246,0.25),0_10px_30px_rgba(0,0,0,0.15)]"
+            className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border-2 border-amber-500/70 bg-white shadow-[4px_4px_0_rgba(245,158,11,0.25),0_10px_30px_rgba(0,0,0,0.15)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="relative flex items-center justify-between overflow-hidden border-b-2 border-violet-700/30 bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 px-4 py-3 text-white shadow-[inset_0_-3px_0_rgba(0,0,0,0.18)]">
+            <div className="relative flex items-center justify-between overflow-hidden border-b-2 border-neutral-700/30 bg-gradient-to-br from-neutral-600 via-amber-600 to-orange-600 px-4 py-3 text-white shadow-[inset_0_-3px_0_rgba(0,0,0,0.18)]">
               <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_2px,rgba(255,255,255,0.04)_2px,rgba(255,255,255,0.04)_4px)]" />
               <div className="relative flex min-w-0 items-center gap-2">
                 {pickerGame ? (
@@ -695,21 +695,21 @@ export function StartSessionModal({
 
             {!pickerGame ? (
               <>
-                <div className="border-b border-violet-100 bg-gradient-to-r from-violet-50/50 via-white to-purple-50/40 p-3">
+                <div className="border-b border-neutral-100 bg-gradient-to-r from-amber-50/50 via-white to-neutral-50/40 p-3">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-violet-400" />
+                    <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
                     <Input
                       value={pickerSearch}
                       onChange={(e) => setPickerSearch(e.target.value)}
                       placeholder="Tìm tên game hoặc mã vạch..."
-                      className="h-9 border-violet-200 bg-white pl-9 text-xs focus-visible:border-violet-400 focus-visible:ring-violet-200"
+                      className="h-9 border-neutral-200 bg-white pl-9 text-xs focus-visible:border-amber-400 focus-visible:ring-neutral-200"
                       autoFocus
                     />
                   </div>
                 </div>
-                <div className="flex-1 space-y-2 overflow-y-auto bg-gradient-to-br from-violet-50/20 via-white to-purple-50/20 p-3">
+                <div className="flex-1 space-y-2 overflow-y-auto bg-gradient-to-br from-amber-50/20 via-white to-neutral-50/20 p-3">
                   {filteredGames.length === 0 ? (
-                    <p className="py-10 text-center text-xs font-medium text-violet-600">
+                    <p className="py-10 text-center text-xs font-medium text-amber-600">
                       Không có game/hộp phù hợp trong kho.
                     </p>
                   ) : (
@@ -723,9 +723,9 @@ export function StartSessionModal({
                 </div>
               </>
             ) : (
-              <div className="flex-1 space-y-2 overflow-y-auto bg-gradient-to-br from-violet-50/20 via-white to-purple-50/20 p-3">
+              <div className="flex-1 space-y-2 overflow-y-auto bg-gradient-to-br from-amber-50/20 via-white to-neutral-50/20 p-3">
                 {pickerGame.availableBoxes.length === 0 ? (
-                  <p className="py-10 text-center text-xs font-medium text-rose-600">
+                  <p className="py-10 text-center text-xs font-medium text-orange-600">
                     Game này không còn hộp trống để gán.
                   </p>
                 ) : (
@@ -734,23 +734,23 @@ export function StartSessionModal({
                         key={box.barcode || `${box.id}-${boxIdx}`}
                         type="button"
                         onClick={() => selectBox(box)}
-                        className="group/box relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-xl border-2 border-emerald-400 bg-gradient-to-r from-emerald-100 via-teal-50 to-cyan-50 p-3 text-left shadow-[2px_2px_0_rgba(16,185,129,0.45)] transition-all hover:-translate-y-0.5 hover:border-emerald-500 hover:shadow-[3px_3px_0_rgba(16,185,129,0.6)]"
+                        className="group/box relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-xl border-2 border-orange-400 bg-gradient-to-r from-amber-100 via-orange-50 to-yellow-50 p-3 text-left shadow-[2px_2px_0_rgba(249,115,22,0.45)] transition-all hover:-translate-y-0.5 hover:border-orange-500 hover:shadow-[3px_3px_0_rgba(249,115,22,0.6)]"
                       >
                         {/* CRT scanlines */}
                         <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_2px,rgba(255,255,255,0.06)_2px,rgba(255,255,255,0.06)_4px)]" />
-                        <span className="pointer-events-none absolute right-2 top-2 size-1.5 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_6px_currentColor]" />
+                        <span className="pointer-events-none absolute right-2 top-2 size-1.5 animate-pulse rounded-full bg-orange-500 shadow-[0_0_6px_currentColor]" />
                         <div className="relative flex min-w-0 items-center gap-2">
-                          <Package className="size-4 shrink-0 text-emerald-600" />
+                          <Package className="size-4 shrink-0 text-orange-600" />
                           <div className="min-w-0">
-                            <p className="font-mono text-sm font-extrabold uppercase tracking-wider text-emerald-950">
+                            <p className="font-mono text-sm font-extrabold uppercase tracking-wider text-orange-950">
                               {box.barcode}
                             </p>
-                            <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-emerald-800">
+                            <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-orange-800">
                               ► {formatBoxStatus(box.status)}
                             </p>
                           </div>
                         </div>
-                        <span className="relative shrink-0 rounded-md border-2 border-emerald-600 bg-gradient-to-b from-emerald-400 to-emerald-600 px-2 py-1 font-mono text-[10px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)] group-hover/box:translate-x-0.5">
+                        <span className="relative shrink-0 rounded-md border-2 border-orange-600 bg-gradient-to-b from-orange-400 to-orange-600 px-2 py-1 font-mono text-[10px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)] group-hover/box:translate-x-0.5">
                           Chọn ▶
                         </span>
                       </button>
@@ -819,29 +819,20 @@ function StartSessionGameList({
     });
   };
 
-  // Bảng màu arcade neon cho từng game trong kho — xoay vòng theo index
+  // Bảng màu chỉ dùng orange + amber cho khu vực POS
 const ARCADE_PALETTES = [
   {
-    ring: "border-cyan-400",
-    soft: "from-cyan-100 via-sky-50 to-indigo-50",
-    text: "text-cyan-950",
-    sub: "text-cyan-800",
-    chip: "border-cyan-500 bg-gradient-to-b from-cyan-400 to-cyan-600 text-white",
-    shadow: "shadow-[2px_2px_0_rgba(34,211,238,0.45)] hover:shadow-[3px_3px_0_rgba(34,211,238,0.6)]",
-    accent: "bg-cyan-500",
-  },
-  {
-    ring: "border-fuchsia-400",
-    soft: "from-fuchsia-100 via-pink-50 to-rose-50",
-    text: "text-fuchsia-950",
-    sub: "text-fuchsia-800",
-    chip: "border-fuchsia-500 bg-gradient-to-b from-fuchsia-400 to-fuchsia-600 text-white",
-    shadow: "shadow-[2px_2px_0_rgba(217,70,239,0.45)] hover:shadow-[3px_3px_0_rgba(217,70,239,0.6)]",
-    accent: "bg-fuchsia-500",
+    ring: "border-orange-400",
+    soft: "from-orange-100 via-amber-50 to-yellow-50",
+    text: "text-orange-950",
+    sub: "text-orange-800",
+    chip: "border-orange-500 bg-gradient-to-b from-orange-400 to-orange-600 text-white",
+    shadow: "shadow-[2px_2px_0_rgba(249,115,22,0.45)] hover:shadow-[3px_3px_0_rgba(249,115,22,0.6)]",
+    accent: "bg-orange-500",
   },
   {
     ring: "border-amber-400",
-    soft: "from-amber-100 via-yellow-50 to-orange-50",
+    soft: "from-amber-100 via-orange-50 to-yellow-50",
     text: "text-amber-950",
     sub: "text-amber-800",
     chip: "border-amber-500 bg-gradient-to-b from-amber-400 to-amber-600 text-white",
@@ -849,40 +840,49 @@ const ARCADE_PALETTES = [
     accent: "bg-amber-500",
   },
   {
-    ring: "border-emerald-400",
-    soft: "from-emerald-100 via-teal-50 to-cyan-50",
-    text: "text-emerald-950",
-    sub: "text-emerald-800",
-    chip: "border-emerald-500 bg-gradient-to-b from-emerald-400 to-emerald-600 text-white",
-    shadow: "shadow-[2px_2px_0_rgba(16,185,129,0.45)] hover:shadow-[3px_3px_0_rgba(16,185,129,0.6)]",
-    accent: "bg-emerald-500",
+    ring: "border-orange-400",
+    soft: "from-orange-50 via-amber-50 to-orange-50",
+    text: "text-orange-950",
+    sub: "text-orange-800",
+    chip: "border-orange-400 bg-gradient-to-b from-orange-400 to-amber-500 text-white",
+    shadow: "shadow-[2px_2px_0_rgba(249,115,22,0.4)] hover:shadow-[3px_3px_0_rgba(249,115,22,0.55)]",
+    accent: "bg-amber-500",
   },
   {
-    ring: "border-violet-400",
-    soft: "from-violet-100 via-purple-50 to-fuchsia-50",
-    text: "text-violet-950",
-    sub: "text-violet-800",
-    chip: "border-violet-500 bg-gradient-to-b from-violet-400 to-violet-600 text-white",
-    shadow: "shadow-[2px_2px_0_rgba(139,92,246,0.45)] hover:shadow-[3px_3px_0_rgba(139,92,246,0.6)]",
-    accent: "bg-violet-500",
+    ring: "border-amber-400",
+    soft: "from-amber-50 via-orange-50 to-amber-50",
+    text: "text-amber-950",
+    sub: "text-amber-800",
+    chip: "border-amber-400 bg-gradient-to-b from-amber-400 to-orange-500 text-white",
+    shadow: "shadow-[2px_2px_0_rgba(245,158,11,0.4)] hover:shadow-[3px_3px_0_rgba(245,158,11,0.55)]",
+    accent: "bg-orange-500",
   },
   {
-    ring: "border-rose-400",
-    soft: "from-rose-100 via-pink-50 to-fuchsia-50",
-    text: "text-rose-950",
-    sub: "text-rose-800",
-    chip: "border-rose-500 bg-gradient-to-b from-rose-400 to-rose-600 text-white",
-    shadow: "shadow-[2px_2px_0_rgba(244,63,94,0.45)] hover:shadow-[3px_3px_0_rgba(244,63,94,0.6)]",
-    accent: "bg-rose-500",
+    ring: "border-orange-300",
+    soft: "from-orange-100 via-amber-100 to-yellow-50",
+    text: "text-orange-950",
+    sub: "text-orange-800",
+    chip: "border-orange-400 bg-gradient-to-b from-amber-400 to-orange-600 text-white",
+    shadow: "shadow-[2px_2px_0_rgba(249,115,22,0.35)] hover:shadow-[3px_3px_0_rgba(249,115,22,0.5)]",
+    accent: "bg-orange-500",
   },
   {
-    ring: "border-indigo-400",
-    soft: "from-indigo-100 via-blue-50 to-cyan-50",
-    text: "text-indigo-950",
-    sub: "text-indigo-800",
-    chip: "border-indigo-500 bg-gradient-to-b from-indigo-400 to-indigo-600 text-white",
-    shadow: "shadow-[2px_2px_0_rgba(99,102,241,0.45)] hover:shadow-[3px_3px_0_rgba(99,102,241,0.6)]",
-    accent: "bg-indigo-500",
+    ring: "border-amber-300",
+    soft: "from-amber-100 via-yellow-50 to-orange-50",
+    text: "text-amber-950",
+    sub: "text-amber-800",
+    chip: "border-amber-400 bg-gradient-to-b from-amber-500 to-orange-500 text-white",
+    shadow: "shadow-[2px_2px_0_rgba(245,158,11,0.35)] hover:shadow-[3px_3px_0_rgba(245,158,11,0.5)]",
+    accent: "bg-amber-500",
+  },
+  {
+    ring: "border-orange-300",
+    soft: "from-amber-50 via-orange-50 to-amber-50",
+    text: "text-orange-950",
+    sub: "text-orange-800",
+    chip: "border-orange-300 bg-gradient-to-b from-orange-400 to-amber-500 text-white",
+    shadow: "shadow-[2px_2px_0_rgba(249,115,22,0.3)] hover:shadow-[3px_3px_0_rgba(249,115,22,0.45)]",
+    accent: "bg-amber-500",
   },
 ] as const;
 

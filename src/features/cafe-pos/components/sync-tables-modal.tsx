@@ -329,7 +329,7 @@ export function SyncTablesModal({
                   type="button"
                   onClick={() => handleRemoveTable(index)}
                   title="Xóa bàn này"
-                  className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
+                  className="p-1.5 text-neutral-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors shrink-0"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>

@@ -2,7 +2,7 @@
  * Phong cách "Board Game Cafe / Arcade" — pixel borders, neon glow, hex chip,
  * score displays… nhưng GIỮ NGUYÊN palette màu có sẵn.
  *
- * - Không thay đổi tone màu (vẫn emerald / amber / rose / indigo / pink…).
+ * - Không thay đổi tone màu (vẫn orange / amber / neutral…).
  * - Chỉ thêm chi tiết "game-style" lên các khung nút & badge.
  */
 
@@ -48,4 +48,4 @@ export const retroBarClass =
 
 /** Power LED — đèn LED nhỏ ở góc (indicator). */
 export const ledClass =
-  "inline-block size-2 rounded-full bg-emerald-500 shadow-[0_0_6px_currentColor] animate-pulse";
+  "inline-block size-2 rounded-full bg-orange-500 shadow-[0_0_6px_currentColor] animate-pulse";

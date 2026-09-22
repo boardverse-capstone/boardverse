@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { Check, DoorOpen, Package, Search, Users } from 'lucide-react';
@@ -53,7 +53,7 @@ export function PosWalkInPanel({
   const [searchQuery, setSearchQuery] = useState('');
   const [boxListOpen, setBoxListOpen] = useState(false);
   const [playerCount, setPlayerCount] = useState(2);
-  const [playerNames, setPlayerNames] = useState<string[]>(['Chủ bàn', 'Khách 2']);
+  const [playerNames, setPlayerNames] = useState<string[]>(['Chá»§ bÃ n', 'KhÃ¡ch 2']);
 
   const imageByTemplate = useMemo(() => {
     const map = new Map<string, string>();
@@ -118,7 +118,7 @@ export function PosWalkInPanel({
     setPlayerNames((prev) => {
       const names = Array.from({ length: next }, (_, i) => {
         if (prev[i]?.trim()) return prev[i];
-        return i === 0 ? 'Chủ bàn' : `Khách ${i + 1}`;
+        return i === 0 ? 'Chá»§ bÃ n' : `KhÃ¡ch ${i + 1}`;
       });
       return names;
     });
@@ -128,7 +128,7 @@ export function PosWalkInPanel({
     setPlayerNames((prev) =>
       Array.from({ length: count }, (_, i) => {
         if (prev[i]?.trim()) return prev[i];
-        return i === 0 ? 'Chủ bàn' : `Khách ${i + 1}`;
+        return i === 0 ? 'Chá»§ bÃ n' : `KhÃ¡ch ${i + 1}`;
       }),
     );
   };
@@ -146,25 +146,25 @@ export function PosWalkInPanel({
 
   const handleStart = async () => {
     if (!selectedTableId) {
-      toast.error('Chưa chọn bàn trên sơ đồ.');
+      toast.error('ChÆ°a chá»n bÃ n trÃªn sÆ¡ Ä‘á»“.');
       return;
     }
     if (!barcode.trim()) {
-      toast.error('Chọn hộp game từ danh sách.');
+      toast.error('Chá»n há»™p game tá»« danh sÃ¡ch.');
       return;
     }
     if (!cafeId) {
-      toast.error('Thiếu mã quán.');
+      toast.error('Thiáº¿u mÃ£ quÃ¡n.');
       return;
     }
     if (playerCount < gameLimits.minPlayers) {
       toast.error(
-        `Game này cần tối thiểu ${gameLimits.minPlayers} người — hãy nhập đủ người chơi.`,
+        `Game nÃ y cáº§n tá»‘i thiá»ƒu ${gameLimits.minPlayers} ngÆ°á»i â€” hÃ£y nháº­p Ä‘á»§ ngÆ°á»i chÆ¡i.`,
       );
       return;
     }
     if (playerCount > gameLimits.maxPlayers) {
-      toast.error(`Game này tối đa ${gameLimits.maxPlayers} người.`);
+      toast.error(`Game nÃ y tá»‘i Ä‘a ${gameLimits.maxPlayers} ngÆ°á»i.`);
       return;
     }
 
@@ -174,13 +174,13 @@ export function PosWalkInPanel({
         barcode: barcode.trim(),
       });
 
-      // GET thật sau create — BE thường đã có host (và đôi khi đủ minPlayers)
+      // GET tháº­t sau create â€” BE thÆ°á»ng Ä‘Ã£ cÃ³ host (vÃ  Ä‘Ã´i khi Ä‘á»§ minPlayers)
       let fresh = await PosCheckInService.getSession(cafeId, session.sessionId).catch(() => null);
       const countOf = (s: {
         presentCount?: number;
         members?: { id?: string }[];
       } | null | undefined) => {
-        // Bỏ slot pad FE (guest-slot-*) — chỉ đếm member API thật
+        // Bá» slot pad FE (guest-slot-*) â€” chá»‰ Ä‘áº¿m member API tháº­t
         const real = (s?.members || []).filter(
           (m) =>
             m?.id &&
@@ -193,16 +193,16 @@ export function PosWalkInPanel({
       let already = countOf(fresh ?? session);
       let lastSession = fresh ?? session;
 
-      // Chỉ thêm guest khi còn thiếu so với số user nhập (không tin presentCount trong create body)
+      // Chá»‰ thÃªm guest khi cÃ²n thiáº¿u so vá»›i sá»‘ user nháº­p (khÃ´ng tin presentCount trong create body)
       while (already < playerCount) {
-        const displayName = playerNames[already]?.trim() || `Khách ${already + 1}`;
+        const displayName = playerNames[already]?.trim() || `KhÃ¡ch ${already + 1}`;
         try {
           lastSession = await PosCheckInService.addGuestSlots(cafeId, session.sessionId, {
             displayName,
           });
           fresh = await PosCheckInService.getSession(cafeId, session.sessionId).catch(() => null);
           const next = countOf(fresh ?? lastSession);
-          // Tránh vòng lặp nếu API không tăng count
+          // TrÃ¡nh vÃ²ng láº·p náº¿u API khÃ´ng tÄƒng count
           if (next <= already) {
             already += 1;
           } else {
@@ -212,14 +212,14 @@ export function PosWalkInPanel({
         } catch (guestErr) {
           toast.error(
             (guestErr as Error)?.message ||
-              `Phiên đã mở nhưng chưa thêm đủ khách (${already}/${playerCount}).`,
+              `PhiÃªn Ä‘Ã£ má»Ÿ nhÆ°ng chÆ°a thÃªm Ä‘á»§ khÃ¡ch (${already}/${playerCount}).`,
           );
           onStarted?.(session);
           return;
         }
       }
 
-      // Xóa LS cộng người — tên lấy từ server members; tránh header 1+LS = 3
+      // XÃ³a LS cá»™ng ngÆ°á»i â€” tÃªn láº¥y tá»« server members; trÃ¡nh header 1+LS = 3
       if (typeof window !== 'undefined' && session.sessionId) {
         try {
           localStorage.removeItem(`pos_added_members_${session.sessionId}`);
@@ -239,10 +239,10 @@ export function PosWalkInPanel({
         members: (started as { members?: unknown[] }).members,
       } as ActivatedSession);
       toast.success(
-        `Walk-in OK · ${session.tableLabel} · ${session.game.name} · ${playerCount} người.`,
+        `Walk-in OK Â· ${session.tableLabel} Â· ${session.game.name} Â· ${playerCount} ngÆ°á»i.`,
       );
     } catch (err) {
-      toast.error((err as Error)?.message || 'Không thể tạo phiên walk-in.');
+      toast.error((err as Error)?.message || 'KhÃ´ng thá»ƒ táº¡o phiÃªn walk-in.');
     }
   };
 
@@ -250,20 +250,20 @@ export function PosWalkInPanel({
     <div className="space-y-3 rounded-lg border p-3 md:p-4">
       <p className="flex items-center gap-2 text-sm font-medium">
         <DoorOpen className="h-4 w-4" />
-        Khách vãng lai
+        KhÃ¡ch vÃ£ng lai
       </p>
 
       <div className="space-y-1.5">
         <Label className="flex items-center gap-1.5">
           <Package className="h-3.5 w-3.5" />
-          Hộp game *
+          Há»™p game *
         </Label>
 
         {selectedBox ? (
           <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
             <BoxThumb src={coverLookup.lookup(selectedBox)} alt={selectedBox.gameName || selectedBox.barcode} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{selectedBox.gameName || 'Hộp game'}</p>
+              <p className="truncate text-sm font-medium">{selectedBox.gameName || 'Há»™p game'}</p>
               <p className="truncate font-mono text-[11px] text-muted-foreground">
                 {selectedBox.barcode}
               </p>
@@ -279,7 +279,7 @@ export function PosWalkInPanel({
                 setBoxListOpen(true);
               }}
             >
-              Đổi
+              Äá»•i
             </Button>
           </div>
         ) : !boxListOpen && !boxesLoading ? (
@@ -290,7 +290,7 @@ export function PosWalkInPanel({
             onClick={() => setBoxListOpen(true)}
           >
             <Package className="h-3.5 w-3.5" />
-            Chọn hộp game…
+            Chá»n há»™p gameâ€¦
           </Button>
         ) : null}
 
@@ -302,7 +302,7 @@ export function PosWalkInPanel({
                 id="walkin-box-search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm theo tên game…"
+                placeholder="TÃ¬m theo tÃªn gameâ€¦"
                 className="h-9 pl-8 text-sm"
                 autoComplete="off"
                 autoFocus
@@ -310,14 +310,14 @@ export function PosWalkInPanel({
             </div>
             <div
               role="listbox"
-              aria-label="Danh sách hộp có sẵn"
+              aria-label="Danh sÃ¡ch há»™p cÃ³ sáºµn"
               className="max-h-56 space-y-1 overflow-y-auto rounded-md border p-1"
             >
               {filteredBoxes.length === 0 ? (
                 <p className="px-2 py-4 text-center text-xs text-muted-foreground">
                   {searchQuery.trim()
-                    ? `Không thấy hộp khớp “${searchQuery.trim()}”.`
-                    : 'Không còn hộp Available.'}
+                    ? `KhÃ´ng tháº¥y há»™p khá»›p â€œ${searchQuery.trim()}â€.`
+                    : 'KhÃ´ng cÃ²n há»™p Available.'}
                 </p>
               ) : (
                 filteredBoxes.map((box) => {
@@ -335,19 +335,19 @@ export function PosWalkInPanel({
                       }}
                       className={cn(
                         'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors',
-                        selected ? 'bg-emerald-50 ring-1 ring-emerald-300' : 'hover:bg-muted/60',
+                        selected ? 'bg-orange-50 ring-1 ring-orange-300' : 'hover:bg-muted/60',
                       )}
                     >
                       <BoxThumb src={coverLookup.lookup(box)} alt={box.gameName || box.barcode} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium">
-                          {box.gameName || 'Hộp game'}
+                          {box.gameName || 'Há»™p game'}
                         </span>
                         <span className="block truncate font-mono text-[11px] text-muted-foreground">
                           {box.barcode}
                         </span>
                       </span>
-                      {selected ? <Check className="h-4 w-4 shrink-0 text-emerald-600" /> : null}
+                      {selected ? <Check className="h-4 w-4 shrink-0 text-orange-600" /> : null}
                     </button>
                   );
                 })
@@ -359,11 +359,11 @@ export function PosWalkInPanel({
         {boxesLoading ? (
           <div className="flex h-9 items-center gap-2 text-xs text-muted-foreground">
             <Spinner className="h-3.5 w-3.5" />
-            Đang tải danh sách hộp…
+            Äang táº£i danh sÃ¡ch há»™pâ€¦
           </div>
         ) : null}
         {boxesError ? (
-          <p className="text-xs text-rose-600">Không tải được danh sách hộp. Thử F5.</p>
+          <p className="text-xs text-orange-600">KhÃ´ng táº£i Ä‘Æ°á»£c danh sÃ¡ch há»™p. Thá»­ F5.</p>
         ) : null}
       </div>
 
@@ -373,7 +373,7 @@ export function PosWalkInPanel({
             <div className="space-y-1.5">
               <Label htmlFor="walkin-player-count" className="flex items-center gap-1.5">
                 <Users className="h-3.5 w-3.5" />
-                Số người chơi *
+                Sá»‘ ngÆ°á»i chÆ¡i *
               </Label>
               <NumberStepper
                 value={playerCount}
@@ -381,17 +381,17 @@ export function PosWalkInPanel({
                 min={gameLimits.minPlayers}
                 max={gameLimits.maxPlayers}
                 size="md"
-                ariaLabelDec="Giảm số người chơi"
-                ariaLabelInc="Tăng số người chơi"
+                ariaLabelDec="Giáº£m sá»‘ ngÆ°á»i chÆ¡i"
+                ariaLabelInc="TÄƒng sá»‘ ngÆ°á»i chÆ¡i"
               />
             </div>
             <p className="pb-1 text-xs text-muted-foreground">
-              Game yêu cầu {gameLimits.minPlayers}–{gameLimits.maxPlayers} người
+              Game yÃªu cáº§u {gameLimits.minPlayers}â€“{gameLimits.maxPlayers} ngÆ°á»i
             </p>
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Tên người chơi</Label>
+            <Label className="text-xs text-muted-foreground">TÃªn ngÆ°á»i chÆ¡i</Label>
             <div className="max-h-36 space-y-1.5 overflow-y-auto">
               {playerNames.map((name, index) => (
                 <Input
@@ -402,7 +402,7 @@ export function PosWalkInPanel({
                     next[index] = e.target.value;
                     setPlayerNames(next);
                   }}
-                  placeholder={index === 0 ? 'Chủ bàn' : `Khách ${index + 1}`}
+                  placeholder={index === 0 ? 'Chá»§ bÃ n' : `KhÃ¡ch ${index + 1}`}
                   className="h-8 text-sm"
                 />
               ))}
@@ -424,7 +424,7 @@ export function PosWalkInPanel({
         onClick={() => void handleStart()}
       >
         {createSession.isPending ? <Spinner className="mr-2 h-4 w-4" /> : null}
-        Bắt đầu phiên walk-in
+        Báº¯t Ä‘áº§u phiÃªn walk-in
       </Button>
     </div>
   );

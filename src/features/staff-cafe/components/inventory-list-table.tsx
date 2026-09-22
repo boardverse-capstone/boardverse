@@ -25,7 +25,7 @@ export function createInventoryColumns(cafeId: string): ColumnDef<InventoryListI
       ),
       cell: ({ row }) => (
         <div className="flex min-w-[180px] items-center gap-3">
-          <div className="relative size-12 shrink-0 overflow-hidden rounded-md border-2 border-violet-300 bg-muted shadow-[inset_0_-1px_0_rgba(0,0,0,0.1)]">
+          <div className="relative size-12 shrink-0 overflow-hidden rounded-md border-2 border-orange-300 bg-muted shadow-[inset_0_-1px_0_rgba(0,0,0,0.1)]">
             {row.original.imageUrl ? (
               <Image
                 src={row.original.imageUrl}
@@ -35,16 +35,16 @@ export function createInventoryColumns(cafeId: string): ColumnDef<InventoryListI
                 sizes="48px"
               />
             ) : (
-              <div className="flex size-full items-center justify-center font-mono text-[10px] font-extrabold uppercase tracking-widest text-violet-400">
+              <div className="flex size-full items-center justify-center font-mono text-[10px] font-extrabold uppercase tracking-widest text-orange-400">
                 N/A
               </div>
             )}
           </div>
           <div className="min-w-0">
-            <div className="truncate font-mono text-xs font-extrabold uppercase tracking-wide text-violet-950">
+            <div className="truncate font-mono text-xs font-extrabold uppercase tracking-wide text-orange-950">
               ► {row.original.name}
             </div>
-            <div className="truncate font-mono text-[10px] font-bold uppercase tracking-widest text-violet-500">
+            <div className="truncate font-mono text-[10px] font-bold uppercase tracking-widest text-orange-500">
               {row.original.minPlayers > 0
                 ? `${row.original.minPlayers}–${row.original.maxPlayers} người`
                 : null}
@@ -74,7 +74,7 @@ export function createInventoryColumns(cafeId: string): ColumnDef<InventoryListI
         }
         // API inventory hiện không trả condition — dùng isActive
         return row.original.isActive ? (
-          <span className="text-emerald-700">Đang hoạt động</span>
+          <span className="text-orange-700">Đang hoạt động</span>
         ) : (
           <span className="text-muted-foreground">Ngưng</span>
         );
@@ -84,8 +84,8 @@ export function createInventoryColumns(cafeId: string): ColumnDef<InventoryListI
       id: 'components',
       header: 'Linh kiện',
       cell: ({ row }) => (
-        <span className="inline-flex items-center gap-1 rounded-md border-2 border-violet-300 bg-violet-50 px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase tracking-widest text-violet-800 shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]">
-          <span className="size-1.5 animate-pulse rounded-full bg-violet-500 shadow-[0_0_4px_currentColor]" />
+        <span className="inline-flex items-center gap-1 rounded-md border-2 border-orange-300 bg-orange-50 px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase tracking-widest text-orange-800 shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]">
+          <span className="size-1.5 animate-pulse rounded-full bg-orange-500 shadow-[0_0_4px_currentColor]" />
           {row.original.componentPenalties.length} mục
         </span>
       ),
@@ -103,7 +103,7 @@ export function createInventoryColumns(cafeId: string): ColumnDef<InventoryListI
             ⚠ {formatCurrencyVnd(maxFee)}
           </span>
         ) : (
-          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-violet-400">
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-orange-400">
             ▸ —
           </span>
         );

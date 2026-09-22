@@ -369,7 +369,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     <div className="min-w-0 space-y-4 font-sans text-neutral-900 antialiased">
       <Card
         className={cn(
-          "gap-0 border-indigo-200/60 bg-gradient-to-br from-white via-indigo-50/40 to-purple-50/30 py-0 shadow-md",
+          "gap-0 border-orange-200/60 bg-gradient-to-br from-white via-orange-50/40 to-amber-50/30 py-0 shadow-md",
           arcadeCardClass,
           interactiveFrameClass,
         )}
@@ -379,7 +379,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         <CardContent className="relative flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h1 className="text-lg font-extrabold tracking-tight text-neutral-950 sm:text-xl">
-              <span className="bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-700 bg-clip-text text-transparent drop-shadow-sm">
+              <span className="bg-gradient-to-r from-orange-700 via-amber-700 to-orange-700 bg-clip-text text-transparent drop-shadow-sm">
                 Quầy POS
               </span>
               <span className="ml-1 font-mono text-xs font-normal text-neutral-500">
@@ -392,7 +392,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
               className={
                 hubConnected
                   ? cn(
-                      "gap-1.5 border-emerald-300 bg-emerald-50 font-semibold text-emerald-800 shadow-[0_0_8px_rgba(16,185,129,0.3)]",
+                      "gap-1.5 border-orange-300 bg-orange-50 font-semibold text-orange-800 shadow-[0_0_8px_rgba(249,115,22,0.3)]",
                     )
                   : "border-neutral-200 bg-neutral-50 font-semibold text-neutral-700"
               }
@@ -400,16 +400,16 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
               <span
                 className={cn(
                   statusOrbClass,
-                  hubConnected ? "bg-emerald-500" : "bg-neutral-400",
+                  hubConnected ? "bg-orange-500" : "bg-neutral-400",
                 )}
               />
               {hubConnected ? "TRỰC TIẾP" : "NGOẠI TUYẾN"}
             </Badge>
             <Badge
               variant="outline"
-              className="gap-1.5 border-emerald-300 bg-emerald-50 font-semibold text-emerald-800 shadow-[inset_0_-2px_0_rgba(0,0,0,0.06)]"
+              className="gap-1.5 border-orange-300 bg-orange-50 font-semibold text-orange-800 shadow-[inset_0_-2px_0_rgba(0,0,0,0.06)]"
             >
-              <span className={cn(statusOrbClass, "bg-emerald-500")} />
+              <span className={cn(statusOrbClass, "bg-orange-500")} />
               Trống {availableTableCount}/{tables.length}
             </Badge>
             <Badge
@@ -459,18 +459,18 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
           <div className="flex max-w-full justify-start overflow-x-auto pb-1">
             <TabsList
               aria-label="Khu vực chính POS"
-              className="inline-flex h-auto min-h-11 flex-wrap items-center justify-center gap-1 self-center rounded-md border-2 border-indigo-300/60 bg-gradient-to-r from-indigo-100 via-purple-100 to-pink-100 p-1 shadow-[2px_2px_0_rgba(0,0,0,0.08)]"
+              className="inline-flex h-auto min-h-11 flex-wrap items-center justify-center gap-1 self-center rounded-md border-2 border-orange-300/60 bg-gradient-to-r from-orange-100 via-amber-100 to-orange-100 p-1 shadow-[2px_2px_0_rgba(0,0,0,0.08)]"
             >
               <TabsTrigger
                 value="ops"
-                className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-indigo-500 data-active:bg-gradient-to-r data-active:from-indigo-600 data-active:to-purple-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
+                className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-orange-500 data-active:bg-gradient-to-r data-active:from-orange-600 data-active:to-amber-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
               >
                 <Store className="size-3.5 shrink-0 -translate-y-[0.5px]" aria-hidden="true" />
                 <span className="-translate-y-[0.5px]">Quầy vận hành</span>
               </TabsTrigger>
               <TabsTrigger
                 value="reception"
-                className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-pink-500 data-active:bg-gradient-to-r data-active:from-pink-600 data-active:to-rose-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
+                className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-orange-500 data-active:bg-gradient-to-r data-active:from-orange-600 data-active:to-amber-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
               >
                 <UserCheck className="size-3.5 shrink-0 -translate-y-[0.5px]" aria-hidden="true" />
                 <span className="-translate-y-[0.5px]">Đặt chỗ & Vãng lai</span>
@@ -553,11 +553,11 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
               <div className="flex max-w-full justify-start overflow-x-auto pb-1">
                 <TabsList
                   aria-label="Khu vực vận hành POS"
-                  className="inline-flex h-auto min-h-11 flex-wrap items-center justify-center gap-1 self-center rounded-md border-2 border-emerald-300/60 bg-gradient-to-r from-emerald-100 via-teal-100 to-cyan-100 p-1 shadow-[2px_2px_0_rgba(0,0,0,0.08)]"
+                  className="inline-flex h-auto min-h-11 flex-wrap items-center justify-center gap-1 self-center rounded-md border-2 border-orange-300/60 bg-gradient-to-r from-orange-100 via-amber-100 to-orange-100 p-1 shadow-[2px_2px_0_rgba(0,0,0,0.08)]"
                 >
                   <TabsTrigger
                     value="tables"
-                    className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-emerald-500 data-active:bg-gradient-to-r data-active:from-emerald-600 data-active:to-teal-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
+                    className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-orange-500 data-active:bg-gradient-to-r data-active:from-orange-600 data-active:to-amber-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
                   >
                     <Table2 className="size-3.5 shrink-0 -translate-y-[0.5px]" aria-hidden="true" />
                     <span className="-translate-y-[0.5px]">Sơ đồ bàn ({tables.length})</span>
@@ -571,14 +571,14 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                   </TabsTrigger>
                   <TabsTrigger
                     value="boxes"
-                    className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-violet-500 data-active:bg-gradient-to-r data-active:from-violet-600 data-active:to-purple-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
+                    className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-orange-500 data-active:bg-gradient-to-r data-active:from-orange-600 data-active:to-amber-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
                   >
                     <Box className="size-3.5 shrink-0 -translate-y-[0.5px]" aria-hidden="true" />
                     <span className="-translate-y-[0.5px]">Kho hộp ({boxes.length})</span>
                   </TabsTrigger>
                   <TabsTrigger
                     value="settlements"
-                    className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-rose-500 data-active:bg-gradient-to-r data-active:from-rose-600 data-active:to-pink-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
+                    className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-orange-500 data-active:bg-gradient-to-r data-active:from-orange-600 data-active:to-amber-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
                   >
                     <Banknote className="size-3.5 shrink-0 -translate-y-[0.5px]" aria-hidden="true" />
                     <span className="-translate-y-[0.5px]">Giải ngân</span>
@@ -587,13 +587,13 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
               </div>
 
               {loading ? (
-                <Card className="border-2 border-indigo-300/60 bg-gradient-to-br from-indigo-50/40 via-white to-purple-50/40 shadow-[2px_2px_0_rgba(0,0,0,0.08)]">
+                <Card className="border-2 border-orange-300/60 bg-gradient-to-br from-orange-50/40 via-white to-amber-50/40 shadow-[2px_2px_0_rgba(0,0,0,0.08)]">
                   <CardContent
                     className="flex flex-col items-center justify-center gap-3 py-16"
                     aria-live="polite"
                   >
-                    <Loader2 className="size-8 animate-spin text-indigo-500 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
-                    <p className="font-mono text-xs font-bold uppercase tracking-widest text-indigo-700">
+                    <Loader2 className="size-8 animate-spin text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.5)]" />
+                    <p className="font-mono text-xs font-bold uppercase tracking-widest text-orange-700">
                       ▸ Đang tải dữ liệu POS…
                     </p>
                   </CardContent>
@@ -704,7 +704,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                         "cursor-pointer border-2 transition-all hover:translate-y-[-2px] hover:shadow-[3px_3px_0_rgba(0,0,0,0.1)]",
                         isAvail
                           ? cn(
-                              "border-emerald-300 bg-emerald-50/30 shadow-[2px_2px_0_rgba(16,185,129,0.25)]",
+                              "border-orange-300 bg-orange-50/30 shadow-[2px_2px_0_rgba(249,115,22,0.25)]",
                               interactiveFrameClass,
                             )
                           : cn(
@@ -723,7 +723,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                             className={cn(
                               "gap-1 border-2 px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase tracking-widest shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)]",
                               isAvail
-                                ? "border-emerald-400 bg-emerald-100 text-emerald-800"
+                                ? "border-orange-400 bg-orange-100 text-orange-800"
                                 : "border-amber-400 bg-amber-100 text-amber-900",
                             )}
                           >
@@ -731,7 +731,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                               className={cn(
                                 "inline-block size-1.5 rounded-full",
                                 isAvail
-                                  ? "bg-emerald-500 shadow-[0_0_6px_currentColor]"
+                                  ? "bg-orange-500 shadow-[0_0_6px_currentColor]"
                                   : "bg-amber-500 shadow-[0_0_6px_currentColor]",
                               )}
                             />
@@ -771,7 +771,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                                 maxPlayers: displayRange.max,
                               });
                             }}
-                            className="min-h-11 w-full gap-2 border-2 border-emerald-700 bg-gradient-to-b from-emerald-500 to-emerald-600 font-bold uppercase tracking-wider text-white shadow-[inset_0_-3px_0_rgba(0,0,0,0.2),0_2px_0_rgba(0,0,0,0.15)] transition-all hover:translate-y-[-1px] hover:from-emerald-500 hover:to-emerald-500"
+                            className="min-h-11 w-full gap-2 border-2 border-orange-700 bg-gradient-to-b from-orange-500 to-orange-600 font-bold uppercase tracking-wider text-white shadow-[inset_0_-3px_0_rgba(0,0,0,0.2),0_2px_0_rgba(0,0,0,0.15)] transition-all hover:translate-y-[-1px] hover:from-orange-500 hover:to-orange-500"
                           >
                             <Play className="size-4" />
                             ► BẮT ĐẦU PHIÊN

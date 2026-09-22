@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import {
-  CalendarClock,
+  CalendarDays,
+  CheckCircle2,
   CircleDollarSign,
   Gamepad2,
   Loader2,
@@ -10,8 +11,6 @@ import {
   Search,
   TrendingUp,
   Users,
-  CalendarDays,
-  CheckCircle2,
   XCircle,
 } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
@@ -78,56 +77,96 @@ function formatTime(value?: string | null): string {
   });
 }
 
+// ─── SHARED GAME STYLES ─────────────────────────────────────────────────────
+// Palette: CAM ĐẬM cho tiêu đề/CTA, VÀNG NHẠT cho nền body, TRUNG TÍNH cho border/chữ
+const A = {
+  border: 'border-2 border-amber-500',                                          // viền trung tính (vàng cam đậm vừa)
+  headerBg: 'bg-gradient-to-r from-orange-500 via-orange-600 to-amber-600 shadow-[inset_0_-2px_0_rgba(154,52,18,0.5)]', // header card: cam đậm
+  cardBg: 'bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50',         // body card: vàng nhạt
+  text: 'text-orange-900',                                                      // chữ tiêu đề đậm cam
+  icon: 'bg-orange-600',                                                        // pulse dot cam đậm
+  glow: 'rgba(234,88,12,0.25)',                                                 // shadow glow cam
+  textMuted: 'text-orange-700',                                                 // label phụ cam trung bình
+  textLight: 'text-amber-700',                                                  // chữ phụ vàng
+  textNeutral: 'text-stone-700',                                                // trung tính cho nội dung data
+  textBody: 'text-stone-900',                                                   // nội dung chính (đen/nâu)
+  scanlines: 'bg-[repeating-linear-gradient(0deg,transparent_0,transparent_3px,rgba(234,88,12,0.05)_3px,rgba(234,88,12,0.05)_4px)]',
+} as const;
+
+function Scanlines() {
+  return (
+    <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_3px,rgba(234,88,12,0.04)_3px,rgba(234,88,12,0.04)_4px)]" />
+  );
+}
+
+function PulseDot({ className }: { className?: string }) {
+  return <span className={`pointer-events-none absolute right-3 top-3 size-2 animate-pulse rounded-full ${A.icon} shadow-[0_0_8px_currentColor] ${className ?? ''}`} />;
+}
+
+// ─── BADGE ────────────────────────────────────────────────────────────────
+
 function ShiftStatusBadge({ status }: { status: CafeShift['status'] }) {
   if (status === 'Open') {
     return (
-      <Badge className="gap-1 bg-emerald-500/20 text-emerald-700 hover:bg-emerald-500/30">
-        <CheckCircle2 className="size-3" />
-        Đang mở
+      <Badge className="border-2 border-emerald-500 bg-emerald-100 font-mono text-[10px] font-extrabold uppercase tracking-widest text-emerald-800 shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]">
+        <span className="mr-1 size-1.5 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_4px_currentColor]" />
+        ► Đang mở
       </Badge>
     );
   }
   return (
-    <Badge variant="secondary" className="gap-1">
-      <XCircle className="size-3" />
+    <Badge className="border-2 border-amber-400 bg-amber-50 font-mono text-[10px] font-extrabold uppercase tracking-widest text-amber-800 shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]">
+      <span className="mr-1 size-1.5 rounded-full bg-amber-500" />
       Đã đóng
     </Badge>
   );
 }
 
-function StatCard({
+// ─── STAT CARD (HUD mini-panel) ─────────────────────────────────────────
+
+function HudStatCard({
   label,
   value,
-  icon: Icon,
-  tone = 'default',
 }: {
   label: string;
   value: string;
-  icon: typeof CalendarDays;
-  tone?: 'default' | 'success' | 'warning';
 }) {
-  const toneClasses = {
-    default: 'bg-violet-500/10 text-violet-700',
-    success: 'bg-emerald-500/10 text-emerald-700',
-    warning: 'bg-amber-500/10 text-amber-700',
-  };
-
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${toneClasses[tone]}`}>
-          <Icon className="size-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {label}
-          </p>
-          <p className="truncate font-mono text-lg font-bold">{value}</p>
-        </div>
-      </CardContent>
-    </Card>
+    <div className={`relative overflow-hidden rounded-md border-2 border-amber-400 ${A.cardBg} p-2.5 shadow-[3px_3px_0_var(--glow)]`} style={{ ['--glow' as string]: A.glow }}>
+      <div className={A.scanlines} />
+      <p className="relative font-mono text-[10px] font-bold uppercase tracking-widest text-orange-600">▸ {label}</p>
+      <p className="relative mt-0.5 truncate font-mono text-lg font-extrabold uppercase tracking-wide text-stone-900 [text-shadow:1px_1px_0_rgba(255,255,255,0.7)]">{value}</p>
+    </div>
   );
 }
+
+// ─── GAME CARD WRAPPER ───────────────────────────────────────────────────
+
+function GameCard({
+  title,
+  children,
+  className = '',
+}: {
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`relative overflow-hidden rounded-lg ${A.border} ${A.cardBg} shadow-[3px_3px_0_var(--glow)] ${className}`} style={{ ['--glow' as string]: A.glow }}>
+      <Scanlines />
+      <PulseDot />
+      <div className="m-2 flex items-center justify-between overflow-hidden rounded-md border-2 border-orange-600 bg-gradient-to-r from-orange-500 via-orange-600 to-amber-600 px-4 py-2 shadow-[inset_0_-2px_0_rgba(154,52,18,0.5)]">
+        <h3 className="font-mono text-sm font-extrabold uppercase tracking-widest text-white">
+          <span className="mr-2 inline-block size-2 animate-pulse rounded-full bg-white/70 shadow-[0_0_6px_rgba(255,255,255,0.6)]" />
+          ► {title}
+        </h3>
+      </div>
+      <div className="relative px-4 pb-4">{children}</div>
+    </div>
+  );
+}
+
+// ─── TABLE ───────────────────────────────────────────────────────────────
 
 function ShiftHistoryTable({
   shifts,
@@ -151,23 +190,17 @@ function ShiftHistoryTable({
   const authUser = useAuthStore((s) => s.user);
 
   const getUserLabel = (username?: string, userId?: string) => {
-    if (username && !/^[0-9a-fA-F-]{36}$/.test(username)) {
-      return username;
-    }
-    if (userId && authUser?.id === userId && authUser.username) {
-      return authUser.username;
-    }
-    if (userId) {
-      return userId;
-    }
+    if (username && !/^[0-9a-fA-F-]{36}$/.test(username)) return username;
+    if (userId && authUser?.id === userId && authUser.username) return authUser.username;
+    if (userId) return userId;
     return '—';
   };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-muted-foreground">Đang tải lịch sử ca...</span>
+        <Loader2 className="size-6 animate-spin text-orange-500" />
+        <span className="ml-2 font-mono text-xs font-bold uppercase tracking-widest text-orange-600">► Đang tải lịch sử...</span>
       </div>
     );
   }
@@ -175,11 +208,9 @@ function ShiftHistoryTable({
   if (shifts.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <CalendarDays className="size-12 text-muted-foreground/50" />
-        <p className="mt-3 font-medium">Chưa có ca nào</p>
-        <p className="text-sm text-muted-foreground">
-          Lịch sử ca sẽ hiển thị tại đây khi bạn bắt đầu làm việc.
-        </p>
+        <CalendarDays className="size-12 text-orange-300" />
+        <p className="mt-3 font-mono text-sm font-extrabold uppercase tracking-widest text-orange-600">▸ Chưa có ca nào</p>
+        <p className="mt-1 font-mono text-xs text-orange-400">Lịch sử ca sẽ hiển thị tại đây khi bạn bắt đầu làm việc.</p>
       </div>
     );
   }
@@ -188,51 +219,52 @@ function ShiftHistoryTable({
     <>
       <Table>
         <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead className="w-[120px]">Ngày mở</TableHead>
-            <TableHead>Giờ mở</TableHead>
-            <TableHead>Giờ đóng</TableHead>
-            <TableHead>Người mở</TableHead>
-            <TableHead>Người đóng</TableHead>
-            <TableHead className="text-right">Đầu ca</TableHead>
-            <TableHead className="text-right">Cuối ca</TableHead>
-            <TableHead className="text-right">Doanh thu</TableHead>
-            <TableHead className="text-center">Phiên</TableHead>
-            <TableHead>Trạng thái</TableHead>
+          <TableRow className="border-b-2 border-amber-500 bg-gradient-to-r from-orange-600 via-orange-700 to-amber-700 hover:from-orange-600 hover:via-orange-700 hover:to-amber-700">
+            <TableHead className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-white [text-shadow:1px_1px_0_rgba(0,0,0,0.4)]">Ngày mở</TableHead>
+            <TableHead className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-white [text-shadow:1px_1px_0_rgba(0,0,0,0.4)]">Giờ mở</TableHead>
+            <TableHead className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-white [text-shadow:1px_1px_0_rgba(0,0,0,0.4)]">Giờ đóng</TableHead>
+            <TableHead className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-white [text-shadow:1px_1px_0_rgba(0,0,0,0.4)]">Người mở</TableHead>
+            <TableHead className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-white [text-shadow:1px_1px_0_rgba(0,0,0,0.4)]">Người đóng</TableHead>
+            <TableHead className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-white text-right [text-shadow:1px_1px_0_rgba(0,0,0,0.4)]">Đầu ca</TableHead>
+            <TableHead className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-white text-right [text-shadow:1px_1px_0_rgba(0,0,0,0.4)]">Cuối ca</TableHead>
+            <TableHead className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-white text-right [text-shadow:1px_1px_0_rgba(0,0,0,0.4)]">Doanh thu</TableHead>
+            <TableHead className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-white text-center [text-shadow:1px_1px_0_rgba(0,0,0,0.4)]">Phiên</TableHead>
+            <TableHead className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-white [text-shadow:1px_1px_0_rgba(0,0,0,0.4)]">Trạng thái</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {shifts.map((shift) => (
-            <TableRow key={shift.id}>
-              <TableCell className="font-medium">{formatDate(shift.openedAt)}</TableCell>
-              <TableCell className="font-mono text-sm">{formatTime(shift.openedAt)}</TableCell>
-              <TableCell className="font-mono text-sm">{formatTime(shift.closedAt)}</TableCell>
-              <TableCell>
+            <TableRow
+              key={shift.id}
+              className="border-b border-amber-200 bg-gradient-to-r from-white via-yellow-50 to-amber-50 transition-all hover:from-amber-100/70 hover:via-yellow-50/60 hover:to-amber-100/40 hover:shadow-[inset_0_-2px_0_rgba(234,88,12,0.5)]"
+            >
+              <TableCell className="font-mono text-[11px] font-bold uppercase tracking-wide text-stone-900">{formatDate(shift.openedAt)}</TableCell>
+              <TableCell className="font-mono text-[11px] font-bold uppercase tracking-wide text-stone-900">{formatTime(shift.openedAt)}</TableCell>
+              <TableCell className="font-mono text-[11px] font-bold uppercase tracking-wide text-stone-900">{formatTime(shift.closedAt)}</TableCell>
+              <TableCell className="font-mono text-[11px] font-bold uppercase tracking-wide text-stone-900">
                 <span className="inline-flex items-center gap-1">
-                  <Users className="size-3 text-muted-foreground" />
+                  <Users className="size-3 text-amber-600" />
                   {getUserLabel(shift.openedByUsername, shift.openedByUserId)}
                 </span>
               </TableCell>
-              <TableCell>
+              <TableCell className="font-mono text-[11px] font-bold uppercase tracking-wide text-stone-900">
                 <span className="inline-flex items-center gap-1">
-                  <Users className="size-3 text-muted-foreground" />
+                  <Users className="size-3 text-amber-600" />
                   {getUserLabel(shift.closedByUsername, shift.closedByUserId)}
                 </span>
               </TableCell>
-              <TableCell className="text-right font-mono">
+              <TableCell className="font-mono text-[11px] font-extrabold text-right text-stone-800 [text-shadow:1px_1px_0_rgba(255,255,255,0.5)]">
                 {formatCurrencyVnd(shift.openingCashBalance ?? 0)}
               </TableCell>
-              <TableCell className="text-right font-mono">
-                {shift.closingCashBalance == null
-                  ? '—'
-                  : formatCurrencyVnd(shift.closingCashBalance)}
+              <TableCell className="font-mono text-[11px] font-extrabold text-right text-stone-800 [text-shadow:1px_1px_0_rgba(255,255,255,0.5)]">
+                {shift.closingCashBalance == null ? '—' : formatCurrencyVnd(shift.closingCashBalance)}
               </TableCell>
-              <TableCell className="text-right font-mono font-medium text-emerald-600">
+              <TableCell className="font-mono text-[11px] font-extrabold text-right text-amber-700 [text-shadow:1px_1px_0_rgba(255,255,255,0.5)]">
                 {formatCurrencyVnd(shift.totalRevenue ?? 0)}
               </TableCell>
               <TableCell className="text-center">
-                <span className="inline-flex items-center gap-1 font-mono">
-                  <Gamepad2 className="size-3 text-muted-foreground" />
+                <span className="inline-flex items-center gap-1 font-mono text-[11px] font-extrabold text-stone-800">
+                  <Gamepad2 className="size-3 text-amber-600" />
                   {shift.totalSessions ?? 0}
                 </span>
               </TableCell>
@@ -274,11 +306,12 @@ function toLocalDateInput(value?: string | null): string {
   return local.toISOString().slice(0, 10);
 }
 
+// ─── MAIN PAGE ───────────────────────────────────────────────────────────
+
 export default function StaffCalendarPage() {
   const { data: cafe, isLoading: cafeLoading, isError: cafeError } = useOperatingCafe();
   const cafeId = cafe?.id;
 
-  // Filter states
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [fromLocal, setFromLocal] = useState('');
@@ -286,19 +319,15 @@ export default function StaffCalendarPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState('history');
 
-  // API queries
   const current = useCurrentShift(cafeId);
   const history = useShiftHistory(cafeId, page, pageSize);
 
-  // Calculate stats from history
   const stats = useMemo(() => {
     const shifts = history.data?.items ?? [];
     const closedShifts = shifts.filter((s) => s.status === 'Closed');
-
     const totalRevenue = closedShifts.reduce((sum, s) => sum + (s.totalRevenue ?? 0), 0);
     const totalSessions = closedShifts.reduce((sum, s) => sum + (s.totalSessions ?? 0), 0);
     const openShifts = shifts.filter((s) => s.status === 'Open').length;
-
     return {
       totalShifts: shifts.length,
       closedShifts: closedShifts.length,
@@ -309,33 +338,18 @@ export default function StaffCalendarPage() {
     };
   }, [history.data?.items]);
 
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleLimitChange = (newSize: number) => {
-    setPageSize(newSize);
-    setPage(1);
-  };
-
-  const clearFilters = () => {
-    setFromLocal('');
-    setToLocal('');
-    setStatusFilter('all');
-    setPage(1);
-  };
-
+  const handlePageChange = (newPage: number) => setPage(newPage);
+  const handleLimitChange = (newSize: number) => { setPageSize(newSize); setPage(1); };
+  const clearFilters = () => { setFromLocal(''); setToLocal(''); setStatusFilter('all'); setPage(1); };
   const hasActiveFilters = fromLocal || toLocal || statusFilter !== 'all';
 
   if (cafeLoading) {
     return (
       <div className="flex flex-col gap-4 sm:gap-6">
-        <PageHeader
-          title="Lịch làm việc"
-          description="Xem lịch sử ca và thống kê làm việc."
-        />
+        <PageHeader title="Lịch làm việc" description="Xem lịch sử ca và thống kê làm việc." />
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="size-8 animate-spin text-muted-foreground" />
+          <Loader2 className="size-8 animate-spin text-orange-500" />
+          <span className="ml-3 font-mono text-sm font-bold uppercase tracking-widest text-orange-600">► Đang tải...</span>
         </div>
       </div>
     );
@@ -344,18 +358,14 @@ export default function StaffCalendarPage() {
   if (cafeError || !cafeId) {
     return (
       <div className="flex flex-col gap-4 sm:gap-6">
-        <PageHeader
-          title="Lịch làm việc"
-          description="Xem lịch sử ca và thống kê làm việc."
-        />
-        <Card className="border-destructive/50 bg-destructive/5">
-          <CardContent className="flex items-center gap-3 py-6">
-            <XCircle className="size-6 text-destructive" />
+        <PageHeader title="Lịch làm việc" description="Xem lịch sử ca và thống kê làm việc." />
+        <Card className={`relative overflow-hidden ${A.border} ${A.cardBg} border-destructive shadow-[3px_3px_0_rgba(239,68,68,0.3)]`} style={{ ['--glow' as string]: 'rgba(239,68,68,0.3)' }}>
+          <Scanlines />
+          <CardContent className="relative flex items-center gap-3 py-6">
+            <XCircle className="size-6 text-red-500" />
             <div>
-              <p className="font-medium text-destructive">Không thể tải thông tin quán</p>
-              <p className="text-sm text-muted-foreground">
-                Vui lòng kiểm tra kết nối hoặc đăng nhập lại.
-              </p>
+              <p className="font-mono text-sm font-extrabold uppercase tracking-widest text-red-600">▸ Không thể tải thông tin quán</p>
+              <p className="mt-1 font-mono text-xs text-red-400">Vui lòng kiểm tra kết nối hoặc đăng nhập lại.</p>
             </div>
           </CardContent>
         </Card>
@@ -376,282 +386,233 @@ export default function StaffCalendarPage() {
         }
       />
 
-      {/* Quick Stats */}
+      {/* Quick Stats — 4 HUD panels */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Tổng ca"
-          value={stats.totalShifts.toString()}
-          icon={CalendarDays}
-        />
-        <StatCard
-          label="Ca đã đóng"
-          value={stats.closedShifts.toString()}
-          icon={CheckCircle2}
-          tone="success"
-        />
-        <StatCard
-          label="Tổng doanh thu"
-          value={formatCurrencyVnd(stats.totalRevenue)}
-          icon={CircleDollarSign}
-          tone="success"
-        />
-        <StatCard
-          label="Tổng phiên"
-          value={stats.totalSessions.toString()}
-          icon={Gamepad2}
-        />
+        <HudStatCard label="Tổng ca" value={stats.totalShifts.toString()} />
+        <HudStatCard label="Ca đã đóng" value={stats.closedShifts.toString()} />
+        <HudStatCard label="Tổng doanh thu" value={formatCurrencyVnd(stats.totalRevenue)} />
+        <HudStatCard label="Tổng phiên" value={stats.totalSessions.toString()} />
       </div>
 
-      {/* Current Shift Status */}
-      <Card className="overflow-hidden border-2 border-violet-200 bg-gradient-to-br from-violet-50/50 to-purple-50/50">
-        <CardHeader className="border-b border-violet-100 bg-violet-100/30 pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base font-bold uppercase tracking-wide">
-              <CalendarClock className="size-5 text-violet-600" />
-              Ca hiện tại
-            </CardTitle>
-            {current.isLoading ? (
-              <Loader2 className="size-4 animate-spin text-muted-foreground" />
-            ) : (
-              openShift ? (
-                <ShiftStatusBadge status={openShift.status} />
-              ) : (
-                <Badge variant="outline" className="gap-1">
-                  <XCircle className="size-3" />
-                  Chưa mở ca
-                </Badge>
-              )
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="p-4">
+      {/* Current Shift Status — full game card */}
+      <GameCard title={`Ca hiện tại — ${cafe.name}`}>
+        <div className="space-y-4">
           {current.isLoading ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" />
-              Đang tải...
+            <div className="flex items-center gap-2">
+              <Loader2 className="size-4 animate-spin text-orange-500" />
+              <span className="font-mono text-xs font-bold uppercase tracking-widest text-orange-600">► Đang tải ca hiện tại...</span>
             </div>
           ) : openShift ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Bắt đầu lúc
-                </p>
-                <p className="mt-1 font-mono text-lg font-bold">
-                  {formatDateTime(openShift.openedAt)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Người mở ca
-                </p>
-                <p className="mt-1 font-medium">{openShift.openedByUsername || '—'}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Tiền đầu ca
-                </p>
-                <p className="mt-1 font-mono text-lg font-bold">
-                  {formatCurrencyVnd(openShift.openingCashBalance ?? 0)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Doanh thu tạm tính
-                </p>
-                <p className="mt-1 font-mono text-lg font-bold text-emerald-600">
-                  {formatCurrencyVnd(openShift.totalRevenue ?? 0)}
-                </p>
-              </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { label: 'Bắt đầu lúc', value: formatDateTime(openShift.openedAt) },
+                { label: 'Người mở ca', value: openShift.openedByUsername || '—' },
+                { label: 'Tiền đầu ca', value: formatCurrencyVnd(openShift.openingCashBalance ?? 0) },
+                { label: 'Doanh thu tạm', value: formatCurrencyVnd(openShift.totalRevenue ?? 0) },
+              ].map((s) => (
+                <div key={s.label} className={`relative overflow-hidden rounded-md border-2 ${A.border} ${A.cardBg} p-2.5 shadow-[2px_2px_0_var(--glow)]`} style={{ ['--glow' as string]: A.glow }}>
+                  <div className={A.scanlines} />
+                  <p className={`relative font-mono text-[10px] font-bold uppercase tracking-widest ${A.textMuted}`}>▸ {s.label}</p>
+                  <p className={`relative mt-0.5 truncate font-mono text-sm font-extrabold uppercase tracking-wide ${A.text} [text-shadow:1px_1px_0_rgba(255,255,255,0.6)]`}>{s.value}</p>
+                </div>
+              ))}
             </div>
           ) : (
-            <div className="flex items-center gap-3 text-muted-foreground">
-              <CalendarDays className="size-8 text-violet-300" />
+            <div className="flex items-center gap-3 rounded-md border-2 border-dashed border-orange-300 bg-orange-50/30 p-4">
+              <CalendarDays className="size-8 text-orange-300" />
               <div>
-                <p className="font-medium">Chưa mở ca hôm nay</p>
-                <p className="text-sm">Mở ca tại trang Báo cáo ca để bắt đầu.</p>
+                <p className="font-mono text-sm font-extrabold uppercase tracking-widest text-orange-700">▸ Chưa mở ca hôm nay</p>
+                <p className="mt-0.5 font-mono text-xs text-orange-400">Mở ca tại trang Báo cáo ca để bắt đầu.</p>
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+          {/* Status badge always visible */}
+          <div className="flex items-center justify-end">
+            {openShift ? (
+              <ShiftStatusBadge status={openShift.status} />
+            ) : (
+              <Badge className="border-2 border-stone-400 bg-stone-100 font-mono text-[10px] font-extrabold uppercase tracking-widest text-stone-700 shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]">
+                <span className="mr-1 size-1.5 rounded-full bg-stone-400" />
+                Chưa mở ca
+              </Badge>
+            )}
+          </div>
+        </div>
+      </GameCard>
 
-      {/* Tabs: History & Stats */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 sm:w-[300px]">
-          <TabsTrigger value="history" className="gap-2">
-            <RotateCcw className="size-4" />
-            Lịch sử ca
-          </TabsTrigger>
-          <TabsTrigger value="stats" className="gap-2">
-            <TrendingUp className="size-4" />
-            Thống kê
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="history" className="mt-4 space-y-4">
-          {/* Filters */}
-          <Card className="overflow-hidden">
-            <CardContent className="flex flex-wrap items-end gap-3 p-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="from-date">Từ ngày</Label>
-                <Input
-                  id="from-date"
-                  type="date"
-                  value={fromLocal}
-                  onChange={(e) => setFromLocal(e.target.value)}
-                  className="w-auto"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="to-date">Đến ngày</Label>
-                <Input
-                  id="to-date"
-                  type="date"
-                  value={toLocal}
-                  onChange={(e) => setToLocal(e.target.value)}
-                  className="w-auto"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="status-filter">Trạng thái</Label>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger id="status-filter" className="w-[140px]">
-                    <SelectValue placeholder="Trạng thái" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tất cả</SelectItem>
-                    <SelectItem value="Open">Đang mở</SelectItem>
-                    <SelectItem value="Closed">Đã đóng</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={clearFilters}
-                  disabled={!hasActiveFilters}
-                  className="gap-1.5"
+      {/* Tabs: History & Stats — GAME STYLE */}
+      <div className={`relative overflow-hidden rounded-lg border-2 ${A.border} ${A.cardBg} shadow-[3px_3px_0_var(--glow)]`} style={{ ['--glow' as string]: A.glow }}>
+        <Scanlines />
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <div className={`relative border-b-2 border-amber-500 ${A.headerBg}`}>
+            <TabsList className="h-auto w-full justify-start gap-0 overflow-x-auto rounded-none bg-transparent p-0 shadow-none sm:w-auto">
+              {[
+                { value: 'history', label: '► Lịch sử ca', icon: RotateCcw },
+                { value: 'stats', label: '► Thống kê', icon: TrendingUp },
+              ].map(({ value, label, icon: Icon }) => (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className={`
+                    relative flex items-center gap-2 px-5 py-3 -mb-1
+                    font-mono text-[12px] font-extrabold uppercase tracking-widest
+                    transition-all duration-200
+                    border-b-4 border-transparent
+                    text-white/55 hover:text-white hover:bg-white/10
+                    data-[state=active]:text-orange-900
+                    data-[state=active]:bg-gradient-to-b data-[state=active]:from-white data-[state=active]:to-amber-50
+                    data-[state=active]:border-orange-600
+                    data-[state=active]:shadow-[0_-2px_0_rgba(255,255,255,0.6),inset_0_-4px_0_rgba(255,255,255,0.5)]
+                    data-[state=active]:-translate-y-0.5
+                  `}
                 >
-                  <RotateCcw className="size-4" />
-                  Xóa lọc
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                  <Icon className={`size-4 ${activeTab === value ? 'text-orange-700' : ''}`} />
+                  {label}
+                  {activeTab === value && (
+                    <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-orange-600 leading-none drop-shadow-[0_-1px_0_rgba(255,255,255,0.8)]">
+                      ▲
+                    </span>
+                  )}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
-          {/* History Table */}
-          <Card>
-            <CardHeader className="border-b py-3">
-              <CardTitle className="text-sm font-medium">
-                Danh sách ca — {history.data?.totalCount ?? 0} ca
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <ShiftHistoryTable
-                shifts={history.data?.items ?? []}
-                isLoading={history.isLoading}
-                page={page}
-                pageSize={pageSize}
-                totalCount={history.data?.totalCount ?? 0}
-                totalPages={history.data?.totalPages ?? 1}
-                onPageChange={handlePageChange}
-                onLimitChange={handleLimitChange}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="stats" className="mt-4 space-y-4">
-          {/* Stats Summary Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <TrendingUp className="size-5 text-violet-600" />
-                Thống kê tổng hợp
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="space-y-4 rounded-lg border p-4">
-                  <h4 className="font-medium uppercase tracking-wide text-muted-foreground">
-                    Ca làm việc
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Tổng số ca</span>
-                      <span className="font-bold">{stats.totalShifts}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Ca đã đóng</span>
-                      <span className="font-bold text-emerald-600">{stats.closedShifts}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Ca đang mở</span>
-                      <span className="font-bold text-amber-600">{stats.openShifts}</span>
-                    </div>
-                  </div>
+          <TabsContent value="history" className="mt-0 p-4 space-y-4">
+            {/* Filters */}
+            <Card className={`relative overflow-hidden ${A.border} ${A.cardBg} shadow-[2px_2px_0_var(--glow)]`} style={{ ['--glow' as string]: A.glow }}>
+              <Scanlines />
+              <CardContent className="relative flex flex-wrap items-end gap-3 p-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="from-date" className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-orange-600">▸ Từ ngày</Label>
+                  <Input
+                    id="from-date"
+                    type="date"
+                    value={fromLocal}
+                    onChange={(e) => setFromLocal(e.target.value)}
+                    className="w-auto border-2 border-amber-400 bg-white font-mono text-xs font-bold text-stone-900 focus-visible:border-orange-600 focus-visible:ring-orange-500/30"
+                  />
                 </div>
-
-                <div className="space-y-4 rounded-lg border p-4">
-                  <h4 className="font-medium uppercase tracking-wide text-muted-foreground">
-                    Doanh thu
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Tổng doanh thu</span>
-                      <span className="font-bold text-emerald-600">
-                        {formatCurrencyVnd(stats.totalRevenue)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">TB / ca đóng</span>
-                      <span className="font-bold">
-                        {formatCurrencyVnd(stats.averageRevenue)}
-                      </span>
-                    </div>
-                  </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="to-date" className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-orange-600">▸ Đến ngày</Label>
+                  <Input
+                    id="to-date"
+                    type="date"
+                    value={toLocal}
+                    onChange={(e) => setToLocal(e.target.value)}
+                    className="w-auto border-2 border-amber-400 bg-white font-mono text-xs font-bold text-stone-900 focus-visible:border-orange-600 focus-visible:ring-orange-500/30"
+                  />
                 </div>
-
-                <div className="space-y-4 rounded-lg border p-4">
-                  <h4 className="font-medium uppercase tracking-wide text-muted-foreground">
-                    Phiên chơi
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Tổng phiên</span>
-                      <span className="font-bold">{stats.totalSessions}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">TB / ca đóng</span>
-                      <span className="font-bold">
-                        {stats.closedShifts > 0
-                          ? (stats.totalSessions / stats.closedShifts).toFixed(1)
-                          : '0'}
-                      </span>
-                    </div>
-                  </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="status-filter" className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-orange-600">▸ Trạng thái</Label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger id="status-filter" className="w-[140px] border-2 border-amber-400 bg-white font-mono text-xs font-bold text-stone-900 focus-visible:border-orange-600">
+                      <SelectValue placeholder="Trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="font-mono text-xs font-bold">Tất cả</SelectItem>
+                      <SelectItem value="Open" className="font-mono text-xs font-bold">Đang mở</SelectItem>
+                      <SelectItem value="Closed" className="font-mono text-xs font-bold">Đã đóng</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={clearFilters}
+                    disabled={!hasActiveFilters}
+                    className="border-2 border-orange-600 bg-gradient-to-b from-orange-500 to-orange-600 font-mono text-[10px] font-extrabold uppercase tracking-widest text-white shadow-[2px_2px_0_rgba(154,52,18,0.5)] transition-all hover:from-orange-600 hover:to-orange-700 active:shadow-none disabled:opacity-40 disabled:from-stone-300 disabled:to-stone-400 disabled:border-stone-400"
+                  >
+                    <RotateCcw className="size-3" />
+                    ► Xóa lọc
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Tips Card */}
-          <Card className="border-dashed">
-            <CardContent className="flex items-start gap-3 p-4">
-              <Search className="mt-0.5 size-5 shrink-0 text-violet-500" />
-              <div>
-                <p className="font-medium">Mẹo sử dụng</p>
-                <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-                  <li>• Sử dụng bộ lọc ngày để xem ca trong khoảng thời gian cụ thể.</li>
-                  <li>• Lọc theo trạng thái để xem ca đang mở hoặc đã đóng.</li>
-                  <li>• Chuyển sang tab &quot;Lịch sử ca&quot; để xem chi tiết từng ca.</li>
-                </ul>
+            {/* History Table Card */}
+            <div className={`relative overflow-hidden rounded-lg ${A.border} ${A.cardBg} shadow-[3px_3px_0_var(--glow)]`} style={{ ['--glow' as string]: A.glow }}>
+              <Scanlines />
+              <PulseDot />
+              <div className="m-2 flex items-center justify-between overflow-hidden rounded-md border-2 border-orange-600 bg-gradient-to-r from-orange-500 via-orange-600 to-amber-600 px-4 py-2 shadow-[inset_0_-2px_0_rgba(154,52,18,0.5)]">
+                <h3 className="font-mono text-sm font-extrabold uppercase tracking-widest text-white">
+                  <span className="mr-2 inline-block size-2 animate-pulse rounded-full bg-white/70 shadow-[0_0_6px_rgba(255,255,255,0.6)]" />
+                  ► Danh sách ca — {history.data?.totalCount ?? 0} ca
+                </h3>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              <div className="relative px-4 pb-4 p-0">
+                <ShiftHistoryTable
+                  shifts={history.data?.items ?? []}
+                  isLoading={history.isLoading}
+                  page={page}
+                  pageSize={pageSize}
+                  totalCount={history.data?.totalCount ?? 0}
+                  totalPages={history.data?.totalPages ?? 1}
+                  onPageChange={handlePageChange}
+                  onLimitChange={handleLimitChange}
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="stats" className="mt-0 p-4 space-y-4">
+            {/* Stats Summary */}
+            <GameCard title="Thống kê tổng hợp">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {[
+                  { label: 'Ca làm việc', rows: [
+                    { k: 'Tổng số ca', v: stats.totalShifts.toString(), c: A.text },
+                    { k: 'Ca đã đóng', v: stats.closedShifts.toString(), c: 'text-emerald-700' },
+                    { k: 'Ca đang mở', v: stats.openShifts.toString(), c: 'text-amber-700' },
+                  ]},
+                  { label: 'Doanh thu', rows: [
+                    { k: 'Tổng doanh thu', v: formatCurrencyVnd(stats.totalRevenue), c: 'text-amber-700' },
+                    { k: 'TB / ca đóng', v: formatCurrencyVnd(stats.averageRevenue), c: A.text },
+                  ]},
+                  { label: 'Phiên chơi', rows: [
+                    { k: 'Tổng phiên', v: stats.totalSessions.toString(), c: A.text },
+                    { k: 'TB / ca đóng', v: stats.closedShifts > 0 ? (stats.totalSessions / stats.closedShifts).toFixed(1) : '0', c: A.text },
+                  ]},
+                ].map(({ label: section, rows }) => (
+                  <div key={section} className={`relative overflow-hidden rounded-md border-2 ${A.border} ${A.cardBg} p-3 shadow-[2px_2px_0_var(--glow)]`} style={{ ['--glow' as string]: A.glow }}>
+                    <div className={A.scanlines} />
+                <p className={`relative font-mono text-[11px] font-extrabold uppercase tracking-widest ${A.text} mb-2`}>▸ {section}</p>
+                    {rows.map(({ k, v, c }) => (
+                      <div key={k} className="flex items-center justify-between border-b-2 border-dashed border-amber-200 py-1.5 last:border-b-0">
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-600">▸ {k}</span>
+                        <span className={`font-mono text-xs font-extrabold uppercase ${c} [text-shadow:1px_1px_0_rgba(255,255,255,0.5)]`}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </GameCard>
+
+            {/* Tips */}
+            <Card className={`relative overflow-hidden border-2 border-dashed border-orange-300 ${A.cardBg}`}>
+              <Scanlines />
+              <CardContent className="relative flex items-start gap-3 p-4">
+                <Search className="mt-0.5 size-5 shrink-0 text-orange-500" />
+                <div>
+                  <p className="font-mono text-xs font-extrabold uppercase tracking-widest text-orange-800">▸ Mẹo sử dụng</p>
+                  <ul className="mt-2 space-y-1">
+                    {[
+                      'Sử dụng bộ lọc ngày để xem ca trong khoảng thời gian cụ thể.',
+                      'Lọc theo trạng thái để xem ca đang mở hoặc đã đóng.',
+                      'Chuyển sang tab "Lịch sử ca" để xem chi tiết từng ca.',
+                    ].map((tip) => (
+                      <li key={tip} className="font-mono text-[11px] text-orange-600">
+                        ▸ {tip}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }

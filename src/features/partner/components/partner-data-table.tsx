@@ -44,18 +44,18 @@ export function PartnerDataTable<TData, TValue>({
   });
 
   return (
-    <div className="relative overflow-hidden rounded-xl border-2 border-violet-400 bg-white shadow-[3px_3px_0_rgba(139,92,246,0.35),0_8px_24px_rgba(0,0,0,0.08)]">
+    <div className="relative overflow-hidden rounded-xl border-2 border-orange-400 bg-white shadow-[3px_3px_0_rgba(234,88,12,0.35),0_8px_24px_rgba(0,0,0,0.08)]">
       {/* CRT scanlines nhẹ */}
       <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_3px,rgba(255,255,255,0.04)_3px,rgba(255,255,255,0.04)_4px)]" />
       {/* LED góc trên-phải */}
-      <span className="pointer-events-none absolute right-3 top-3 size-2 animate-pulse rounded-full bg-violet-500 shadow-[0_0_8px_currentColor]" />
-      <span className="pointer-events-none absolute left-3 top-3 size-2 animate-pulse rounded-full bg-fuchsia-500 shadow-[0_0_8px_currentColor] [animation-delay:0.3s]" />
+      <span className="pointer-events-none absolute right-3 top-3 size-2 animate-pulse rounded-full bg-orange-500 shadow-[0_0_8px_currentColor]" />
+      <span className="pointer-events-none absolute left-3 top-3 size-2 animate-pulse rounded-full bg-amber-500 shadow-[0_0_8px_currentColor] [animation-delay:0.3s]" />
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow
               key={headerGroup.id}
-              className="border-b-2 border-violet-700/30 bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 hover:from-violet-600 hover:via-purple-600 hover:to-fuchsia-600"
+              className="border-b-2 border-orange-700/30 bg-gradient-to-r from-orange-600 via-orange-600 to-amber-600 hover:from-orange-600 hover:via-orange-600 hover:to-amber-600"
             >
               {headerGroup.headers.map((header, hIdx) => (
                 <TableHead
@@ -67,7 +67,7 @@ export function PartnerDataTable<TData, TValue>({
                 >
                   {header.isPlaceholder ? null : (
                     <span className="inline-flex items-center gap-1">
-                      <span className="size-1.5 rounded-full bg-yellow-300 shadow-[0_0_4px_currentColor]" />
+                      <span className="size-1.5 rounded-full bg-amber-300 shadow-[0_0_4px_currentColor]" />
                       {flexRender(header.column.columnDef.header, header.getContext())}
                     </span>
                   )}
@@ -82,7 +82,7 @@ export function PartnerDataTable<TData, TValue>({
               <TableRow
                 key={row.id}
                 className={cn(
-                  'border-b border-violet-100/60 bg-gradient-to-r from-white via-violet-50/40 to-purple-50/30 transition-all hover:from-violet-100 hover:via-purple-50/70 hover:to-fuchsia-50/60 hover:shadow-[inset_0_-2px_0_rgba(139,92,246,0.4)]',
+                  'border-b border-orange-100/60 bg-gradient-to-r from-white via-orange-50/40 to-orange-50/30 transition-all hover:from-orange-100 hover:via-orange-50/70 hover:to-amber-50/60 hover:shadow-[inset_0_-2px_0_rgba(234,88,12,0.4)]',
                   onRowClick && 'cursor-pointer',
                 )}
                 onClick={() => onRowClick?.(row.original)}
@@ -101,10 +101,10 @@ export function PartnerDataTable<TData, TValue>({
             <TableRow>
               <TableCell
                 colSpan={columns.length}
-                className="h-32 text-center font-mono text-xs font-bold uppercase tracking-widest text-violet-500"
+                className="h-32 text-center font-mono text-xs font-bold uppercase tracking-widest text-orange-500"
               >
                 <span className="inline-flex items-center gap-2">
-                  <span className="size-2 animate-pulse rounded-full bg-violet-400" />
+                  <span className="size-2 animate-pulse rounded-full bg-orange-400" />
                   ▸ {emptyMessage}
                 </span>
               </TableCell>

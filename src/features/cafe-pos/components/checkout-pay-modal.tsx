@@ -21,6 +21,7 @@ import {
   QrCode,
   RefreshCw,
   Users,
+  Maximize2,
 } from "lucide-react";
 import {
   backdropCloseHandler,
@@ -107,6 +108,13 @@ export function PayConfirmModal({
   const [qrOrderId, setQrOrderId] = useState("");
   const [payMode, setPayMode] = useState<PayMode>("table");
   const [splitQrList, setSplitQrList] = useState<MemberPaymentResult[]>([]);
+  /** Nội dung QR đang được phóng to (null = đóng popup). */
+  const [zoomedQr, setZoomedQr] = useState<{
+    payload: string;
+    title: string;
+    subtitle?: string;
+    isImage: boolean;
+  } | null>(null);
   /** Chặn toast "Thanh toán thành công" bị poll/Reload bắn nhiều lần. */
   const paidNotifiedRef = useRef(false);
   const onCloseRef = useRef(onClose);
@@ -420,7 +428,7 @@ export function PayConfirmModal({
       )}
     >
       <div
-        className={`relative overflow-hidden rounded-2xl border-2 border-emerald-400 bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 shadow-[6px_6px_0_rgba(16,185,129,0.4)] flex flex-col max-h-[90vh] ${
+        className={`relative overflow-hidden rounded-2xl border-2 border-orange-400 bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 shadow-[6px_6px_0_rgba(249,115,22,0.4)] flex flex-col max-h-[90vh] ${
           payMode === "split" && splitQrList.length > 1
             ? "max-w-6xl w-full"
             : (payMode === "table" && qrPayload) ||
@@ -432,25 +440,25 @@ export function PayConfirmModal({
       >
         {/* CRT + LED corners */}
         <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_3px,rgba(255,255,255,0.05)_3px,rgba(255,255,255,0.05)_4px)]" />
-        <span className="pointer-events-none absolute -left-0.5 -top-0.5 size-2 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_10px_currentColor]" />
-        <span className="pointer-events-none absolute -right-0.5 -bottom-0.5 size-2 animate-pulse rounded-full bg-teal-500 shadow-[0_0_10px_currentColor] [animation-delay:0.4s]" />
+        <span className="pointer-events-none absolute -left-0.5 -top-0.5 size-2 animate-pulse rounded-full bg-orange-500 shadow-[0_0_10px_currentColor]" />
+        <span className="pointer-events-none absolute -right-0.5 -bottom-0.5 size-2 animate-pulse rounded-full bg-amber-500 shadow-[0_0_10px_currentColor] [animation-delay:0.4s]" />
         <span className="pointer-events-none absolute -right-0.5 -top-0.5 size-1.5 animate-pulse rounded-full bg-yellow-400 shadow-[0_0_8px_currentColor]" />
-        <span className="pointer-events-none absolute -left-0.5 -bottom-0.5 size-1.5 animate-pulse rounded-full bg-violet-500 shadow-[0_0_8px_currentColor] [animation-delay:0.2s]" />
+        <span className="pointer-events-none absolute -left-0.5 -bottom-0.5 size-1.5 animate-pulse rounded-full bg-amber-500 shadow-[0_0_8px_currentColor] [animation-delay:0.2s]" />
 
         {/* HEADER */}
-        <div className="relative flex items-center justify-between border-b-2 border-emerald-300/70 bg-gradient-to-r from-emerald-100 via-teal-100 to-cyan-100 px-5 py-3 shrink-0">
+        <div className="relative flex items-center justify-between border-b-2 border-amber-300/70 bg-gradient-to-r from-orange-100 via-amber-100 to-yellow-100 px-5 py-3 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="relative p-2.5 rounded-xl border-2 border-emerald-400 bg-gradient-to-br from-emerald-400 to-teal-600 shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_0_12px_rgba(16,185,129,0.5)]">
+            <div className="relative p-2.5 rounded-xl border-2 border-orange-400 bg-gradient-to-br from-orange-400 to-amber-600 shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_0_12px_rgba(249,115,22,0.5)]">
               <CreditCard className="w-5 h-5 text-white" />
               <span className="absolute -right-1 -top-1 size-2 animate-pulse rounded-full bg-yellow-400 shadow-[0_0_8px_currentColor]" />
             </div>
             <div>
-              <h3 className="font-mono text-sm font-extrabold uppercase tracking-widest text-emerald-950">
+              <h3 className="font-mono text-sm font-extrabold uppercase tracking-widest text-orange-950">
                 ► Thu tiền hóa đơn
               </h3>
-              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-emerald-700">
-                <span className="text-emerald-400">▸</span> Bàn:{" "}
-                <strong className="text-emerald-900">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-700">
+                <span className="text-amber-500">▸</span> Bàn:{" "}
+                <strong className="text-orange-900">
                   {session.tableName || "Bàn POS"}
                 </strong>{" "}
                 • Trạng thái:{" "}
@@ -473,7 +481,7 @@ export function PayConfirmModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border-2 border-emerald-300 bg-white p-1.5 font-mono text-emerald-500 shadow-[2px_2px_0_rgba(16,185,129,0.3)] transition-all hover:border-emerald-500 hover:bg-emerald-50"
+            className="rounded-xl border-2 border-amber-300 bg-white p-1.5 font-mono text-amber-600 shadow-[2px_2px_0_rgba(249,115,22,0.3)] transition-all hover:border-amber-500 hover:bg-amber-50"
           >
             <X className="w-4 h-4" />
           </button>
@@ -492,47 +500,47 @@ export function PayConfirmModal({
           <div className="space-y-4 min-h-0 overflow-y-auto">
 
         {/* CHI TIẾT TÍNH TIỀN */}
-        <div className="relative overflow-hidden rounded-xl border-2 border-emerald-300 bg-gradient-to-br from-white via-emerald-50/60 to-teal-50/40 p-4 shadow-[2px_2px_0_rgba(16,185,129,0.25)] space-y-2.5 text-xs">
+        <div className="relative overflow-hidden rounded-xl border-2 border-amber-300 bg-gradient-to-br from-white via-amber-50/60 to-yellow-50/40 p-4 shadow-[2px_2px_0_rgba(249,115,22,0.25)] space-y-2.5 text-xs">
           {/* Row: Tiền giờ */}
-          <div className="flex justify-between items-center rounded-lg border border-emerald-200/70 bg-white/80 px-3 py-2">
-            <span className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-widest text-emerald-700">
-              <Clock className="w-3.5 h-3.5 text-emerald-500" />
+          <div className="flex justify-between items-center rounded-lg border border-amber-200/70 bg-white/80 px-3 py-2">
+            <span className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-widest text-amber-700">
+              <Clock className="w-3.5 h-3.5 text-amber-500" />
               Tiền giờ chơi ({elapsedMinutes} phút):
             </span>
-            <span className="font-mono text-sm font-extrabold uppercase tracking-wide text-emerald-950 [text-shadow:1px_1px_0_rgba(255,255,255,0.8)]">
+            <span className="font-mono text-sm font-extrabold uppercase tracking-wide text-amber-950 [text-shadow:1px_1px_0_rgba(255,255,255,0.8)]">
               {subtotal.toLocaleString("vi-VN")}đ
             </span>
           </div>
 
           {/* Row: Phạt */}
-          <div className="rounded-lg border border-emerald-200/70 bg-white/80 px-3 py-2 space-y-1.5">
+          <div className="rounded-lg border border-amber-200/70 bg-white/80 px-3 py-2 space-y-1.5">
             <div className="flex justify-between items-center">
-              <span className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-widest text-emerald-700">
-                <Boxes className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-widest text-amber-700">
+                <Boxes className="w-3.5 h-3.5 text-amber-500" />
                 Phạt hỏng/thiếu đồ:
               </span>
               <span className={[
                 "font-mono text-sm font-extrabold uppercase tracking-wide",
-                penaltyAmount > 0 ? "text-rose-600 [text-shadow:1px_1px_0_rgba(255,255,255,0.8)]" : "text-emerald-950 [text-shadow:1px_1px_0_rgba(255,255,255,0.8)]"
+                penaltyAmount > 0 ? "text-orange-600 [text-shadow:1px_1px_0_rgba(255,255,255,0.8)]" : "text-amber-950 [text-shadow:1px_1px_0_rgba(255,255,255,0.8)]"
               ].join(" ")}>
                 +{penaltyAmount.toLocaleString("vi-VN")}đ
               </span>
             </div>
             {damagedOrMissingComponents.length > 0 && (
-              <div className="bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-200 rounded-lg p-2 space-y-1">
-                <div className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-rose-700 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3 text-rose-500" />
+              <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-amber-200 rounded-lg p-2 space-y-1">
+                <div className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-amber-700 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 text-orange-500" />
                   Mảnh ghi nhận sự cố:
                 </div>
                 {damagedOrMissingComponents.map((item, idx) => (
                   <div
                     key={`${item.componentId}-${idx}`}
-                    className="flex items-center justify-between text-[11px] bg-white/80 rounded border border-rose-100 p-1.5"
+                    className="flex items-center justify-between text-[11px] bg-white/80 rounded border border-amber-100 p-1.5"
                   >
-                    <span className="font-mono text-[10px] font-bold uppercase tracking-wide text-rose-800 truncate">
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-wide text-amber-800 truncate">
                       ► {item.componentName} (x{item.quantity} {item.reason})
                     </span>
-                    <span className="font-mono text-[10px] font-extrabold uppercase text-rose-600 shrink-0 ml-2">
+                    <span className="font-mono text-[10px] font-extrabold uppercase text-orange-600 shrink-0 ml-2">
                       +{item.penaltyFee.toLocaleString("vi-VN")}đ
                     </span>
                   </div>
@@ -543,19 +551,19 @@ export function PayConfirmModal({
 
           {/* Row: Tiền cọc */}
           {depositApplied > 0 && (
-            <div className="flex justify-between items-center rounded-lg border border-emerald-200/70 bg-white/80 px-3 py-2">
-              <span className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-widest text-emerald-700">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+            <div className="flex justify-between items-center rounded-lg border border-amber-200/70 bg-white/80 px-3 py-2">
+              <span className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-widest text-amber-700">
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
                 Tiền cọc cấn trừ:
               </span>
-              <span className="font-mono text-sm font-extrabold uppercase tracking-wide text-emerald-600">
+              <span className="font-mono text-sm font-extrabold uppercase tracking-wide text-amber-600">
                 -{depositApplied.toLocaleString("vi-VN")}đ
               </span>
             </div>
           )}
 
           {/* TỔNG */}
-          <div className="relative mt-2 flex justify-between items-center rounded-xl border-2 border-emerald-400 bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3 shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_0_12px_rgba(16,185,129,0.4)]">
+          <div className="relative mt-2 flex justify-between items-center rounded-xl border-2 border-orange-500 bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-3 shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_0_12px_rgba(249,115,22,0.4)]">
             <span className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-white [text-shadow:1px_1px_0_rgba(0,0,0,0.3)]">
               ► TỔNG THANH TOÁN:
             </span>
@@ -567,15 +575,15 @@ export function PayConfirmModal({
 
         {/* MODE TOGGLE */}
         {cafeId ? (
-          <div className="relative overflow-hidden rounded-xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-50/80 to-teal-50/80 p-1 shadow-[2px_2px_0_rgba(16,185,129,0.2)]">
+          <div className="relative overflow-hidden rounded-xl border-2 border-amber-300 bg-gradient-to-r from-amber-50/80 to-yellow-50/80 p-1 shadow-[2px_2px_0_rgba(249,115,22,0.2)]">
             <div className="grid grid-cols-2 gap-1">
               <button
                 type="button"
                 onClick={() => { setPayMode("table"); setSplitQrList([]); }}
                 className={`flex h-9 items-center justify-center gap-1.5 rounded-lg font-mono text-[11px] font-extrabold uppercase tracking-widest transition-all ${
                   payMode === "table"
-                    ? "border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),2px_2px_0_rgba(0,0,0,0.15)]"
-                    : "border-2 border-transparent text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100"
+                    ? "border-2 border-orange-600 bg-gradient-to-b from-orange-500 to-amber-600 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),2px_2px_0_rgba(0,0,0,0.15)]"
+                    : "border-2 border-transparent text-amber-700 hover:border-amber-300 hover:bg-amber-100"
                 }`}
               >
                 <CreditCard className="size-3.5" />
@@ -586,8 +594,8 @@ export function PayConfirmModal({
                 onClick={() => { setPayMode("split"); setQrPayload(null); }}
                 className={`flex h-9 items-center justify-center gap-1.5 rounded-lg font-mono text-[11px] font-extrabold uppercase tracking-widest transition-all ${
                   payMode === "split"
-                    ? "border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),2px_2px_0_rgba(0,0,0,0.15)]"
-                    : "border-2 border-transparent text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100"
+                    ? "border-2 border-orange-600 bg-gradient-to-b from-orange-500 to-amber-600 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),2px_2px_0_rgba(0,0,0,0.15)]"
+                    : "border-2 border-transparent text-amber-700 hover:border-amber-300 hover:bg-amber-100"
                 }`}
               >
                 <Users className="size-3.5" />
@@ -628,8 +636,8 @@ export function PayConfirmModal({
         {payMode === "table" ? (
           <>
             <div className="space-y-2">
-              <label className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-emerald-800 flex items-center gap-2">
-                <Tag className="w-3.5 h-3.5 text-emerald-600" />
+              <label className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-amber-800 flex items-center gap-2">
+                <Tag className="w-3.5 h-3.5 text-orange-500" />
                 Ghi chú thu tiền:
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -642,8 +650,8 @@ export function PayConfirmModal({
                       onClick={() => setSelectedPreset(preset)}
                       className={`px-2.5 py-1 rounded-lg font-mono text-[10px] font-extrabold uppercase tracking-widest transition-all border-2 ${
                         isSelected
-                          ? "border-emerald-500 bg-gradient-to-b from-emerald-400 to-emerald-600 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),2px_2px_0_rgba(0,0,0,0.15)]"
-                          : "border-emerald-200 bg-white text-emerald-700 hover:border-emerald-400 shadow-[1px_1px_0_rgba(16,185,129,0.2)]"
+                          ? "border-orange-500 bg-gradient-to-b from-orange-400 to-amber-500 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),2px_2px_0_rgba(0,0,0,0.15)]"
+                          : "border-amber-200 bg-white text-amber-700 hover:border-amber-400 shadow-[1px_1px_0_rgba(249,115,22,0.2)]"
                       }`}
                     >
                       {isSelected ? "► " : "▸ "}{preset}
@@ -655,8 +663,8 @@ export function PayConfirmModal({
                   onClick={() => setSelectedPreset("OTHER")}
                   className={`px-2.5 py-1 rounded-lg font-mono text-[10px] font-extrabold uppercase tracking-widest transition-all border-2 flex items-center gap-1 ${
                     selectedPreset === "OTHER"
-                      ? "border-emerald-500 bg-gradient-to-b from-emerald-400 to-emerald-600 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),2px_2px_0_rgba(0,0,0,0.15)]"
-                      : "border-emerald-200 bg-white text-emerald-700 hover:border-emerald-400 shadow-[1px_1px_0_rgba(16,185,129,0.2)]"
+                      ? "border-orange-500 bg-gradient-to-b from-orange-400 to-amber-500 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),2px_2px_0_rgba(0,0,0,0.15)]"
+                      : "border-amber-200 bg-white text-amber-700 hover:border-amber-400 shadow-[1px_1px_0_rgba(249,115,22,0.2)]"
                   }`}
                 >
                   <PenTool className="w-3 h-3" />
@@ -671,7 +679,7 @@ export function PayConfirmModal({
                     placeholder="▸ Nhập ghi chú chi tiết..."
                     value={customNote}
                     onChange={(e) => setCustomNote(e.target.value)}
-                    className="h-9 text-xs bg-white border-2 border-emerald-300 font-mono font-bold focus-visible:border-emerald-500 focus-visible:ring-emerald-300 rounded-lg"
+                    className="h-9 text-xs bg-white border-2 border-amber-300 font-mono font-bold focus-visible:border-orange-500 focus-visible:ring-amber-300 rounded-lg"
                   />
                 </div>
               )}
@@ -682,39 +690,77 @@ export function PayConfirmModal({
 
         {/* QR DISPLAY */}
         {payMode === "table" && qrPayload ? (
-          <div className="relative flex flex-col items-center gap-2 rounded-xl border-2 border-emerald-400 bg-gradient-to-br from-white via-emerald-50/60 to-teal-50/40 p-3 shrink-0 shadow-[2px_2px_0_rgba(16,185,129,0.3)]">
-            <span className="pointer-events-none absolute right-3 top-3 size-1.5 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_6px_currentColor]" />
-            <p className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-emerald-800 text-center">
+          <div className="relative flex flex-col items-center gap-2 rounded-xl border-2 border-amber-400 bg-gradient-to-br from-white via-amber-50/60 to-yellow-50/40 p-3 shrink-0 shadow-[2px_2px_0_rgba(249,115,22,0.3)]">
+            <span className="pointer-events-none absolute right-3 top-3 size-1.5 animate-pulse rounded-full bg-amber-500 shadow-[0_0_6px_currentColor]" />
+            <button
+              type="button"
+              onClick={() =>
+                setZoomedQr({
+                  payload: qrPayload,
+                  title: "QR VietQR · Thanh toán cả bàn",
+                  subtitle:
+                    (qrAmount > 0 ? `${qrAmount.toLocaleString("vi-VN")}đ` : "") +
+                    (qrOrderId ? ` · ND CK: ${qrOrderId}` : ""),
+                  isImage:
+                    /^https?:\/\//i.test(qrPayload) &&
+                    /vietqr|\.png|\.jpg|qr/i.test(qrPayload),
+                })
+              }
+              className="absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-lg border-2 border-amber-400 bg-gradient-to-b from-white to-amber-50 text-amber-700 shadow-[1px_1px_0_rgba(249,115,22,0.4)] transition-all hover:from-amber-100 hover:to-amber-200"
+              title="Phóng to QR để khách quét dễ hơn"
+            >
+              <Maximize2 className="size-3.5" />
+            </button>
+            <p className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-amber-800 text-center">
               ► Quét QR VietQR
               {qrAmount > 0
                 ? ` · ${qrAmount.toLocaleString("vi-VN")}đ`
                 : ""}
             </p>
             {qrOrderId ? (
-              <p className="font-mono text-[10px] text-emerald-600 text-center font-bold uppercase tracking-widest">
-                ND CK: <span className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-emerald-800">{qrOrderId}</span>
+              <p className="font-mono text-[10px] text-amber-600 text-center font-bold uppercase tracking-widest">
+                ND CK: <span className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-amber-800">{qrOrderId}</span>
               </p>
             ) : null}
-            {/^https?:\/\//i.test(qrPayload) &&
-            /vietqr|\.png|\.jpg|qr/i.test(qrPayload) ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={qrPayload}
-                alt="VietQR thanh toán"
-                className="w-[260px] h-[260px] object-contain rounded-xl bg-white border-2 border-emerald-300 shadow-[2px_2px_0_rgba(16,185,129,0.3)]"
-              />
-            ) : (
-              <div className="rounded-xl bg-white p-2 border-2 border-emerald-300 shadow-[2px_2px_0_rgba(16,185,129,0.3)]">
-                <QRCode value={qrPayload} size={256} />
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() =>
+                setZoomedQr({
+                  payload: qrPayload,
+                  title: "QR VietQR · Thanh toán cả bàn",
+                  subtitle:
+                    (qrAmount > 0 ? `${qrAmount.toLocaleString("vi-VN")}đ` : "") +
+                    (qrOrderId ? ` · ND CK: ${qrOrderId}` : ""),
+                  isImage:
+                    /^https?:\/\//i.test(qrPayload) &&
+                    /vietqr|\.png|\.jpg|qr/i.test(qrPayload),
+                })
+              }
+              className="group relative cursor-pointer rounded-xl bg-white transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+              title="Bấm để phóng to QR"
+            >
+              <Maximize2 className="absolute right-2 top-2 z-10 size-3.5 rounded bg-white/90 p-0.5 text-amber-700 opacity-70 transition-opacity group-hover:opacity-100" />
+              {/^https?:\/\//i.test(qrPayload) &&
+              /vietqr|\.png|\.jpg|qr/i.test(qrPayload) ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={qrPayload}
+                  alt="VietQR thanh toán"
+                  className="h-[260px] w-[260px] rounded-xl border-2 border-amber-300 object-contain shadow-[2px_2px_0_rgba(249,115,22,0.3)]"
+                />
+              ) : (
+                <div className="rounded-xl border-2 border-amber-300 p-2 shadow-[2px_2px_0_rgba(249,115,22,0.3)]">
+                  <QRCode value={qrPayload} size={256} />
+                </div>
+              )}
+            </button>
           </div>
         ) : null}
 
         {payMode === "split" && splitQrList.length > 0 ? (
-          <div className="relative flex max-h-full min-h-0 shrink-0 flex-col gap-2 overflow-hidden rounded-xl border-2 border-violet-400 bg-gradient-to-br from-violet-50/80 to-purple-50/40 p-3 shadow-[2px_2px_0_rgba(139,92,246,0.3)]">
-            <span className="pointer-events-none absolute right-3 top-3 size-1.5 animate-pulse rounded-full bg-violet-500 shadow-[0_0_6px_currentColor]" />
-            <p className="shrink-0 text-center font-mono text-[11px] font-extrabold uppercase tracking-widest text-violet-900">
+          <div className="relative flex max-h-full min-h-0 shrink-0 flex-col gap-2 overflow-hidden rounded-xl border-2 border-amber-400 bg-gradient-to-br from-amber-50/80 to-yellow-50/40 p-3 shadow-[2px_2px_0_rgba(249,115,22,0.3)]">
+            <span className="pointer-events-none absolute right-3 top-3 size-1.5 animate-pulse rounded-full bg-amber-500 shadow-[0_0_6px_currentColor]" />
+            <p className="shrink-0 text-center font-mono text-[11px] font-extrabold uppercase tracking-widest text-amber-900">
               ► QR VietQR ({splitQrList.length})
             </p>
             <div
@@ -732,36 +778,81 @@ export function PayConfirmModal({
                 return (
                   <div
                     key={row.memberId}
-                    className="flex h-full min-w-0 flex-col items-center justify-start gap-1 rounded-xl border-2 border-violet-300 bg-white p-2 shadow-[2px_2px_0_rgba(139,92,246,0.25)]"
+                    className="relative flex h-full min-w-0 flex-col items-center justify-start gap-1 rounded-xl border-2 border-amber-300 bg-white p-2 shadow-[2px_2px_0_rgba(249,115,22,0.25)]"
                   >
-                    <p className="w-full truncate text-center font-mono text-[10px] font-extrabold uppercase tracking-widest text-violet-900">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setZoomedQr({
+                          payload,
+                          title: `QR VietQR · ${row.displayName}`,
+                          subtitle:
+                            (row.amountDue > 0
+                              ? `${row.amountDue.toLocaleString("vi-VN")}đ`
+                              : "") +
+                            (row.transferContent || row.orderId
+                              ? ` · ND: ${row.transferContent || row.orderId}`
+                              : ""),
+                          isImage:
+                            /^https?:\/\//i.test(payload) &&
+                            /vietqr|\.png|\.jpg|qr/i.test(payload),
+                        })
+                      }
+                      className="absolute right-1 top-1 z-10 inline-flex size-6 items-center justify-center rounded-md border border-amber-300 bg-white/90 text-amber-700 shadow-[1px_1px_0_rgba(249,115,22,0.3)] transition-all hover:bg-amber-100"
+                      title="Phóng to QR để khách quét dễ hơn"
+                    >
+                      <Maximize2 className="size-3" />
+                    </button>
+                    <p className="w-full truncate text-center font-mono text-[10px] font-extrabold uppercase tracking-widest text-amber-900">
                       ► {row.displayName}
                       {row.amountDue > 0
                         ? ` · ${row.amountDue.toLocaleString("vi-VN")}đ`
                         : ""}
                     </p>
                     {row.transferContent || row.orderId ? (
-                      <p className="w-full truncate text-center font-mono text-[9px] text-violet-600 font-bold">
+                      <p className="w-full truncate text-center font-mono text-[9px] text-amber-600 font-bold">
                         ND: {row.transferContent || row.orderId}
                       </p>
                     ) : null}
-                    {/^https?:\/\//i.test(payload) &&
-                    /vietqr|\.png|\.jpg|qr/i.test(payload) ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={payload}
-                        alt={`QR ${row.displayName}`}
-                        className={
-                          compact
-                            ? "h-auto max-h-[min(52vh,320px)] w-auto max-w-full rounded-lg bg-white border border-violet-200"
-                            : "h-[220px] w-[220px] rounded-lg bg-white border border-violet-200"
-                        }
-                      />
-                    ) : (
-                      <div className="rounded-lg bg-white p-1 border border-violet-200">
-                        <QRCode value={payload} size={qrPx} />
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setZoomedQr({
+                          payload,
+                          title: `QR VietQR · ${row.displayName}`,
+                          subtitle:
+                            (row.amountDue > 0
+                              ? `${row.amountDue.toLocaleString("vi-VN")}đ`
+                              : "") +
+                            (row.transferContent || row.orderId
+                              ? ` · ND: ${row.transferContent || row.orderId}`
+                              : ""),
+                          isImage:
+                            /^https?:\/\//i.test(payload) &&
+                            /vietqr|\.png|\.jpg|qr/i.test(payload),
+                        })
+                      }
+                      className="group cursor-pointer rounded-lg bg-white transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1"
+                      title="Bấm để phóng to QR"
+                    >
+                      {/^https?:\/\//i.test(payload) &&
+                      /vietqr|\.png|\.jpg|qr/i.test(payload) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={payload}
+                          alt={`QR ${row.displayName}`}
+                          className={
+                            compact
+                              ? "h-auto max-h-[min(52vh,320px)] w-auto max-w-full rounded-lg border border-amber-200"
+                              : "h-[220px] w-[220px] rounded-lg border border-amber-200"
+                          }
+                        />
+                      ) : (
+                        <div className="rounded-lg border border-amber-200 p-1">
+                          <QRCode value={payload} size={qrPx} />
+                        </div>
+                      )}
+                    </button>
                   </div>
                 );
               })}
@@ -771,11 +862,11 @@ export function PayConfirmModal({
         </div>
 
         {/* FOOTER */}
-        <div className="relative flex flex-wrap justify-end gap-2 border-t-2 border-emerald-300/70 bg-gradient-to-r from-emerald-100/60 to-teal-100/60 px-5 py-3 shrink-0">
+        <div className="relative flex flex-wrap justify-end gap-2 border-t-2 border-amber-300/70 bg-gradient-to-r from-orange-100/60 to-amber-100/60 px-5 py-3 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border-2 border-slate-400 bg-gradient-to-b from-slate-100 to-slate-200 px-5 font-mono text-[11px] font-extrabold uppercase tracking-widest text-slate-700 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1),2px_2px_0_rgba(0,0,0,0.1)] transition-all hover:from-slate-200 hover:to-slate-300"
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border-2 border-neutral-400 bg-gradient-to-b from-neutral-100 to-neutral-200 px-5 font-mono text-[11px] font-extrabold uppercase tracking-widest text-neutral-700 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1),2px_2px_0_rgba(0,0,0,0.1)] transition-all hover:from-neutral-200 hover:to-neutral-300"
           >
             ✕ Đóng
           </button>
@@ -785,7 +876,7 @@ export function PayConfirmModal({
               type="button"
               disabled={loading}
               onClick={() => void handleReloadPayment()}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border-2 border-emerald-400 bg-gradient-to-b from-emerald-100 to-teal-200 px-3 font-mono text-[11px] font-extrabold uppercase tracking-widest text-emerald-800 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1),2px_2px_0_rgba(16,185,129,0.2)] transition-all hover:from-emerald-200 hover:to-teal-300 disabled:opacity-50"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border-2 border-amber-400 bg-gradient-to-b from-orange-100 to-amber-200 px-3 font-mono text-[11px] font-extrabold uppercase tracking-widest text-amber-800 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1),2px_2px_0_rgba(249,115,22,0.2)] transition-all hover:from-orange-200 hover:to-amber-300 disabled:opacity-50"
             >
               <RefreshCw className={`mr-1 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
               Tải lại
@@ -798,7 +889,7 @@ export function PayConfirmModal({
                 type="button"
                 disabled={loading}
                 onClick={() => void handleCreateQr()}
-                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-3 font-mono text-[11px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.25),3px_3px_0_rgba(0,0,0,0.15)] transition-all hover:from-emerald-400 hover:to-emerald-600 disabled:opacity-50"
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border-2 border-orange-600 bg-gradient-to-b from-orange-500 to-amber-600 px-3 font-mono text-[11px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.25),3px_3px_0_rgba(0,0,0,0.15)] transition-all hover:from-orange-400 hover:to-amber-500 disabled:opacity-50"
               >
                 <QrCode className="mr-1 h-3.5 w-3.5 text-yellow-300" />
                 {loading ? "Đang tạo..." : qrPayload ? "Tạo lại QR" : "► Tạo QR cả bàn"}
@@ -810,13 +901,69 @@ export function PayConfirmModal({
                 onClick={handleConfirmPay}
                 className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border-2 border-neutral-800 bg-gradient-to-b from-neutral-700 to-neutral-950 px-4 font-mono text-[11px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.3),3px_3px_0_rgba(0,0,0,0.2)] transition-all hover:from-neutral-600 hover:to-neutral-900 disabled:opacity-50"
               >
-                <CheckCircle2 className="mr-1 h-4 w-4 text-emerald-400" />
+                <CheckCircle2 className="mr-1 h-4 w-4 text-amber-400" />
                 <span>{loading ? "Đang xử lý..." : "► Tiền mặt cả bàn"}</span>
               </button>
             </>
           ) : null}
         </div>
       </div>
+
+      {/* POPUP PHÓNG TO QR — đưa ra màn hình riêng cho khách quét dễ */}
+      {zoomedQr ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          onClick={(event) =>
+            backdropCloseHandler(event, () => setZoomedQr(null))
+          }
+        >
+          <div
+            className="relative flex max-h-[92vh] w-full max-w-md flex-col items-center gap-3 overflow-y-auto rounded-2xl border-2 border-amber-400 bg-gradient-to-br from-white via-amber-50 to-yellow-50 p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setZoomedQr(null)}
+              className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-xl border-2 border-amber-400 bg-gradient-to-b from-white to-amber-50 text-amber-700 shadow-[2px_2px_0_rgba(249,115,22,0.4)] transition-all hover:from-amber-100 hover:to-amber-200"
+              title="Đóng"
+            >
+              <X className="size-4" />
+            </button>
+            <p className="text-center font-mono text-xs font-extrabold uppercase tracking-widest text-amber-800">
+              {zoomedQr.title}
+            </p>
+            {zoomedQr.subtitle ? (
+              <p className="text-center font-mono text-[11px] font-bold uppercase tracking-widest text-amber-600">
+                {zoomedQr.subtitle}
+              </p>
+            ) : null}
+            <div className="rounded-2xl border-4 border-amber-300 bg-white p-4 shadow-[4px_4px_0_rgba(249,115,22,0.35)]">
+              {zoomedQr.isImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={zoomedQr.payload}
+                  alt={zoomedQr.title}
+                  className="size-[min(70vh,440px)] max-w-full object-contain"
+                />
+              ) : (
+                <QRCode value={zoomedQr.payload} size={420} />
+              )}
+            </div>
+            <p className="text-center font-mono text-[10px] font-bold uppercase tracking-widest text-amber-700/80">
+              💡 Đưa màn hình cho khách quét — bấm bất kỳ chỗ trống để đóng
+            </p>
+            <button
+              type="button"
+              onClick={() => setZoomedQr(null)}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border-2 border-amber-400 bg-gradient-to-b from-orange-400 to-amber-500 px-6 font-mono text-[11px] font-extrabold uppercase tracking-widest text-white shadow-[2px_2px_0_rgba(249,115,22,0.45)] transition-all hover:from-orange-500 hover:to-amber-600"
+            >
+              ✕ Đóng
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -24,26 +24,26 @@ import { cn } from "@/lib/utils";
 // Bảng màu arcade neon cho từng tựa game — xoay vòng theo index
 const ARCADE_PALETTES = [
   {
-    ring: "border-cyan-400",
-    soft: "from-cyan-100 via-sky-50 to-indigo-50",
-    text: "text-cyan-950",
-    sub: "text-cyan-800",
-    shadow: "shadow-[2px_2px_0_rgba(34,211,238,0.45)] hover:shadow-[3px_3px_0_rgba(34,211,238,0.6)]",
-    accent: "bg-cyan-500",
-    ledRing: "border-cyan-400 bg-cyan-100",
-    ledOrb: "bg-cyan-500",
-    chipText: "border-cyan-500 bg-gradient-to-b from-cyan-400 to-cyan-600 text-white",
+    ring: "border-orange-400",
+    soft: "from-orange-100 via-orange-50 to-neutral-50",
+    text: "text-orange-950",
+    sub: "text-orange-800",
+    shadow: "shadow-[2px_2px_0_rgba(249,115,22,0.45)] hover:shadow-[3px_3px_0_rgba(249,115,22,0.6)]",
+    accent: "bg-orange-500",
+    ledRing: "border-orange-400 bg-orange-100",
+    ledOrb: "bg-orange-500",
+    chipText: "border-orange-500 bg-gradient-to-b from-orange-400 to-orange-600 text-white",
   },
   {
-    ring: "border-fuchsia-400",
-    soft: "from-fuchsia-100 via-pink-50 to-rose-50",
-    text: "text-fuchsia-950",
-    sub: "text-fuchsia-800",
-    shadow: "shadow-[2px_2px_0_rgba(217,70,239,0.45)] hover:shadow-[3px_3px_0_rgba(217,70,239,0.6)]",
-    accent: "bg-fuchsia-500",
-    ledRing: "border-fuchsia-400 bg-fuchsia-100",
-    ledOrb: "bg-fuchsia-500",
-    chipText: "border-fuchsia-500 bg-gradient-to-b from-fuchsia-400 to-fuchsia-600 text-white",
+    ring: "border-amber-400",
+    soft: "from-amber-100 via-orange-50 to-orange-50",
+    text: "text-amber-950",
+    sub: "text-amber-800",
+    shadow: "shadow-[2px_2px_0_rgba(245,158,11,0.45)] hover:shadow-[3px_3px_0_rgba(245,158,11,0.6)]",
+    accent: "bg-amber-500",
+    ledRing: "border-amber-400 bg-amber-100",
+    ledOrb: "bg-amber-500",
+    chipText: "border-amber-500 bg-gradient-to-b from-amber-400 to-amber-600 text-white",
   },
   {
     ring: "border-amber-400",
@@ -57,48 +57,48 @@ const ARCADE_PALETTES = [
     chipText: "border-amber-500 bg-gradient-to-b from-amber-400 to-amber-600 text-white",
   },
   {
-    ring: "border-emerald-400",
-    soft: "from-emerald-100 via-teal-50 to-cyan-50",
-    text: "text-emerald-950",
-    sub: "text-emerald-800",
-    shadow: "shadow-[2px_2px_0_rgba(16,185,129,0.45)] hover:shadow-[3px_3px_0_rgba(16,185,129,0.6)]",
-    accent: "bg-emerald-500",
-    ledRing: "border-emerald-400 bg-emerald-100",
-    ledOrb: "bg-emerald-500",
-    chipText: "border-emerald-500 bg-gradient-to-b from-emerald-400 to-emerald-600 text-white",
+    ring: "border-orange-400",
+    soft: "from-orange-100 via-amber-50 to-orange-50",
+    text: "text-orange-950",
+    sub: "text-orange-800",
+    shadow: "shadow-[2px_2px_0_rgba(249,115,22,0.45)] hover:shadow-[3px_3px_0_rgba(249,115,22,0.6)]",
+    accent: "bg-orange-500",
+    ledRing: "border-orange-400 bg-orange-100",
+    ledOrb: "bg-orange-500",
+    chipText: "border-orange-500 bg-gradient-to-b from-orange-400 to-orange-600 text-white",
   },
   {
-    ring: "border-violet-400",
-    soft: "from-violet-100 via-purple-50 to-fuchsia-50",
-    text: "text-violet-950",
-    sub: "text-violet-800",
-    shadow: "shadow-[2px_2px_0_rgba(139,92,246,0.45)] hover:shadow-[3px_3px_0_rgba(139,92,246,0.6)]",
-    accent: "bg-violet-500",
-    ledRing: "border-violet-400 bg-violet-100",
-    ledOrb: "bg-violet-500",
-    chipText: "border-violet-500 bg-gradient-to-b from-violet-400 to-violet-600 text-white",
+    ring: "border-amber-400",
+    soft: "from-amber-100 via-amber-50 to-amber-50",
+    text: "text-amber-950",
+    sub: "text-amber-800",
+    shadow: "shadow-[2px_2px_0_rgba(245,158,11,0.45)] hover:shadow-[3px_3px_0_rgba(245,158,11,0.6)]",
+    accent: "bg-amber-500",
+    ledRing: "border-amber-400 bg-amber-100",
+    ledOrb: "bg-amber-500",
+    chipText: "border-amber-500 bg-gradient-to-b from-amber-400 to-amber-600 text-white",
   },
   {
-    ring: "border-rose-400",
-    soft: "from-rose-100 via-pink-50 to-fuchsia-50",
-    text: "text-rose-950",
-    sub: "text-rose-800",
-    shadow: "shadow-[2px_2px_0_rgba(244,63,94,0.45)] hover:shadow-[3px_3px_0_rgba(244,63,94,0.6)]",
-    accent: "bg-rose-500",
-    ledRing: "border-rose-400 bg-rose-100",
-    ledOrb: "bg-rose-500",
-    chipText: "border-rose-500 bg-gradient-to-b from-rose-400 to-rose-600 text-white",
+    ring: "border-orange-400",
+    soft: "from-orange-100 via-orange-50 to-amber-50",
+    text: "text-orange-950",
+    sub: "text-orange-800",
+    shadow: "shadow-[2px_2px_0_rgba(249,115,22,0.45)] hover:shadow-[3px_3px_0_rgba(249,115,22,0.6)]",
+    accent: "bg-orange-500",
+    ledRing: "border-orange-400 bg-orange-100",
+    ledOrb: "bg-orange-500",
+    chipText: "border-orange-500 bg-gradient-to-b from-orange-400 to-orange-600 text-white",
   },
   {
-    ring: "border-indigo-400",
-    soft: "from-indigo-100 via-blue-50 to-cyan-50",
-    text: "text-indigo-950",
-    sub: "text-indigo-800",
-    shadow: "shadow-[2px_2px_0_rgba(99,102,241,0.45)] hover:shadow-[3px_3px_0_rgba(99,102,241,0.6)]",
-    accent: "bg-indigo-500",
-    ledRing: "border-indigo-400 bg-indigo-100",
-    ledOrb: "bg-indigo-500",
-    chipText: "border-indigo-500 bg-gradient-to-b from-indigo-400 to-indigo-600 text-white",
+    ring: "border-neutral-400",
+    soft: "from-neutral-100 via-orange-50 to-orange-50",
+    text: "text-neutral-950",
+    sub: "text-neutral-800",
+    shadow: "shadow-[2px_2px_0_rgba(249,115,22,0.45)] hover:shadow-[3px_3px_0_rgba(249,115,22,0.6)]",
+    accent: "bg-neutral-500",
+    ledRing: "border-neutral-400 bg-neutral-100",
+    ledOrb: "bg-neutral-500",
+    chipText: "border-neutral-500 bg-gradient-to-b from-neutral-400 to-neutral-600 text-white",
   },
 ] as const;
 
@@ -235,22 +235,22 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
   return (
     <div className="space-y-4">
       {/* THANH TÌM KIẾM TỰA GAME */}
-      <div className="flex flex-col items-stretch justify-between gap-3 rounded-lg border-2 border-violet-300/70 bg-gradient-to-r from-violet-100/60 via-white to-purple-100/60 p-4 shadow-[2px_2px_0_rgba(139,92,246,0.2)] sm:flex-row sm:items-center">
+      <div className="flex flex-col items-stretch justify-between gap-3 rounded-lg border-2 border-amber-300/70 bg-gradient-to-r from-amber-100/60 via-white to-amber-100/60 p-4 shadow-[2px_2px_0_rgba(245,158,11,0.2)] sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-violet-500" />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-amber-500" />
           <Input
             type="text"
             placeholder="Tìm theo tên trò chơi hoặc mã vạch..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-9 w-full rounded-md border-2 border-violet-300 bg-white pl-9 font-mono text-xs focus-visible:border-violet-500 focus-visible:ring-violet-300"
+            className="h-9 w-full rounded-md border-2 border-amber-300 bg-white pl-9 font-mono text-xs focus-visible:border-amber-500 focus-visible:ring-amber-300"
           />
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className={cn(hexChipClass, "bg-violet-600 text-white shadow-sm")}>
+          <span className={cn(hexChipClass, "bg-amber-600 text-white shadow-sm")}>
             ► {groupedGames.length} GAMES
           </span>
-          <span className={cn(hexChipClass, "bg-purple-600 text-white shadow-sm")}>
+          <span className={cn(hexChipClass, "bg-amber-600 text-white shadow-sm")}>
             ► {boxes.length} BOXES
           </span>
         </div>
@@ -258,7 +258,7 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
 
       {/* DANH SÁCH HÀNG DỌC (MỖI HÀNG NGANG CHỈ 1 BOX GAME) */}
       {filteredGroups.length === 0 ? (
-        <div className="rounded-lg border-2 border-dashed border-violet-300 bg-gradient-to-br from-violet-50/40 to-purple-50/30 py-16 text-center font-mono text-xs font-bold uppercase tracking-widest text-violet-500">
+        <div className="rounded-lg border-2 border-dashed border-amber-300 bg-gradient-to-br from-amber-50/40 to-amber-50/30 py-16 text-center font-mono text-xs font-bold uppercase tracking-widest text-amber-500">
           ▸ KHÔNG TÌM THẤY KẾT QUẢ
         </div>
       ) : (
@@ -330,20 +330,20 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
                           "inline-flex items-center gap-1 rounded-md border-2 px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase tracking-widest shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]",
                           hasAvailable
                             ? pal.chipText
-                            : "border-rose-500 bg-gradient-to-b from-rose-400 to-rose-600 text-white",
+                            : "border-orange-500 bg-gradient-to-b from-orange-400 to-orange-600 text-white",
                         )}
                       >
                         <span
                           className={cn(
                             statusOrbClass,
-                            hasAvailable ? pal.ledOrb : "bg-rose-500",
+                            hasAvailable ? pal.ledOrb : "bg-orange-500",
                             "[animation-duration:2s]",
                           )}
                         />
                         {group.availableBoxes.length}/{group.totalBoxes} TRỐNG
                       </span>
                       {!hasAvailable && (
-                        <span className="inline-flex items-center gap-1 rounded-md border-2 border-rose-400 bg-gradient-to-r from-rose-100 to-pink-100 px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase tracking-widest text-rose-700 shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]">
+                        <span className="inline-flex items-center gap-1 rounded-md border-2 border-orange-400 bg-gradient-to-r from-orange-100 to-orange-100 px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase tracking-widest text-orange-700 shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]">
                           ⚠ Hết hàng
                         </span>
                       )}
@@ -367,8 +367,8 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
                     >
                       {copiedBarcode === firstAvailableBox.barcode ? (
                         <>
-                          <Check className="h-3.5 w-3.5 text-emerald-200" />
-                          <span className="text-emerald-100">Đã chép</span>
+                          <Check className="h-3.5 w-3.5 text-orange-200" />
+                          <span className="text-orange-100">Đã chép</span>
                         </>
                       ) : (
                         <>
@@ -551,8 +551,8 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
                     >
                       {isCopied ? (
                         <>
-                          <Check className="w-3.5 h-3.5 mr-1 text-emerald-200" />
-                          <span className="text-emerald-100">Đã chép</span>
+                          <Check className="w-3.5 h-3.5 mr-1 text-orange-200" />
+                          <span className="text-orange-100">Đã chép</span>
                         </>
                       ) : (
                         <>

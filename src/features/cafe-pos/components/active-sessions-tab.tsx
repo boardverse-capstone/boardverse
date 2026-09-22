@@ -248,8 +248,8 @@ export function ActiveSessionsTab({
                       isUnpaid || (isChecking && isCheckDone)
                         ? "border-amber-400 bg-amber-100 text-amber-900"
                         : isChecking
-                          ? "border-blue-400 bg-blue-100 text-blue-800"
-                          : "border-emerald-400 bg-emerald-100 text-emerald-800",
+                          ? "border-orange-400 bg-orange-100 text-orange-800"
+                          : "border-orange-400 bg-orange-100 text-orange-800",
                     )}
                   >
                     <span
@@ -258,8 +258,8 @@ export function ActiveSessionsTab({
                         isUnpaid || (isChecking && isCheckDone)
                           ? "bg-amber-500"
                           : isChecking
-                            ? "bg-blue-500"
-                            : "bg-emerald-500 animate-pulse",
+                            ? "bg-orange-500"
+                            : "bg-orange-500 animate-pulse",
                       )}
                     />
                     {isUnpaid || (isChecking && isCheckDone)
@@ -288,9 +288,9 @@ export function ActiveSessionsTab({
                       className={cn(
                         "relative z-10 flex size-7 items-center justify-center border-2 font-mono text-xs font-extrabold shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]",
                         step.done
-                          ? "border-emerald-700 bg-emerald-500 text-white"
+                          ? "border-orange-700 bg-orange-500 text-white"
                           : step.current
-                            ? "border-indigo-700 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.25),0_0_8px_rgba(99,102,241,0.4)]"
+                            ? "border-neutral-700 bg-gradient-to-b from-neutral-500 to-neutral-600 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.25),0_0_8px_rgba(120,120,120,0.4)]"
                             : "border-neutral-300 bg-white text-neutral-400",
                       )}
                     >
@@ -360,7 +360,7 @@ export function ActiveSessionsTab({
                   size="sm"
                   variant="outline"
                   onClick={() => onResumeSession(ses.id)}
-                  className="col-span-2 min-h-11 gap-2 border-2 border-sky-400 bg-sky-100 font-bold uppercase tracking-wider text-sky-800 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] hover:bg-sky-200"
+                  className="col-span-2 min-h-11 gap-2 border-2 border-orange-400 bg-orange-100 font-bold uppercase tracking-wider text-orange-800 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] hover:bg-orange-200"
                 >
                   ► Tiếp tục phiên
                 </Button>
@@ -378,7 +378,7 @@ export function ActiveSessionsTab({
                   className={cn(
                     "col-span-2 min-h-11 gap-2 border-2 font-bold uppercase tracking-wider shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)]",
                     isPaused
-                      ? "border-sky-400 bg-sky-100 text-sky-800"
+                      ? "border-orange-400 bg-orange-100 text-orange-800"
                       : "border-amber-400 bg-amber-100 text-amber-900",
                   )}
                 >
@@ -413,10 +413,10 @@ export function ActiveSessionsTab({
                 className={cn(
                   "min-h-11 gap-2 border-2 font-bold uppercase tracking-wider shadow-none disabled:opacity-100",
                   isReturned
-                    ? "border-emerald-400 bg-emerald-50 text-emerald-800"
+                    ? "border-orange-400 bg-orange-50 text-orange-800"
                     : nextAction === "return"
                       ? "border-amber-500 bg-gradient-to-b from-amber-500 to-amber-600 text-white shadow-[inset_0_-3px_0_rgba(0,0,0,0.2),0_0_12px_rgba(245,158,11,0.4)] ring-2 ring-amber-200 ring-offset-2 hover:from-amber-500 hover:to-amber-500"
-                      : "border-neutral-300 bg-white text-neutral-600 hover:border-rose-300 hover:text-rose-700 hover:bg-rose-50",
+                      : "border-neutral-300 bg-white text-neutral-600 hover:border-orange-300 hover:text-orange-700 hover:bg-orange-50",
                 )}
               >
                 {isReturned ? (
@@ -451,7 +451,7 @@ export function ActiveSessionsTab({
                   nextAction === "inventory"
                     ? "border-amber-500 bg-gradient-to-b from-amber-500 to-amber-600 text-white shadow-[inset_0_-3px_0_rgba(0,0,0,0.2),0_0_12px_rgba(245,158,11,0.4)] ring-2 ring-amber-200 ring-offset-2 hover:from-amber-500 hover:to-amber-500"
                     : isCheckDone
-                      ? "border-emerald-400 bg-emerald-100 text-emerald-800"
+                      ? "border-orange-400 bg-orange-100 text-orange-800"
                       : "border-neutral-300 bg-white text-neutral-600",
                 )}
               >
@@ -471,9 +471,9 @@ export function ActiveSessionsTab({
                 className={cn(
                   "col-span-2 min-h-11 gap-2 border-2 font-bold uppercase tracking-wider shadow-none",
                   isPaidDone
-                    ? "border-emerald-400 bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                    ? "border-orange-400 bg-orange-100 text-orange-800 hover:bg-orange-100"
                     : nextAction === "pay"
-                      ? "border-emerald-700 bg-gradient-to-b from-emerald-500 to-emerald-600 text-white shadow-[inset_0_-3px_0_rgba(0,0,0,0.2),0_0_12px_rgba(16,185,129,0.4)] ring-2 ring-emerald-200 ring-offset-2 hover:from-emerald-500 hover:to-emerald-500"
+                      ? "border-orange-700 bg-gradient-to-b from-orange-500 to-orange-600 text-white shadow-[inset_0_-3px_0_rgba(0,0,0,0.2),0_0_12px_rgba(249,115,22,0.4)] ring-2 ring-orange-200 ring-offset-2 hover:from-orange-500 hover:to-orange-500"
                       : "border-neutral-300 bg-neutral-100 text-neutral-400 hover:bg-neutral-100",
                 )}
               >

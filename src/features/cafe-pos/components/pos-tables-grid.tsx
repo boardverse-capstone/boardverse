@@ -39,7 +39,7 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
   return (
     <div className="flex flex-col h-full space-y-6">
       {/* HEADER POS BAR */}
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-indigo-200/60 bg-gradient-to-br from-white via-indigo-50/40 to-purple-50/30 p-5 shadow-md">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-neutral-200/60 bg-gradient-to-br from-white via-neutral-50/40 to-amber-50/30 p-5 shadow-md">
         <div>
           <h1 className="text-xl font-extrabold tracking-tight text-neutral-900">
             Sơ đồ bàn trực tiếp (POS)
@@ -54,7 +54,7 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
           {/* Nút nhận bàn bằng QR */}
           <Button
             type="button"
-            className="h-9 gap-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 text-xs font-semibold text-white shadow-sm hover:from-emerald-700 hover:to-teal-700"
+            className="h-9 gap-2 rounded-lg bg-gradient-to-r from-orange-600 to-amber-600 px-3.5 text-xs font-semibold text-white shadow-sm hover:from-orange-700 hover:to-amber-700"
           >
             <QrCode className="size-4" />
             <span>Quét mã đặt chỗ (nhận bàn)</span>
@@ -65,7 +65,7 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
             type="button"
             variant="outline"
             onClick={handleRefreshAll}
-            className="h-9 rounded-lg border-indigo-200 px-3 text-xs font-semibold text-indigo-700 hover:bg-indigo-50"
+            className="h-9 rounded-lg border-neutral-200 px-3 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
           >
             <RefreshCw
               className={`size-3.5 ${loading ? "animate-spin" : ""}`}
@@ -76,14 +76,14 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
       </div>
 
       {/* THANH BỘ LỌC TRẠNG THÁI BÀN */}
-      <div className="flex items-center justify-between border-b border-indigo-100 pb-3">
+      <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
         <div className="flex gap-2">
           {(["ALL", "Available", "Occupied"] as const).map((st) => {
             const tone =
               st === "ALL"
-                ? "from-indigo-600 to-purple-600 border-indigo-600"
+                ? "from-neutral-600 to-amber-600 border-neutral-600"
                 : st === "Available"
-                  ? "from-emerald-600 to-teal-600 border-emerald-600"
+                  ? "from-orange-600 to-amber-600 border-orange-600"
                   : "from-amber-500 to-orange-500 border-amber-500";
             const label =
               st === "ALL"
@@ -115,11 +115,11 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
 
       {/* GRID LƯỚI HIỂN THỊ SƠ ĐỒ BÀN */}
       {loading && tables.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-indigo-300 bg-gradient-to-br from-indigo-50/40 to-purple-50/30 py-20 text-center text-xs font-bold uppercase tracking-wider text-indigo-500">
+        <div className="rounded-2xl border border-dashed border-neutral-300 bg-gradient-to-br from-neutral-50/40 to-amber-50/30 py-20 text-center text-xs font-bold uppercase tracking-wider text-neutral-500">
           Đang kết nối dữ liệu sơ đồ bàn POS...
         </div>
       ) : filteredTables.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-indigo-200 bg-gradient-to-br from-indigo-50/40 to-purple-50/30 py-20 text-center text-xs font-bold uppercase tracking-wider text-indigo-500">
+        <div className="rounded-2xl border border-dashed border-neutral-200 bg-gradient-to-br from-neutral-50/40 to-amber-50/30 py-20 text-center text-xs font-bold uppercase tracking-wider text-neutral-500">
           Không có bàn nào khớp bộ lọc.
         </div>
       ) : (
@@ -133,7 +133,7 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
                 className={`group relative rounded-2xl border p-4 flex flex-col justify-between gap-4 transition-all duration-200 ${
                   isOccupied
                     ? "border-amber-200/80 bg-gradient-to-br from-amber-50/60 via-white to-orange-50/40 shadow-xs hover:border-amber-300"
-                    : "border-emerald-200/70 bg-gradient-to-br from-emerald-50/40 via-white to-teal-50/30 shadow-2xs hover:border-emerald-300 hover:shadow-xs"
+                    : "border-orange-200/70 bg-gradient-to-br from-orange-50/40 via-white to-amber-50/30 shadow-2xs hover:border-orange-300 hover:shadow-xs"
                 }`}
               >
                 {/* TÊN BÀN & BADGE TRẠNG THÁI */}
@@ -146,7 +146,7 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
                     className={`h-2.5 w-2.5 rounded-full ${
                       isOccupied
                         ? "bg-amber-500 animate-pulse"
-                        : "bg-emerald-500"
+                        : "bg-orange-500"
                     }`}
                   />
                 </div>
@@ -163,7 +163,7 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
                       </div>
                     </div>
                   ) : (
-                    <div className="text-xs font-medium italic text-emerald-700/70">
+                    <div className="text-xs font-medium italic text-orange-700/70">
                       Bàn sẵn sàng nhận khách
                     </div>
                   )}
@@ -172,14 +172,14 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
                 {/* NÚT THAO TÁC THEO TỪNG TRẠNG THÁI */}
                 <div
                   className={`flex items-center justify-between border-t pt-2 ${
-                    isOccupied ? "border-amber-100" : "border-emerald-100"
+                    isOccupied ? "border-amber-100" : "border-orange-100"
                   }`}
                 >
                   {isOccupied ? (
                     <Button
                       type="button"
                       size="sm"
-                      className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-gradient-to-r from-rose-50 to-pink-50 text-[11px] font-bold text-rose-700 shadow-none hover:from-rose-100 hover:to-pink-100"
+                      className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-orange-200 bg-gradient-to-r from-orange-50 to-orange-50 text-[11px] font-bold text-orange-700 shadow-none hover:from-orange-100 hover:to-orange-100"
                     >
                       <LogOut className="size-3.5" />
                       <span>Kết thúc & Trả game</span>
@@ -188,7 +188,7 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
                     <Button
                       type="button"
                       size="sm"
-                      className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-[11px] font-bold text-white shadow-sm hover:from-emerald-700 hover:to-teal-700"
+                      className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-orange-600 to-amber-600 text-[11px] font-bold text-white shadow-sm hover:from-orange-700 hover:to-amber-700"
                     >
                       <PlayCircle className="size-3.5" />
                       <span>Giao game (Bắt đầu)</span>

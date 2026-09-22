@@ -186,7 +186,7 @@ export function CheckoutConfirmModal({
             <div
               className={`p-2 rounded-lg border ${
                 apiResponse
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  ? "bg-orange-50 text-orange-700 border-orange-200"
                   : "bg-amber-50 text-amber-700 border-amber-200"
               }`}
             >
@@ -243,7 +243,7 @@ export function CheckoutConfirmModal({
                   </span>
                   <span
                     className={`font-mono font-bold ${
-                      totalPenalty > 0 ? "text-rose-600" : "text-neutral-900"
+                      totalPenalty > 0 ? "text-orange-600" : "text-neutral-900"
                     }`}
                   >
                     +{totalPenalty.toLocaleString("vi-VN")}đ
@@ -257,28 +257,28 @@ export function CheckoutConfirmModal({
                     <span>Đang đối soát lịch sử linh kiện từ server...</span>
                   </div>
                 ) : damagedOrMissingComponents.length > 0 ? (
-                  <div className="bg-white border border-rose-100 rounded-lg p-2 space-y-1">
-                    <div className="text-[10px] font-bold text-rose-700 uppercase flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3 text-rose-500" />
+                  <div className="bg-white border border-orange-100 rounded-lg p-2 space-y-1">
+                    <div className="text-[10px] font-bold text-orange-700 uppercase flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 text-orange-500" />
                       Linh kiện mất / hỏng ghi nhận:
                     </div>
                     {damagedOrMissingComponents.map((item, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between text-[11px] bg-rose-50/50 p-1 rounded border border-rose-100/50"
+                        className="flex items-center justify-between text-[11px] bg-orange-50/50 p-1 rounded border border-orange-100/50"
                       >
                         <span className="font-bold text-neutral-800 truncate">
                           • {item.componentName} (x{item.quantity} {item.reason}
                           )
                         </span>
-                        <span className="font-mono font-bold text-rose-600">
+                        <span className="font-mono font-bold text-orange-600">
                           +{item.penaltyFee.toLocaleString("vi-VN")}đ
                         </span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-[11px] text-emerald-700 bg-emerald-50 p-1.5 rounded border border-emerald-100 font-medium">
+                  <div className="text-[11px] text-orange-700 bg-orange-50 p-1.5 rounded border border-orange-100 font-medium">
                     ✓ Không có linh kiện bị mất/hỏng.
                   </div>
                 )}
@@ -408,7 +408,7 @@ export function CheckoutConfirmModal({
                 </div>
 
                 {Number(invoiceData?.depositAppliedAmount || 0) > 0 && (
-                  <div className="flex justify-between items-center text-emerald-600">
+                  <div className="flex justify-between items-center text-orange-600">
                     <span className="flex items-center gap-1">
                       <ShieldCheck className="w-3.5 h-3.5" />
                       Tiền cọc cấn trừ (BR-09):
@@ -426,7 +426,7 @@ export function CheckoutConfirmModal({
                 {/* SỬA DÒNG NÀY: TỔNG ĐƠN CHỜ THU = SUBTOTAL + PENALTY - DEPOSIT */}
                 <div className="pt-2 border-t border-neutral-200 flex justify-between items-center text-sm font-extrabold text-neutral-950">
                   <span>TỔNG ĐƠN CHỜ THU:</span>
-                  <span className="font-mono text-emerald-600 text-lg">
+                  <span className="font-mono text-orange-600 text-lg">
                     {(Number(invoiceData?.totalAmount || 0) > 0
                       ? Number(invoiceData.totalAmount)
                       : Math.max(

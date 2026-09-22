@@ -15,7 +15,7 @@ export function focusFrameOnPointerDown(
 
 /** Viền sáng khi focus / thao tác bên trong khung. */
 export const interactiveFrameClass =
-  "outline-none transition-[box-shadow,ring-color,ring-width,border-color] duration-150 focus:ring-2 focus:ring-emerald-500/50 focus:shadow-md focus-within:ring-2 focus-within:ring-emerald-500/50 focus-within:shadow-md";
+  "outline-none transition-[box-shadow,ring-color,ring-width,border-color] duration-150 focus:ring-2 focus:ring-orange-500/50 focus:shadow-md focus-within:ring-2 focus-within:ring-orange-500/50 focus-within:shadow-md";
 
 export const interactiveFrameAmberClass =
   "outline-none transition-[box-shadow,ring-color,ring-width,border-color] duration-150 focus:ring-2 focus:ring-amber-500/45 focus:shadow-md focus-within:ring-2 focus-within:ring-amber-500/45 focus-within:shadow-md";

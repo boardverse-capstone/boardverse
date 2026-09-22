@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -30,7 +30,7 @@ const DEFAULT_LIMIT = 20;
 interface PosBoxesPanelProps {
   /** When set, skip useStaffCafe and use this cafe. */
   cafeId?: string;
-  /** Hide page header — embed inside Kho game tabs. */
+  /** Hide page header â€” embed inside Kho game tabs. */
   embedded?: boolean;
   /** Pre-select game template filter. */
   initialGameTemplateId?: string;
@@ -125,7 +125,7 @@ export function PosBoxesPanel({
         accessorKey: 'barcode',
         header: 'Barcode',
         cell: ({ row }) => (
-          <span className="font-mono text-xs">{row.original.barcode || '—'}</span>
+          <span className="font-mono text-xs">{row.original.barcode || 'â€”'}</span>
         ),
       },
       {
@@ -133,11 +133,11 @@ export function PosBoxesPanel({
         header: 'Game',
         cell: ({ row }) => (
           <div className="min-w-[140px]">
-            <div className="truncate font-mono text-xs font-extrabold uppercase tracking-wide text-violet-950">
-              ► {row.original.gameName || '—'}
+            <div className="truncate font-mono text-xs font-extrabold uppercase tracking-wide text-orange-950">
+              â–º {row.original.gameName || 'â€”'}
             </div>
             {row.original.gameTemplateId ? (
-              <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-violet-500">
+              <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-orange-500">
                 <span className="mr-1">#</span>{row.original.gameTemplateId.slice(0, 8)}
               </div>
             ) : null}
@@ -146,15 +146,15 @@ export function PosBoxesPanel({
       },
       {
         accessorKey: 'status',
-        header: 'Trạng thái',
+        header: 'Tráº¡ng thÃ¡i',
         cell: ({ row }) => {
           const raw = row.original.status;
           const ledColor: Record<string, string> = {
-            AVAILABLE: 'bg-emerald-500',
-            INUSE: 'bg-sky-500',
-            RENTED: 'bg-blue-500',
+            AVAILABLE: 'bg-orange-500',
+            INUSE: 'bg-orange-500',
+            RENTED: 'bg-neutral-500',
             MAINTENANCE: 'bg-amber-500',
-            DAMAGED: 'bg-rose-500',
+            DAMAGED: 'bg-orange-500',
             Retired: 'bg-neutral-500',
           };
           return (
@@ -180,11 +180,11 @@ export function PosBoxesPanel({
         accessorKey: 'inventoryId',
         header: 'Inventory',
         cell: ({ row }) => (
-          <span className="inline-flex items-center gap-1 rounded-md border-2 border-violet-300 bg-violet-50 px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-violet-700 shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]">
-            <span className="text-violet-400">▸</span>
+          <span className="inline-flex items-center gap-1 rounded-md border-2 border-orange-300 bg-orange-50 px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-orange-700 shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]">
+            <span className="text-amber-400">â–¸</span>
             {row.original.inventoryId
-              ? `${row.original.inventoryId.slice(0, 8)}…`
-              : '—'}
+              ? `${row.original.inventoryId.slice(0, 8)}â€¦`
+              : 'â€”'}
           </span>
         ),
       },
@@ -192,9 +192,9 @@ export function PosBoxesPanel({
         accessorKey: 'id',
         header: 'Box ID',
         cell: ({ row }) => (
-          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-violet-500">
-            <span className="mr-1 text-violet-400">#</span>
-            {row.original.id ? `${row.original.id.slice(0, 8)}…` : '—'}
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-orange-500">
+            <span className="mr-1 text-amber-400">#</span>
+            {row.original.id ? `${row.original.id.slice(0, 8)}â€¦` : 'â€”'}
           </span>
         ),
       },
@@ -209,13 +209,13 @@ export function PosBoxesPanel({
   };
 
   if (!cafeIdProp && cafeLoading) {
-    return <div className="text-sm text-muted-foreground">Đang tải thông tin quán...</div>;
+    return <div className="text-sm text-muted-foreground">Äang táº£i thÃ´ng tin quÃ¡n...</div>;
   }
 
   if (!cafeId) {
     return (
       <div className="text-sm text-muted-foreground">
-        Chưa chọn quán. Không thể tra cứu hộp game.
+        ChÆ°a chá»n quÃ¡n. KhÃ´ng thá»ƒ tra cá»©u há»™p game.
       </div>
     );
   }
@@ -224,49 +224,49 @@ export function PosBoxesPanel({
     <div className="space-y-4">
       {!embedded ? (
         <PageHeader
-          title="Hộp game POS"
+          title="Há»™p game POS"
           description={
             cafe
-              ? `${cafe.name} — hộp vật lý (barcode + trạng thái)`
-              : 'Danh sách hộp game vật lý (barcode + trạng thái).'
+              ? `${cafe.name} â€” há»™p váº­t lÃ½ (barcode + tráº¡ng thÃ¡i)`
+              : 'Danh sÃ¡ch há»™p game váº­t lÃ½ (barcode + tráº¡ng thÃ¡i).'
           }
         />
       ) : null}
 
-      {/* BARCODE SCANNER — style game */}
-      <div className="relative overflow-hidden rounded-xl border-2 border-violet-400 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-4 shadow-[3px_3px_0_rgba(139,92,246,0.35)]">
+      {/* BARCODE SCANNER â€” style game */}
+      <div className="relative overflow-hidden rounded-xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 via-white to-amber-50 p-4 shadow-[3px_3px_0_rgba(245,158,11,0.35)]">
         <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_3px,rgba(255,255,255,0.04)_3px,rgba(255,255,255,0.04)_4px)]" />
-        <span className="pointer-events-none absolute right-3 top-3 size-2 animate-pulse rounded-full bg-violet-500 shadow-[0_0_8px_currentColor]" />
-        <span className="pointer-events-none absolute left-3 top-3 size-2 animate-pulse rounded-full bg-fuchsia-500 shadow-[0_0_8px_currentColor] [animation-delay:0.3s]" />
+        <span className="pointer-events-none absolute right-3 top-3 size-2 animate-pulse rounded-full bg-orange-500 shadow-[0_0_8px_currentColor]" />
+        <span className="pointer-events-none absolute left-3 top-3 size-2 animate-pulse rounded-full bg-amber-500 shadow-[0_0_8px_currentColor] [animation-delay:0.3s]" />
 
-        <div className="relative flex items-center gap-2 font-mono text-xs font-extrabold uppercase tracking-widest text-violet-900">
-          <ScanBarcode className="h-4 w-4 text-violet-600" />
-          <span className="text-yellow-400">►</span>
-          Tra cứu theo barcode
-          <span className="ml-auto flex items-center gap-1 text-[10px] text-violet-700">
-            <span className="size-1.5 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_6px_currentColor]" />
+        <div className="relative flex items-center gap-2 font-mono text-xs font-extrabold uppercase tracking-widest text-amber-900">
+          <ScanBarcode className="h-4 w-4 text-amber-600" />
+          <span className="text-yellow-400">â–º</span>
+          Tra cá»©u theo barcode
+          <span className="ml-auto flex items-center gap-1 text-[10px] text-orange-700">
+            <span className="size-1.5 animate-pulse rounded-full bg-orange-500 shadow-[0_0_6px_currentColor]" />
             READY
           </span>
         </div>
         <div className="relative mt-3 flex flex-col gap-2 sm:flex-row">
           <Input
-            placeholder="▸ VD: BV-CATAN-001"
+            placeholder="â–¸ VD: BV-CATAN-001"
             value={barcodeInput}
             onChange={(e) => setBarcodeInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') runBarcodeLookup();
             }}
-            className="min-w-0 flex-1 border-2 border-violet-300 bg-white font-mono text-xs font-bold focus-visible:border-violet-500 focus-visible:ring-violet-300"
+            className="min-w-0 flex-1 border-2 border-orange-300 bg-white font-mono text-xs font-bold focus-visible:border-amber-500 focus-visible:ring-amber-300"
             autoComplete="off"
           />
           <button
             type="button"
             disabled={!barcodeInput.trim() || lookupFetching}
             onClick={runBarcodeLookup}
-            className="inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-md border-2 border-violet-700 bg-gradient-to-b from-violet-500 to-violet-700 px-4 font-mono text-xs font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.25),2px_2px_0_rgba(0,0,0,0.15)] transition-all hover:from-violet-400 hover:to-violet-600 disabled:cursor-not-allowed disabled:from-gray-400 disabled:to-gray-500 disabled:shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]"
+            className="inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-md border-2 border-amber-700 bg-gradient-to-b from-amber-500 to-amber-700 px-4 font-mono text-xs font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.25),2px_2px_0_rgba(0,0,0,0.15)] transition-all hover:from-amber-400 hover:to-amber-600 disabled:cursor-not-allowed disabled:from-gray-400 disabled:to-gray-500 disabled:shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]"
           >
-            <span className="text-yellow-300">►</span>
-            {lookupFetching ? 'Đang tra cứu...' : 'Tra cứu'}
+            <span className="text-yellow-300">â–º</span>
+            {lookupFetching ? 'Äang tra cá»©u...' : 'Tra cá»©u'}
           </button>
           {lookupBarcode ? (
             <button
@@ -275,40 +275,40 @@ export function PosBoxesPanel({
                 setLookupBarcode('');
                 setBarcodeInput('');
               }}
-              className="inline-flex h-9 shrink-0 items-center justify-center rounded-md border-2 border-slate-400 bg-gradient-to-b from-slate-100 to-slate-200 px-4 font-mono text-xs font-extrabold uppercase tracking-widest text-slate-700 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1),2px_2px_0_rgba(0,0,0,0.1)] hover:from-slate-200 hover:to-slate-300"
+              className="inline-flex h-9 shrink-0 items-center justify-center rounded-md border-2 border-neutral-400 bg-gradient-to-b from-neutral-100 to-neutral-200 px-4 font-mono text-xs font-extrabold uppercase tracking-widest text-neutral-700 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1),2px_2px_0_rgba(0,0,0,0.1)] hover:from-neutral-200 hover:to-neutral-300"
             >
-              ✕ Xóa
+              âœ• XÃ³a
             </button>
           ) : null}
         </div>
 
         {lookupBarcode && lookupFetching ? (
-          <p className="relative mt-3 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-widest text-violet-700">
-            <span className="size-1.5 animate-pulse rounded-full bg-violet-500 shadow-[0_0_6px_currentColor]" />
-            Đang tra cứu <span className="rounded border border-violet-300 bg-white px-1.5 py-0.5 font-mono text-violet-900">{lookupBarcode}</span>…
+          <p className="relative mt-3 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-widest text-orange-700">
+            <span className="size-1.5 animate-pulse rounded-full bg-orange-500 shadow-[0_0_6px_currentColor]" />
+            Äang tra cá»©u <span className="rounded border border-orange-300 bg-white px-1.5 py-0.5 font-mono text-amber-900">{lookupBarcode}</span>â€¦
           </p>
         ) : null}
 
         {lookupBarcode && lookupError ? (
-          <p className="relative mt-3 rounded-md border-2 border-rose-400 bg-gradient-to-r from-rose-100 to-pink-100 p-2 font-mono text-xs font-bold uppercase tracking-wide text-rose-700 shadow-[2px_2px_0_rgba(244,63,94,0.4)]">
-            <span className="mr-1">⚠</span>
-            {(lookupErr as Error)?.message || 'Không tìm thấy hộp game với barcode này.'}
+          <p className="relative mt-3 rounded-md border-2 border-orange-400 bg-gradient-to-r from-orange-100 to-orange-100 p-2 font-mono text-xs font-bold uppercase tracking-wide text-orange-700 shadow-[2px_2px_0_rgba(249,115,22,0.4)]">
+            <span className="mr-1">âš </span>
+            {(lookupErr as Error)?.message || 'KhÃ´ng tÃ¬m tháº¥y há»™p game vá»›i barcode nÃ y.'}
           </p>
         ) : null}
 
         {lookupBarcode && lookupSuccess && lookedUpBox ? (
-          <div className="relative mt-3 grid gap-2 rounded-lg border-2 border-violet-300 bg-gradient-to-br from-white via-violet-50/60 to-purple-50/40 p-3 text-sm shadow-[2px_2px_0_rgba(139,92,246,0.3)] sm:grid-cols-2">
+          <div className="relative mt-3 grid gap-2 rounded-lg border-2 border-orange-300 bg-gradient-to-br from-white via-amber-50/60 to-amber-50/40 p-3 text-sm shadow-[2px_2px_0_rgba(245,158,11,0.3)] sm:grid-cols-2">
             <div>
-              <p className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-violet-600">
-                <span className="mr-1 text-yellow-400">▸</span>Barcode
+              <p className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-amber-600">
+                <span className="mr-1 text-yellow-400">â–¸</span>Barcode
               </p>
-              <p className="font-mono text-xs font-extrabold uppercase tracking-wide text-violet-950">
+              <p className="font-mono text-xs font-extrabold uppercase tracking-wide text-orange-950">
                 {lookedUpBox.barcode}
               </p>
             </div>
             <div>
-              <p className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-violet-600">
-                <span className="mr-1 text-yellow-400">▸</span>Trạng thái
+              <p className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-amber-600">
+                <span className="mr-1 text-yellow-400">â–¸</span>Tráº¡ng thÃ¡i
               </p>
               <Badge
                 variant="outline"
@@ -318,42 +318,42 @@ export function PosBoxesPanel({
               </Badge>
             </div>
             <div>
-              <p className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-violet-600">
-                <span className="mr-1 text-yellow-400">▸</span>Game
+              <p className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-amber-600">
+                <span className="mr-1 text-yellow-400">â–¸</span>Game
               </p>
-              <p className="font-mono text-xs font-extrabold uppercase tracking-wide text-violet-950">
-                ► {lookedUpBox.gameName || '—'}
+              <p className="font-mono text-xs font-extrabold uppercase tracking-wide text-orange-950">
+                â–º {lookedUpBox.gameName || 'â€”'}
               </p>
             </div>
             <div>
-              <p className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-violet-600">
-                <span className="mr-1 text-yellow-400">▸</span>Inventory
+              <p className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-amber-600">
+                <span className="mr-1 text-yellow-400">â–¸</span>Inventory
               </p>
-              <p className="font-mono text-[11px] font-bold tracking-wider text-violet-700 break-all">
-                {lookedUpBox.inventoryId || '—'}
+              <p className="font-mono text-[11px] font-bold tracking-wider text-orange-700 break-all">
+                {lookedUpBox.inventoryId || 'â€”'}
               </p>
             </div>
             <div className="sm:col-span-2">
-              <p className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-violet-600">
-                <span className="mr-1 text-yellow-400">▸</span>Box ID
+              <p className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-amber-600">
+                <span className="mr-1 text-yellow-400">â–¸</span>Box ID
               </p>
-              <p className="font-mono text-[11px] font-bold tracking-wider text-violet-700 break-all">
-                {lookedUpBox.id || '—'}
+              <p className="font-mono text-[11px] font-bold tracking-wider text-orange-700 break-all">
+                {lookedUpBox.id || 'â€”'}
               </p>
             </div>
           </div>
         ) : null}
       </div>
 
-      {/* FILTER BAR — style game */}
-      <div className="relative overflow-hidden rounded-xl border-2 border-violet-400 bg-gradient-to-r from-violet-100/60 via-white to-purple-100/60 p-3 shadow-[2px_2px_0_rgba(139,92,246,0.3)]">
+      {/* FILTER BAR â€” style game */}
+      <div className="relative overflow-hidden rounded-xl border-2 border-amber-400 bg-gradient-to-r from-amber-100/60 via-white to-amber-100/60 p-3 shadow-[2px_2px_0_rgba(245,158,11,0.3)]">
         <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_3px,rgba(255,255,255,0.05)_3px,rgba(255,255,255,0.05)_4px)]" />
-        <span className="pointer-events-none absolute right-2 top-2 size-1.5 animate-pulse rounded-full bg-violet-500 shadow-[0_0_6px_currentColor]" />
+        <span className="pointer-events-none absolute right-2 top-2 size-1.5 animate-pulse rounded-full bg-orange-500 shadow-[0_0_6px_currentColor]" />
 
         <div className="relative flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
           <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
             <Input
-              placeholder="▸ Lọc danh sách: barcode, tên game..."
+              placeholder="â–¸ Lá»c danh sÃ¡ch: barcode, tÃªn game..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => {
@@ -362,7 +362,7 @@ export function PosBoxesPanel({
                   setPage(1);
                 }
               }}
-              className="min-w-0 flex-1 border-2 border-violet-300 bg-white font-mono text-xs font-bold focus-visible:border-violet-500 focus-visible:ring-violet-300"
+              className="min-w-0 flex-1 border-2 border-orange-300 bg-white font-mono text-xs font-bold focus-visible:border-amber-500 focus-visible:ring-amber-300"
             />
             <button
               type="button"
@@ -370,9 +370,9 @@ export function PosBoxesPanel({
                 setSearch(searchInput);
                 setPage(1);
               }}
-              className="inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-md border-2 border-violet-700 bg-gradient-to-b from-violet-500 to-violet-700 px-4 font-mono text-xs font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.25),2px_2px_0_rgba(0,0,0,0.15)] hover:from-violet-400 hover:to-violet-600"
+              className="inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-md border-2 border-amber-700 bg-gradient-to-b from-amber-500 to-amber-700 px-4 font-mono text-xs font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.25),2px_2px_0_rgba(0,0,0,0.15)] hover:from-amber-400 hover:to-amber-600"
             >
-              <span className="text-yellow-300">►</span> Lọc
+              <span className="text-yellow-300">â–º</span> Lá»c
             </button>
           </div>
 
@@ -383,12 +383,12 @@ export function PosBoxesPanel({
               setPage(1);
             }}
           >
-            <SelectTrigger className="w-full border-2 border-violet-300 bg-white font-mono text-xs font-bold md:w-[240px]">
-              <SelectValue placeholder="Lọc theo game" />
+            <SelectTrigger className="w-full border-2 border-orange-300 bg-white font-mono text-xs font-bold md:w-[240px]">
+              <SelectValue placeholder="Lá»c theo game" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="font-mono text-xs font-bold">
-                ► Tất cả tựa game
+                â–º Táº¥t cáº£ tá»±a game
               </SelectItem>
               {gameOptions.map((game) => (
                 <SelectItem key={game.id} value={game.id} className="font-mono text-xs font-bold">
@@ -405,8 +405,8 @@ export function PosBoxesPanel({
               setPage(1);
             }}
           >
-            <SelectTrigger className="w-full border-2 border-violet-300 bg-white font-mono text-xs font-bold md:w-[180px]">
-              <SelectValue placeholder="Trạng thái" />
+            <SelectTrigger className="w-full border-2 border-orange-300 bg-white font-mono text-xs font-bold md:w-[180px]">
+              <SelectValue placeholder="Tráº¡ng thÃ¡i" />
             </SelectTrigger>
             <SelectContent>
               {INVENTORY_STATUS_FILTERS.map((item) => (
@@ -415,7 +415,7 @@ export function PosBoxesPanel({
                 </SelectItem>
               ))}
               <SelectItem value="Retired" className="font-mono text-xs font-bold">
-                Ngưng dùng
+                NgÆ°ng dÃ¹ng
               </SelectItem>
             </SelectContent>
           </Select>
@@ -423,28 +423,28 @@ export function PosBoxesPanel({
       </div>
 
       {isError ? (
-        <div className="rounded-lg border-2 border-rose-400 bg-gradient-to-r from-rose-100 via-pink-50 to-fuchsia-100 p-3 font-mono text-xs font-bold text-rose-700 shadow-[2px_2px_0_rgba(244,63,94,0.4)]">
-          <span className="mr-1">⚠</span>
-          {(error as Error)?.message || 'Không thể tải danh sách hộp game.'}{' '}
+        <div className="rounded-lg border-2 border-orange-400 bg-gradient-to-r from-orange-100 via-orange-50 to-amber-100 p-3 font-mono text-xs font-bold text-orange-700 shadow-[2px_2px_0_rgba(249,115,22,0.4)]">
+          <span className="mr-1">âš </span>
+          {(error as Error)?.message || 'KhÃ´ng thá»ƒ táº£i danh sÃ¡ch há»™p game.'}{' '}
           <button
             type="button"
             className="underline decoration-2 underline-offset-2"
             onClick={() => void refetch()}
           >
-            ► Thử lại
+            â–º Thá»­ láº¡i
           </button>
         </div>
       ) : isLoading ? (
-        <div className="flex items-center gap-2 rounded-lg border-2 border-violet-300 bg-violet-50/60 p-3 font-mono text-xs font-bold uppercase tracking-widest text-violet-700 shadow-[2px_2px_0_rgba(139,92,246,0.3)]">
-          <span className="size-2 animate-pulse rounded-full bg-violet-500 shadow-[0_0_6px_currentColor]" />
-          Đang tải danh sách hộp game…
+        <div className="flex items-center gap-2 rounded-lg border-2 border-orange-300 bg-orange-50/60 p-3 font-mono text-xs font-bold uppercase tracking-widest text-orange-700 shadow-[2px_2px_0_rgba(245,158,11,0.3)]">
+          <span className="size-2 animate-pulse rounded-full bg-orange-500 shadow-[0_0_6px_currentColor]" />
+          Äang táº£i danh sÃ¡ch há»™p gameâ€¦
         </div>
       ) : (
         <>
           <PartnerDataTable
             columns={columns}
             data={paged}
-            emptyMessage="▸ Chưa có hộp game nào trong kho POS."
+            emptyMessage="â–¸ ChÆ°a cÃ³ há»™p game nÃ o trong kho POS."
           />
 
           <CommonPagination

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "react-qr-code";
-import { CalendarClock, RefreshCw, QrCode, DoorOpen, Search, AlertTriangle, ShieldCheck, MoreHorizontal, Table2, XCircle } from "lucide-react";
+import { CalendarClock, RefreshCw, QrCode, DoorOpen, Search, AlertTriangle, ShieldCheck, MoreHorizontal, Table2, XCircle, Maximize2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +64,10 @@ import {
   statusOrbClass,
 } from "../lib/game-theme";
 import { cn } from "@/lib/utils";
+import {
+  backdropCloseHandler,
+  useDismissOnBackdrop,
+} from "../lib/use-dismiss-on-backdrop";
 
 interface PendingBookingsPanelProps {
   cafeId: string | null;
@@ -330,19 +334,19 @@ function normalizeReservationStatus(status?: string | null) {
 function reservationStatusBadgeClass(status?: string | null) {
   switch (normalizeReservationStatus(status)) {
     case "confirmed":
-      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+      return "border-orange-200 bg-orange-50 text-orange-800";
     case "holding":
       return "border-amber-200 bg-amber-50 text-amber-900";
     case "checkedin":
-      return "border-sky-200 bg-sky-50 text-sky-800";
+      return "border-orange-200 bg-orange-50 text-orange-800";
     case "completed":
-      return "border-emerald-100 bg-emerald-50/70 text-emerald-700";
+      return "border-orange-100 bg-orange-50/70 text-orange-700";
     case "expired":
       return "border-neutral-200 bg-neutral-50 text-neutral-600";
     case "cancelled":
     case "cancelledbycafe":
     case "cancelledbyplayer":
-      return "border-red-200 bg-red-50 text-red-700";
+      return "border-orange-200 bg-orange-50 text-orange-700";
     default:
       return "border-neutral-200 bg-neutral-50 text-neutral-700";
   }
@@ -410,17 +414,17 @@ function getTableStatusMeta(status?: string | null, hasSession?: boolean): {
     .replace(/[_\s-]/g, "");
 
   if (hasSession === false && st === "inuse") {
-    return { label: "Trống", badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-200" };
+    return { label: "Trống", badgeClass: "bg-orange-100 text-orange-800 border-orange-200" };
   }
 
   switch (st) {
     case "available":
-      return { label: "Trống", badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-200" };
+      return { label: "Trống", badgeClass: "bg-orange-100 text-orange-800 border-orange-200" };
     case "occupied":
     case "inuse":
       return { label: "Đang dùng", badgeClass: "bg-amber-100 text-amber-800 border-amber-200" };
     case "reserved":
-      return { label: "Đã giữ", badgeClass: "bg-blue-100 text-blue-800 border-blue-200" };
+      return { label: "Đã giữ", badgeClass: "bg-orange-100 text-orange-800 border-orange-200" };
     default:
       return { label: status?.trim() || "", badgeClass: "bg-neutral-100 text-neutral-700 border-neutral-200" };
   }
@@ -551,6 +555,7 @@ export function PendingBookingsPanel({
   const [checkingIn, setCheckingIn] = useState(false);
   const [tableDropdownOpen, setTableDropdownOpen] = useState(false);
   const [creatingQr, setCreatingQr] = useState(false);
+  const [zoomedCheckInQr, setZoomedCheckInQr] = useState(false);
   const [checkInToken, setCheckInToken] = useState<PosCheckInTokenDto | null>(
     null,
   );
@@ -1060,6 +1065,7 @@ export function PendingBookingsPanel({
         throw new Error("Máy chủ không trả nội dung mã QR.");
       }
       setCheckInToken(token);
+      setZoomedCheckInQr(false);
       toast.success("Đã tạo mã QR. Khách quét bằng app BoardVerse.");
     } catch (err: unknown) {
       const message =
@@ -1140,7 +1146,7 @@ export function PendingBookingsPanel({
             className={cn(
               "flex h-9 items-center justify-center gap-1.5 rounded-md border-2 px-3 font-mono text-xs font-bold uppercase tracking-wider transition-all",
               receptionTab === "bookings"
-                ? "border-pink-500 bg-white text-pink-700 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1)]"
+                ? "border-orange-500 bg-white text-orange-700 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1)]"
                 : "border-transparent text-neutral-600 hover:bg-white/60 hover:text-neutral-900",
             )}
           >
@@ -1158,7 +1164,7 @@ export function PendingBookingsPanel({
               className={cn(
                 "flex h-9 items-center justify-center gap-1.5 rounded-md border-2 px-3 font-mono text-xs font-bold uppercase tracking-wider transition-all",
                 receptionTab === "walkin"
-                  ? "border-emerald-500 bg-white text-emerald-700 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1)]"
+                  ? "border-orange-500 bg-white text-orange-700 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1)]"
                   : "border-transparent text-neutral-600 hover:bg-white/60 hover:text-neutral-900",
               )}
             >
@@ -1387,9 +1393,9 @@ export function PendingBookingsPanel({
                       }
                     }}
                     className={cn(
-                      "rounded-md border-2 p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
+                      "rounded-md border-2 p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
                       selected
-                        ? "border-emerald-500 bg-emerald-50 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08),0_0_10px_rgba(16,185,129,0.3)]"
+                        ? "border-orange-500 bg-orange-50 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08),0_0_10px_rgba(249,115,22,0.3)]"
                         : "border-neutral-300 bg-white hover:border-neutral-400 hover:shadow-[2px_2px_0_rgba(0,0,0,0.08)]",
                     )}
                   >
@@ -1448,7 +1454,7 @@ export function PendingBookingsPanel({
                           className={cn(
                             "h-9 w-full border-2 font-mono text-xs font-bold uppercase tracking-wider shadow-[inset_0_-2px_0_rgba(0,0,0,0.1)]",
                             canCheckIn
-                              ? "border-emerald-700 bg-gradient-to-b from-emerald-500 to-emerald-600 text-white hover:from-emerald-500 hover:to-emerald-500"
+                              ? "border-orange-700 bg-gradient-to-b from-orange-500 to-orange-600 text-white hover:from-orange-500 hover:to-orange-500"
                               : "border-amber-400 bg-amber-100 text-amber-900 hover:bg-amber-200",
                           )}
                           variant={canCheckIn ? "default" : "outline"}
@@ -1478,19 +1484,19 @@ export function PendingBookingsPanel({
           tabIndex={0}
           onPointerDown={focusFrameOnPointerDown}
           className={cn(
-            "border-emerald-400 bg-emerald-50/40",
+            "border-orange-400 bg-orange-50/40",
             arcadeCardClass,
             interactiveFrameClass,
             isSidebar && "flex h-full min-h-0 flex-col gap-0 py-0",
           )}
         >
-        <CardHeader className={cn("border-b-2 border-emerald-200", isSidebar && "py-3")}>
-          <CardTitle className="flex items-center gap-2 font-mono text-base font-extrabold uppercase tracking-tight text-emerald-950">
+        <CardHeader className={cn("border-b-2 border-orange-200", isSidebar && "py-3")}>
+          <CardTitle className="flex items-center gap-2 font-mono text-base font-extrabold uppercase tracking-tight text-orange-950">
             <DoorOpen className="size-4" />
             {isSidebar ? "Hàng chờ vãng lai" : "Cửa sổ khách vãng lai"}
           </CardTitle>
           <CardAction className="flex items-center gap-2">
-            <Badge className="border-2 border-emerald-700 bg-emerald-600 font-mono text-[10px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]">
+            <Badge className="border-2 border-orange-700 bg-orange-600 font-mono text-[10px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]">
               <span className={cn(statusOrbClass, "mr-1 bg-white")} />
               {openWindows.length} open
             </Badge>
@@ -1500,7 +1506,7 @@ export function PendingBookingsPanel({
                 size="sm"
                 variant="outline"
                 onClick={onOpenTables}
-                className="h-8 gap-1.5 border-2 border-emerald-400 font-mono text-xs font-bold uppercase tracking-wider text-emerald-900 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] hover:bg-emerald-100"
+                className="h-8 gap-1.5 border-2 border-orange-400 font-mono text-xs font-bold uppercase tracking-wider text-orange-900 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] hover:bg-orange-100"
               >
                 <Table2 className="size-3.5" />
                 ► Sơ đồ bàn
@@ -1515,7 +1521,7 @@ export function PendingBookingsPanel({
           )}
         >
           {openWindows.length === 0 ? (
-            <p className="rounded-md border-2 border-dashed border-emerald-300 py-4 text-center font-mono text-xs uppercase tracking-widest text-emerald-900/70">
+            <p className="rounded-md border-2 border-dashed border-orange-300 py-4 text-center font-mono text-xs uppercase tracking-widest text-orange-900/70">
               ▸ Không có khung giờ vãng lai cho {reservationDayLabel}
             </p>
           ) : (
@@ -1543,7 +1549,7 @@ export function PendingBookingsPanel({
                     tabIndex={0}
                     onPointerDown={focusFrameOnPointerDown}
                     className={cn(
-                      "flex flex-col gap-2.5 rounded-md border-2 border-emerald-300 bg-white p-3 shadow-[2px_2px_0_rgba(16,185,129,0.2)]",
+                      "flex flex-col gap-2.5 rounded-md border-2 border-orange-300 bg-white p-3 shadow-[2px_2px_0_rgba(249,115,22,0.2)]",
                       interactiveFrameClass,
                     )}
                   >
@@ -1552,7 +1558,7 @@ export function PendingBookingsPanel({
                         <p className="truncate font-mono text-sm font-extrabold uppercase tracking-tight text-neutral-950">
                           ► {tableLabel || "Chỗ trống"}
                         </p>
-                        <p className="mt-0.5 font-mono text-[11px] font-bold uppercase tracking-wide text-emerald-800">
+                        <p className="mt-0.5 font-mono text-[11px] font-bold uppercase tracking-wide text-orange-800">
                           GHẾ {w.availableSeats ?? "—"}/{w.totalSeats ?? "—"}
                           {" · "}
                           {formatWalkInTimeRange(w.windowStart, w.windowEnd)}
@@ -1694,7 +1700,7 @@ export function PendingBookingsPanel({
                         size="sm"
                         disabled={busy || maxSeats < 1}
                         onClick={() => void createWalkIn(w)}
-                        className="h-9 shrink-0 border-2 border-emerald-800 bg-gradient-to-b from-emerald-600 to-emerald-700 px-3 font-mono text-xs font-extrabold uppercase tracking-wider text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_2px_0_rgba(0,0,0,0.15)] hover:from-emerald-500 hover:to-emerald-600"
+                        className="h-9 shrink-0 border-2 border-orange-800 bg-gradient-to-b from-orange-600 to-orange-700 px-3 font-mono text-xs font-extrabold uppercase tracking-wider text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_2px_0_rgba(0,0,0,0.15)] hover:from-orange-500 hover:to-orange-600"
                       >
                         ► {busy ? "Đang gán…" : "Gán bàn"}
                       </Button>
@@ -1725,7 +1731,7 @@ export function PendingBookingsPanel({
                     variant="outline"
                     className={
                       preview.canCheckIn
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        ? "border-orange-200 bg-orange-50 text-orange-700"
                         : "border-amber-200 bg-amber-50 text-amber-800"
                     }
                   >
@@ -1818,7 +1824,7 @@ export function PendingBookingsPanel({
                                       className={cn(
                                         "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400",
                                         selected
-                                          ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-300 text-emerald-900"
+                                          ? "border-orange-500 bg-orange-50 ring-1 ring-orange-300 text-orange-900"
                                           : tooSmall
                                             ? "cursor-not-allowed border-neutral-200 bg-neutral-50 text-neutral-400"
                                             : "border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400 hover:bg-neutral-50",
@@ -1965,7 +1971,7 @@ export function PendingBookingsPanel({
                                 className={
                                   String(checkedBox.status).toLowerCase() ===
                                   "available"
-                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                    ? "border-orange-200 bg-orange-50 text-orange-700"
                                     : "border-amber-200 bg-amber-50 text-amber-800"
                                 }
                               >
@@ -1975,8 +1981,8 @@ export function PendingBookingsPanel({
                           </div>
 
                           {(checkedBox.missingComponents?.length ?? 0) > 0 ? (
-                            <div className="max-h-28 space-y-1.5 overflow-y-auto rounded-lg border border-rose-200 bg-rose-50 p-2.5">
-                              <p className="flex items-center gap-2 text-xs font-bold text-rose-800">
+                            <div className="max-h-28 space-y-1.5 overflow-y-auto rounded-lg border border-orange-200 bg-orange-50 p-2.5">
+                              <p className="flex items-center gap-2 text-xs font-bold text-orange-800">
                                 <AlertTriangle className="size-3.5 shrink-0" />
                                 Từng ghi nhận thiếu{" "}
                                 {checkedBox.missingComponents?.length} linh kiện
@@ -1989,14 +1995,14 @@ export function PendingBookingsPanel({
                                   <span className="font-medium">
                                     {comp.componentName || "Linh kiện"}
                                   </span>
-                                  <span className="text-rose-700">
+                                  <span className="text-orange-700">
                                     Thiếu {comp.missingQuantity || 1}
                                   </span>
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <p className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs font-medium text-emerald-800">
+                            <p className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-2 text-xs font-medium text-orange-800">
                               <ShieldCheck className="size-3.5 shrink-0" />
                               Đủ linh kiện, sẵn sàng bàn giao.
                             </p>
@@ -2010,23 +2016,29 @@ export function PendingBookingsPanel({
                     </div>
                   </div>
 
-                  <div className="flex min-h-0 flex-col rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 md:overflow-y-auto">
+                  <div className="flex min-h-0 flex-col rounded-xl border border-orange-200 bg-orange-50/50 p-3 md:overflow-y-auto">
                     <div className="mb-3">
-                      <p className="text-sm font-bold text-emerald-950">
+                      <p className="text-sm font-bold text-orange-950">
                         Mã QR mời khách quét
                       </p>
-                      <p className="text-xs font-medium text-emerald-900">
+                      <p className="text-xs font-medium text-orange-900">
                         Bắt buộc hiện QR trước khi xác nhận.
                       </p>
                     </div>
 
                     {checkInToken?.qrPayload ? (
                       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-                        <div className="rounded-xl border-2 border-emerald-200 bg-white p-3">
+                        <button
+                          type="button"
+                          onClick={() => setZoomedCheckInQr(true)}
+                          className="group relative cursor-pointer rounded-xl border-2 border-orange-200 bg-white p-3 transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
+                          title="Bấm để phóng to QR"
+                        >
+                          <Maximize2 className="absolute right-2 top-2 z-10 size-3.5 rounded bg-white/90 p-0.5 text-orange-700 opacity-70 transition-opacity group-hover:opacity-100" />
                           <QRCode value={checkInToken.qrPayload} size={160} />
-                        </div>
+                        </button>
                         <div className="space-y-1">
-                          <p className="font-mono text-xs font-semibold tracking-wider text-emerald-900">
+                          <p className="font-mono text-xs font-semibold tracking-wider text-orange-900">
                             {checkInToken.token}
                           </p>
                           <p className="text-xs font-medium text-neutral-800">
@@ -2047,7 +2059,7 @@ export function PendingBookingsPanel({
                               (preview.raw as Record<string, unknown>).id)
                           )}
                           onClick={() => void handleShowCheckInQr()}
-                          className="mt-1 gap-1.5 text-emerald-900 hover:bg-emerald-100"
+                          className="mt-1 gap-1.5 text-orange-900 hover:bg-orange-100"
                         >
                           {creatingQr ? (
                             <Spinner className="size-3.5" />
@@ -2058,9 +2070,9 @@ export function PendingBookingsPanel({
                         </Button>
                       </div>
                     ) : (
-                      <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-emerald-200 px-3 py-6 text-center">
-                        <div className="rounded-full border border-dashed border-emerald-300 bg-white p-3">
-                          <QrCode className="size-8 text-emerald-700/60" />
+                      <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-orange-200 px-3 py-6 text-center">
+                        <div className="rounded-full border border-dashed border-orange-300 bg-white p-3">
+                          <QrCode className="size-8 text-orange-700/60" />
                         </div>
                         <Button
                           type="button"
@@ -2072,7 +2084,7 @@ export function PendingBookingsPanel({
                               (preview.raw as Record<string, unknown>).id)
                           )}
                           onClick={() => void handleShowCheckInQr()}
-                          className="mt-1 min-h-10 gap-2 bg-emerald-600 text-white hover:bg-emerald-700"
+                          className="mt-1 min-h-10 gap-2 bg-orange-600 text-white hover:bg-orange-700"
                         >
                           {creatingQr ? (
                             <Spinner className="size-4" />
@@ -2115,6 +2127,54 @@ export function PendingBookingsPanel({
           ) : null}
         </DialogContent>
       </Dialog>
+
+      {/* POPUP PHÓNG TO QR — hiện toàn màn hình để khách quét dễ */}
+      {zoomedCheckInQr && checkInToken?.qrPayload ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          onClick={(event) =>
+            backdropCloseHandler(event, () => setZoomedCheckInQr(false))
+          }
+        >
+          <div
+            className="relative flex max-h-[92vh] w-full max-w-md flex-col items-center gap-3 overflow-y-auto rounded-2xl border-2 border-orange-400 bg-gradient-to-br from-white via-orange-50 to-amber-50 p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setZoomedCheckInQr(false)}
+              className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-xl border-2 border-orange-400 bg-gradient-to-b from-white to-orange-50 text-orange-700 shadow-[2px_2px_0_rgba(249,115,22,0.4)] transition-all hover:from-orange-100 hover:to-orange-200"
+              title="Đóng"
+            >
+              <X className="size-4" />
+            </button>
+            <p className="text-center font-mono text-xs font-extrabold uppercase tracking-widest text-orange-800">
+              Mã QR mời khách quét · Nhận bàn
+            </p>
+            <p className="text-center font-mono text-[11px] font-bold tracking-wider text-orange-600">
+              {checkInToken.token}
+            </p>
+            <p className="text-center font-mono text-[10px] font-bold uppercase tracking-widest text-orange-700/80">
+              Hết hạn: {formatTime(checkInToken.expiresAt)}
+            </p>
+            <div className="rounded-2xl border-4 border-orange-300 bg-white p-4 shadow-[4px_4px_0_rgba(249,115,22,0.35)]">
+              <QRCode value={checkInToken.qrPayload} size={420} />
+            </div>
+            <p className="text-center font-mono text-[10px] font-bold uppercase tracking-widest text-orange-700/80">
+              💡 Khách mở app BoardVerse và quét mã này
+            </p>
+            <button
+              type="button"
+              onClick={() => setZoomedCheckInQr(false)}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border-2 border-orange-400 bg-gradient-to-b from-orange-500 to-amber-500 px-6 font-mono text-[11px] font-extrabold uppercase tracking-widest text-white shadow-[2px_2px_0_rgba(249,115,22,0.45)] transition-all hover:from-orange-600 hover:to-amber-600"
+            >
+              ✕ Đóng
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

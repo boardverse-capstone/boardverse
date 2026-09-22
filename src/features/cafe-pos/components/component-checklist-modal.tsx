@@ -150,7 +150,7 @@ export function ComponentChecklistModal({
         <span className="pointer-events-none absolute -left-0.5 -top-0.5 size-2 animate-pulse rounded-full bg-amber-500 shadow-[0_0_10px_currentColor]" />
         <span className="pointer-events-none absolute -right-0.5 -bottom-0.5 size-2 animate-pulse rounded-full bg-orange-500 shadow-[0_0_10px_currentColor] [animation-delay:0.4s]" />
         <span className="pointer-events-none absolute -right-0.5 -top-0.5 size-1.5 animate-pulse rounded-full bg-yellow-400 shadow-[0_0_8px_currentColor]" />
-        <span className="pointer-events-none absolute -left-0.5 -bottom-0.5 size-1.5 animate-pulse rounded-full bg-violet-500 shadow-[0_0_8px_currentColor] [animation-delay:0.2s]" />
+        <span className="pointer-events-none absolute -left-0.5 -bottom-0.5 size-1.5 animate-pulse rounded-full bg-amber-500 shadow-[0_0_8px_currentColor] [animation-delay:0.2s]" />
 
         {/* HEADER */}
         <div className="relative flex items-center justify-between border-b-2 border-amber-300/70 bg-gradient-to-r from-amber-100 via-yellow-100 to-orange-100 px-5 py-3">
@@ -194,7 +194,7 @@ export function ComponentChecklistModal({
           <button
             type="button"
             onClick={handleSetAllValid}
-            className="inline-flex h-8 items-center gap-1.5 rounded-xl border-2 border-emerald-600 bg-gradient-to-b from-emerald-500 to-emerald-700 px-3 font-mono text-[11px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),2px_2px_0_rgba(0,0,0,0.15)] transition-all hover:from-emerald-400 hover:to-emerald-600"
+            className="inline-flex h-8 items-center gap-1.5 rounded-xl border-2 border-orange-600 bg-gradient-to-b from-orange-500 to-orange-700 px-3 font-mono text-[11px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),2px_2px_0_rgba(0,0,0,0.15)] transition-all hover:from-orange-400 hover:to-orange-600"
           >
             <Zap className="w-3 h-3 text-yellow-300" />
             Đủ Tất Cả
@@ -212,14 +212,14 @@ export function ComponentChecklistModal({
                 className={[
                   "relative overflow-hidden rounded-xl border-2 p-3 shadow-[2px_2px_0_rgba(0,0,0,0.15)] transition-all",
                   isMissing
-                    ? "border-rose-400 bg-gradient-to-br from-rose-50 via-pink-50 to-fuchsia-50 shadow-[2px_2px_0_rgba(244,63,94,0.3)]"
-                    : "border-emerald-400 bg-gradient-to-br from-emerald-50 via-white to-teal-50 shadow-[2px_2px_0_rgba(16,185,129,0.25)]",
+                    ? "border-orange-400 bg-gradient-to-br from-orange-50 via-orange-50 to-amber-50 shadow-[2px_2px_0_rgba(249,115,22,0.3)]"
+                    : "border-orange-400 bg-gradient-to-br from-orange-50 via-white to-amber-50 shadow-[2px_2px_0_rgba(249,115,22,0.25)]",
                 ].join(" ")}
               >
                 {/* LED dot */}
                 <span className={[
                   "pointer-events-none absolute right-3 top-3 size-1.5 animate-pulse rounded-full shadow-[0_0_6px_currentColor]",
-                  isMissing ? "bg-rose-500" : "bg-emerald-500",
+                  isMissing ? "bg-orange-500" : "bg-orange-500",
                 ].join(" ")} />
 
                 <div className="flex items-center justify-between gap-3 pr-5">
@@ -235,7 +235,7 @@ export function ComponentChecklistModal({
                         </strong>
                       </span>
                       {item.componentKind && (
-                        <span className="inline-flex items-center gap-1 rounded border border-violet-300 bg-violet-50 px-1.5 py-0.5 text-[9px] text-violet-700 shadow-[inset_0_-1px_0_rgba(0,0,0,0.06)]">
+                        <span className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9px] text-amber-700 shadow-[inset_0_-1px_0_rgba(0,0,0,0.06)]">
                           {item.componentKind}
                         </span>
                       )}
@@ -257,12 +257,12 @@ export function ComponentChecklistModal({
                     />
 
                     {isMissing ? (
-                      <span className="inline-flex items-center gap-1 rounded-lg border-2 border-rose-400 bg-gradient-to-b from-rose-400 to-pink-600 px-2 py-1 font-mono text-[10px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-1px_0_rgba(0,0,0,0.2),1px_1px_0_rgba(0,0,0,0.15)]">
+                      <span className="inline-flex items-center gap-1 rounded-lg border-2 border-orange-400 bg-gradient-to-b from-orange-400 to-orange-600 px-2 py-1 font-mono text-[10px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-1px_0_rgba(0,0,0,0.2),1px_1px_0_rgba(0,0,0,0.15)]">
                         <AlertTriangle className="w-3 h-3 text-yellow-300" />
                         -{item.expectedQuantity - item.actualQuantity}
                       </span>
                     ) : (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 drop-shadow-[0_0_4px_rgba(16,185,129,0.6)]" />
+                      <CheckCircle2 className="w-5 h-5 text-orange-600 shrink-0 drop-shadow-[0_0_4px_rgba(249,115,22,0.6)]" />
                     )}
                   </div>
                 </div>
@@ -273,13 +273,13 @@ export function ComponentChecklistModal({
 
         {/* ALERT THIẾU LINH KIỆN */}
         {totalMissing > 0 && (
-          <div className="relative mx-4 mb-2 flex items-start gap-3 rounded-xl border-2 border-rose-400 bg-gradient-to-r from-rose-100 via-pink-50 to-fuchsia-100 p-3 shadow-[3px_3px_0_rgba(244,63,94,0.35)]">
+          <div className="relative mx-4 mb-2 flex items-start gap-3 rounded-xl border-2 border-orange-400 bg-gradient-to-r from-orange-100 via-orange-50 to-amber-100 p-3 shadow-[3px_3px_0_rgba(249,115,22,0.35)]">
             <div className="relative shrink-0">
-              <AlertTriangle className="w-5 h-5 text-rose-600" />
-              <span className="absolute -right-0.5 -top-0.5 size-1.5 animate-pulse rounded-full bg-rose-400 shadow-[0_0_6px_currentColor]" />
+              <AlertTriangle className="w-5 h-5 text-orange-600" />
+              <span className="absolute -right-0.5 -top-0.5 size-1.5 animate-pulse rounded-full bg-orange-400 shadow-[0_0_6px_currentColor]" />
             </div>
-            <p className="font-mono text-[11px] font-bold leading-relaxed tracking-wide text-rose-900">
-              Phát hiện <strong className="text-rose-700">{totalMissing}</strong> linh kiện bị thiếu/hỏng.
+            <p className="font-mono text-[11px] font-bold leading-relaxed tracking-wide text-orange-900">
+              Phát hiện <strong className="text-orange-700">{totalMissing}</strong> linh kiện bị thiếu/hỏng.
               Hệ thống sẽ tự động tính phí phạt linh kiện.
             </p>
           </div>
@@ -290,7 +290,7 @@ export function ComponentChecklistModal({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border-2 border-slate-400 bg-gradient-to-b from-slate-100 to-slate-200 px-5 font-mono text-[11px] font-extrabold uppercase tracking-widest text-slate-700 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1),2px_2px_0_rgba(0,0,0,0.1)] transition-all hover:from-slate-200 hover:to-slate-300"
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border-2 border-neutral-400 bg-gradient-to-b from-neutral-100 to-neutral-200 px-5 font-mono text-[11px] font-extrabold uppercase tracking-widest text-neutral-700 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1),2px_2px_0_rgba(0,0,0,0.1)] transition-all hover:from-neutral-200 hover:to-neutral-300"
           >
             ✕ Hủy
           </button>

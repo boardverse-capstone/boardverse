@@ -275,9 +275,9 @@ export function SplitBillPanel({
   ).length;
 
   return (
-    <div className="min-h-0 space-y-3 overflow-y-auto rounded-xl border border-violet-200 bg-violet-50/40 p-3">
+    <div className="min-h-0 space-y-3 overflow-y-auto rounded-xl border border-amber-200 bg-amber-50/40 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-violet-900">
+        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-amber-900">
           <Users className="size-3.5" />
           Chia tiền theo khách
         </p>
@@ -287,7 +287,7 @@ export function SplitBillPanel({
           variant="outline"
           disabled={loading || busy}
           onClick={() => void loadStatus()}
-          className="h-7 gap-1 border-violet-200 bg-white text-[11px]"
+          className="h-7 gap-1 border-amber-200 bg-white text-[11px]"
         >
           <RefreshCw className={`size-3 ${loading ? "animate-spin" : ""}`} />
           Làm mới
@@ -296,15 +296,15 @@ export function SplitBillPanel({
 
       {status ? (
         <div className="grid grid-cols-3 gap-2 text-[11px]">
-          <div className="rounded-lg border border-violet-100 bg-white px-2 py-1.5">
+          <div className="rounded-lg border border-amber-100 bg-white px-2 py-1.5">
             <p className="text-neutral-400">Tổng</p>
             <p className="font-mono font-bold text-neutral-900">
               {status.totalAmount.toLocaleString("vi-VN")}đ
             </p>
           </div>
-          <div className="rounded-lg border border-emerald-100 bg-white px-2 py-1.5">
+          <div className="rounded-lg border border-orange-100 bg-white px-2 py-1.5">
             <p className="text-neutral-400">Đã thu</p>
-            <p className="font-mono font-bold text-emerald-700">
+            <p className="font-mono font-bold text-orange-700">
               {status.totalPaid.toLocaleString("vi-VN")}đ
             </p>
           </div>
@@ -325,7 +325,7 @@ export function SplitBillPanel({
             variant="outline"
             disabled={busy}
             onClick={selectAllUnpaid}
-            className="h-7 border-violet-200 bg-white text-[10px]"
+            className="h-7 border-amber-200 bg-white text-[10px]"
           >
             Chọn hết chưa trả
           </Button>
@@ -359,7 +359,7 @@ export function SplitBillPanel({
               variant="outline"
               disabled={busy || selectedCount === 0}
               onClick={() => void paySelected("QR_CODE")}
-              className="h-8 flex-1 gap-1 border-violet-300 bg-white px-2.5 text-[11px] font-bold text-violet-900 sm:flex-none"
+              className="h-8 flex-1 gap-1 border-amber-300 bg-white px-2.5 text-[11px] font-bold text-amber-900 sm:flex-none"
             >
               <QrCode className="size-3.5" />
               Tạo QR ({selectedCount})
@@ -384,9 +384,9 @@ export function SplitBillPanel({
                 key={m.memberId}
                 className={`flex cursor-pointer items-center gap-2 rounded-lg border px-2.5 py-2 ${
                   paid
-                    ? "border-emerald-100 bg-emerald-50/50"
+                    ? "border-orange-100 bg-orange-50/50"
                     : checked
-                      ? "border-violet-300 bg-white"
+                      ? "border-amber-300 bg-white"
                       : "border-neutral-200 bg-white"
                 }`}
               >
@@ -396,7 +396,7 @@ export function SplitBillPanel({
                     checked={checked}
                         disabled={busy}
                         onChange={() => toggleMember(m.memberId)}
-                        className="size-3.5 shrink-0 accent-violet-700"
+                        className="size-3.5 shrink-0 accent-amber-700"
                       />
                     ) : (
                       <span className="size-3.5 shrink-0" />
@@ -413,7 +413,7 @@ export function SplitBillPanel({
                       </p>
                     </div>
                     {paid ? (
-                      <span className="shrink-0 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                      <span className="shrink-0 rounded-md border border-orange-200 bg-orange-50 px-1.5 py-0.5 text-[10px] font-bold text-orange-800">
                         OK
                       </span>
                     ) : normalizePayStatus(m.paymentMethod) === "qrcode" ? (
