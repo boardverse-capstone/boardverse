@@ -33,11 +33,17 @@ import { EndSessionModal } from "./end-session-modal";
 import { BoxComponentHistoryModal } from "./box-component-history-modal";
 import { PendingBookingsPanel } from "./pending-bookings-panel";
 import { SettlementsTab } from "./settlements-tab";
+import {
+  LobbyMergePanel,
+  type LobbyOption,
+  type LobbyMergeMember,
+} from "@/features/lobby-merge";
 import { toast } from "sonner";
 import {
   RefreshCw,
   Play,
   Users,
+  UsersRound,
   Clock,
   Settings,
   Wifi,
@@ -50,7 +56,7 @@ import {
   Store,
   UserCheck,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   formatPlayerRange,
@@ -68,14 +74,15 @@ import {
 } from "../lib/game-theme";
 import { cn } from "@/lib/utils";
 
-type PosTab = "reception" | "tables" | "sessions" | "boxes" | "settlements";
+type PosTab = "reception" | "tables" | "sessions" | "boxes" | "settlements" | "merge";
 
 function parsePosTab(raw: string | null): PosTab {
   if (
     raw === "reception" ||
     raw === "sessions" ||
     raw === "boxes" ||
-    raw === "settlements"
+    raw === "settlements" ||
+    raw === "merge"
   ) {
     return raw;
   }
@@ -232,6 +239,181 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
       }).length,
     [tables, busyTableIds],
   );
+
+  /**
+   * Tra `sessionId → lobbyId` qua session detail (BE có sẵn).
+   * Cache để không gọi lại nhiều lần cho cùng 1 sessionId.
+   * Trả về lobbyId hoặc null nếu không tìm được.
+   *
+   * Lưu ý: POS session detail có thể KHÔNG trả lobbyId trực tiếp — tuỳ schema BE
+   * có thể trả `reservationId` / `lobbyId` / `tableSessionId` / ...
+   * Đoán tên field là sai → ta log full payload lần đầu để biết field nào có id.
+   *
+   * Chỉ cache những lần trả về lobbyId THẬT — miss thì KHÔNG cache, để lần sau
+   * staff retry (vd reload trang, đợi BE indexing) lại thử resolve được.
+   */
+  const lobbyIdCacheRef = useRef<Map<string, string>>(new Map());
+  const fetchSessionLobbyId = useCallback(
+    async (sessionId: string): Promise<string | null> => {
+      const id = String(sessionId ?? "").trim();
+      if (!id) return null;
+      const cached = lobbyIdCacheRef.current.get(id);
+      if (cached) return cached;
+      // Không cache miss → cho phép retry mỗi lần dialog mở.
+      if (!handleGetSessionDetail) return null;
+      const callStart = performance.now();
+      try {
+        const detail: any = await handleGetSessionDetail(id);
+        const callMs = Math.round(performance.now() - callStart);
+
+        // Log "Network-style" để bạn xem được request/response ngay trong Console
+        // (đỡ phải mở Network tab — nhiều khi Next dev HMR làm Network panel chỉ có SPA).
+        // eslint-disable-next-line no-console
+        console.info(
+          `[lobby-merge] GET /api/cafes/{cafeId}/pos/sessions/${id}  →  ${callMs}ms  ${detail ? "200 OK" : "(no data)"}`,
+          {
+            url: `/api/cafes/{cafeId}/pos/sessions/${id}`,
+            method: "GET",
+            durationMs: callMs,
+            ok: !!detail,
+            responseSize: detail ? JSON.stringify(detail).length : 0,
+            responseKeys: detail ? Object.keys(detail) : [],
+          },
+        );
+
+        // Log full payload cho MỖI LẦN resolve — để debug session nào không có lobbyId.
+        // (Log "lần đầu" là không đủ khi 1 session thiếu lobbyId & 1 session đủ.)
+        // eslint-disable-next-line no-console
+        console.info("[lobby-merge] session detail payload", {
+          sessionId: id,
+          hasLobbyId: !!(detail?.lobbyId || detail?.LobbyId),
+          keys: detail ? Object.keys(detail) : [],
+          lobbyId: detail?.lobbyId ?? detail?.LobbyId ?? null,
+          reservationId:
+            detail?.reservationId ?? detail?.ReservationId ?? null,
+          cafeTableId: detail?.cafeTableId ?? null,
+          tableName: detail?.tableName ?? null,
+          hostId: detail?.hostId ?? null,
+          status: detail?.status ?? null,
+          startedAt: detail?.startedAt ?? null,
+          sample: detail ?? null,
+        });
+
+        const lobbyId =
+          detail?.lobbyId ??
+          detail?.LobbyId ??
+          detail?.reservationId ??
+          detail?.ReservationId ??
+          detail?.lobby_id ??
+          detail?.reservation_id ??
+          detail?.activeLobbyId ??
+          detail?.ActiveLobbyId ??
+          null;
+        if (lobbyId) {
+          lobbyIdCacheRef.current.set(id, String(lobbyId));
+          return String(lobbyId);
+        }
+        // Miss: KHÔNG cache → retry được.
+        return null;
+      } catch (err) {
+        // Lỗi network cũng không cache → retry được.
+        // eslint-disable-next-line no-console
+        console.error("[lobby-merge] session detail fetch failed", err);
+        return null;
+      }
+    },
+    [handleGetSessionDetail],
+  );
+
+  /**
+   * Lobby đang active tại quán — tạm coi mỗi session live là 1 "lobby" trong UI POS.
+   *
+   * POS endpoint `/api/cafes/{cafeId}/pos/sessions` không trả `lobbyId` (đó là field
+   * thuộc về reservation/lobby domain, không thuộc session). Để staff chọn được
+   * source/target trên UI, ta dùng `sessionId` làm key lobby giả — service sẽ
+   * map sang lobbyId thật khi gọi BE LobbyMergeController.
+   *
+   * Chỉ những session status live (Active/Playing/Checking/Unpaid) mới hiển thị.
+   */
+  const mergeLobbies = useMemo<LobbyOption[]>(() => {
+    const map = new Map<string, LobbyOption>();
+    for (const session of sessions) {
+      const sessionId = String(
+        session.id ?? session.Id ?? session.sessionId ?? "",
+      );
+      if (!sessionId) continue;
+      const status = String(
+        session.status ?? session.Status ?? "",
+      ).toLowerCase();
+      if (!["active", "playing", "checking", "unpaid"].includes(status)) {
+        continue;
+      }
+      if (map.has(sessionId)) continue;
+      const memberCount = Array.isArray((session as any).members)
+        ? (session as any).members.length
+        : 0;
+      const tableLabel =
+        session.tableName ||
+        session.TableName ||
+        session.tableLabel ||
+        session.TableLabel ||
+        (session as any).cafeTableName ||
+        "";
+      map.set(sessionId, {
+        id: sessionId,
+        name: `Phiên ${tableLabel ? `· ${tableLabel}` : sessionId.slice(0, 8)}`,
+        activeMemberCount: memberCount,
+        availableSeats: null,
+        status: status,
+      });
+    }
+    return Array.from(map.values());
+  }, [sessions]);
+
+  /**
+   * Members theo sessionId — UI chỉ cần hiển thị để staff tick chọn.
+   * Member id = userId trong session (BE LobbyMergeController sẽ validate
+   * ngược lại thuộc về lobby đúng không).
+   */
+  const mergeMembers = useMemo<Record<string, LobbyMergeMember[]>>(() => {
+    const out: Record<string, LobbyMergeMember[]> = {};
+    for (const session of sessions) {
+      const sessionId = String(
+        session.id ?? session.Id ?? session.sessionId ?? "",
+      );
+      if (!sessionId) continue;
+      const status = String(
+        session.status ?? session.Status ?? "",
+      ).toLowerCase();
+      if (!["active", "playing", "checking", "unpaid"].includes(status)) {
+        continue;
+      }
+      const membersRaw = (session as any).members ?? (session as any).Members ?? [];
+      out[sessionId] = membersRaw.map((m: any, idx: number) => ({
+        id: String(m?.userId ?? m?.UserId ?? m?.id ?? idx),
+        displayName: String(
+          m?.userName ?? m?.UserName ?? m?.displayName ?? "Khách",
+        ),
+        isHost: Boolean(m?.isHost ?? m?.IsHost ?? idx === 0),
+      }));
+    }
+    return out;
+  }, [sessions]);
+
+  /**
+   * Map `memberId → lobbyId (sessionId giả)` — dialog dùng để lọc member khi staff
+   * đổi lobby nguồn. Không có map này thì dialog hiển thị tất cả member gộp lại
+   * (gây bug: tick member xong đổi source → member đó "biến mất").
+   */
+  const mergeMemberLobbyIds = useMemo<Record<string, string>>(() => {
+    const out: Record<string, string> = {};
+    for (const [sessionId, list] of Object.entries(mergeMembers)) {
+      for (const m of list) {
+        out[m.id] = sessionId;
+      }
+    }
+    return out;
+  }, [mergeMembers]);
 
   const { connected: hubConnected } = useCafePosHub({
     enabled: Boolean(cafeId),
@@ -583,6 +765,13 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                     <Banknote className="size-3.5 shrink-0 -translate-y-[0.5px]" aria-hidden="true" />
                     <span className="-translate-y-[0.5px]">Giải ngân</span>
                   </TabsTrigger>
+                  <TabsTrigger
+                    value="merge"
+                    className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-orange-500 data-active:bg-gradient-to-r data-active:from-orange-600 data-active:to-amber-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
+                  >
+                    <UsersRound className="size-3.5 shrink-0 -translate-y-[0.5px]" aria-hidden="true" />
+                    <span className="-translate-y-[0.5px]">Ghép lobby</span>
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
@@ -838,6 +1027,16 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
               <SettlementsTab
                 cafeId={cafeId}
                 onFetchPaidSessions={handleFetchPaidSessions}
+              />
+            </TabsContent>
+            <TabsContent value="merge">
+              <LobbyMergePanel
+                cafeId={cafeId || null}
+                activeLobbies={mergeLobbies}
+                membersByLobby={mergeMembers}
+                memberLobbyIds={mergeMemberLobbyIds}
+                focusLobbyId={undefined}
+                fetchSessionLobbyId={fetchSessionLobbyId}
               />
             </TabsContent>
           </>

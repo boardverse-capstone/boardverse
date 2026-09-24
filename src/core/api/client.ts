@@ -27,6 +27,9 @@ apiClient.interceptors.request.use(
     if (token && config.headers) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
+    // Gắn timestamp cho response interceptor biết đã gọi bao lâu
+    (config as InternalAxiosRequestConfig & { _start?: number })._start =
+      Date.now();
     return config;
   },
   (error) => Promise.reject(error),
@@ -40,6 +43,19 @@ let failedQueue: Array<{
   resolve: (value: unknown) => void;
   reject: (reason?: unknown) => void;
 }> = [];
+
+/**
+ * Log Network-style cho MỌI response — đặc biệt giúp debug khi DevTools
+ * Network tab bị filter mất (Next dev HMR / cùng origin localhost).
+ * Log ở cả 2 nhánh: success và error.
+ */
+function logNetworkEntry(label: string, info: Record<string, unknown>) {
+  // Không log request tới /Auth/* (token, refresh) để tránh spam console
+  const url = String(info.url ?? "");
+  if (url.includes("/Auth/")) return;
+  // eslint-disable-next-line no-console
+  console.info(`[api] ${label}`, info);
+}
 
 const processQueue = (error: AxiosError | null, token: string | null = null) => {
   failedQueue.forEach(({ resolve, reject }) => {
@@ -55,7 +71,25 @@ const processQueue = (error: AxiosError | null, token: string | null = null) => 
 apiClient.interceptors.response.use(
   // Unwrap data envelope thành công
   (response) => {
-    return response.data?.data !== undefined ? response.data.data : response.data;
+    const cfg = response.config as InternalAxiosRequestConfig & {
+      _start?: number;
+    };
+    const dur = cfg._start ? Date.now() - cfg._start : undefined;
+    const data = response.data;
+    const inner = data?.data !== undefined ? data.data : data;
+    logNetworkEntry(
+      `← ${response.status} ${cfg.method?.toUpperCase() ?? "GET"} ${cfg.url ?? ""} (${dur ?? "?"}ms)`,
+      {
+        url: cfg.url,
+        method: cfg.method?.toUpperCase(),
+        status: response.status,
+        durationMs: dur,
+        envelope: data && typeof data === "object" ? Object.keys(data) : [],
+        dataKeys: inner && typeof inner === "object" ? Object.keys(inner) : [],
+        dataSize: inner ? JSON.stringify(inner).length : 0,
+      },
+    );
+    return inner;
   },
   async (error: AxiosError<ApiResponse>) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
@@ -138,6 +172,16 @@ apiClient.interceptors.response.use(
       fromErrors ||
       error.message ||
       'Đã xảy ra lỗi không xác định.';
+    logNetworkEntry(
+      `← ${error.response?.status ?? "?"} ${error.config?.method?.toUpperCase() ?? "?"} ${error.config?.url ?? ""} ERROR`,
+      {
+        url: error.config?.url,
+        method: error.config?.method?.toUpperCase(),
+        status: error.response?.status,
+        responseData: data,
+        message,
+      },
+    );
     return Promise.reject(new Error(message));
   },
 );
