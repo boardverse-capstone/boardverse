@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -57,34 +57,42 @@ export function CategoryListTable() {
         id: 'actions',
         header: '',
         cell: ({ row }) => (
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setEditingCategory(row.original);
-                setFormOpen(true);
-              }}
-            >
-              <Pencil className="mr-1 h-4 w-4" />
-              Sửa
-            </Button>
-            {row.original.isActive && (
+          <div className="flex justify-end">
+            {row.original.isActive ? (
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={() => deleteMutation.mutate(row.original.id)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  deleteMutation.mutate(row.original.id);
+                }}
                 disabled={deleteMutation.isPending}
               >
                 <Trash2 className="mr-1 h-4 w-4" />
                 Vô hiệu
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  updateMutation.mutate({
+                    id: row.original.id,
+                    payload: { isActive: true },
+                  });
+                }}
+                disabled={updateMutation.isPending}
+              >
+                <RotateCcw className="mr-1 h-4 w-4" />
+                Kích hoạt
               </Button>
             )}
           </div>
         ),
       },
     ],
-    [deleteMutation],
+    [deleteMutation, updateMutation],
   );
 
   const handleFormSubmit = (values: CategoryFormValues) => {
@@ -141,7 +149,15 @@ export function CategoryListTable() {
       ) : isError ? (
         <div className="text-sm text-rose-600">Không thể tải danh sách thể loại.</div>
       ) : (
-        <PartnerDataTable columns={columns} data={data} emptyMessage="Chưa có thể loại nào." />
+        <PartnerDataTable
+          columns={columns}
+          data={data}
+          emptyMessage="Chưa có thể loại nào."
+          onRowClick={(category) => {
+            setEditingCategory(category);
+            setFormOpen(true);
+          }}
+        />
       )}
 
       <CategoryFormDialog

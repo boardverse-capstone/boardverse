@@ -14,6 +14,11 @@ import {
   ArrowDown,
   LayoutGrid,
 } from "lucide-react";
+import { NumberStepper } from "./number-stepper";
+import {
+  backdropCloseHandler,
+  useDismissOnBackdrop,
+} from "../lib/use-dismiss-on-backdrop";
 
 export interface TableItem {
   id?: string;
@@ -47,6 +52,16 @@ export function SyncTablesModal({
   // Drag & drop index trackers
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
+
+  // Click ra ngoài backdrop hoặc nhấn Escape để đóng
+  useDismissOnBackdrop(
+    isOpen,
+    () => {
+      if (saving) return;
+      onClose();
+    },
+    { busy: saving },
+  );
 
   if (isOpen !== prevIsOpen) {
     setPrevIsOpen(isOpen);
@@ -168,8 +183,20 @@ export function SyncTablesModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
+    <div
+      className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+      onClick={backdropCloseHandler(
+        () => {
+          if (saving) return;
+          onClose();
+        },
+        saving,
+      )}
+    >
+      <div
+        className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
         {/* HEADER MODAL */}
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
           <h3 className="font-bold text-base text-neutral-950 flex items-center gap-2">
@@ -205,21 +232,17 @@ export function SyncTablesModal({
             }}
             className="h-9 text-xs bg-white border-neutral-200 rounded-lg flex-1"
           />
-          <div className="flex items-center gap-1 bg-white border border-neutral-200 px-2 h-9 rounded-lg shrink-0">
-            <Users className="w-3.5 h-3.5 text-neutral-400" />
-            <input
-              type="number"
-              min={1}
-              max={50}
-              title="Số chỗ tối đa"
-              value={newSeatCount}
-              onChange={(e) => setNewSeatCount(parseInt(e.target.value) || 4)}
-              className="w-8 text-xs font-mono font-bold text-center bg-transparent focus:outline-none"
-            />
-            <span className="text-[10px] text-neutral-400 font-semibold">
-              chỗ
-            </span>
-          </div>
+          <NumberStepper
+            value={newSeatCount}
+            onChange={setNewSeatCount}
+            min={1}
+            max={50}
+            size="sm"
+            unit="chỗ"
+            ariaLabelDec="Giảm số chỗ"
+            ariaLabelInc="Tăng số chỗ"
+            className="shrink-0"
+          />
           <Button
             type="button"
             onClick={handleAddTable}
@@ -267,22 +290,19 @@ export function SyncTablesModal({
                 />
 
                 {/* SỬA SỐ GHẾ */}
-                <div className="flex items-center gap-1 bg-white border border-neutral-200 px-2 h-8 rounded-lg shrink-0">
-                  <Users className="w-3 h-3 text-neutral-400" />
-                  <input
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={table.seatCount}
-                    onChange={(e) =>
-                      handleUpdateTableField(index, "seatCount", e.target.value)
-                    }
-                    className="w-8 text-xs font-mono font-bold text-center bg-transparent focus:outline-none"
-                  />
-                  <span className="text-[10px] text-neutral-400 font-medium">
-                    chỗ
-                  </span>
-                </div>
+                <NumberStepper
+                  value={table.seatCount}
+                  onChange={(next) =>
+                    handleUpdateTableField(index, "seatCount", next)
+                  }
+                  min={1}
+                  max={50}
+                  size="sm"
+                  unit="chỗ"
+                  ariaLabelDec={`Giảm số chỗ của ${table.name}`}
+                  ariaLabelInc={`Tăng số chỗ của ${table.name}`}
+                  className="shrink-0"
+                />
 
                 {/* NÚT UP/DOWN NHANH */}
                 <div className="flex items-center gap-0.5 shrink-0">
@@ -309,7 +329,7 @@ export function SyncTablesModal({
                   type="button"
                   onClick={() => handleRemoveTable(index)}
                   title="Xóa bàn này"
-                  className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
+                  className="p-1.5 text-neutral-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors shrink-0"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>

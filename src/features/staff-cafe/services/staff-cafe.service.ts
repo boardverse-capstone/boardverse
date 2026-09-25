@@ -9,22 +9,25 @@ import type {
   RawInventoryListItem,
   RawInventoryListResponse,
   StaffWorkingCafe,
+  CafeReservation,
+  CafeLobby,
 } from '../types/cafe.interface';
 import {
   mapApiInventoryDetail,
   mapApiStaffWorkingCafe,
   normalizeInventoryListResponse,
   normalizeNearbyCafeList,
+  normalizeCafeReservationList,
+  normalizeCafeLobbyList,
 } from '../utils/inventory.mapper';
-import { StaffCafeMockService } from './staff-cafe.mock';
-
-const USE_MOCK = false;
 
 export const STAFF_CAFE_QUERY_KEYS = {
   workingCafe: 'staff-working-cafe',
   nearbyCafes: 'staff-nearby-cafes',
   inventoryList: 'staff-inventory-list',
   inventoryDetail: 'staff-inventory-detail',
+  cafeReservations: 'staff-cafe-reservations',
+  cafeLobbies: 'staff-cafe-lobbies',
 } as const;
 
 function unwrapList<T>(raw: T[] | { data?: T[] } | null | undefined): T[] {
@@ -40,12 +43,6 @@ export const StaffCafeService = {
 
   /** Quán staff đang gán: GET /api/staff/my-cafes */
   getStaffWorkingCafe: async (): Promise<StaffWorkingCafe> => {
-    if (USE_MOCK) {
-      const cafe = await StaffCafeMockService.getStaffWorkingCafe();
-      cachedCafeId = cafe.id;
-      return cafe;
-    }
-
     const raw = await apiClient.get<never, unknown>('/api/staff/my-cafes');
     const cafes = unwrapList(raw as StaffWorkingCafe[] | { data?: StaffWorkingCafe[] });
     if (cafes.length === 0) {
@@ -66,8 +63,6 @@ export const StaffCafeService = {
     latitude?: number;
     longitude?: number;
   }): Promise<NearbyCafe[]> => {
-    if (USE_MOCK) return StaffCafeMockService.getNearbyCafes();
-
     const { gameTemplateId, radiusKm = 15, latitude, longitude } = params;
     if (!gameTemplateId) {
       throw new Error('Thiếu gameTemplateId để tìm quán gần.');
@@ -98,8 +93,6 @@ export const StaffCafeService = {
     cafeId: string,
     params: InventoryListParams,
   ): Promise<PaginatedResponse<InventoryListItem>> => {
-    if (USE_MOCK) return StaffCafeMockService.getInventoryList(cafeId, params);
-
     const raw = await apiClient.get<never, RawInventoryListItem[] | RawInventoryListResponse>(
       `/api/cafes/${cafeId}/inventory`,
       {
@@ -118,11 +111,63 @@ export const StaffCafeService = {
 
   /** GET /api/cafes/{cafeId}/inventory/{inventoryId} */
   getInventoryDetail: async (cafeId: string, inventoryId: string): Promise<InventoryDetail> => {
-    if (USE_MOCK) return StaffCafeMockService.getInventoryDetail(cafeId, inventoryId);
-
     const raw = await apiClient.get<never, RawInventoryDetail>(
       `/api/cafes/${cafeId}/inventory/${inventoryId}`,
     );
     return mapApiInventoryDetail(raw);
+  },
+
+  /**
+   * GET /api/cafes/{cafeId}/reservations
+   * Lấy danh sách reservation của quán cho Staff/Manager
+   */
+  getCafeReservations: async (
+    cafeId: string,
+    params: {
+      status?: string;
+      playDate?: string;
+      pageNumber?: number;
+      pageSize?: number;
+    } = {},
+  ): Promise<PaginatedResponse<CafeReservation>> => {
+    const raw = await apiClient.get<never, unknown>(
+      `/api/cafes/${cafeId}/reservations`,
+      {
+        params: {
+          status: params.status || undefined,
+          playDate: params.playDate || undefined,
+          pageNumber: params.pageNumber ?? 1,
+          pageSize: params.pageSize ?? 20,
+        },
+      },
+    );
+    return normalizeCafeReservationList(raw);
+  },
+
+  /**
+   * GET /api/cafes/{cafeId}/lobbies
+   * Lấy danh sách lobby của quán cho Staff/Manager
+   */
+  getCafeLobbies: async (
+    cafeId: string,
+    params: {
+      status?: string;
+      playDate?: string;
+      pageNumber?: number;
+      pageSize?: number;
+    } = {},
+  ): Promise<PaginatedResponse<CafeLobby>> => {
+    const raw = await apiClient.get<never, unknown>(
+      `/api/cafes/${cafeId}/lobbies`,
+      {
+        params: {
+          status: params.status || undefined,
+          playDate: params.playDate || undefined,
+          pageNumber: params.pageNumber ?? 1,
+          pageSize: params.pageSize ?? 20,
+        },
+      },
+    );
+    return normalizeCafeLobbyList(raw);
   },
 };

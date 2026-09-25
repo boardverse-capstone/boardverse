@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "react-qr-code";
-import { CalendarClock, RefreshCw, QrCode, DoorOpen, Search, AlertTriangle, ShieldCheck } from "lucide-react";
+import { CalendarClock, RefreshCw, QrCode, DoorOpen, Search, AlertTriangle, ShieldCheck, MoreHorizontal, Table2, XCircle, Maximize2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +24,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { apiClient } from "@/core/api/client";
 import { PosCheckInService } from "@/features/pos-check-in/services/pos-check-in.service";
+import { isBoxStatusAvailable } from "@/features/cafe-pos/components/pos-boxes-tab";
+import { GameCoverThumb } from "@/features/cafe-pos/components/game-cover-thumb";
+import { useGameCoverLookup } from "@/features/pos-check-in/hooks/useGameCoverLookup";
 import type {
   CafeReservationListItem,
   PosBookingPreview,
@@ -37,19 +53,58 @@ import {
   formatReservationDayLabel,
   todayIsoDate,
 } from "../lib/reservation-date";
+import {
+  focusFrameOnPointerDown,
+  interactiveFrameClass,
+} from "../lib/interactive-frame";
+import { readPlayerRange } from "../lib/player-range";
+import {
+  arcadeCardClass,
+  hexChipClass,
+  statusOrbClass,
+} from "../lib/game-theme";
+import { cn } from "@/lib/utils";
+import {
+  backdropCloseHandler,
+  useDismissOnBackdrop,
+} from "../lib/use-dismiss-on-backdrop";
 
 interface PendingBookingsPanelProps {
   cafeId: string | null;
-  tables?: Array<{ id?: string; name?: string; status?: string }>;
+  tables?: Array<{
+    id?: string;
+    name?: string;
+    status?: string;
+    seatCount?: number;
+  }>;
   boxes?: Array<{
     id: string;
     barcode: string;
     status: string;
     gameTemplateId: string | null;
     gameName: string | null;
+    imageUrl?: string | null;
+  }>;
+  /** Phiên live — dùng để phân biệt bàn InUse có session (Đang dùng) vs không session (Trống). */
+  sessions?: Array<{
+    id?: string;
+    cafeTableId?: string;
+    tableId?: string;
+    status?: string;
+    Status?: string;
+    sessionStatus?: string;
   }>;
   initialBookingCode?: string;
+  /** stack = 2 card dọc (cũ); sidebar = tab trong cột trái POS. */
+  layout?: "stack" | "sidebar";
   onOpenTables?: () => void;
+  /** Sau khi giữ chỗ walk-in thành công → mở luồng bắt đầu phiên. */
+  onRequestStartSession?: (payload: {
+    guestName: string;
+    guestPhone: string;
+    seats: number;
+    walkInBookingId?: string;
+  }) => void;
   onConfirmCheckIn?: (
     code: string,
     cafeTableId: string,
@@ -66,18 +121,30 @@ interface WalkInWindowDto {
   availableSeats?: number;
   status?: string;
   expiresAt?: string;
+  /** Có khi BE trả kèm — không bịa nếu thiếu. */
+  tableName?: string;
+  tableNumber?: string;
+}
+
+interface WalkInDraft {
+  guestName: string;
+  guestPhone: string;
+  seats: number;
 }
 
 interface ReservedTable {
   id: string;
   name: string;
   status: string;
+  seatCount: number | null;
+  /** true = đang có phiên live → hiện "Đang dùng"; false = trống thực sự → hiện "Trống". */
+  hasSession: boolean;
 }
 
 // Tạm bật để QA có thể gửi request check-in với mọi trạng thái reservation.
 // Đổi thành false sau khi test xong để UI tiếp tục tuân theo preview.canCheckIn.
 const SHOW_CHECK_IN_CONTROLS_FOR_TESTING = true;
-const SHOW_WALK_IN_WINDOWS = false;
+const SHOW_WALK_IN_WINDOWS = true;
 
 function formatTime(iso?: string | null) {
   if (!iso) return "—";
@@ -89,6 +156,91 @@ function formatTime(iso?: string | null) {
     day: "2-digit",
     month: "2-digit",
   });
+}
+
+/**
+ * Khung giờ đặt chỗ: BE trả `...T12:00:00Z` nhưng số giờ là giờ quán
+ * (trùng preferredStartTime), không phải UTC thật — không cộng timezone local.
+ */
+function parseReservationParts(iso?: string | null) {
+  if (!iso) return null;
+  const match = String(iso).match(
+    /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/,
+  );
+  if (!match) return null;
+  const [, , month, day, hour, minute] = match;
+  return { month, day, time: `${hour}:${minute}`, dayMonth: `${day}/${month}` };
+}
+
+function formatReservationSlot(iso?: string | null) {
+  const parts = parseReservationParts(iso);
+  if (!parts) return formatTime(iso);
+  return `${parts.time} ${parts.day}-${parts.month}`;
+}
+
+/** Cùng ngày: `13:40 - 17:00 (27/08)`. Khác ngày: giữ đủ hai mốc. */
+function formatReservationTimeRange(
+  start?: string | null,
+  end?: string | null,
+) {
+  const a = parseReservationParts(start);
+  const b = parseReservationParts(end);
+  if (!a && !b) return "—";
+  if (a && b && a.dayMonth === b.dayMonth) {
+    return `${a.time} - ${b.time} (${a.dayMonth})`;
+  }
+  if (a && b) {
+    return `${a.time} ${a.dayMonth} → ${b.time} ${b.dayMonth}`;
+  }
+  return a ? `${a.time} (${a.dayMonth})` : `${b!.time} (${b!.dayMonth})`;
+}
+
+/** Cùng ngày: `13:40 - 17:00`. Khác ngày: kèm ngày rút gọn. */
+function formatWalkInTimeRange(
+  start?: string | null,
+  end?: string | null,
+) {
+  const a = parseReservationParts(start);
+  const b = parseReservationParts(end);
+  if (a && b && a.dayMonth === b.dayMonth) {
+    return `${a.time} - ${b.time}`;
+  }
+  if (a && b) {
+    return `${a.time} (${a.dayMonth}) → ${b.time} (${b.dayMonth})`;
+  }
+  // Fallback: Date local (một số BE trả UTC thật)
+  if (!start && !end) return "—";
+  const startDate = start ? new Date(start) : null;
+  const endDate = end ? new Date(end) : null;
+  const fmtTime = (d: Date) =>
+    d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  const fmtDay = (d: Date) =>
+    d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+  if (
+    startDate &&
+    endDate &&
+    !Number.isNaN(startDate.getTime()) &&
+    !Number.isNaN(endDate.getTime())
+  ) {
+    if (fmtDay(startDate) === fmtDay(endDate)) {
+      return `${fmtTime(startDate)} - ${fmtTime(endDate)}`;
+    }
+    return `${fmtTime(startDate)} (${fmtDay(startDate)}) → ${fmtTime(endDate)} (${fmtDay(endDate)})`;
+  }
+  return formatReservationTimeRange(start, end);
+}
+
+function walkInTableLabel(w: WalkInWindowDto) {
+  const name = w.tableName?.trim();
+  const number = w.tableNumber?.trim();
+  if (name && number && !name.includes(number)) return `${name} · ${number}`;
+  if (name) return name;
+  if (number) return `Bàn ${number}`;
+  return null;
+}
+
+function isBookingCodeQuery(value: string) {
+  return /^[A-Z0-9]{8}$/i.test(value.trim());
 }
 
 function reservationToPreview(
@@ -179,6 +331,27 @@ function normalizeReservationStatus(status?: string | null) {
   return status?.trim().toLowerCase() || "";
 }
 
+function reservationStatusBadgeClass(status?: string | null) {
+  switch (normalizeReservationStatus(status)) {
+    case "confirmed":
+      return "border-orange-200 bg-orange-50 text-orange-800";
+    case "holding":
+      return "border-amber-200 bg-amber-50 text-amber-900";
+    case "checkedin":
+      return "border-orange-200 bg-orange-50 text-orange-800";
+    case "completed":
+      return "border-orange-100 bg-orange-50/70 text-orange-700";
+    case "expired":
+      return "border-neutral-200 bg-neutral-50 text-neutral-600";
+    case "cancelled":
+    case "cancelledbycafe":
+    case "cancelledbyplayer":
+      return "border-orange-200 bg-orange-50 text-orange-700";
+    default:
+      return "border-neutral-200 bg-neutral-50 text-neutral-700";
+  }
+}
+
 function matchesReservationStatusFilter(
   status: string | null | undefined,
   filter: ReservationStatusFilter,
@@ -211,10 +384,14 @@ function formatBoxStatusLabel(status?: string | null) {
   }
 }
 
-function formatTableStatusLabel(status?: string | null) {
-  switch (String(status ?? "")
+function formatTableStatusLabel(status?: string | null, hasSession?: boolean) {
+  const st = String(status ?? "")
     .toLowerCase()
-    .replace(/[_\s-]/g, "")) {
+    .replace(/[_\s-]/g, "");
+  // Nếu bàn InUse nhưng KHÔNG có session → hiện "Trống" thay vì "Đang dùng"
+  // để tránh nhầm lẫn với bàn thực sự đang chơi.
+  if (hasSession === false && st === "inuse") return "Trống";
+  switch (st) {
     case "available":
       return "Trống";
     case "occupied":
@@ -224,6 +401,32 @@ function formatTableStatusLabel(status?: string | null) {
       return "Đã giữ";
     default:
       return status?.trim() || "";
+  }
+}
+
+/** Trả về label + Tailwind color class cho badge trạng thái bàn. */
+function getTableStatusMeta(status?: string | null, hasSession?: boolean): {
+  label: string;
+  badgeClass: string;
+} {
+  const st = String(status ?? "")
+    .toLowerCase()
+    .replace(/[_\s-]/g, "");
+
+  if (hasSession === false && st === "inuse") {
+    return { label: "Trống", badgeClass: "bg-orange-100 text-orange-800 border-orange-200" };
+  }
+
+  switch (st) {
+    case "available":
+      return { label: "Trống", badgeClass: "bg-orange-100 text-orange-800 border-orange-200" };
+    case "occupied":
+    case "inuse":
+      return { label: "Đang dùng", badgeClass: "bg-amber-100 text-amber-800 border-amber-200" };
+    case "reserved":
+      return { label: "Đã giữ", badgeClass: "bg-orange-100 text-orange-800 border-orange-200" };
+    default:
+      return { label: status?.trim() || "", badgeClass: "bg-neutral-100 text-neutral-700 border-neutral-200" };
   }
 }
 
@@ -237,16 +440,56 @@ function normalizePlayDate(value?: string | null): string {
 }
 
 function parseWalkInWindows(raw: unknown): WalkInWindowDto[] {
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw as WalkInWindowDto[];
-  const r = raw as Record<string, unknown>;
-  const items = r.items ?? r.Items ?? r.data;
-  if (Array.isArray(items)) return items as WalkInWindowDto[];
-  if (items && typeof items === "object") {
-    const nested = (items as Record<string, unknown>).items;
-    if (Array.isArray(nested)) return nested as WalkInWindowDto[];
+  const pickList = (): unknown[] => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    const r = raw as Record<string, unknown>;
+    const items = r.items ?? r.Items ?? r.data;
+    if (Array.isArray(items)) return items;
+    if (items && typeof items === "object") {
+      const nested = (items as Record<string, unknown>).items;
+      if (Array.isArray(nested)) return nested;
+    }
+    return [];
+  };
+
+  const windows: WalkInWindowDto[] = [];
+  for (const item of pickList()) {
+    const r = (item ?? {}) as Record<string, unknown>;
+    const id = String(r.id ?? r.Id ?? "");
+    if (!id) continue;
+    const tableName = String(
+      r.tableName ?? r.TableName ?? r.cafeTableName ?? r.CafeTableName ?? "",
+    ).trim();
+    const tableNumber = String(
+      r.tableNumber ?? r.TableNumber ?? r.tableLabel ?? r.TableLabel ?? "",
+    ).trim();
+    windows.push({
+      id,
+      sourceReservationId:
+        r.sourceReservationId != null
+          ? String(r.sourceReservationId)
+          : r.SourceReservationId != null
+            ? String(r.SourceReservationId)
+            : undefined,
+      windowStart:
+        (r.windowStart as string | undefined) ??
+        (r.WindowStart as string | undefined),
+      windowEnd:
+        (r.windowEnd as string | undefined) ??
+        (r.WindowEnd as string | undefined),
+      totalSeats: Number(r.totalSeats ?? r.TotalSeats ?? 0) || undefined,
+      availableSeats:
+        Number(r.availableSeats ?? r.AvailableSeats ?? 0) || undefined,
+      status: String(r.status ?? r.Status ?? "") || undefined,
+      expiresAt:
+        (r.expiresAt as string | undefined) ??
+        (r.ExpiresAt as string | undefined),
+      tableName: tableName || undefined,
+      tableNumber: tableNumber || undefined,
+    });
   }
-  return [];
+  return windows;
 }
 
 function parseTables(raw: unknown): ReservedTable[] {
@@ -263,6 +506,8 @@ function parseTables(raw: unknown): ReservedTable[] {
         id: String(r.id ?? r.Id ?? ""),
         name: String(r.name ?? r.Name ?? "Bàn"),
         status: String(r.status ?? r.Status ?? ""),
+        seatCount: readPlayerRange(r).max,
+        hasSession: Boolean(r.hasSession ?? r.HasSession ?? false),
       };
     })
     .filter((t) => t.id);
@@ -272,8 +517,11 @@ export function PendingBookingsPanel({
   cafeId,
   tables = [],
   boxes = [],
+  sessions = [],
   initialBookingCode = "",
+  layout = "stack",
   onOpenTables,
+  onRequestStartSession,
   onConfirmCheckIn,
 }: PendingBookingsPanelProps) {
   const [code, setCode] = useState(initialBookingCode.toUpperCase());
@@ -295,30 +543,81 @@ export function PendingBookingsPanel({
   const [reserved, setReserved] = useState<ReservedTable[]>([]);
   const [reservations, setReservations] = useState<CafeReservationListItem[]>([]);
   const [windows, setWindows] = useState<WalkInWindowDto[]>([]);
+  const [walkInDrafts, setWalkInDrafts] = useState<Record<string, WalkInDraft>>(
+    {},
+  );
+  const [walkInBusyId, setWalkInBusyId] = useState<string | null>(null);
+  const [receptionTab, setReceptionTab] = useState<"bookings" | "walkin">(
+    "bookings",
+  );
   const [loading, setLoading] = useState(false);
   const [lookingUp, setLookingUp] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
+  const [tableDropdownOpen, setTableDropdownOpen] = useState(false);
   const [creatingQr, setCreatingQr] = useState(false);
+  const [zoomedCheckInQr, setZoomedCheckInQr] = useState(false);
   const [checkInToken, setCheckInToken] = useState<PosCheckInTokenDto | null>(
     null,
   );
   const appliedInitialCode = useRef(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const todayIso = todayIsoDate();
   const tomorrowIso = addDaysIsoDate(todayIso, 1);
   const [playDate, setPlayDate] = useState(todayIso);
   const [statusFilter, setStatusFilter] =
-    useState<ReservationStatusFilter>("all");
+    useState<ReservationStatusFilter>("holding");
   const [reservationSearch, setReservationSearch] = useState("");
   const reservationDayLabel = formatReservationDayLabel(playDate, todayIso);
+  const { lookup: lookupCover } = useGameCoverLookup(cafeId, boxes);
 
-  const assignableTables = useMemo(() => {
-    const fromProp = tables.filter((t) => {
-      const st = String(t.status || "").toLowerCase();
-      return t.id && (st === "available" || st === "reserved" || !st);
-    });
+  const assignableTables = useMemo((): ReservedTable[] => {
+    const fromProp = tables
+      .filter((t) => {
+        const st = String(t.status || "").toLowerCase();
+        // InUse mà chưa có phiên live vẫn là bàn trống (chưa mở phiên) — match
+        // với logic header badge "Trống X/Y" và sơ đồ bàn để tránh đếm thiếu.
+        const isOpenStatus =
+          st === "available" ||
+          st === "reserved" ||
+          st === "inuse" ||
+          !st;
+        return t.id && isOpenStatus;
+      })
+      .map((t) => {
+        const tableId = String(t.id ?? "");
+        const hasSession = sessions.some((s) => {
+          const sid = s.cafeTableId || s.tableId;
+          if (sid !== tableId) return false;
+          const st = String(s.status ?? s.Status ?? s.sessionStatus ?? "")
+            .toLowerCase()
+            .replace(/[_\s-]/g, "");
+          return (
+            st === "active" ||
+            st === "playing" ||
+            st === "checking" ||
+            st === "unpaid"
+          );
+        });
+        return {
+          id: String(t.id),
+          name: String(t.name ?? "Bàn"),
+          status: String(t.status ?? ""),
+          seatCount: readPlayerRange(t).max,
+          hasSession,
+        };
+      });
     if (fromProp.length > 0) return fromProp;
-    return reserved;
+    // Fallback: khi dùng reserved (từ BE cũ), coi như chưa có session info.
+    return reserved.map((t) => ({ ...t, hasSession: false }));
   }, [tables, reserved]);
+
+  // Bàn trống thật sự để hiển thị trong dropdown "Bàn phục vụ".
+  // Bàn có session active (đang dùng thực sự) bị loại — staff không cần chọn
+  // bàn đang có người chơi để nhận đơn mới.
+  const availableForCheckIn = useMemo(
+    () => assignableTables.filter((t) => !t.hasSession),
+    [assignableTables],
+  );
 
   const selectedReservation = useMemo(
     () =>
@@ -413,13 +712,31 @@ export function PendingBookingsPanel({
     setCheckInToken(null);
   };
 
+  const previewRef = useRef(preview);
+  useEffect(() => {
+    previewRef.current = preview;
+  }, [preview]);
+
   useEffect(() => {
     // Initial fetch and polling intentionally synchronize remote POS state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-    const id = window.setInterval(() => void load(), 60_000);
+    // 15s polling: khách đặt bàn online cần hiện ngay — 60s quá chậm.
+    // Tạm dừng khi đang mở dialog check-in để tránh reload đè state nhập liệu.
+    const id = window.setInterval(() => {
+      if (previewRef.current) return;
+      void load();
+    }, 15_000);
     return () => window.clearInterval(id);
   }, [load]);
+
+  useEffect(() => {
+    if (!cafeId) return;
+    const frame = window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [cafeId, playDate]);
 
   useEffect(() => {
     if (
@@ -433,12 +750,112 @@ export function PendingBookingsPanel({
     }
   }, [availableBoxes, barcode]);
 
+  const createWalkIn = async (window: WalkInWindowDto) => {
+    const maxSeats = Math.max(1, Number(window.availableSeats) || 1);
+    const draft = walkInDrafts[window.id];
+    const guestName = (draft?.guestName ?? "").trim() || "Khách lẻ";
+    const guestPhone = (draft?.guestPhone ?? "").replace(/\s/g, "");
+    const seats = Math.min(Math.max(1, Number(draft?.seats) || 1), maxSeats);
+    if (!guestPhone) {
+      toast.error("Nhập SĐT khách để mở phiên chơi ngay sau khi xếp chỗ.");
+      return;
+    }
+    if (!/^0[35789]\d{8,9}$/.test(guestPhone)) {
+      toast.error("SĐT phải là số VN 10–11 chữ số, đầu 03/05/07/08/09.");
+      return;
+    }
+    if (guestPhone.length > 20) {
+      toast.error("SĐT tối đa 20 ký tự.");
+      return;
+    }
+    setWalkInBusyId(window.id);
+    try {
+      const created: any = await apiClient.post(
+        "/api/v1/reservations/walkin",
+        {
+          walkInWindowId: window.id,
+          guestName,
+          guestPhone,
+          seats,
+          idempotencyKey: `WI-${Date.now()}`,
+        },
+      );
+      const walkInBookingId = String(
+        created?.id ?? created?.data?.id ?? "",
+      );
+      toast.success(`Đã giữ ${seats} ghế cho ${guestName}. Tiếp tục mở phiên.`);
+      setWalkInDrafts((prev) => {
+        const next = { ...prev };
+        delete next[window.id];
+        return next;
+      });
+      await load();
+      onRequestStartSession?.({
+        guestName,
+        guestPhone,
+        seats,
+        walkInBookingId: walkInBookingId || undefined,
+      });
+    } catch (err: any) {
+      toast.error(err?.message || "Không tạo được walk-in.");
+    } finally {
+      setWalkInBusyId(null);
+    }
+  };
+
+  const updateWalkInDraft = (
+    windowId: string,
+    patch: Partial<WalkInDraft>,
+    maxSeats: number,
+  ) => {
+    setWalkInDrafts((prev) => {
+      const current = prev[windowId] ?? {
+        guestName: "",
+        guestPhone: "",
+        seats: 1,
+      };
+      const seats = Math.min(
+        Math.max(1, Number(patch.seats ?? current.seats) || 1),
+        Math.max(1, maxSeats),
+      );
+      return {
+        ...prev,
+        [windowId]: {
+          guestName:
+            patch.guestName !== undefined ? patch.guestName : current.guestName,
+          guestPhone:
+            patch.guestPhone !== undefined
+              ? patch.guestPhone
+              : current.guestPhone,
+          seats,
+        },
+      };
+    });
+  };
+
+  const closeWalkInWindow = async (windowId: string) => {
+    setWalkInBusyId(windowId);
+    try {
+      await apiClient.post(
+        `/api/v1/reservations/walkin/windows/${windowId}/close`,
+        { reason: "Đóng thủ công từ quầy POS" },
+      );
+      toast.success("Đã đóng cửa sổ khách vãng lai.");
+      await load();
+    } catch (err: any) {
+      toast.error(err?.message || "Không đóng được cửa sổ walk-in.");
+    } finally {
+      setWalkInBusyId(null);
+    }
+  };
+
   if (!cafeId) return null;
 
   const openWindows = windows.filter((w) => {
     const st = String(w.status || "").toLowerCase();
     return !st || st === "available" || st === "partial";
   });
+  const isSidebar = layout === "sidebar";
 
   const handleCheckBox = async (overrideBarcode?: string) => {
     const codeToCheck = (overrideBarcode ?? barcode).trim();
@@ -491,6 +908,28 @@ export function PendingBookingsPanel({
       }
 
       const nextBarcode = String(boxData.barcode ?? codeToCheck);
+      if (!isBoxStatusAvailable(String(boxData.status ?? ""))) {
+        toast.error(
+          `Hộp "${nextBarcode}" không sẵn sàng để gán (đang dùng / bảo trì).`,
+        );
+        setCheckedBox(null);
+        return;
+      }
+      // Parent truyền assignableBoxes — nếu có list mà barcode không nằm trong đó thì đang gắn phiên khác.
+      if (
+        boxes.length > 0 &&
+        !boxes.some(
+          (box) =>
+            box.barcode.toLowerCase() === nextBarcode.toLowerCase() &&
+            isBoxStatusAvailable(box.status),
+        )
+      ) {
+        toast.error(
+          `Hộp "${nextBarcode}" đang được gán cho phiên chơi khác.`,
+        );
+        setCheckedBox(null);
+        return;
+      }
       setBarcode(nextBarcode);
       setCheckedBox({
         id: boxData.id != null ? String(boxData.id) : undefined,
@@ -518,8 +957,8 @@ export function PendingBookingsPanel({
     }
   };
 
-  const handleLookup = async () => {
-    const trimmed = code.trim();
+  const handleLookup = async (rawCode?: string) => {
+    const trimmed = (rawCode ?? (reservationSearch || code)).trim().toUpperCase();
     if (!trimmed) {
       toast.error("Nhập mã đặt chỗ 8 ký tự.");
       return;
@@ -531,7 +970,7 @@ export function PendingBookingsPanel({
       let item =
         reservations.find(
           (reservation) =>
-            reservation.reservationCode.toUpperCase() === trimmed.toUpperCase(),
+            reservation.reservationCode.toUpperCase() === trimmed,
         ) ?? null;
 
       if (!item) {
@@ -549,6 +988,8 @@ export function PendingBookingsPanel({
           setPlayDate(itemPlayDate);
         }
         setCode(item.reservationCode.toUpperCase());
+        setReservationSearch(item.reservationCode.toUpperCase());
+        setStatusFilter("all");
         setCheckInToken(null);
         setTableId("");
         if (switchedDay) {
@@ -567,6 +1008,7 @@ export function PendingBookingsPanel({
       }
     } finally {
       setLookingUp(false);
+      searchInputRef.current?.focus();
     }
   };
 
@@ -577,6 +1019,7 @@ export function PendingBookingsPanel({
       return;
     }
     setCode(nextCode.toUpperCase());
+    setReservationSearch(nextCode.toUpperCase());
     setCheckInToken(null);
     setTableId("");
     if (!canOpenCheckInDialog(item.status)) {
@@ -593,6 +1036,8 @@ export function PendingBookingsPanel({
     setCheckedBox(null);
     setBarcode("");
     setTableId("");
+    setTableDropdownOpen(false);
+    window.requestAnimationFrame(() => searchInputRef.current?.focus());
   };
 
   const handleShowCheckInQr = async () => {
@@ -620,6 +1065,7 @@ export function PendingBookingsPanel({
         throw new Error("Máy chủ không trả nội dung mã QR.");
       }
       setCheckInToken(token);
+      setZoomedCheckInQr(false);
       toast.success("Đã tạo mã QR. Khách quét bằng app BoardVerse.");
     } catch (err: unknown) {
       const message =
@@ -642,8 +1088,34 @@ export function PendingBookingsPanel({
       toast.error("Chọn bàn để nhận khách.");
       return;
     }
+    const partySize = Math.max(
+      Number(preview?.registeredMemberCount) || 0,
+      Number(selectedReservation?.currentPlayers) || 0,
+      Number(selectedReservation?.maxPlayers) || 0,
+    );
+    const selectedTable = assignableTables.find((t) => t.id === tableId);
+    const seatCount = selectedTable?.seatCount;
+    if (partySize > 0 && seatCount != null && partySize > seatCount) {
+      toast.error(
+        `Đơn ${partySize} khách — bàn này tối đa ${seatCount} chỗ. Chọn bàn lớn hơn.`,
+      );
+      return;
+    }
     if (!barcode.trim()) {
       toast.error("Quét mã vạch hộp game trước khi nhận bàn.");
+      return;
+    }
+    if (
+      boxes.length > 0 &&
+      !boxes.some(
+        (box) =>
+          box.barcode.toLowerCase() === barcode.trim().toLowerCase() &&
+          isBoxStatusAvailable(box.status),
+      )
+    ) {
+      toast.error(
+        "Hộp không sẵn sàng hoặc đang gắn phiên khác — chọn hộp trống.",
+      );
       return;
     }
     setCheckingIn(true);
@@ -652,24 +1124,84 @@ export function PendingBookingsPanel({
     if (ok) {
       setPreview(null);
       setCode("");
+      setReservationSearch("");
       setCheckInToken(null);
       setTableId("");
       await load();
+      window.requestAnimationFrame(() => searchInputRef.current?.focus());
     }
   };
 
   return (
-    <div className="space-y-4">
-      <Card size="sm">
-        <CardHeader className="border-b">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-lg font-bold text-neutral-950">
+    <div
+      className={cn(
+        isSidebar ? "flex h-full min-h-0 flex-col gap-3" : "space-y-4",
+      )}
+    >
+      {isSidebar ? (
+        <div className="flex w-fit max-w-full shrink-0 gap-1 rounded-lg border-2 border-neutral-300 bg-neutral-200/80 p-1 shadow-[2px_2px_0_rgba(0,0,0,0.08)]">
+          <button
+            type="button"
+            onClick={() => setReceptionTab("bookings")}
+            className={cn(
+              "flex h-9 items-center justify-center gap-1.5 rounded-md border-2 px-3 font-mono text-xs font-bold uppercase tracking-wider transition-all",
+              receptionTab === "bookings"
+                ? "border-orange-500 bg-white text-orange-700 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1)]"
+                : "border-transparent text-neutral-600 hover:bg-white/60 hover:text-neutral-900",
+            )}
+          >
+            <CalendarClock className="size-3.5" />
+            Đặt chỗ ({filteredReservations.length}
+            {filteredReservations.length !== reservations.length
+              ? `/${reservations.length}`
+              : ""}
+            )
+          </button>
+          {SHOW_WALK_IN_WINDOWS ? (
+            <button
+              type="button"
+              onClick={() => setReceptionTab("walkin")}
+              className={cn(
+                "flex h-9 items-center justify-center gap-1.5 rounded-md border-2 px-3 font-mono text-xs font-bold uppercase tracking-wider transition-all",
+                receptionTab === "walkin"
+                  ? "border-orange-500 bg-white text-orange-700 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1)]"
+                  : "border-transparent text-neutral-600 hover:bg-white/60 hover:text-neutral-900",
+              )}
+            >
+              <DoorOpen className="size-3.5" />
+              Khách vãng lai ({openWindows.length})
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div
+        className={cn(
+          isSidebar && receptionTab !== "bookings" && "hidden",
+          isSidebar && "min-h-0 flex-1",
+        )}
+      >
+      <Card
+        size="sm"
+        tabIndex={0}
+        onPointerDown={focusFrameOnPointerDown}
+        className={cn(
+          arcadeCardClass,
+          interactiveFrameClass,
+          isSidebar && "flex h-full min-h-0 flex-col gap-0 py-0",
+        )}
+      >
+        <CardHeader className={cn("border-b-2 border-current/10", isSidebar && "py-3")}>
+          <div className="relative">
+            <CardTitle className="flex items-center gap-2 font-mono text-base font-extrabold uppercase tracking-tight text-neutral-950">
               <CalendarClock className="size-4 text-neutral-800" />
-              Tiếp nhận khách đặt chỗ
+              {isSidebar ? "Hàng đợi đặt chỗ" : "Nhận bàn theo đặt chỗ"}
             </CardTitle>
-            <p className="mt-1 text-sm font-medium text-neutral-700">
-              Chọn ngày chơi hoặc nhập mã 8 ký tự trên QR của khách.
-            </p>
+            {!isSidebar ? (
+              <p className="mt-1 font-mono text-[11px] font-medium uppercase tracking-wide text-neutral-600">
+                ▸ Quét QR hoặc tìm đơn theo ngày để nhận bàn.
+              </p>
+            ) : null}
           </div>
           <CardAction>
             <Button
@@ -677,7 +1209,7 @@ export function PendingBookingsPanel({
               variant="outline"
               onClick={() => void load()}
               disabled={loading}
-              className="min-h-10 gap-2"
+              className="min-h-10 gap-2 border-2 font-mono text-xs font-bold uppercase tracking-wider shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] transition-all hover:translate-y-[-1px]"
               aria-label="Làm mới danh sách đặt chỗ"
             >
               <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
@@ -686,84 +1218,83 @@ export function PendingBookingsPanel({
           </CardAction>
         </CardHeader>
 
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold text-neutral-900">Ngày chơi</Label>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={playDate === todayIso ? "default" : "outline"}
-                  onClick={() => handlePlayDateChange(todayIso)}
-                >
-                  Hôm nay
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={playDate === tomorrowIso ? "default" : "outline"}
-                  onClick={() => handlePlayDateChange(tomorrowIso)}
-                >
-                  Ngày mai
-                </Button>
-              </div>
+        <CardContent
+          className={cn(
+            "space-y-3",
+            isSidebar && "min-h-0 flex-1 overflow-y-auto",
+          )}
+        >
+          <div
+            className={cn(
+              "flex flex-wrap items-center gap-2",
+              !isSidebar && "lg:flex-nowrap",
+            )}
+          >
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant={playDate === todayIso ? "default" : "outline"}
+                onClick={() => handlePlayDateChange(todayIso)}
+                className="h-9"
+              >
+                Hôm nay
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={playDate === tomorrowIso ? "default" : "outline"}
+                onClick={() => handlePlayDateChange(tomorrowIso)}
+                className="h-9"
+              >
+                Ngày mai
+              </Button>
               <Input
                 type="date"
                 value={playDate}
                 min={todayIso}
                 onChange={(event) => handlePlayDateChange(event.target.value)}
-                className="min-h-10 w-full sm:max-w-[180px]"
+                className="h-9 w-auto min-w-[9.5rem] max-w-[11rem]"
                 aria-label="Chọn ngày chơi"
               />
             </div>
-            <p className="text-xs font-medium text-neutral-700">
-              Đang xem đơn đặt chỗ ngày{" "}
-              <span className="font-semibold text-neutral-900">{reservationDayLabel}</span>.
-            </p>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="reservation-code" className="text-sm font-semibold text-neutral-900">
-              Mã đặt chỗ
-            </Label>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input
-                id="reservation-code"
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    void handleLookup();
-                  }
-                }}
-                placeholder="VD: K7H3NP9X"
-                className="min-h-11 flex-1 font-mono"
-                aria-describedby="reservation-code-help"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                disabled={lookingUp}
-                onClick={() => void handleLookup()}
-                className="min-h-11 gap-2 sm:min-w-28"
-              >
-                <Search className="size-4" />
-                {lookingUp ? "Đang tìm..." : "Tra cứu"}
-              </Button>
-            </div>
-            <p id="reservation-code-help" className="text-xs font-medium text-neutral-700">
-              Tra cứu trong ngày đang chọn.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h4 className="text-base font-bold text-neutral-950">
-                Đơn đặt chỗ {reservationDayLabel}
-              </h4>
-              <Badge variant="secondary">
+            <div className="flex shrink-0 items-center gap-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
+                <Input
+                  ref={searchInputRef}
+                  id="reservation-search"
+                  value={reservationSearch}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setReservationSearch(
+                      isBookingCodeQuery(next) ||
+                        /^[A-Za-z0-9]*$/.test(next.trim())
+                        ? next.toUpperCase()
+                        : next,
+                    );
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const q = reservationSearch.trim();
+                      if (isBookingCodeQuery(q)) {
+                        void handleLookup(q);
+                      }
+                    }
+                  }}
+                  placeholder="Tìm mã, game, bàn..."
+                  className="h-9 w-64 pl-9 font-medium"
+                  aria-label="Tìm đơn đặt chỗ"
+                  autoComplete="off"
+                  autoFocus
+                />
+                {lookingUp ? (
+                  <Spinner className="absolute right-3 top-1/2 size-4 -translate-y-1/2" />
+                ) : null}
+              </div>
+              <Badge variant="secondary" className="h-9 shrink-0 px-2.5">
                 {filteredReservations.length}
                 {filteredReservations.length !== reservations.length
                   ? `/${reservations.length}`
@@ -772,146 +1303,416 @@ export function PendingBookingsPanel({
               </Badge>
             </div>
 
-            <div className="flex flex-col gap-2">
-              <Input
-                value={reservationSearch}
-                onChange={(e) => setReservationSearch(e.target.value)}
-                placeholder="Lọc theo mã, tên game hoặc bàn..."
-                className="min-h-10"
-                aria-label="Tìm đơn đặt chỗ"
-              />
-              <div
-                className="flex flex-wrap gap-1.5"
-                role="group"
+            <Select
+              value={statusFilter}
+              onValueChange={(value) =>
+                setStatusFilter(value as ReservationStatusFilter)
+              }
+            >
+              <SelectTrigger
+                size="sm"
+                className="h-9 w-auto min-w-[10rem] shrink-0"
                 aria-label="Lọc theo trạng thái đơn"
               >
+                <SelectValue placeholder="Trạng thái" />
+              </SelectTrigger>
+              <SelectContent>
                 {RESERVATION_STATUS_FILTERS.map((filter) => (
-                  <Button
-                    key={filter.value}
-                    type="button"
-                    size="sm"
-                    variant={statusFilter === filter.value ? "default" : "outline"}
-                    onClick={() => setStatusFilter(filter.value)}
-                    className="h-8 px-2.5 text-xs"
-                  >
+                  <SelectItem key={filter.value} value={filter.value}>
                     {filter.label}
-                  </Button>
+                  </SelectItem>
                 ))}
-              </div>
-            </div>
-
-            {loading && reservations.length === 0 ? (
-              <p className="py-4 text-sm font-medium text-neutral-700" aria-live="polite">
-                Đang tải...
-              </p>
-            ) : reservations.length === 0 ? (
-              <p className="rounded-xl border border-dashed py-5 text-center text-sm font-medium text-neutral-700">
-                Không có đơn đặt chỗ ngày {reservationDayLabel}.
-              </p>
-            ) : filteredReservations.length === 0 ? (
-              <p className="rounded-xl border border-dashed py-5 text-center text-sm font-medium text-neutral-700">
-                Không có đơn khớp bộ lọc hiện tại.
-              </p>
-            ) : (
-              <div className="grid max-h-64 gap-2 overflow-y-auto pr-1 md:grid-cols-2">
-                {filteredReservations.map((item) => {
-                  const selected = selectedReservation?.id === item.id;
-                  const ready = item.status.trim().toLowerCase() === "confirmed";
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => handleSelectReservation(item)}
-                      aria-pressed={selected}
-                      className={`min-h-20 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500 ${
-                        selected
-                          ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-200"
-                          : "border-neutral-200 bg-white hover:border-neutral-400"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="min-w-0 truncate text-sm font-bold text-neutral-950">
-                          {item.gameName} · {item.timeSlot}
-                        </p>
-                        <Badge
-                          variant="outline"
-                          className={
-                            ready
-                              ? "border-emerald-200 text-emerald-700"
-                              : "border-amber-200 text-amber-800"
-                          }
-                        >
-                          {ready ? "Có thể nhận bàn" : formatReservationStatusLabel(item.status)}
-                        </Badge>
-                      </div>
-                      <p className="mt-1 text-xs font-medium text-neutral-800">
-                        <span className="font-mono font-semibold text-neutral-900">{item.reservationCode || "—"}</span>
-                        {" · "}
-                        {item.currentPlayers}/{item.maxPlayers} khách
-                        {item.tableNumber ? ` · Bàn ${item.tableNumber}` : ""}
-                      </p>
-                      <p className="mt-1 text-xs font-medium text-neutral-700">
-                        {formatTime(item.scheduledStartTime)} →{" "}
-                        {formatTime(item.scheduledEndTime)}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+              </SelectContent>
+            </Select>
           </div>
+
+          {loading && reservations.length === 0 ? (
+            <p className="py-4 text-sm font-medium text-neutral-700" aria-live="polite">
+              Đang tải...
+            </p>
+          ) : reservations.length === 0 ? (
+            <p className="rounded-xl border border-dashed py-4 text-center text-sm font-medium text-neutral-700">
+              Không có đơn ngày {reservationDayLabel}.
+            </p>
+          ) : filteredReservations.length === 0 ? (
+            <div className="rounded-xl border border-dashed py-4 text-center">
+              <p className="text-sm font-medium text-neutral-700">
+                Không có đơn khớp bộ lọc.
+              </p>
+              {statusFilter !== "all" ? (
+                <Button
+                  type="button"
+                  variant="link"
+                  className="mt-1 h-auto p-0 text-sm"
+                  onClick={() => setStatusFilter("all")}
+                >
+                  Xem tất cả
+                </Button>
+              ) : null}
+            </div>
+          ) : (
+            <div
+              className={cn(
+                "grid gap-2 overflow-y-auto pr-1",
+                isSidebar
+                  ? "max-h-none grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                  : "max-h-[28rem] md:grid-cols-2",
+              )}
+            >
+              {filteredReservations.map((item) => {
+                const selected = selectedReservation?.id === item.id;
+                const status = normalizeReservationStatus(item.status);
+                const canCheckIn = status === "confirmed";
+                const showQuickAction =
+                  canCheckIn || status === "holding";
+                // Tìm hộp Available khớp tên game → dùng lookup tra imageUrl
+                const matchedBox = boxes.find(
+                  (box) =>
+                    box.gameTemplateId === item.gameId ||
+                    (item.gameName &&
+                      (box.gameName ?? "").trim().toLowerCase() ===
+                        item.gameName.trim().toLowerCase()),
+                );
+                const coverSrc = lookupCover({
+                  gameTemplateId: item.gameId,
+                  gameName: item.gameName,
+                  cafeGameInventoryId: matchedBox?.id,
+                  imageUrl: matchedBox?.imageUrl,
+                });
+                return (
+                  <div
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={selected}
+                    onClick={() => handleSelectReservation(item)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleSelectReservation(item);
+                      }
+                    }}
+                    className={cn(
+                      "rounded-md border-2 p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+                      selected
+                        ? "border-orange-500 bg-orange-50 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08),0_0_10px_rgba(249,115,22,0.3)]"
+                        : "border-neutral-300 bg-white hover:border-neutral-400 hover:shadow-[2px_2px_0_rgba(0,0,0,0.08)]",
+                    )}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <GameCoverThumb
+                        src={coverSrc}
+                        alt={item.gameName || "Game"}
+                        initials={item.gameName}
+                        size="sm"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="min-w-0 truncate text-base font-extrabold text-neutral-950">
+                            {item.gameName}
+                          </p>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "shrink-0 border-2 px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase tracking-widest shadow-[inset_0_-1px_0_rgba(0,0,0,0.06)]",
+                              reservationStatusBadgeClass(item.status),
+                            )}
+                          >
+                            {formatReservationStatusLabel(item.status)}
+                          </Badge>
+                        </div>
+                        <p className="mt-1.5 font-mono text-sm font-bold uppercase tracking-widest text-neutral-900">
+                          ▸ {item.reservationCode || "—"}
+                        </p>
+                        <p className="mt-1 text-xs font-medium text-neutral-700">
+                          {item.currentPlayers}/{item.maxPlayers} PPL
+                          {item.tableNumber ? ` · Bàn ${item.tableNumber}` : ""}
+                          {item.timeSlot ? ` · ${item.timeSlot}` : ""}
+                        </p>
+                        <p className="mt-1 font-mono text-[11px] font-bold uppercase text-neutral-800">
+                          {formatReservationTimeRange(
+                            item.scheduledStartTime,
+                            item.scheduledEndTime,
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    {showQuickAction ? (
+                      <div className="mt-2.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          title={
+                            canCheckIn
+                              ? "Nhận bàn ngay"
+                              : getCheckInStatusMessage(item.status)
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectReservation(item);
+                          }}
+                          className={cn(
+                            "h-9 w-full border-2 font-mono text-xs font-bold uppercase tracking-wider shadow-[inset_0_-2px_0_rgba(0,0,0,0.1)]",
+                            canCheckIn
+                              ? "border-orange-700 bg-gradient-to-b from-orange-500 to-orange-600 text-white hover:from-orange-500 hover:to-orange-500"
+                              : "border-amber-400 bg-amber-100 text-amber-900 hover:bg-amber-200",
+                          )}
+                          variant={canCheckIn ? "default" : "outline"}
+                        >
+                          ► {canCheckIn ? "Nhận bàn" : "Đang khóa"}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
+      </div>
 
       {SHOW_WALK_IN_WINDOWS && (
-        <Card size="sm" className="border-emerald-200 bg-emerald-50/40">
-        <CardHeader className="border-b border-emerald-200">
-          <CardTitle className="flex items-center gap-2 text-base text-emerald-950">
+      <div
+        className={cn(
+          isSidebar && receptionTab !== "walkin" && "hidden",
+          isSidebar && "min-h-0 flex-1",
+        )}
+      >
+        <Card
+          size="sm"
+          tabIndex={0}
+          onPointerDown={focusFrameOnPointerDown}
+          className={cn(
+            "border-orange-400 bg-orange-50/40",
+            arcadeCardClass,
+            interactiveFrameClass,
+            isSidebar && "flex h-full min-h-0 flex-col gap-0 py-0",
+          )}
+        >
+        <CardHeader className={cn("border-b-2 border-orange-200", isSidebar && "py-3")}>
+          <CardTitle className="flex items-center gap-2 font-mono text-base font-extrabold uppercase tracking-tight text-orange-950">
             <DoorOpen className="size-4" />
-            Cửa sổ khách vãng lai
+            {isSidebar ? "Hàng chờ vãng lai" : "Cửa sổ khách vãng lai"}
           </CardTitle>
-          <CardAction>
-            <Badge className="bg-emerald-700 text-white">
-              {openWindows.length} khung
+          <CardAction className="flex items-center gap-2">
+            <Badge className="border-2 border-orange-700 bg-orange-600 font-mono text-[10px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]">
+              <span className={cn(statusOrbClass, "mr-1 bg-white")} />
+              {openWindows.length} open
             </Badge>
+            {!isSidebar && onOpenTables ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={onOpenTables}
+                className="h-8 gap-1.5 border-2 border-orange-400 font-mono text-xs font-bold uppercase tracking-wider text-orange-900 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] hover:bg-orange-100"
+              >
+                <Table2 className="size-3.5" />
+                ► Sơ đồ bàn
+              </Button>
+            ) : null}
           </CardAction>
         </CardHeader>
-        <CardContent>
+        <CardContent
+          className={cn(
+            "space-y-3",
+            isSidebar && "min-h-0 flex-1 overflow-y-auto",
+          )}
+        >
           {openWindows.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-emerald-200 py-4 text-center text-sm text-emerald-900/70">
-              Chưa có cửa sổ khách vãng lai ngày {reservationDayLabel}.
+            <p className="rounded-md border-2 border-dashed border-orange-300 py-4 text-center font-mono text-xs uppercase tracking-widest text-orange-900/70">
+              ▸ Không có khung giờ vãng lai cho {reservationDayLabel}
             </p>
           ) : (
-            <div className="grid max-h-44 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-              {openWindows.map((w) => (
-                <div
-                  key={w.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-white p-3"
-                >
-                  <div>
-                    <p className="text-sm font-bold">
-                      Còn {w.availableSeats ?? "—"}/{w.totalSeats ?? "—"} ghế
-                    </p>
-                    <p className="mt-1 text-xs text-neutral-500">
-                      {formatTime(w.windowStart)} → {formatTime(w.windowEnd)}
-                    </p>
+            <div
+              className={cn(
+                "grid gap-2 overflow-y-auto pr-1",
+                isSidebar
+                  ? "max-h-none grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                  : "max-h-[28rem] sm:grid-cols-2",
+              )}
+            >
+              {openWindows.map((w) => {
+                const maxSeats = Math.max(1, Number(w.availableSeats) || 1);
+                const draft = walkInDrafts[w.id] ?? {
+                  guestName: "",
+                  guestPhone: "",
+                  seats: 1,
+                };
+                const seats = Math.min(Math.max(1, draft.seats), maxSeats);
+                const tableLabel = walkInTableLabel(w);
+                const busy = walkInBusyId === w.id;
+                return (
+                  <div
+                    key={w.id}
+                    tabIndex={0}
+                    onPointerDown={focusFrameOnPointerDown}
+                    className={cn(
+                      "flex flex-col gap-2.5 rounded-md border-2 border-orange-300 bg-white p-3 shadow-[2px_2px_0_rgba(249,115,22,0.2)]",
+                      interactiveFrameClass,
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate font-mono text-sm font-extrabold uppercase tracking-tight text-neutral-950">
+                          ► {tableLabel || "Chỗ trống"}
+                        </p>
+                        <p className="mt-0.5 font-mono text-[11px] font-bold uppercase tracking-wide text-orange-800">
+                          GHẾ {w.availableSeats ?? "—"}/{w.totalSeats ?? "—"}
+                          {" · "}
+                          {formatWalkInTimeRange(w.windowStart, w.windowEnd)}
+                        </p>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            disabled={busy}
+                            className="size-8 shrink-0 border-2 border-neutral-300 text-neutral-600 hover:bg-neutral-100"
+                            aria-label="Thêm thao tác khung"
+                          >
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            disabled={busy}
+                            onClick={() => void closeWalkInWindow(w.id)}
+                          >
+                            <XCircle className="size-4" />
+                            Đóng khung
+                          </DropdownMenuItem>
+                          {onOpenTables ? (
+                            <DropdownMenuItem onClick={onOpenTables}>
+                              <Table2 className="size-4" />
+                              Sơ đồ bàn
+                            </DropdownMenuItem>
+                          ) : null}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor={`walk-in-guest-${w.id}`}
+                          className="text-xs font-semibold text-neutral-700"
+                        >
+                          Tên khách
+                        </Label>
+                        <Input
+                          id={`walk-in-guest-${w.id}`}
+                          value={draft.guestName}
+                          onChange={(e) =>
+                            updateWalkInDraft(
+                              w.id,
+                              { guestName: e.target.value },
+                              maxSeats,
+                            )
+                          }
+                          placeholder="Khách lẻ"
+                          className="h-9"
+                          disabled={busy}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor={`walk-in-phone-${w.id}`}
+                          className="text-xs font-semibold text-neutral-700"
+                        >
+                          SĐT
+                        </Label>
+                        <Input
+                          id={`walk-in-phone-${w.id}`}
+                          type="tel"
+                          inputMode="tel"
+                          value={draft.guestPhone}
+                          onChange={(e) =>
+                            updateWalkInDraft(
+                              w.id,
+                              {
+                                guestPhone: e.target.value.replace(
+                                  /[^\d+\s()-]/g,
+                                  "",
+                                ),
+                              },
+                              maxSeats,
+                            )
+                          }
+                          placeholder="Bắt buộc — để mở phiên"
+                          maxLength={20}
+                          className="h-9"
+                          disabled={busy}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-end gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold text-neutral-700">
+                          Số ghế
+                        </Label>
+                        <div className="flex h-9 items-center rounded-md border border-neutral-200 bg-white">
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            disabled={busy || seats <= 1}
+                            className="size-8 rounded-none text-base font-bold"
+                            aria-label="Giảm số ghế"
+                            onClick={() =>
+                              updateWalkInDraft(
+                                w.id,
+                                { seats: seats - 1 },
+                                maxSeats,
+                              )
+                            }
+                          >
+                            −
+                          </Button>
+                          <span className="min-w-8 text-center text-sm font-bold tabular-nums">
+                            {seats}
+                          </span>
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            disabled={busy || seats >= maxSeats}
+                            className="size-8 rounded-none text-base font-bold"
+                            aria-label="Tăng số ghế"
+                            onClick={() =>
+                              updateWalkInDraft(
+                                w.id,
+                                { seats: seats + 1 },
+                                maxSeats,
+                              )
+                            }
+                          >
+                            +
+                          </Button>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={busy || maxSeats < 1}
+                        onClick={() => void createWalkIn(w)}
+                        className="h-9 shrink-0 border-2 border-orange-800 bg-gradient-to-b from-orange-600 to-orange-700 px-3 font-mono text-xs font-extrabold uppercase tracking-wider text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_2px_0_rgba(0,0,0,0.15)] hover:from-orange-500 hover:to-orange-600"
+                      >
+                        ► {busy ? "Đang gán…" : "Gán bàn"}
+                      </Button>
+                    </div>
                   </div>
-                  {onOpenTables && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={onOpenTables}
-                      className="min-h-10 border-emerald-300 text-emerald-800"
-                    >
-                      Mở sơ đồ bàn
-                    </Button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
         </Card>
+      </div>
       )}
 
       <Dialog
@@ -930,7 +1731,7 @@ export function PendingBookingsPanel({
                     variant="outline"
                     className={
                       preview.canCheckIn
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        ? "border-orange-200 bg-orange-50 text-orange-700"
                         : "border-amber-200 bg-amber-50 text-amber-800"
                     }
                   >
@@ -940,7 +1741,7 @@ export function PendingBookingsPanel({
                   </Badge>
                 </DialogTitle>
                 <DialogDescription>
-                  {formatTime(preview.scheduledStartTime)} ·{" "}
+                  {formatReservationSlot(preview.scheduledStartTime)} ·{" "}
                   <span className="font-mono">{preview.bookingCode}</span> ·{" "}
                   {preview.registeredMemberCount} khách
                 </DialogDescription>
@@ -950,24 +1751,121 @@ export function PendingBookingsPanel({
                 <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto md:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] md:overflow-hidden">
                   <div className="space-y-3 md:overflow-y-auto md:pr-1">
                     <div className="space-y-2">
-                      <Label htmlFor="check-in-table">Bàn phục vụ</Label>
-                      <select
-                        id="check-in-table"
-                        value={tableId}
-                        onChange={(e) => setTableId(e.target.value)}
-                        className="min-h-11 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
-                      >
-                        <option value="">Chọn bàn</option>
-                        {assignableTables.map((t) => {
-                          const statusLabel = formatTableStatusLabel(t.status);
-                          return (
-                            <option key={t.id} value={t.id}>
-                              {t.name}
-                              {statusLabel ? ` · ${statusLabel}` : ""}
-                            </option>
-                          );
-                        })}
-                      </select>
+                      <Label> Bàn phục vụ</Label>
+                      {/* Wrapper relative — dropdown overlay không thay đổi layout */}
+                      <div className="relative">
+                        {/* Nút trigger */}
+                        <button
+                          type="button"
+                          onClick={() => setTableDropdownOpen((v) => !v)}
+                          className="flex min-h-11 w-full items-center justify-between rounded-md border border-neutral-200 bg-white px-3 text-sm hover:border-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+                        >
+                          <span className={tableId ? "font-medium text-neutral-900" : "text-neutral-500"}>
+                            {tableId
+                              ? `Đã chọn: ${availableForCheckIn.find((t) => t.id === tableId)?.name ?? assignableTables.find((t) => t.id === tableId)?.name ?? tableId}`
+                              : "Chọn bàn phục vụ"}
+                          </span>
+                          <svg
+                            className={cn(
+                              "size-4 shrink-0 text-neutral-500 transition-transform",
+                              tableDropdownOpen && "rotate-180",
+                            )}
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="m6 9 6 6 6-6"/>
+                          </svg>
+                        </button>
+
+                        {/* Dropdown overlay — absolute, không thay đổi kích thước dialog */}
+                        {tableDropdownOpen && (
+                          <>
+                            {/* Backdrop click outside để đóng */}
+                            <div
+                              className="fixed inset-0 z-40"
+                              onClick={() => setTableDropdownOpen(false)}
+                            />
+                            <div className="absolute left-0 right-0 top-full z-50 mt-1 flex flex-wrap gap-2 rounded-lg border border-neutral-200 bg-white p-3 shadow-xl">
+                              {availableForCheckIn.length === 0 ? (
+                                <p className="text-sm text-neutral-500">Không có bàn trống.</p>
+                              ) : (
+                                availableForCheckIn.map((t) => {
+                                  const statusMeta = getTableStatusMeta(t.status, t.hasSession);
+                                  const partySize = Math.max(
+                                    Number(preview?.registeredMemberCount) || 0,
+                                    Number(selectedReservation?.currentPlayers) || 0,
+                                    Number(selectedReservation?.maxPlayers) || 0,
+                                  );
+                                  const tooSmall =
+                                    partySize > 0 &&
+                                    t.seatCount != null &&
+                                    partySize > t.seatCount;
+                                  const selected = tableId === t.id;
+                                  return (
+                                    <button
+                                      key={t.id}
+                                      type="button"
+                                      onClick={() => {
+                                        if (!tooSmall) {
+                                          setTableId(t.id);
+                                          setTableDropdownOpen(false);
+                                        }
+                                      }}
+                                      disabled={tooSmall}
+                                      title={
+                                        tooSmall
+                                          ? `Đơn ${partySize} khách — bàn này tối đa ${t.seatCount} chỗ`
+                                          : undefined
+                                      }
+                                      className={cn(
+                                        "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400",
+                                        selected
+                                          ? "border-orange-500 bg-orange-50 ring-1 ring-orange-300 text-orange-900"
+                                          : tooSmall
+                                            ? "cursor-not-allowed border-neutral-200 bg-neutral-50 text-neutral-400"
+                                            : "border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400 hover:bg-neutral-50",
+                                      )}
+                                    >
+                                      {/* Icon bàn */}
+                                      <svg className="size-4 shrink-0 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M3 3h18v10H3z"/>
+                                        <path d="M3 13h18"/>
+                                        <path d="M5 17v2a2 2 0 002 2h10a2 2 0 002-2v-2"/>
+                                      </svg>
+                                      <span className="font-semibold">{t.name}</span>
+                                      {/* Số chỗ */}
+                                      {t.seatCount != null ? (
+                                        <span className="flex items-center gap-0.5 text-xs text-neutral-600">
+                                          <svg className="size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                                            <circle cx="9" cy="7" r="4"/>
+                                            <path d="M23 21v-2a4 4 0 00-3-3.87"/>
+                                            <path d="M16 3.13a4 4 0 010 7.75"/>
+                                          </svg>
+                                          {t.seatCount}
+                                        </span>
+                                      ) : null}
+                                      {/* Badge trạng thái */}
+                                      <span
+                                        className={cn(
+                                          "ml-auto shrink-0 rounded-full border px-1.5 py-0.5 text-xs font-semibold",
+                                          statusMeta.badgeClass,
+                                        )}
+                                      >
+                                        {statusMeta.label}
+                                      </span>
+                                    </button>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50/80 p-3">
@@ -1043,31 +1941,48 @@ export function PendingBookingsPanel({
 
                       {checkedBox ? (
                         <div className="space-y-2 rounded-lg border bg-white p-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="truncate font-semibold text-neutral-950">
-                                {checkedBox.gameName || "Hộp game"}
-                              </p>
-                              <p className="mt-0.5 font-mono text-xs font-medium text-neutral-700">
-                                {checkedBox.barcode}
-                              </p>
+                          <div className="flex items-start gap-3">
+                            <GameCoverThumb
+                              src={lookupCover({
+                                gameTemplateId:
+                                  availableBoxes.find(
+                                    (b) => b.barcode === checkedBox.barcode,
+                                  )?.gameTemplateId ?? null,
+                                gameName: checkedBox.gameName,
+                                cafeGameInventoryId: checkedBox.id,
+                                imageUrl: null,
+                                barcode: checkedBox.barcode,
+                              })}
+                              alt={checkedBox.gameName || "Hộp game"}
+                              initials={checkedBox.gameName}
+                              size="md"
+                            />
+                            <div className="flex flex-1 items-start justify-between gap-2 min-w-0">
+                              <div className="min-w-0">
+                                <p className="truncate font-semibold text-neutral-950">
+                                  {checkedBox.gameName || "Hộp game"}
+                                </p>
+                                <p className="mt-0.5 font-mono text-xs font-medium text-neutral-700">
+                                  {checkedBox.barcode}
+                                </p>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  String(checkedBox.status).toLowerCase() ===
+                                  "available"
+                                    ? "border-orange-200 bg-orange-50 text-orange-700"
+                                    : "border-amber-200 bg-amber-50 text-amber-800"
+                                }
+                              >
+                                {formatBoxStatusLabel(checkedBox.status)}
+                              </Badge>
                             </div>
-                            <Badge
-                              variant="outline"
-                              className={
-                                String(checkedBox.status).toLowerCase() ===
-                                "available"
-                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                  : "border-amber-200 bg-amber-50 text-amber-800"
-                              }
-                            >
-                              {formatBoxStatusLabel(checkedBox.status)}
-                            </Badge>
                           </div>
 
                           {(checkedBox.missingComponents?.length ?? 0) > 0 ? (
-                            <div className="max-h-28 space-y-1.5 overflow-y-auto rounded-lg border border-rose-200 bg-rose-50 p-2.5">
-                              <p className="flex items-center gap-2 text-xs font-bold text-rose-800">
+                            <div className="max-h-28 space-y-1.5 overflow-y-auto rounded-lg border border-orange-200 bg-orange-50 p-2.5">
+                              <p className="flex items-center gap-2 text-xs font-bold text-orange-800">
                                 <AlertTriangle className="size-3.5 shrink-0" />
                                 Từng ghi nhận thiếu{" "}
                                 {checkedBox.missingComponents?.length} linh kiện
@@ -1080,14 +1995,14 @@ export function PendingBookingsPanel({
                                   <span className="font-medium">
                                     {comp.componentName || "Linh kiện"}
                                   </span>
-                                  <span className="text-rose-700">
+                                  <span className="text-orange-700">
                                     Thiếu {comp.missingQuantity || 1}
                                   </span>
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <p className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2 text-xs font-medium text-emerald-800">
+                            <p className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-2 text-xs font-medium text-orange-800">
                               <ShieldCheck className="size-3.5 shrink-0" />
                               Đủ linh kiện, sẵn sàng bàn giao.
                             </p>
@@ -1101,50 +2016,29 @@ export function PendingBookingsPanel({
                     </div>
                   </div>
 
-                  <div className="flex min-h-0 flex-col rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 md:overflow-y-auto">
-                    <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-bold text-emerald-950">
-                          Mã QR mời khách quét
-                        </p>
-                        <p className="text-xs font-medium text-emerald-900">
-                          Bắt buộc hiện QR trước khi xác nhận.
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={creatingQr || !(
-                          selectedReservation?.id ||
-                          (preview?.raw &&
-                            typeof preview.raw === "object" &&
-                            (preview.raw as Record<string, unknown>).id)
-                        )}
-                        onClick={() => void handleShowCheckInQr()}
-                        className="min-h-10 gap-2 border-emerald-300 text-emerald-900"
-                      >
-                        {creatingQr ? (
-                          <Spinner className="size-4" />
-                        ) : checkInToken ? (
-                          <RefreshCw className="size-4" />
-                        ) : (
-                          <QrCode className="size-4" />
-                        )}
-                        {creatingQr
-                          ? "Đang tạo..."
-                          : checkInToken
-                            ? "Tạo lại"
-                            : "Hiện mã QR"}
-                      </Button>
+                  <div className="flex min-h-0 flex-col rounded-xl border border-orange-200 bg-orange-50/50 p-3 md:overflow-y-auto">
+                    <div className="mb-3">
+                      <p className="text-sm font-bold text-orange-950">
+                        Mã QR mời khách quét
+                      </p>
+                      <p className="text-xs font-medium text-orange-900">
+                        Bắt buộc hiện QR trước khi xác nhận.
+                      </p>
                     </div>
 
                     {checkInToken?.qrPayload ? (
                       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-                        <div className="rounded-xl border-2 border-emerald-200 bg-white p-3">
+                        <button
+                          type="button"
+                          onClick={() => setZoomedCheckInQr(true)}
+                          className="group relative cursor-pointer rounded-xl border-2 border-orange-200 bg-white p-3 transition-transform hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
+                          title="Bấm để phóng to QR"
+                        >
+                          <Maximize2 className="absolute right-2 top-2 z-10 size-3.5 rounded bg-white/90 p-0.5 text-orange-700 opacity-70 transition-opacity group-hover:opacity-100" />
                           <QRCode value={checkInToken.qrPayload} size={160} />
-                        </div>
+                        </button>
                         <div className="space-y-1">
-                          <p className="font-mono text-xs font-semibold tracking-wider text-emerald-900">
+                          <p className="font-mono text-xs font-semibold tracking-wider text-orange-900">
                             {checkInToken.token}
                           </p>
                           <p className="text-xs font-medium text-neutral-800">
@@ -1154,10 +2048,51 @@ export function PendingBookingsPanel({
                             Khách mở app BoardVerse và quét mã này.
                           </p>
                         </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={creatingQr || !(
+                            selectedReservation?.id ||
+                            (preview?.raw &&
+                              typeof preview.raw === "object" &&
+                              (preview.raw as Record<string, unknown>).id)
+                          )}
+                          onClick={() => void handleShowCheckInQr()}
+                          className="mt-1 gap-1.5 text-orange-900 hover:bg-orange-100"
+                        >
+                          {creatingQr ? (
+                            <Spinner className="size-3.5" />
+                          ) : (
+                            <RefreshCw className="size-3.5" />
+                          )}
+                          {creatingQr ? "Đang tạo..." : "Tạo lại mã QR"}
+                        </Button>
                       </div>
                     ) : (
-                      <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-emerald-200 px-3 py-8 text-center text-xs text-emerald-900/70">
-                        Chưa có mã QR. Bấm &quot;Hiện mã QR&quot; để tạo.
+                      <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-orange-200 px-3 py-6 text-center">
+                        <div className="rounded-full border border-dashed border-orange-300 bg-white p-3">
+                          <QrCode className="size-8 text-orange-700/60" />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="default"
+                          disabled={creatingQr || !(
+                            selectedReservation?.id ||
+                            (preview?.raw &&
+                              typeof preview.raw === "object" &&
+                              (preview.raw as Record<string, unknown>).id)
+                          )}
+                          onClick={() => void handleShowCheckInQr()}
+                          className="mt-1 min-h-10 gap-2 bg-orange-600 text-white hover:bg-orange-700"
+                        >
+                          {creatingQr ? (
+                            <Spinner className="size-4" />
+                          ) : (
+                            <QrCode className="size-4" />
+                          )}
+                          {creatingQr ? "Đang tạo..." : "Hiện mã QR"}
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -1192,6 +2127,52 @@ export function PendingBookingsPanel({
           ) : null}
         </DialogContent>
       </Dialog>
+
+      {/* POPUP PHÓNG TO QR — hiện toàn màn hình để khách quét dễ */}
+      {zoomedCheckInQr && checkInToken?.qrPayload ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          onClick={backdropCloseHandler(() => setZoomedCheckInQr(false))}
+        >
+          <div
+            className="relative flex max-h-[92vh] w-full max-w-md flex-col items-center gap-3 overflow-y-auto rounded-2xl border-2 border-orange-400 bg-gradient-to-br from-white via-orange-50 to-amber-50 p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setZoomedCheckInQr(false)}
+              className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-xl border-2 border-orange-400 bg-gradient-to-b from-white to-orange-50 text-orange-700 shadow-[2px_2px_0_rgba(249,115,22,0.4)] transition-all hover:from-orange-100 hover:to-orange-200"
+              title="Đóng"
+            >
+              <X className="size-4" />
+            </button>
+            <p className="text-center font-mono text-xs font-extrabold uppercase tracking-widest text-orange-800">
+              Mã QR mời khách quét · Nhận bàn
+            </p>
+            <p className="text-center font-mono text-[11px] font-bold tracking-wider text-orange-600">
+              {checkInToken.token}
+            </p>
+            <p className="text-center font-mono text-[10px] font-bold uppercase tracking-widest text-orange-700/80">
+              Hết hạn: {formatTime(checkInToken.expiresAt)}
+            </p>
+            <div className="rounded-2xl border-4 border-orange-300 bg-white p-4 shadow-[4px_4px_0_rgba(249,115,22,0.35)]">
+              <QRCode value={checkInToken.qrPayload} size={420} />
+            </div>
+            <p className="text-center font-mono text-[10px] font-bold uppercase tracking-widest text-orange-700/80">
+              💡 Khách mở app BoardVerse và quét mã này
+            </p>
+            <button
+              type="button"
+              onClick={() => setZoomedCheckInQr(false)}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border-2 border-orange-400 bg-gradient-to-b from-orange-500 to-amber-500 px-6 font-mono text-[11px] font-extrabold uppercase tracking-widest text-white shadow-[2px_2px_0_rgba(249,115,22,0.45)] transition-all hover:from-orange-600 hover:to-amber-600"
+            >
+              ✕ Đóng
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

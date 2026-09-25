@@ -115,12 +115,41 @@ export function formatPlayerRange(range: {
 
 export function readPresentCount(source: any): number | null {
   if (!source) return null;
+
+  const members = Array.isArray(source.members)
+    ? source.members
+    : Array.isArray(source.Members)
+      ? source.Members
+      : null;
+
+  // BE: host nằm ngoài `members` (hostId/hostName) — đếm cả host nếu chưa có trong list.
+  if (members) {
+    const hostId = String(source.hostId ?? source.HostId ?? "");
+    const hostName = String(source.hostName ?? source.HostName ?? "")
+      .trim()
+      .toLowerCase();
+    const hostAlreadyInMembers = members.some((m: any) => {
+      const uid = String(m?.userId ?? m?.UserId ?? "");
+      const name = String(
+        m?.userName ?? m?.UserName ?? m?.username ?? "",
+      )
+        .trim()
+        .toLowerCase();
+      return (
+        (hostId.length > 0 && uid === hostId) ||
+        (hostName.length > 0 && name === hostName)
+      );
+    });
+    const hasSeparateHost = hostId.length > 0 || hostName.length > 0;
+    const total =
+      members.length + (hasSeparateHost && !hostAlreadyInMembers ? 1 : 0);
+    return pickPositive(total);
+  }
+
   return pickPositive(
     source.presentCount,
     source.PresentCount,
     source.playerCount,
     source.PlayerCount,
-    Array.isArray(source.members) ? source.members.length : null,
-    Array.isArray(source.Members) ? source.Members.length : null,
   );
 }

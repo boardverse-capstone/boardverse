@@ -7,8 +7,14 @@ export interface MasterGameComponent {
 
 export interface CreateMasterGameComponentRequest {
   name: string;
-  type: string;
+  componentKind: number | string;
   defaultQuantity: number;
+}
+
+export interface BggComponentKindOption {
+  kind: number | string;
+  nameEn: string;
+  nameVi: string;
 }
 
 export interface UpdateMasterGameComponentRequest extends CreateMasterGameComponentRequest {}
@@ -41,6 +47,41 @@ export interface MasterGameCategoryLink {
 export interface MasterGameCatalogOption {
   id: string;
   name: string;
+  thumbnailUrl: string | null;
+}
+
+export interface BggSearchHit {
+  bggId: number;
+  name: string;
+  yearPublished: number | null;
+}
+
+export interface BggGamePreview {
+  bggId: number;
+  name: string;
+  yearPublished: number | null;
+  minPlayers: number | null;
+  maxPlayers: number | null;
+  playTimeMinutes: number | null;
+  description: string | null;
+  hasCuratedComponents: boolean;
+  componentResolutionNote: string | null;
+  componentCount: number;
+}
+
+export interface ImportBggGameRequest {
+  bggId: number;
+  overwriteExisting: boolean;
+  curatedComponentsOnly: boolean;
+}
+
+export interface ImportBggGameResult {
+  gameTemplateId: string;
+  bggId: number;
+  name: string;
+  created: boolean;
+  componentCount: number;
+  categoryCount: number;
 }
 
 export interface RawMasterGameComponent {

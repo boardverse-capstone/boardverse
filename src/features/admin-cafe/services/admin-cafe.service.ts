@@ -17,9 +17,6 @@ import {
   mapOperationalStatusResponse,
   normalizeAdminCafeListResponse,
 } from '../utils/admin-cafe.mapper';
-import { AdminCafeMockService } from './admin-cafe.mock';
-
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_ADMIN_CAFE_API === 'true';
 
 export const ADMIN_CAFE_QUERY_KEYS = {
   list: 'admin-cafe-list',
@@ -30,8 +27,6 @@ export const ADMIN_CAFE_QUERY_KEYS = {
 export const AdminCafeService = {
   /** GET /api/v1/admin/cafes */
   getCafes: async (params: AdminCafeListParams): Promise<PaginatedResponse<AdminCafe>> => {
-    if (USE_MOCK) return AdminCafeMockService.getCafes(params);
-
     const raw = await apiClient.get<never, RawAdminCafeListResponse>(
       '/api/v1/admin/cafes',
       {
@@ -75,16 +70,12 @@ export const AdminCafeService = {
 
   /** GET /api/v1/admin/cafes/{cafeId} */
   getCafeById: async (cafeId: string): Promise<AdminCafeDetail> => {
-    if (USE_MOCK) return AdminCafeMockService.getCafeById(cafeId);
-
     const raw = await apiClient.get<never, RawAdminCafe>(`/api/v1/admin/cafes/${cafeId}`);
     return mapApiAdminCafeDetail(raw);
   },
 
   /** POST /api/v1/admin/cafes */
   createCafe: async (payload: CreateAdminCafeRequest): Promise<AdminCafeDetail> => {
-    if (USE_MOCK) return AdminCafeMockService.createCafe(payload);
-
     const raw = await apiClient.post<never, RawAdminCafe>('/api/v1/admin/cafes', payload);
     return mapApiAdminCafeDetail(raw);
   },
@@ -94,8 +85,6 @@ export const AdminCafeService = {
     cafeId: string,
     payload: UpdateAdminCafeRequest,
   ): Promise<AdminCafeDetail> => {
-    if (USE_MOCK) return AdminCafeMockService.updateCafe(cafeId, payload);
-
     const raw = await apiClient.put<never, RawAdminCafe>(
       `/api/v1/admin/cafes/${cafeId}`,
       payload,
@@ -105,8 +94,6 @@ export const AdminCafeService = {
 
   /** DELETE /api/v1/admin/cafes/{cafeId} */
   deleteCafe: async (cafeId: string): Promise<void> => {
-    if (USE_MOCK) return AdminCafeMockService.deleteCafe(cafeId);
-
     await apiClient.delete(`/api/v1/admin/cafes/${cafeId}`);
   },
 
@@ -115,8 +102,6 @@ export const AdminCafeService = {
     cafeId: string,
     payload: UpdateOperationalStatusRequest,
   ): Promise<UpdateOperationalStatusResponse> => {
-    if (USE_MOCK) return AdminCafeMockService.updateOperationalStatus(cafeId, payload);
-
     // Swagger: { status: DATA_BLANK|ACTIVE|INACTIVE|BANNED, reason? } — reason bắt buộc khi BANNED
     const raw = await apiClient.put<never, RawUpdateOperationalStatusResponse>(
       `/api/v1/admin/cafes/${cafeId}/operational-status`,

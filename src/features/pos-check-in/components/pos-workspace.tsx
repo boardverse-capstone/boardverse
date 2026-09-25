@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -31,7 +31,7 @@ import type {
   TableBooking,
 } from '../types/pos-check-in.interface';
 
-/** Query params cho sơ đồ — luôn lấy đủ bàn; status lọc trên UI sau khi merge */
+/** Query params cho sÆ¡ Ä‘á»“ â€” luÃ´n láº¥y Ä‘á»§ bÃ n; status lá»c trÃªn UI sau khi merge */
 function buildFloorPlanParams(includeInactive: boolean): FloorPlanQueryParams {
   return {
     includeOnlyAvailable: false,
@@ -51,7 +51,7 @@ function mergeTablesWithActiveSessionsAndBookings(
   });
 
   activeSessions.forEach((session) => {
-    // Server còn Active/Checking/Unpaid → luôn hiện Occupied (không tin localStorage paid)
+    // Server cÃ²n Active/Checking/Unpaid â†’ luÃ´n hiá»‡n Occupied (khÃ´ng tin localStorage paid)
     const status = String(session.status || '');
     if (
       status === 'Completed' ||
@@ -79,24 +79,24 @@ function mergeTablesWithActiveSessionsAndBookings(
         sessionId: session.sessionId,
         bookingId: session.bookingId || targetTable.bookingId,
         startedAt: session.startedAt || targetTable.startedAt,
-        gameName: session.game?.name || targetTable.gameName || 'Chưa có tên game',
+        gameName: session.game?.name || targetTable.gameName || 'ChÆ°a cÃ³ tÃªn game',
         presentCount: session.presentCount || session.guestCount || targetTable.presentCount || 1,
       });
     } else {
       const newId = session.tableId || `table-${session.sessionId}`;
-      const label = session.tableLabel || 'Bàn';
+      const label = session.tableLabel || 'BÃ n';
       const nextIndex = tableMap.size;
       tableMap.set(newId, {
         id: newId,
         label,
-        zone: 'Khu chính',
+        zone: 'Khu chÃ­nh',
         seats: session.presentCount || 4,
         position: { row: Math.floor(nextIndex / 4), col: nextIndex % 4 },
         status: 'Occupied',
         sessionId: session.sessionId,
         bookingId: session.bookingId,
         startedAt: session.startedAt,
-        gameName: session.game?.name || 'Chưa có tên game',
+        gameName: session.game?.name || 'ChÆ°a cÃ³ tÃªn game',
         presentCount: session.presentCount || session.guestCount || 1,
       });
     }
@@ -209,7 +209,7 @@ export function PosWorkspace() {
       table: {
         id: booking.tableId,
         label: booking.tableLabel,
-        zone: 'Khu chính',
+        zone: 'Khu chÃ­nh',
         seats: booking.playerQuantity ?? booking.participants.length,
         position: { row: 0, col: 0 },
         status: booking.sessionStatus === 'Active' ? 'Occupied' : 'Reserved',
@@ -229,7 +229,7 @@ export function PosWorkspace() {
     setSelectedTableId(result.table.id);
     setSelectedTableLabel(result.table.label);
     setActiveTab('floor-plan');
-    toast.success(`Đã nhận booking ${result.table.label} — tiếp tục check-in.`);
+    toast.success(`ÄÃ£ nháº­n booking ${result.table.label} â€” tiáº¿p tá»¥c check-in.`);
   }, []);
 
   const handleSessionCompleted = useCallback(() => {
@@ -381,26 +381,26 @@ export function PosWorkspace() {
     <div className="space-y-4 md:space-y-5">
       <PageHeader
         title="Web POS"
-        description={`${cafe?.name ?? 'Quán'} · Chọn bàn / booking rồi mở check-in`}
+        description={`${cafe?.name ?? 'QuÃ¡n'} Â· Chá»n bÃ n / booking rá»“i má»Ÿ check-in`}
       />
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Wifi className={`h-3.5 w-3.5 ${hubConnected ? 'text-emerald-600' : 'text-muted-foreground'}`} />
-        SignalR /hubs/pos: {hubConnected ? 'Đã kết nối' : 'Chưa kết nối'}
+        <Wifi className={`h-3.5 w-3.5 ${hubConnected ? 'text-orange-600' : 'text-muted-foreground'}`} />
+        SignalR /hubs/pos: {hubConnected ? 'ÄÃ£ káº¿t ná»‘i' : 'ChÆ°a káº¿t ná»‘i'}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4">
         <TabsList className="grid h-auto w-full grid-cols-1 gap-2 bg-muted/60 p-1.5 rounded-xl sm:grid-cols-2">
           <TabsTrigger value="floor-plan" className="gap-2 py-2.5 text-xs font-medium sm:text-sm">
             <LayoutGrid className="h-4 w-4" />
-            Sơ đồ bàn & Vận hành
+            SÆ¡ Ä‘á»“ bÃ n & Váº­n hÃ nh
           </TabsTrigger>
           <TabsTrigger value="settlements" className="gap-2 py-2.5 text-xs font-medium sm:text-sm">
             <Banknote className="h-4 w-4" />
-            Giải ngân & Thanh toán
+            Giáº£i ngÃ¢n & Thanh toÃ¡n
           </TabsTrigger>
         </TabsList>
 
-        {/* TAB 1: Sơ đồ bàn & Vận hành */}
+        {/* TAB 1: SÆ¡ Ä‘á»“ bÃ n & Váº­n hÃ nh */}
         <TabsContent value="floor-plan" className="mt-0">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px] md:items-start">
             <Card className="min-h-[380px] md:min-h-[480px]">
@@ -408,7 +408,7 @@ export function PosWorkspace() {
                 <CardTitle className="flex items-center justify-between text-base md:text-lg">
                   <span className="flex items-center gap-2">
                     <LayoutGrid className="h-5 w-5 shrink-0" />
-                    Sơ đồ mặt bằng quán
+                    SÆ¡ Ä‘á»“ máº·t báº±ng quÃ¡n
                   </span>
                   
                 </CardTitle>
@@ -445,13 +445,13 @@ export function PosWorkspace() {
           </div>
         </TabsContent>
 
-        {/* TAB 4: Giải ngân & Thanh toán */}
+        {/* TAB 4: Giáº£i ngÃ¢n & Thanh toÃ¡n */}
         <TabsContent value="settlements" className="mt-0">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                 <Banknote className="h-5 w-5 shrink-0" />
-                Quản lý giải ngân & Thanh toán
+                Quáº£n lÃ½ giáº£i ngÃ¢n & Thanh toÃ¡n
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -461,16 +461,16 @@ export function PosWorkspace() {
         </TabsContent>
       </Tabs>
 
-      {/* Modal Popup Cửa sổ nổi hiển thị duy nhất nội dung của bàn được chọn */}
+      {/* Modal Popup Cá»­a sá»• ná»•i hiá»ƒn thá»‹ duy nháº¥t ná»™i dung cá»§a bÃ n Ä‘Æ°á»£c chá»n */}
       <Dialog
         open={Boolean(selectedBookingId && activeBooking)}
         onOpenChange={(open) => {
           if (!open) handleCloseReception();
         }}
       >
-        <DialogContent className="max-w-5xl lg:max-w-6xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-2xl border-emerald-200/80 shadow-2xl">
+        <DialogContent className="max-w-5xl lg:max-w-6xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-2xl border-orange-200/80 shadow-2xl">
           <DialogHeader className="sr-only">
-            <DialogTitle>Quản lý {selectedTableLabel || activeBooking?.tableLabel || 'Bàn'}</DialogTitle>
+            <DialogTitle>Quáº£n lÃ½ {selectedTableLabel || activeBooking?.tableLabel || 'BÃ n'}</DialogTitle>
           </DialogHeader>
           {selectedBookingId && activeBooking ? (
             <PosCheckInReception
@@ -484,13 +484,13 @@ export function PosWorkspace() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal Mở phiên chơi trực tiếp cho Bàn trống (Walk-in) */}
+      {/* Modal Má»Ÿ phiÃªn chÆ¡i trá»±c tiáº¿p cho BÃ n trá»‘ng (Walk-in) */}
       <Dialog open={walkInOpen} onOpenChange={setWalkInOpen}>
         <DialogContent className="max-w-lg p-6 rounded-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base md:text-lg">
-              <Play className="h-5 w-5 text-emerald-600" />
-              Mở phiên chơi trực tiếp — {selectedTableLabel || 'Bàn trống'}
+              <Play className="h-5 w-5 text-orange-600" />
+              Má»Ÿ phiÃªn chÆ¡i trá»±c tiáº¿p â€” {selectedTableLabel || 'BÃ n trá»‘ng'}
             </DialogTitle>
           </DialogHeader>
           <PosWalkInPanel

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ export function InventoryCard({
           <span
             className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
               game.status === "Available"
-                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                ? "bg-orange-50 border-orange-200 text-orange-700"
                 : "bg-amber-50 border-neutral-200 text-neutral-600"
             }`}
           >
@@ -41,7 +41,7 @@ export function InventoryCard({
         </p>
         <div className="flex items-center">
           <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-neutral-900 text-white text-[10px] font-bold uppercase tracking-wider shadow-xs">
-            Số lượng: {game.boxQuantity} hộp
+            Sá»‘ lÆ°á»£ng: {game.boxQuantity} há»™p
           </span>
         </div>
       </div>
@@ -53,13 +53,13 @@ export function InventoryCard({
               onClick={() => onEdit(game.id)}
               className="h-8 bg-white text-neutral-800 hover:bg-neutral-50 font-semibold text-xs uppercase border border-neutral-200 rounded-lg px-3.5 transition-colors shadow-sm"
             >
-              Sửa hồ sơ
+              Sá»­a há»“ sÆ¡
             </Button>
             <Button
               onClick={() => onDelete(game.id)}
-              className="h-8 bg-white text-red-600 hover:bg-red-50/60 font-semibold text-xs uppercase border border-red-200 rounded-lg px-3.5 transition-colors"
+              className="h-8 bg-white text-orange-600 hover:bg-orange-50/60 font-semibold text-xs uppercase border border-orange-200 rounded-lg px-3.5 transition-colors"
             >
-              Xóa tạm
+              XÃ³a táº¡m
             </Button>
           </>
         ) : (
@@ -67,7 +67,7 @@ export function InventoryCard({
             onClick={() => onRestore(game.id)}
             className="h-8 bg-neutral-950 text-white hover:bg-neutral-800 font-semibold text-xs uppercase rounded-lg px-4 border border-neutral-950 shadow-sm transition-colors"
           >
-            ↺ Khôi phục kho
+            â†º KhÃ´i phá»¥c kho
           </Button>
         )}
       </div>

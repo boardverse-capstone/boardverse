@@ -1,10 +1,9 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { ScanBarcode } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -31,7 +30,7 @@ const DEFAULT_LIMIT = 20;
 interface PosBoxesPanelProps {
   /** When set, skip useStaffCafe and use this cafe. */
   cafeId?: string;
-  /** Hide page header — embed inside Kho game tabs. */
+  /** Hide page header â€” embed inside Kho game tabs. */
   embedded?: boolean;
   /** Pre-select game template filter. */
   initialGameTemplateId?: string;
@@ -126,7 +125,7 @@ export function PosBoxesPanel({
         accessorKey: 'barcode',
         header: 'Barcode',
         cell: ({ row }) => (
-          <span className="font-mono text-xs">{row.original.barcode || '—'}</span>
+          <span className="font-mono text-xs">{row.original.barcode || 'â€”'}</span>
         ),
       },
       {
@@ -134,10 +133,12 @@ export function PosBoxesPanel({
         header: 'Game',
         cell: ({ row }) => (
           <div className="min-w-[140px]">
-            <div className="font-medium">{row.original.gameName || '—'}</div>
+            <div className="truncate font-mono text-xs font-extrabold uppercase tracking-wide text-orange-950">
+              â–º {row.original.gameName || 'â€”'}
+            </div>
             {row.original.gameTemplateId ? (
-              <div className="font-mono text-[11px] text-muted-foreground">
-                {row.original.gameTemplateId.slice(0, 8)}…
+              <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-orange-500">
+                <span className="mr-1">#</span>{row.original.gameTemplateId.slice(0, 8)}
               </div>
             ) : null}
           </div>
@@ -145,24 +146,45 @@ export function PosBoxesPanel({
       },
       {
         accessorKey: 'status',
-        header: 'Trạng thái',
-        cell: ({ row }) => (
-          <Badge
-            variant="outline"
-            className={INVENTORY_STATUS_COLORS[row.original.status] ?? ''}
-          >
-            {INVENTORY_STATUS_LABELS[row.original.status] ?? row.original.status}
-          </Badge>
-        ),
+        header: 'Tráº¡ng thÃ¡i',
+        cell: ({ row }) => {
+          const raw = row.original.status;
+          const ledColor: Record<string, string> = {
+            AVAILABLE: 'bg-orange-500',
+            INUSE: 'bg-orange-500',
+            RENTED: 'bg-neutral-500',
+            MAINTENANCE: 'bg-amber-500',
+            DAMAGED: 'bg-orange-500',
+            Retired: 'bg-neutral-500',
+          };
+          return (
+            <Badge
+              variant="outline"
+              className={[
+                'relative inline-flex items-center gap-1.5 border-2 font-mono text-[10px] font-extrabold uppercase tracking-widest shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]',
+                INVENTORY_STATUS_COLORS[raw] ?? '',
+              ].join(' ')}
+            >
+              <span
+                className={[
+                  'inline-block size-1.5 animate-pulse rounded-full shadow-[0_0_6px_currentColor]',
+                  ledColor[raw] ?? 'bg-neutral-500',
+                ].join(' ')}
+              />
+              {INVENTORY_STATUS_LABELS[raw] ?? raw}
+            </Badge>
+          );
+        },
       },
       {
         accessorKey: 'inventoryId',
         header: 'Inventory',
         cell: ({ row }) => (
-          <span className="font-mono text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1 rounded-md border-2 border-orange-300 bg-orange-50 px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-orange-700 shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]">
+            <span className="text-amber-400">â–¸</span>
             {row.original.inventoryId
-              ? `${row.original.inventoryId.slice(0, 8)}…`
-              : '—'}
+              ? `${row.original.inventoryId.slice(0, 8)}â€¦`
+              : 'â€”'}
           </span>
         ),
       },
@@ -170,8 +192,9 @@ export function PosBoxesPanel({
         accessorKey: 'id',
         header: 'Box ID',
         cell: ({ row }) => (
-          <span className="font-mono text-[11px] text-muted-foreground">
-            {row.original.id ? `${row.original.id.slice(0, 8)}…` : '—'}
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-orange-500">
+            <span className="mr-1 text-amber-400">#</span>
+            {row.original.id ? `${row.original.id.slice(0, 8)}â€¦` : 'â€”'}
           </span>
         ),
       },
@@ -186,13 +209,13 @@ export function PosBoxesPanel({
   };
 
   if (!cafeIdProp && cafeLoading) {
-    return <div className="text-sm text-muted-foreground">Đang tải thông tin quán...</div>;
+    return <div className="text-sm text-muted-foreground">Äang táº£i thÃ´ng tin quÃ¡n...</div>;
   }
 
   if (!cafeId) {
     return (
       <div className="text-sm text-muted-foreground">
-        Chưa chọn quán. Không thể tra cứu hộp game.
+        ChÆ°a chá»n quÃ¡n. KhÃ´ng thá»ƒ tra cá»©u há»™p game.
       </div>
     );
   }
@@ -201,72 +224,92 @@ export function PosBoxesPanel({
     <div className="space-y-4">
       {!embedded ? (
         <PageHeader
-          title="Hộp game POS"
+          title="Há»™p game POS"
           description={
             cafe
-              ? `${cafe.name} — hộp vật lý (barcode + trạng thái)`
-              : 'Danh sách hộp game vật lý (barcode + trạng thái).'
+              ? `${cafe.name} â€” há»™p váº­t lÃ½ (barcode + tráº¡ng thÃ¡i)`
+              : 'Danh sÃ¡ch há»™p game váº­t lÃ½ (barcode + tráº¡ng thÃ¡i).'
           }
         />
       ) : null}
 
-      <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <ScanBarcode className="h-4 w-4" />
-          Tra cứu theo barcode
+      {/* BARCODE SCANNER â€” style game */}
+      <div className="relative overflow-hidden rounded-xl border-2 border-amber-400 bg-gradient-to-br from-amber-50 via-white to-amber-50 p-4 shadow-[3px_3px_0_rgba(245,158,11,0.35)]">
+        <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_3px,rgba(255,255,255,0.04)_3px,rgba(255,255,255,0.04)_4px)]" />
+        <span className="pointer-events-none absolute right-3 top-3 size-2 animate-pulse rounded-full bg-orange-500 shadow-[0_0_8px_currentColor]" />
+        <span className="pointer-events-none absolute left-3 top-3 size-2 animate-pulse rounded-full bg-amber-500 shadow-[0_0_8px_currentColor] [animation-delay:0.3s]" />
+
+        <div className="relative flex items-center gap-2 font-mono text-xs font-extrabold uppercase tracking-widest text-amber-900">
+          <ScanBarcode className="h-4 w-4 text-amber-600" />
+          <span className="text-yellow-400">â–º</span>
+          Tra cá»©u theo barcode
+          <span className="ml-auto flex items-center gap-1 text-[10px] text-orange-700">
+            <span className="size-1.5 animate-pulse rounded-full bg-orange-500 shadow-[0_0_6px_currentColor]" />
+            READY
+          </span>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="relative mt-3 flex flex-col gap-2 sm:flex-row">
           <Input
-            placeholder="VD: BV-CATAN-001"
+            placeholder="â–¸ VD: BV-CATAN-001"
             value={barcodeInput}
             onChange={(e) => setBarcodeInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') runBarcodeLookup();
             }}
-            className="min-w-0 flex-1 font-mono"
+            className="min-w-0 flex-1 border-2 border-orange-300 bg-white font-mono text-xs font-bold focus-visible:border-amber-500 focus-visible:ring-amber-300"
             autoComplete="off"
           />
-          <Button
+          <button
             type="button"
-            className="shrink-0"
             disabled={!barcodeInput.trim() || lookupFetching}
             onClick={runBarcodeLookup}
+            className="inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-md border-2 border-amber-700 bg-gradient-to-b from-amber-500 to-amber-700 px-4 font-mono text-xs font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.25),2px_2px_0_rgba(0,0,0,0.15)] transition-all hover:from-amber-400 hover:to-amber-600 disabled:cursor-not-allowed disabled:from-gray-400 disabled:to-gray-500 disabled:shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]"
           >
-            {lookupFetching ? 'Đang tra cứu...' : 'Tra cứu'}
-          </Button>
+            <span className="text-yellow-300">â–º</span>
+            {lookupFetching ? 'Äang tra cá»©u...' : 'Tra cá»©u'}
+          </button>
           {lookupBarcode ? (
-            <Button
+            <button
               type="button"
-              variant="ghost"
-              className="shrink-0"
               onClick={() => {
                 setLookupBarcode('');
                 setBarcodeInput('');
               }}
+              className="inline-flex h-9 shrink-0 items-center justify-center rounded-md border-2 border-neutral-400 bg-gradient-to-b from-neutral-100 to-neutral-200 px-4 font-mono text-xs font-extrabold uppercase tracking-widest text-neutral-700 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1),2px_2px_0_rgba(0,0,0,0.1)] hover:from-neutral-200 hover:to-neutral-300"
             >
-              Xóa
-            </Button>
+              âœ• XÃ³a
+            </button>
           ) : null}
         </div>
 
         {lookupBarcode && lookupFetching ? (
-          <p className="text-sm text-muted-foreground">Đang tra cứu `{lookupBarcode}`...</p>
+          <p className="relative mt-3 flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-widest text-orange-700">
+            <span className="size-1.5 animate-pulse rounded-full bg-orange-500 shadow-[0_0_6px_currentColor]" />
+            Äang tra cá»©u <span className="rounded border border-orange-300 bg-white px-1.5 py-0.5 font-mono text-amber-900">{lookupBarcode}</span>â€¦
+          </p>
         ) : null}
 
         {lookupBarcode && lookupError ? (
-          <p className="text-sm text-rose-600">
-            {(lookupErr as Error)?.message || 'Không tìm thấy hộp game với barcode này.'}
+          <p className="relative mt-3 rounded-md border-2 border-orange-400 bg-gradient-to-r from-orange-100 to-orange-100 p-2 font-mono text-xs font-bold uppercase tracking-wide text-orange-700 shadow-[2px_2px_0_rgba(249,115,22,0.4)]">
+            <span className="mr-1">âš </span>
+            {(lookupErr as Error)?.message || 'KhÃ´ng tÃ¬m tháº¥y há»™p game vá»›i barcode nÃ y.'}
           </p>
         ) : null}
 
         {lookupBarcode && lookupSuccess && lookedUpBox ? (
-          <div className="grid gap-2 rounded-md border bg-background p-3 text-sm sm:grid-cols-2">
+          <div className="relative mt-3 grid gap-2 rounded-lg border-2 border-orange-300 bg-gradient-to-br from-white via-amber-50/60 to-amber-50/40 p-3 text-sm shadow-[2px_2px_0_rgba(245,158,11,0.3)] sm:grid-cols-2">
             <div>
-              <p className="text-xs text-muted-foreground">Barcode</p>
-              <p className="font-mono font-medium">{lookedUpBox.barcode}</p>
+              <p className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-amber-600">
+                <span className="mr-1 text-yellow-400">â–¸</span>Barcode
+              </p>
+              <p className="font-mono text-xs font-extrabold uppercase tracking-wide text-orange-950">
+                {lookedUpBox.barcode}
+              </p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Trạng thái</p>
+              <p className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-amber-600">
+                <span className="mr-1 text-yellow-400">â–¸</span>Tráº¡ng thÃ¡i
+              </p>
               <Badge
                 variant="outline"
                 className={INVENTORY_STATUS_COLORS[lookedUpBox.status] ?? ''}
@@ -275,106 +318,133 @@ export function PosBoxesPanel({
               </Badge>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Game</p>
-              <p className="font-medium">{lookedUpBox.gameName || '—'}</p>
+              <p className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-amber-600">
+                <span className="mr-1 text-yellow-400">â–¸</span>Game
+              </p>
+              <p className="font-mono text-xs font-extrabold uppercase tracking-wide text-orange-950">
+                â–º {lookedUpBox.gameName || 'â€”'}
+              </p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Inventory</p>
-              <p className="font-mono text-xs break-all">
-                {lookedUpBox.inventoryId || '—'}
+              <p className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-amber-600">
+                <span className="mr-1 text-yellow-400">â–¸</span>Inventory
+              </p>
+              <p className="font-mono text-[11px] font-bold tracking-wider text-orange-700 break-all">
+                {lookedUpBox.inventoryId || 'â€”'}
               </p>
             </div>
             <div className="sm:col-span-2">
-              <p className="text-xs text-muted-foreground">Box ID</p>
-              <p className="font-mono text-xs break-all">{lookedUpBox.id || '—'}</p>
+              <p className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-amber-600">
+                <span className="mr-1 text-yellow-400">â–¸</span>Box ID
+              </p>
+              <p className="font-mono text-[11px] font-bold tracking-wider text-orange-700 break-all">
+                {lookedUpBox.id || 'â€”'}
+              </p>
             </div>
           </div>
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
-        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
-          <Input
-            placeholder="Lọc danh sách: barcode, tên game..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+      {/* FILTER BAR â€” style game */}
+      <div className="relative overflow-hidden rounded-xl border-2 border-amber-400 bg-gradient-to-r from-amber-100/60 via-white to-amber-100/60 p-3 shadow-[2px_2px_0_rgba(245,158,11,0.3)]">
+        <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_3px,rgba(255,255,255,0.05)_3px,rgba(255,255,255,0.05)_4px)]" />
+        <span className="pointer-events-none absolute right-2 top-2 size-1.5 animate-pulse rounded-full bg-orange-500 shadow-[0_0_6px_currentColor]" />
+
+        <div className="relative flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
+          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
+            <Input
+              placeholder="â–¸ Lá»c danh sÃ¡ch: barcode, tÃªn game..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  setSearch(searchInput);
+                  setPage(1);
+                }
+              }}
+              className="min-w-0 flex-1 border-2 border-orange-300 bg-white font-mono text-xs font-bold focus-visible:border-amber-500 focus-visible:ring-amber-300"
+            />
+            <button
+              type="button"
+              onClick={() => {
                 setSearch(searchInput);
                 setPage(1);
-              }
-            }}
-            className="min-w-0 flex-1"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            className="shrink-0"
-            onClick={() => {
-              setSearch(searchInput);
+              }}
+              className="inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-md border-2 border-amber-700 bg-gradient-to-b from-amber-500 to-amber-700 px-4 font-mono text-xs font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.25),2px_2px_0_rgba(0,0,0,0.15)] hover:from-amber-400 hover:to-amber-600"
+            >
+              <span className="text-yellow-300">â–º</span> Lá»c
+            </button>
+          </div>
+
+          <Select
+            value={gameTemplateId}
+            onValueChange={(value) => {
+              setGameTemplateId(value);
               setPage(1);
             }}
           >
-            Lọc
-          </Button>
+            <SelectTrigger className="w-full border-2 border-orange-300 bg-white font-mono text-xs font-bold md:w-[240px]">
+              <SelectValue placeholder="Lá»c theo game" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="font-mono text-xs font-bold">
+                â–º Táº¥t cáº£ tá»±a game
+              </SelectItem>
+              {gameOptions.map((game) => (
+                <SelectItem key={game.id} value={game.id} className="font-mono text-xs font-bold">
+                  {game.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={statusFilter}
+            onValueChange={(value) => {
+              setStatusFilter(value);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="w-full border-2 border-orange-300 bg-white font-mono text-xs font-bold md:w-[180px]">
+              <SelectValue placeholder="Tráº¡ng thÃ¡i" />
+            </SelectTrigger>
+            <SelectContent>
+              {INVENTORY_STATUS_FILTERS.map((item) => (
+                <SelectItem key={item.value} value={item.value} className="font-mono text-xs font-bold">
+                  {item.label}
+                </SelectItem>
+              ))}
+              <SelectItem value="Retired" className="font-mono text-xs font-bold">
+                NgÆ°ng dÃ¹ng
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-
-        <Select
-          value={gameTemplateId}
-          onValueChange={(value) => {
-            setGameTemplateId(value);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-full md:w-[240px]">
-            <SelectValue placeholder="Lọc theo game" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tất cả tựa game</SelectItem>
-            {gameOptions.map((game) => (
-              <SelectItem key={game.id} value={game.id}>
-                {game.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={statusFilter}
-          onValueChange={(value) => {
-            setStatusFilter(value);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-full md:w-[180px]">
-            <SelectValue placeholder="Trạng thái" />
-          </SelectTrigger>
-          <SelectContent>
-            {INVENTORY_STATUS_FILTERS.map((item) => (
-              <SelectItem key={item.value} value={item.value}>
-                {item.label}
-              </SelectItem>
-            ))}
-            <SelectItem value="Retired">Ngưng dùng</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {isError ? (
-        <div className="text-sm text-rose-600">
-          {(error as Error)?.message || 'Không thể tải danh sách hộp game.'}{' '}
-          <button type="button" className="underline" onClick={() => void refetch()}>
-            Thử lại
+        <div className="rounded-lg border-2 border-orange-400 bg-gradient-to-r from-orange-100 via-orange-50 to-amber-100 p-3 font-mono text-xs font-bold text-orange-700 shadow-[2px_2px_0_rgba(249,115,22,0.4)]">
+          <span className="mr-1">âš </span>
+          {(error as Error)?.message || 'KhÃ´ng thá»ƒ táº£i danh sÃ¡ch há»™p game.'}{' '}
+          <button
+            type="button"
+            className="underline decoration-2 underline-offset-2"
+            onClick={() => void refetch()}
+          >
+            â–º Thá»­ láº¡i
           </button>
         </div>
       ) : isLoading ? (
-        <div className="text-sm text-muted-foreground">Đang tải danh sách hộp game...</div>
+        <div className="flex items-center gap-2 rounded-lg border-2 border-orange-300 bg-orange-50/60 p-3 font-mono text-xs font-bold uppercase tracking-widest text-orange-700 shadow-[2px_2px_0_rgba(245,158,11,0.3)]">
+          <span className="size-2 animate-pulse rounded-full bg-orange-500 shadow-[0_0_6px_currentColor]" />
+          Äang táº£i danh sÃ¡ch há»™p gameâ€¦
+        </div>
       ) : (
         <>
           <PartnerDataTable
             columns={columns}
             data={paged}
-            emptyMessage="Chưa có hộp game nào trong kho POS."
+            emptyMessage="â–¸ ChÆ°a cÃ³ há»™p game nÃ o trong kho POS."
           />
 
           <CommonPagination

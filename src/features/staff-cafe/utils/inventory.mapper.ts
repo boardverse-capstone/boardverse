@@ -14,6 +14,10 @@ import type {
   RawInventoryListResponse,
   RawNearbyCafe,
   StaffWorkingCafe,
+  CafeReservation,
+  CafeLobby,
+  RawCafeReservation,
+  RawCafeLobby,
 } from '../types/cafe.interface';
 
 function pickString(...values: (string | null | undefined)[]): string {
@@ -32,6 +36,14 @@ function pickNumber(...values: (number | null | undefined)[]): number | undefine
 
 function pickBoolean(value: boolean | null | undefined, fallback = false): boolean {
   return value ?? fallback;
+}
+
+function pickBoolean2(
+  v1: boolean | null | undefined,
+  v2: boolean | null | undefined,
+  fallback = false,
+): boolean {
+  return v1 ?? v2 ?? fallback;
 }
 
 function parseApiDate(value?: string | null): string | null {
@@ -296,6 +308,66 @@ export function mapApiStaffWorkingCafe(raw: Record<string, unknown>): StaffWorki
   };
 }
 
+export function mapApiCafeReservation(raw: RawCafeReservation): CafeReservation {
+  return {
+    reservationId: pickString(
+      raw.reservationId,
+      raw.ReservationId,
+    ),
+    hostId: pickString(raw.hostId, raw.HostId),
+    hostUserName: pickString(
+      raw.hostUserName,
+      raw.HostUserName,
+      raw.hostDisplayName,
+      raw.HostDisplayName,
+    ),
+    cafeId: pickString(raw.cafeId, raw.CafeId),
+    cafeName: pickString(raw.cafeName, raw.CafeName),
+    gameTemplateId: pickString(raw.gameTemplateId, raw.GameTemplateId),
+    gameName: pickString(raw.gameName, raw.GameName),
+    playDate: pickString(raw.playDate, raw.PlayDate),
+    timeSlot: pickString(raw.timeSlot, raw.TimeSlot),
+    preferredStartTime: pickString(raw.preferredStartTime, raw.PreferredStartTime),
+    minPlayers: pickNumber(raw.minPlayers, raw.MinPlayers) ?? 0,
+    maxPlayers: pickNumber(raw.maxPlayers, raw.MaxPlayers) ?? 0,
+    currentPlayers: pickNumber(raw.currentPlayers, raw.CurrentPlayers) ?? 0,
+    status: pickString(raw.status, raw.Status),
+    depositAmountBvc: pickNumber(
+      raw.depositAmountBvc,
+      raw.DepositAmountBvc,
+      raw.depositAmount,
+      raw.DepositAmount,
+    ) ?? 0,
+    createdAt: pickString(raw.createdAt, raw.CreatedAt),
+  };
+}
+
+export function mapApiCafeLobby(raw: RawCafeLobby): CafeLobby {
+  return {
+    lobbyId: pickString(raw.lobbyId, raw.LobbyId),
+    hostId: pickString(raw.hostId, raw.HostId),
+    hostUserName: pickString(
+      raw.hostUserName,
+      raw.HostUserName,
+      raw.hostDisplayName,
+      raw.HostDisplayName,
+    ),
+    cafeId: pickString(raw.cafeId, raw.CafeId),
+    cafeName: pickString(raw.cafeName, raw.CafeName),
+    gameTemplateId: pickString(raw.gameTemplateId, raw.GameTemplateId),
+    gameName: pickString(raw.gameName, raw.GameName),
+    playDate: pickString(raw.playDate, raw.PlayDate),
+    timeSlot: pickString(raw.timeSlot, raw.TimeSlot),
+    minPlayers: pickNumber(raw.minPlayers, raw.MinPlayers) ?? 0,
+    maxPlayers: pickNumber(raw.maxPlayers, raw.MaxPlayers) ?? 0,
+    currentPlayers: pickNumber(raw.currentPlayers, raw.CurrentPlayers) ?? 0,
+    status: pickString(raw.status, raw.Status),
+    isPrivate: pickBoolean2(raw.isPrivate, raw.IsPrivate, false),
+    recruitmentDeadline: raw.recruitmentDeadline ?? raw.RecruitmentDeadline ?? null,
+    createdAt: pickString(raw.createdAt, raw.CreatedAt),
+  };
+}
+
 export function normalizeInventoryListResponse(
   raw: RawInventoryListItem[] | RawInventoryListResponse | null | undefined,
   params: InventoryListParams,
@@ -380,4 +452,113 @@ export function formatInventoryDate(value?: string | null): string {
   if (!value) return '—';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('vi-VN');
+}
+
+function extractReservationItems(raw: unknown): RawCafeReservation[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw as RawCafeReservation[];
+
+  const r = raw as Record<string, unknown>;
+  const data = r.data ?? r.Data ?? r.items ?? r.Items ?? r.reservations ?? r.Reservations ?? [];
+  if (Array.isArray(data)) return data as RawCafeReservation[];
+
+  return [];
+}
+
+function extractLobbyItems(raw: unknown): RawCafeLobby[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw as RawCafeLobby[];
+
+  const r = raw as Record<string, unknown>;
+  const data = r.data ?? r.Data ?? r.items ?? r.Items ?? r.lobbies ?? r.Lobbies ?? [];
+  if (Array.isArray(data)) return data as RawCafeLobby[];
+
+  return [];
+}
+
+function extractMeta(raw: unknown): {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+} {
+  const r = raw as Record<string, unknown>;
+  const meta = r.meta ?? r.Meta ?? r.pagination ?? r.Pagination ?? {};
+
+  const m = meta as Record<string, unknown>;
+  const page = pickNumber(
+    m.currentPage as number,
+    m.page as number,
+    m.Page as number,
+    (m.pageNumber as number) ?? (r.page as number),
+    (m.PageNumber as number) ?? 1,
+  ) ?? 1;
+  const pageSize = pickNumber(
+    m.pageSize as number,
+    m.pageSize as number,
+    m.PageSize as number,
+    m.limit as number,
+    (r.pageSize as number) ?? 20,
+  ) ?? 20;
+  const totalItems = pickNumber(
+    m.totalItems as number,
+    m.totalCount as number,
+    m.TotalCount as number,
+    r.totalCount as number,
+    r.TotalCount as number,
+  ) ?? 0;
+  const totalPages = pickNumber(
+    m.totalPages as number,
+    m.totalPages as number,
+    m.TotalPages as number,
+  ) ?? Math.max(1, Math.ceil(totalItems / pageSize));
+
+  return {
+    page,
+    pageSize,
+    totalItems,
+    totalPages,
+    hasPrevious: typeof m.hasPrevious === 'boolean' ? m.hasPrevious : page > 1,
+    hasNext: typeof m.hasNext === 'boolean' ? m.hasNext : page < totalPages,
+  };
+}
+
+export function normalizeCafeReservationList(
+  raw: unknown,
+): PaginatedResponse<CafeReservation> {
+  const items = extractReservationItems(raw).map(mapApiCafeReservation);
+  const { page, pageSize, totalItems, totalPages, hasPrevious, hasNext } = extractMeta(raw);
+
+  return {
+    data: items,
+    meta: {
+      currentPage: page,
+      limit: pageSize,
+      totalItems,
+      totalPages,
+      hasPrevious,
+      hasNext,
+    },
+  };
+}
+
+export function normalizeCafeLobbyList(
+  raw: unknown,
+): PaginatedResponse<CafeLobby> {
+  const items = extractLobbyItems(raw).map(mapApiCafeLobby);
+  const { page, pageSize, totalItems, totalPages, hasPrevious, hasNext } = extractMeta(raw);
+
+  return {
+    data: items,
+    meta: {
+      currentPage: page,
+      limit: pageSize,
+      totalItems,
+      totalPages,
+      hasPrevious,
+      hasNext,
+    },
+  };
 }
