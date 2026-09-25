@@ -13,12 +13,28 @@ import type { OverrideSettlementResult } from '../types/admin-settlement.interfa
 const GUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export function AdminSettlementOverridePanel() {
-  const [settlementId, setSettlementId] = useState('');
+interface AdminSettlementOverridePanelProps {
+  settlementId?: string;
+  onSettlementIdChange?: (settlementId: string) => void;
+}
+
+export function AdminSettlementOverridePanel({
+  settlementId: controlledSettlementId,
+  onSettlementIdChange,
+}: AdminSettlementOverridePanelProps) {
+  const [internalSettlementId, setInternalSettlementId] = useState('');
   const [reason, setReason] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [result, setResult] = useState<OverrideSettlementResult | null>(null);
   const mutation = useOverrideSettlement();
+  const settlementId = controlledSettlementId ?? internalSettlementId;
+
+  const setSettlementId = (value: string) => {
+    if (controlledSettlementId === undefined) {
+      setInternalSettlementId(value);
+    }
+    onSettlementIdChange?.(value);
+  };
 
   const handleSubmit = () => {
     const id = settlementId.trim();

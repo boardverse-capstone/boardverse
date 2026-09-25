@@ -39,6 +39,9 @@ import type {
   UpdatePosTablePayload,
   CreateCheckInTokenPayload,
   PosCheckInTokenDto,
+  SessionPaymentStatus,
+  SessionPaymentMemberStatus,
+  MemberPaymentResult,
 } from '../types/pos-check-in.interface';
 import {
   mapApiActivatedSession,
@@ -423,6 +426,115 @@ function isNotFoundError(err: unknown): boolean {
     );
   }
   return false;
+}
+
+function unwrapData(raw: unknown): unknown {
+  if (raw && typeof raw === 'object' && 'data' in raw) {
+    return (raw as { data: unknown }).data;
+  }
+  return raw;
+}
+
+function mapOneMemberPayment(r: Record<string, unknown>): MemberPaymentResult {
+  return {
+    memberId: String(r.memberId ?? r.MemberId ?? ''),
+    displayName: String(r.displayName ?? r.DisplayName ?? 'Khách'),
+    amountDue: Number(r.amountDue ?? r.AmountDue ?? 0),
+    amountPaid: Number(r.amountPaid ?? r.AmountPaid ?? 0),
+    paymentMethod: String(r.paymentMethod ?? r.PaymentMethod ?? ''),
+    status: String(r.status ?? r.Status ?? 'NotPaid'),
+    paidAt:
+      r.paidAt != null
+        ? String(r.paidAt)
+        : r.PaidAt != null
+          ? String(r.PaidAt)
+          : null,
+    orderId:
+      r.orderId != null
+        ? String(r.orderId)
+        : r.OrderId != null
+          ? String(r.OrderId)
+          : null,
+    qrImageUrl:
+      r.qrImageUrl != null
+        ? String(r.qrImageUrl)
+        : r.QrImageUrl != null
+          ? String(r.QrImageUrl)
+          : null,
+    paymentUrl:
+      r.paymentUrl != null
+        ? String(r.paymentUrl)
+        : r.PaymentUrl != null
+          ? String(r.PaymentUrl)
+          : null,
+    transferContent:
+      r.transferContent != null
+        ? String(r.transferContent)
+        : r.TransferContent != null
+          ? String(r.TransferContent)
+          : null,
+  };
+}
+
+function mapMemberPaymentResults(raw: unknown): MemberPaymentResult[] {
+  const data = unwrapData(raw);
+  const list = Array.isArray(data)
+    ? data
+    : data && typeof data === 'object' && Array.isArray((data as { items?: unknown }).items)
+      ? ((data as { items: unknown[] }).items)
+      : data && typeof data === 'object'
+        ? [data]
+        : [];
+  return list
+    .map((item) =>
+      item && typeof item === 'object'
+        ? mapOneMemberPayment(item as Record<string, unknown>)
+        : null,
+    )
+    .filter((m): m is MemberPaymentResult => !!m?.memberId);
+}
+
+function mapSessionPaymentStatus(
+  raw: unknown,
+  fallbackSessionId: string,
+): SessionPaymentStatus {
+  const data = unwrapData(raw);
+  const r =
+    data && typeof data === 'object' ? (data as Record<string, unknown>) : {};
+  const membersRaw = Array.isArray(r.members)
+    ? r.members
+    : Array.isArray(r.Members)
+      ? r.Members
+      : [];
+  const members: SessionPaymentMemberStatus[] = membersRaw
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const m = item as Record<string, unknown>;
+      const memberId = String(m.memberId ?? m.MemberId ?? m.id ?? '');
+      if (!memberId) return null;
+      return {
+        memberId,
+        displayName: String(m.displayName ?? m.DisplayName ?? 'Khách'),
+        totalAmount: Number(m.totalAmount ?? m.TotalAmount ?? 0),
+        amountPaid: Number(m.amountPaid ?? m.AmountPaid ?? 0),
+        status: String(m.status ?? m.Status ?? 'NotPaid'),
+        paymentMethod:
+          m.paymentMethod != null
+            ? String(m.paymentMethod)
+            : m.PaymentMethod != null
+              ? String(m.PaymentMethod)
+              : null,
+      };
+    })
+    .filter((m): m is SessionPaymentMemberStatus => !!m);
+
+  return {
+    sessionId: String(r.sessionId ?? r.SessionId ?? fallbackSessionId),
+    totalAmount: Number(r.totalAmount ?? r.TotalAmount ?? 0),
+    totalPaid: Number(r.totalPaid ?? r.TotalPaid ?? 0),
+    totalRemaining: Number(r.totalRemaining ?? r.TotalRemaining ?? 0),
+    members,
+  };
 }
 
 function mapCafeReservationListItem(raw: unknown): CafeReservationListItem | null {
@@ -1316,37 +1428,23 @@ export const PosCheckInService = {
     sessionId: string,
     payload: AddSessionMembersPayload,
   ): Promise<CafeSessionDetail> => {
-    
-
-    try {
-      const raw = await apiClient.post<never, unknown>(
-        posSessionPath(cafeId, sessionId, '/members/add'),
-        payload,
-      );
-      return mapApiSession(raw);
-    } catch {
-      const current = await PosCheckInService.getSession(cafeId, sessionId).catch(() => null);
-      return {
-        sessionId,
-        bookingId: current?.bookingId || sessionId,
-        tableId: current?.tableId || '',
-        tableLabel: current?.tableLabel || 'Bàn',
-        cafeId,
-        game: current?.game || {
-          id: 'game',
-          name: 'Board Game',
-          imageUrl: '',
-          minPlayers: 1,
-          maxPlayers: 8,
-        },
-        startedAt: current?.startedAt || new Date().toISOString(),
-        presentCount: (current?.presentCount ?? 0) + payload.userIds.length,
-        memberIds: [...(current?.memberIds ?? []), ...payload.userIds],
-        depositCreditTotal: current?.depositCreditTotal ?? 0,
-        billingModel: current?.billingModel || 'BY_HOUR',
-        status: current?.status || 'Active',
-      };
+    const guidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const userIds = (payload.userIds || [])
+      .map((id) => String(id ?? '').trim())
+      .filter((id) => guidRe.test(id));
+    if (userIds.length === 0) {
+      throw new Error('Cần chọn user có mã hệ thống (GUID) để thêm vào phiên.');
     }
+
+    const raw = await apiClient.post<never, unknown>(
+      posSessionPath(cafeId, sessionId, '/members/add'),
+      {
+        userIds,
+        memberUserIds: userIds,
+      },
+    );
+    return mapApiSession(raw);
   },
 
   /** POST .../games — body: AttachGameRequestDto { gameBarcode } */
@@ -1517,38 +1615,46 @@ export const PosCheckInService = {
     };
   },
 
-  /** POST .../merge — body: { memberUserId, targetSessionId } */
+  /** POST .../merge — body: { memberId, targetSessionId } (memberId = ActiveSessionMember.Id) */
   mergeSessions: async (
     cafeId: string,
     sourceSessionId: string,
     payload: MergeSessionsPayload,
   ): Promise<CafeSessionDetail> => {
-    
+    const memberId = String(payload.memberUserId ?? '').trim();
+    if (!memberId) {
+      throw new Error('Thiếu mã thành viên trong phiên để ghép.');
+    }
 
     const raw = await apiClient.post<never, unknown>(
       sessionPath(cafeId, sourceSessionId, '/merge'),
       {
-        memberId: payload.memberUserId,
-        memberUserId: payload.memberUserId,
+        memberId,
         targetSessionId: payload.targetSessionId,
       },
     );
     return mapApiSession(raw);
   },
 
-  /** POST .../partial-checkout — body: { memberUserIds, applyDeposit } */
+  /** POST .../partial-checkout — body: { memberIds } = ActiveSessionMember.Id[] */
   partialCheckout: async (
     cafeId: string,
     sessionId: string,
     payload: PartialCheckoutPayload,
   ): Promise<SessionBill> => {
-    
+    const guidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const memberIds = (payload.memberUserIds || [])
+      .map((id) => String(id ?? '').trim())
+      .filter((id) => guidRe.test(id));
+    if (memberIds.length === 0) {
+      throw new Error('Cần chọn ít nhất 1 thành viên (memberId) để đánh dấu về sớm.');
+    }
 
     const raw = await apiClient.post<never, unknown>(
       sessionPath(cafeId, sessionId, '/partial-checkout'),
       {
-        memberIds: payload.memberUserIds,
-        memberUserIds: payload.memberUserIds,
+        memberIds,
         applyDeposit: payload.applyDeposit ?? true,
       },
     );
@@ -1630,6 +1736,77 @@ export const PosCheckInService = {
     return mapApiPaymentCode(raw);
   },
 
+  /** GET .../payment-status — Split Bill: ai đã trả / còn nợ */
+  getSessionPaymentStatus: async (
+    cafeId: string,
+    sessionId: string,
+  ): Promise<SessionPaymentStatus> => {
+    const raw = await apiClient.get<never, unknown>(
+      posSessionPath(cafeId, sessionId, '/payment-status'),
+    );
+    return mapSessionPaymentStatus(raw, sessionId);
+  },
+
+  /**
+   * POST .../pay-member — Split Bill: thu 1+ member (CASH | QR_CODE).
+   */
+  payMembers: async (
+    cafeId: string,
+    sessionId: string,
+    payload: {
+      memberIds: string[];
+      paymentMethod: 'CASH' | 'QR_CODE';
+      notes?: string;
+    },
+  ): Promise<MemberPaymentResult[]> => {
+    const raw = await apiClient.post<never, unknown>(
+      posSessionPath(cafeId, sessionId, '/pay-member'),
+      {
+        memberIds: payload.memberIds,
+        paymentMethod: payload.paymentMethod,
+        notes: payload.notes || undefined,
+      },
+    );
+    return mapMemberPaymentResults(raw);
+  },
+
+  /** POST .../members/{memberId}/confirm-cash */
+  confirmMemberCash: async (
+    cafeId: string,
+    sessionId: string,
+    memberId: string,
+    notes?: string,
+  ): Promise<MemberPaymentResult | null> => {
+    const raw = await apiClient.post<never, unknown>(
+      posSessionPath(
+        cafeId,
+        sessionId,
+        `/members/${encodeURIComponent(memberId)}/confirm-cash`,
+      ),
+      notes ? { notes } : {},
+    );
+    const list = mapMemberPaymentResults(raw);
+    return list[0] ?? (raw && typeof raw === 'object' ? mapOneMemberPayment(raw as Record<string, unknown>) : null);
+  },
+
+  /** POST .../members/{memberId}/regenerate-qr */
+  regenerateMemberQr: async (
+    cafeId: string,
+    sessionId: string,
+    memberId: string,
+  ): Promise<MemberPaymentResult | null> => {
+    const raw = await apiClient.post<never, unknown>(
+      posSessionPath(
+        cafeId,
+        sessionId,
+        `/members/${encodeURIComponent(memberId)}/regenerate-qr`,
+      ),
+      {},
+    );
+    const list = mapMemberPaymentResults(raw);
+    return list[0] ?? (raw && typeof raw === 'object' ? mapOneMemberPayment(raw as Record<string, unknown>) : null);
+  },
+
   /**
    * POST /api/payments/session-payment
    * Body sống (Swagger): sessionId + notes (+ customerEmail). BE lấy TotalAmount từ session UNPAID.
@@ -1675,6 +1852,19 @@ export const PosCheckInService = {
       }
       throw err instanceof Error ? err : new Error(msg || 'Không tạo được mã thanh toán.');
     }
+  },
+
+  /** POST /api/payments/session-payment/{sessionId}/regenerate-qr */
+  regenerateSessionPaymentQr: async (sessionId: string): Promise<PaymentCode> => {
+    const raw = await apiClient.post<never, unknown>(
+      `/api/payments/session-payment/${encodeURIComponent(sessionId)}/regenerate-qr`,
+    );
+    const code = mapApiPaymentCode(raw);
+    if (!code.qrPayload) {
+      throw new Error('BE không trả qrImageUrl / paymentUrl.');
+    }
+    if (code.amount > 0) writeServerCheckoutTotal(sessionId, code.amount);
+    return code;
   },
 
   /** POST /api/payments/manual-confirm — ManualPaymentConfirmRequestDto */
@@ -2246,54 +2436,80 @@ export const PosCheckInService = {
 
   searchCustomerUsers: async (query: string): Promise<{ id: string; username: string; fullName?: string; email?: string; phone?: string; avatarUrl?: string }[]> => {
     const q = query.trim();
-    if (!q) return [];
+    if (q.length < 2) return [];
+
+    const mapUser = (u: Record<string, unknown>) => {
+      const nested =
+        u.user && typeof u.user === 'object'
+          ? (u.user as Record<string, unknown>)
+          : null;
+      const id = String(
+        u.userId ??
+          u.UserId ??
+          u.id ??
+          u.Id ??
+          nested?.userId ??
+          nested?.UserId ??
+          nested?.id ??
+          nested?.Id ??
+          '',
+      ).trim();
+      const guidRe =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!guidRe.test(id)) return null;
+      const username = String(
+        u.username ??
+          u.Username ??
+          nested?.username ??
+          u.fullName ??
+          u.FullName ??
+          'Khách hàng',
+      );
+      return {
+        id,
+        username,
+        fullName: u.fullName || u.FullName ? String(u.fullName ?? u.FullName) : undefined,
+        email: u.email || u.Email ? String(u.email ?? u.Email) : undefined,
+        phone: u.phone || u.Phone || u.phoneNumber || u.PhoneNumber
+          ? String(u.phone ?? u.Phone ?? u.phoneNumber ?? u.PhoneNumber)
+          : undefined,
+        avatarUrl: u.avatarUrl || u.AvatarUrl ? String(u.avatarUrl ?? u.AvatarUrl) : undefined,
+      };
+    };
+
+    const unwrapUsers = (raw: unknown): Record<string, unknown>[] => {
+      if (Array.isArray(raw)) return raw as Record<string, unknown>[];
+      if (!raw || typeof raw !== 'object') return [];
+      const r = raw as Record<string, unknown>;
+      const nested = r.items ?? r.Items ?? r.data ?? r.Data;
+      if (Array.isArray(nested)) return nested as Record<string, unknown>[];
+      return [];
+    };
+
+    let friends: NonNullable<ReturnType<typeof mapUser>>[] = [];
+    try {
+      friends = unwrapUsers(
+        await apiClient.get<never, unknown>(`/api/v1/friends/search`, {
+          params: { q, limit: 20 },
+        }),
+      )
+        .map(mapUser)
+        .filter((u): u is NonNullable<typeof u> => Boolean(u));
+    } catch {
+      friends = [];
+    }
+    if (friends.length > 0) return friends;
 
     try {
-      const res = await apiClient.get<never, { userId?: string; id?: string; username?: string; fullName?: string; email?: string; phone?: string; avatarUrl?: string }[]>(
-        `/api/v1/friends/search?q=${encodeURIComponent(q)}`
-      );
-      if (Array.isArray(res) && res.length > 0) {
-        return res.map((u) => ({
-          id: u.userId || u.id || '',
-          username: u.username || u.fullName || 'Khách hàng',
-          fullName: u.fullName,
-          email: u.email,
-          phone: u.phone,
-          avatarUrl: u.avatarUrl,
-        }));
-      }
+      return unwrapUsers(
+        await apiClient.get<never, unknown>(`/api/usermanagement/users`, {
+          params: { search: q, pageSize: 8 },
+        }),
+      )
+        .map(mapUser)
+        .filter((u): u is NonNullable<typeof u> => Boolean(u));
     } catch {
-      // Fallback
+      return [];
     }
-
-    try {
-      const res = await apiClient.get<never, { items?: { id: string; username?: string; fullName?: string; email?: string; phone?: string; avatarUrl?: string }[] }>(
-        `/api/usermanagement/users?search=${encodeURIComponent(q)}&pageSize=8`
-      );
-      const items = ((res as { items?: unknown[] })?.items || (Array.isArray(res) ? res : [])) as Record<string, unknown>[];
-      if (Array.isArray(items) && items.length > 0) {
-        return items.map((u) => ({
-          id: String(u.id || ''),
-          username: String(u.username || u.fullName || 'Khách hàng'),
-          fullName: u.fullName ? String(u.fullName) : undefined,
-          email: u.email ? String(u.email) : undefined,
-          phone: u.phone ? String(u.phone) : undefined,
-          avatarUrl: u.avatarUrl ? String(u.avatarUrl) : undefined,
-        }));
-      }
-    } catch {
-      // Fallback
-    }
-
-    const isPhone = /^\d{8,11}$/.test(q);
-    const isEmail = q.includes('@');
-    return [
-      {
-        id: `user-${q.toLowerCase().replace(/[^a-z0-9]/g, '') || 'guest'}`,
-        username: isEmail ? q.split('@')[0] : isPhone ? `Khách SĐT ${q}` : q,
-        email: isEmail ? q : `${q.toLowerCase().replace(/\s+/g, '')}@gmail.com`,
-        phone: isPhone ? q : '0987654321',
-      },
-    ];
   },
 };

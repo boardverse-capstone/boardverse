@@ -1,8 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
-import { ArrowUpDown, RotateCcw, Search } from 'lucide-react';
+import { ArrowUpDown, Loader2, RotateCcw, Search, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,16 +22,16 @@ import {
   KARMA_BEHAVIOR_LABELS,
 } from '@/core/constants/behavior-monitoring';
 import { PartnerDataTable } from '@/features/partner/components/partner-data-table';
+import { UserManagementService } from '@/features/user-management/services/user-management.service';
+import type { ManagedUser } from '@/features/user-management/types/user.interface';
 import { useKarmaLogs } from '../hooks/useKarmaLogs';
 import type { KarmaLogEntry, KarmaLogParams } from '../types/behavior.interface';
 
 const DEFAULT_LIMIT = 20;
 
-const GUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 interface KarmaLogFiltersDraft {
   userId: string;
+  username: string;
   behaviorType: string;
   fromLocal: string;
   toLocal: string;
@@ -37,6 +39,7 @@ interface KarmaLogFiltersDraft {
 
 const EMPTY_DRAFT: KarmaLogFiltersDraft = {
   userId: '',
+  username: '',
   behaviorType: 'all',
   fromLocal: '',
   toLocal: '',
@@ -50,15 +53,6 @@ function toUtcIso(localValue: string): string | undefined {
 }
 
 const columns: ColumnDef<KarmaLogEntry>[] = [
-  {
-    accessorKey: 'userId',
-    header: 'ID người chơi',
-    cell: ({ row }) => (
-      <span className="font-mono text-xs" title={row.original.userId}>
-        {row.original.userId.slice(0, 8)}…
-      </span>
-    ),
-  },
   {
     accessorKey: 'displayName',
     header: ({ column }) => (
@@ -109,6 +103,19 @@ export function KarmaLogTable() {
   const [draft, setDraft] = useState<KarmaLogFiltersDraft>(EMPTY_DRAFT);
   const [applied, setApplied] = useState<KarmaLogFiltersDraft>(EMPTY_DRAFT);
   const [filterError, setFilterError] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState('');
+  const [submittedSearch, setSubmittedSearch] = useState('');
+
+  const userSearch = useQuery({
+    queryKey: ['karma-log-user-search', submittedSearch],
+    enabled: submittedSearch.length >= 2,
+    queryFn: () =>
+      UserManagementService.getUsers({
+        page: 1,
+        limit: 12,
+        search: submittedSearch,
+      }),
+  });
 
   const queryParams = useMemo<KarmaLogParams>(() => {
     return {
@@ -124,22 +131,26 @@ export function KarmaLogTable() {
   const { data, isLoading, isError, refetch, isFetching } = useKarmaLogs(queryParams);
   const tableColumns = useMemo(() => columns, []);
 
-  const applyFilters = () => {
-    const userId = draft.userId.trim();
-    if (userId && !GUID_RE.test(userId)) {
-      setFilterError('userId phải là UUID hợp lệ.');
-      return;
-    }
+  const selectUser = (user: ManagedUser) => {
+    setDraft((prev) => ({
+      ...prev,
+      userId: user.id,
+      username: user.username,
+    }));
+    setSearchText('');
+    setSubmittedSearch('');
+  };
 
+  const applyFilters = () => {
     const fromUtc = toUtcIso(draft.fromLocal);
     const toUtc = toUtcIso(draft.toLocal);
     if (fromUtc && toUtc && new Date(fromUtc).getTime() > new Date(toUtc).getTime()) {
-      setFilterError('fromUtc không được lớn hơn toUtc.');
+      setFilterError('Thời điểm bắt đầu không được lớn hơn thời điểm kết thúc.');
       return;
     }
 
     setFilterError(null);
-    setApplied({ ...draft, userId });
+    setApplied({ ...draft });
     setPage(1);
   };
 
@@ -147,6 +158,8 @@ export function KarmaLogTable() {
     setDraft(EMPTY_DRAFT);
     setApplied(EMPTY_DRAFT);
     setFilterError(null);
+    setSearchText('');
+    setSubmittedSearch('');
     setPage(1);
   };
 
@@ -165,20 +178,78 @@ export function KarmaLogTable() {
     );
   }
 
+  const searchResults = userSearch.data?.data ?? [];
+
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-4">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="karma-filter-userId">User ID</Label>
-            <Input
-              id="karma-filter-userId"
-              placeholder="UUID người dùng"
-              value={draft.userId}
-              onChange={(e) => setDraft((prev) => ({ ...prev, userId: e.target.value }))}
-              onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
-              className="border-indigo-200 bg-white font-mono text-xs"
-            />
+          <div className="space-y-1.5 md:col-span-2">
+            <Label htmlFor="karma-filter-user">Người chơi</Label>
+            {draft.userId ? (
+              <div className="flex items-center justify-between gap-2 rounded-md border border-indigo-200 bg-white px-3 py-2">
+                <span className="text-sm font-medium">{draft.username}</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() =>
+                    setDraft((prev) => ({ ...prev, userId: '', username: '' }))
+                  }
+                >
+                  <X className="size-4" />
+                  Bỏ chọn
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <form
+                  className="flex gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const next = searchText.trim();
+                    if (next.length < 2) {
+                      toast.error('Nhập ít nhất 2 ký tự để tìm người chơi.');
+                      return;
+                    }
+                    setSubmittedSearch(next);
+                  }}
+                >
+                  <Input
+                    id="karma-filter-user"
+                    placeholder="Tìm theo tên, SĐT hoặc email..."
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    className="border-indigo-200 bg-white"
+                  />
+                  <Button type="submit" variant="outline" disabled={userSearch.isFetching}>
+                    <Search className="h-4 w-4" />
+                  </Button>
+                </form>
+                {userSearch.isFetching ? (
+                  <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="size-3.5 animate-spin" /> Đang tìm...
+                  </p>
+                ) : null}
+                {searchResults.length > 0 ? (
+                  <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border bg-white p-1">
+                    {searchResults.map((user) => (
+                      <button
+                        key={user.id}
+                        type="button"
+                        className="flex w-full flex-col rounded px-2 py-1.5 text-left text-sm hover:bg-indigo-50"
+                        onClick={() => selectUser(user)}
+                      >
+                        <span className="font-medium">{user.username}</span>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {[user.phoneNumber, user.email].filter(Boolean).join(' · ')}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -201,7 +272,7 @@ export function KarmaLogTable() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="karma-filter-from">Từ thời điểm (fromUtc)</Label>
+            <Label htmlFor="karma-filter-from">Từ thời điểm</Label>
             <Input
               id="karma-filter-from"
               type="datetime-local"
@@ -212,7 +283,7 @@ export function KarmaLogTable() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="karma-filter-to">Đến thời điểm (toUtc)</Label>
+            <Label htmlFor="karma-filter-to">Đến thời điểm</Label>
             <Input
               id="karma-filter-to"
               type="datetime-local"

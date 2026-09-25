@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { Clock, Gamepad2, QrCode, Users } from 'lucide-react';
@@ -11,7 +11,7 @@ import { usePendingBookings, useStaffCafe } from '@/features/pos-check-in/hooks/
 import type { TableBooking } from '../types/pos-check-in.interface';
 
 function formatTime(iso: string) {
-  if (!iso) return '—';
+  if (!iso) return 'â€”';
   return new Intl.DateTimeFormat('vi-VN', {
     hour: '2-digit',
     minute: '2-digit',
@@ -25,15 +25,15 @@ function formatCurrency(amount: number) {
 }
 
 function statusBadgeLabel(statusText?: string) {
-  if (!statusText) return 'Chờ check-in';
-  if (statusText === 'PendingDeposit') return 'Chờ đặt cọc';
+  if (!statusText) return 'Chá» check-in';
+  if (statusText === 'PendingDeposit') return 'Chá» Ä‘áº·t cá»c';
   return statusText;
 }
 
 interface PosBookingListProps {
-  /** Ẩn tiêu đề trang (khi nhúng trong Web POS) */
+  /** áº¨n tiÃªu Ä‘á» trang (khi nhÃºng trong Web POS) */
   embedded?: boolean;
-  /** Chọn booking tại chỗ thay vì điều hướng */
+  /** Chá»n booking táº¡i chá»— thay vÃ¬ Ä‘iá»u hÆ°á»›ng */
   onSelectBooking?: (booking: TableBooking) => void;
 }
 
@@ -68,10 +68,10 @@ export function PosBookingList({ embedded = false, onSelectBooking }: PosBooking
 
   if (cafeError) {
     return (
-      <div className="text-sm text-rose-600">
-        {queryErrorMessage(cafeLoadError, 'Không thể tải thông tin quán.')}{' '}
+      <div className="text-sm text-orange-600">
+        {queryErrorMessage(cafeLoadError, 'KhÃ´ng thá»ƒ táº£i thÃ´ng tin quÃ¡n.')}{' '}
         <button type="button" className="underline" onClick={() => refetchCafe()}>
-          Thử lại
+          Thá»­ láº¡i
         </button>
       </div>
     );
@@ -79,10 +79,10 @@ export function PosBookingList({ embedded = false, onSelectBooking }: PosBooking
 
   if (bookingsError) {
     return (
-      <div className="text-sm text-rose-600">
-        {queryErrorMessage(bookingsLoadError, 'Không thể tải danh sách booking.')}{' '}
+      <div className="text-sm text-orange-600">
+        {queryErrorMessage(bookingsLoadError, 'KhÃ´ng thá»ƒ táº£i danh sÃ¡ch booking.')}{' '}
         <button type="button" className="underline" onClick={() => refetchBookings()}>
-          Thử lại
+          Thá»­ láº¡i
         </button>
       </div>
     );
@@ -92,9 +92,9 @@ export function PosBookingList({ embedded = false, onSelectBooking }: PosBooking
     <div className="space-y-4 md:space-y-6">
       {!embedded && (
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Đặt chỗ quán</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Äáº·t chá»— quÃ¡n</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {cafe?.name ?? 'Quán'} · Danh sách đặt chỗ
+            {cafe?.name ?? 'QuÃ¡n'} Â· Danh sÃ¡ch Ä‘áº·t chá»—
           </p>
         </div>
       )}
@@ -102,7 +102,7 @@ export function PosBookingList({ embedded = false, onSelectBooking }: PosBooking
       {bookings.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-10 text-center text-sm text-muted-foreground md:py-12">
-            Không có booking nào đang chờ check-in.
+            KhÃ´ng cÃ³ booking nÃ o Ä‘ang chá» check-in.
           </CardContent>
         </Card>
       ) : (
@@ -115,7 +115,7 @@ export function PosBookingList({ embedded = false, onSelectBooking }: PosBooking
                   <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                     <Clock className="h-3.5 w-3.5" />
                     {formatTime(booking.scheduledAt)}
-                    {booking.scheduledEndAt ? ` – ${formatTime(booking.scheduledEndAt)}` : ''}
+                    {booking.scheduledEndAt ? ` â€“ ${formatTime(booking.scheduledEndAt)}` : ''}
                   </p>
                 </div>
                 <Badge variant="secondary">{statusBadgeLabel(booking.statusText)}</Badge>
@@ -125,15 +125,15 @@ export function PosBookingList({ embedded = false, onSelectBooking }: PosBooking
                   <Gamepad2 className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium">{booking.bookedGame.name}</span>
                   <span className="text-muted-foreground">
-                    ({booking.playerQuantity ?? booking.participants.length} người)
+                    ({booking.playerQuantity ?? booking.participants.length} ngÆ°á»i)
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Users className="h-4 w-4" />
-                  {booking.participants.length} thành viên / slot
+                  {booking.participants.length} thÃ nh viÃªn / slot
                   {typeof booking.depositAmount === 'number' ? (
                     <span className="ml-auto text-foreground">
-                      Cọc {formatCurrency(booking.depositAmount)}
+                      Cá»c {formatCurrency(booking.depositAmount)}
                     </span>
                   ) : null}
                 </div>
@@ -145,11 +145,11 @@ export function PosBookingList({ embedded = false, onSelectBooking }: PosBooking
                 ) : null}
                 {onSelectBooking ? (
                   <Button type="button" className="w-full" onClick={() => onSelectBooking(booking)}>
-                    Chọn
+                    Chá»n
                   </Button>
                 ) : (
                   <Button asChild className="w-full">
-                    <Link href={ROUTES.STAFF.POS_CHECK_IN(booking.id)}>Mở check-in</Link>
+                    <Link href={ROUTES.STAFF.POS_CHECK_IN(booking.id)}>Má»Ÿ check-in</Link>
                   </Button>
                 )}
               </CardContent>

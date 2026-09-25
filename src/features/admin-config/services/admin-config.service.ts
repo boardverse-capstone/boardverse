@@ -6,10 +6,6 @@ import {
   normalizeAdminConfigResponse,
   type AdminConfigMap,
 } from '../utils/config.mapper';
-import { AdminConfigMockService } from './admin-config.mock';
-
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_ADMIN_CONFIG_API === 'true';
-
 export const ADMIN_CONFIG_QUERY_KEY = 'admin-configs';
 
 export interface SystemConfigLookupResult {
@@ -25,6 +21,13 @@ export interface BypassTimeWindowResult {
   bypassEnabled: boolean;
   configKey: string;
   appliedWithinSeconds?: number;
+}
+
+export interface DemoLoosenLobbyConstraintsResult {
+  demoEnabled: boolean;
+  configKey: string;
+  appliedWithinSeconds?: number;
+  affectedRules?: string[];
 }
 
 export const AdminConfigService = {
@@ -52,18 +55,37 @@ export const AdminConfigService = {
       : apiClient.delete<never, BypassTimeWindowResult>(path);
   },
 
+  /** GET /api/v1/admin/configs/demo-loosen-lobby-constraints */
+  getDemoLoosenLobbyConstraints:
+    async (): Promise<DemoLoosenLobbyConstraintsResult> => {
+      return apiClient.get<never, DemoLoosenLobbyConstraintsResult>(
+        '/api/v1/admin/configs/demo-loosen-lobby-constraints',
+      );
+    },
+
+  /** POST/DELETE /api/v1/admin/configs/demo-loosen-lobby-constraints */
+  setDemoLoosenLobbyConstraints: async (
+    enabled: boolean,
+  ): Promise<DemoLoosenLobbyConstraintsResult> => {
+    const path = '/api/v1/admin/configs/demo-loosen-lobby-constraints';
+    return enabled
+      ? apiClient.post<never, DemoLoosenLobbyConstraintsResult>(path)
+      : apiClient.delete<never, DemoLoosenLobbyConstraintsResult>(path);
+  },
+
+  /** POST /api/v1/admin/configs/invalidate-cache */
+  invalidateCache: async (): Promise<void> => {
+    await apiClient.post('/api/v1/admin/configs/invalidate-cache');
+  },
+
   /** GET /api/v1/admin/configs */
   getConfigs: async (): Promise<MasterSettings> => {
-    if (USE_MOCK) return AdminConfigMockService.getConfigs();
-
     const raw = await apiClient.get<never, AdminConfigMap>('/api/v1/admin/configs');
     return configMapToMasterSettings(normalizeAdminConfigResponse(raw));
   },
 
   /** PUT /api/v1/admin/configs */
   updateConfigs: async (payload: MasterSettings): Promise<MasterSettings> => {
-    if (USE_MOCK) return AdminConfigMockService.updateConfigs(payload);
-
     const body = buildAdminConfigUpdatePayload(payload);
     const raw = await apiClient.put<never, AdminConfigMap | { configs?: AdminConfigMap }>(
       '/api/v1/admin/configs',

@@ -6,7 +6,6 @@ import {
   IconLayoutDashboard,
   IconCalendar,
   IconClipboard,
-  IconHelp,
   IconDeviceDesktop,
   IconPackage,
 } from "@tabler/icons-react";
@@ -16,7 +15,6 @@ import { AuthLoading } from "@/features/auth/components/auth-loading";
 import { UserRole } from "@/core/constants/roles";
 import { ROUTES } from "@/core/constants/routes";
 import type { NavItem } from "@/components/layout/nav-main";
-import { Trophy } from "lucide-react";
 
 const STAFF_NAV: NavItem[] = [
   {
@@ -28,11 +26,6 @@ const STAFF_NAV: NavItem[] = [
     title: "Web POS",
     url: ROUTES.STAFF.POS,
     icon: <IconDeviceDesktop />,
-  },
-  {
-    title: "Giải đấu",
-    url: ROUTES.MANAGER.TOURNAMENT,
-    icon: <Trophy className="w-5 h-5" />,
   },
   {
     title: "Kho game",
@@ -48,11 +41,6 @@ const STAFF_NAV: NavItem[] = [
     title: "Báo cáo ca",
     url: ROUTES.STAFF.REPORTS,
     icon: <IconClipboard />,
-  },
-  {
-    title: "Hỗ trợ",
-    url: "/staff/help",
-    icon: <IconHelp />,
   },
 ];
 

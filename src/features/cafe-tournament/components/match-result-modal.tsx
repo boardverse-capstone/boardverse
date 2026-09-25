@@ -20,6 +20,10 @@ import {
   Award,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  backdropCloseHandler,
+  useDismissOnBackdrop,
+} from "../lib/use-dismiss-on-backdrop";
 
 interface Props {
   isOpen: boolean;
@@ -38,6 +42,9 @@ export function MatchResultModal({
   onSaveResult,
   onUpdateResult,
 }: Props) {
+  // Click ra ngoài backdrop hoặc nhấn Escape để đóng
+  useDismissOnBackdrop(isOpen, onClose);
+
   if (!isOpen || !match) return null;
 
   return (
@@ -214,8 +221,14 @@ function MatchResultModalContent({
   };
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-neutral-200 rounded-3xl max-w-xl w-full p-6 space-y-4 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[92vh] flex flex-col">
+    <div
+      className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+      onClick={backdropCloseHandler(onClose)}
+    >
+      <div
+        className="bg-white border border-neutral-200 rounded-3xl max-w-xl w-full p-6 space-y-4 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[92vh] flex flex-col"
+        onClick={(event) => event.stopPropagation()}
+      >
         {/* Header Modal */}
         <div className="flex items-center justify-between border-b pb-3 shrink-0">
           <div className="flex items-center gap-3">

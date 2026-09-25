@@ -11,6 +11,10 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  backdropCloseHandler,
+  useDismissOnBackdrop,
+} from "../lib/use-dismiss-on-backdrop";
 
 export interface BoxComponentHistoryModalProps {
   isOpen: boolean;
@@ -25,11 +29,20 @@ export function BoxComponentHistoryModal({
   historyData,
   onConfirmProceed,
 }: BoxComponentHistoryModalProps) {
+  // Click ra ngoài backdrop hoặc nhấn Escape để đóng
+  useDismissOnBackdrop(isOpen, onClose);
+
   if (!isOpen || !historyData) return null;
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl animate-in fade-in-50 duration-150">
+    <div
+      className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+      onClick={backdropCloseHandler(onClose)}
+    >
+      <div
+        className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl animate-in fade-in-50 duration-150"
+        onClick={(event) => event.stopPropagation()}
+      >
         {/* HEADER MODAL */}
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
           <div className="flex items-center gap-2.5">
@@ -39,7 +52,7 @@ export function BoxComponentHistoryModal({
             <div>
               <h3 className="font-bold text-base text-neutral-950 flex items-center gap-2">
                 <span>Lịch Sử Mất Đồ & Linh Kiện</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-200">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-orange-100 text-orange-800 border border-orange-200">
                   {historyData.totalIncidents || 0} lần ghi nhận
                 </span>
               </h3>
@@ -80,8 +93,8 @@ export function BoxComponentHistoryModal({
                 </div>
 
                 <div className="space-y-1.5">
-                  <div className="text-[10px] font-bold text-rose-700 uppercase flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                  <div className="text-[10px] font-bold text-orange-700 uppercase flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5 text-orange-500" />
                     Mảnh/Linh kiện bị mất/hỏng:
                   </div>
 
@@ -89,12 +102,12 @@ export function BoxComponentHistoryModal({
                     (comp: any, cIdx: number) => (
                       <div
                         key={comp.componentId || cIdx}
-                        className="bg-white border border-rose-100 p-2 rounded-lg flex items-center justify-between text-xs shadow-2xs"
+                        className="bg-white border border-orange-100 p-2 rounded-lg flex items-center justify-between text-xs shadow-2xs"
                       >
                         <div className="space-y-0.5">
                           <div className="font-bold text-neutral-900">
                             {comp.componentName}{" "}
-                            <span className="text-rose-600 font-mono">
+                            <span className="text-orange-600 font-mono">
                               (Thiếu: {comp.missingQuantity}/
                               {comp.expectedQuantity})
                             </span>
@@ -103,7 +116,7 @@ export function BoxComponentHistoryModal({
                             Loại: {comp.componentKind}
                           </div>
                         </div>
-                        <div className="font-mono font-bold text-rose-600">
+                        <div className="font-mono font-bold text-orange-600">
                           +{comp.penaltyFee.toLocaleString("vi-VN")}đ
                         </div>
                       </div>
@@ -114,7 +127,7 @@ export function BoxComponentHistoryModal({
             ))
           ) : (
             <div className="p-8 text-center text-neutral-400 space-y-2 border border-dashed border-neutral-200 rounded-xl">
-              <ShieldAlert className="w-8 h-8 mx-auto text-emerald-500" />
+              <ShieldAlert className="w-8 h-8 mx-auto text-orange-500" />
               <p className="text-xs font-semibold text-neutral-700">
                 Hộp game này chưa từng có lịch sử mất/hỏng đồ!
               </p>
@@ -137,7 +150,7 @@ export function BoxComponentHistoryModal({
             <Button
               type="button"
               onClick={onConfirmProceed}
-              className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg px-4 flex items-center gap-1.5 shadow-2xs"
+              className="h-9 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-lg px-4 flex items-center gap-1.5 shadow-2xs"
             >
               <span>Tiến Hành Thanh Toán</span>
               <ArrowRight className="w-4 h-4" />

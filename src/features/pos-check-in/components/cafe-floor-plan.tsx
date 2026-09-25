@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -27,10 +27,10 @@ function compareTables(a: CafeTable, b: CafeTable): number {
 }
 
 const STATUS_FILTER_OPTIONS: { value: FloorPlanStatusFilter; label: string }[] = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'Available', label: 'Trống' },
-  { value: 'Reserved', label: 'Đã đặt' },
-  { value: 'Occupied', label: 'Đang sử dụng' },
+  { value: 'all', label: 'Táº¥t cáº£' },
+  { value: 'Available', label: 'Trá»‘ng' },
+  { value: 'Reserved', label: 'ÄÃ£ Ä‘áº·t' },
+  { value: 'Occupied', label: 'Äang sá»­ dá»¥ng' },
 ];
 
 export function CafeFloorPlan({
@@ -86,9 +86,9 @@ export function CafeFloorPlan({
             <span
               className={cn(
                 'inline-block h-3 w-3 rounded-sm border',
-                status === 'Occupied' && 'bg-red-600 border-red-700',
+                status === 'Occupied' && 'bg-orange-600 border-orange-700',
                 status === 'Reserved' && 'bg-amber-100 border-amber-300',
-                status === 'Available' && 'bg-emerald-100 border-emerald-200',
+                status === 'Available' && 'bg-orange-100 border-orange-200',
               )}
             />
             <span>{style.label}</span>
@@ -98,7 +98,7 @@ export function CafeFloorPlan({
 
       {tables.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-muted/20 px-4 py-16 text-center text-sm text-muted-foreground">
-          Không có bàn 
+          KhÃ´ng cÃ³ bÃ n 
         </div>
       ) : (
         zones.map((zone) => {
@@ -122,7 +122,7 @@ export function CafeFloorPlan({
                         colors.bg,
                         isSelected && 'ring-2 ring-offset-2 ring-foreground/40',
                         table.status === 'Available' &&
-                          'cursor-pointer hover:border-emerald-400 hover:shadow-md transition-all',
+                          'cursor-pointer hover:border-orange-400 hover:shadow-md transition-all',
                       )}
                     >
                       <span
@@ -136,10 +136,10 @@ export function CafeFloorPlan({
                       <span
                         className={cn(
                           'mt-0.5 text-[10px]',
-                          isOccupied ? 'text-red-100' : 'text-muted-foreground',
+                          isOccupied ? 'text-orange-100' : 'text-muted-foreground',
                         )}
                       >
-                        {table.seats} chỗ
+                        {table.seats} chá»—
                       </span>
 
                       <Badge className={cn('mt-2 text-[10px]', colors.badge)}>{colors.label}</Badge>
@@ -151,7 +151,7 @@ export function CafeFloorPlan({
                             className="font-mono text-lg font-bold text-white tabular-nums md:text-xl"
                           />
                           {table.gameName && (
-                            <span className="max-w-full truncate text-[10px] text-red-100">
+                            <span className="max-w-full truncate text-[10px] text-orange-100">
                               {table.gameName}
                             </span>
                           )}
@@ -159,7 +159,7 @@ export function CafeFloorPlan({
                       )}
 
                       {table.status === 'Reserved' && (
-                        <span className="mt-1 text-[10px] text-amber-700">Chờ check-in</span>
+                        <span className="mt-1 text-[10px] text-amber-700">Chá» check-in</span>
                       )}
                     </button>
                   );

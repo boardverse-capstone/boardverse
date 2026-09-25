@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import QRCode from 'react-qr-code';
@@ -79,7 +79,7 @@ export function QrScanPanel({
         <CardTitle className="flex items-center justify-between text-base md:text-lg">
           <span className="flex items-center gap-2">
             <QrCode className="h-5 w-5 shrink-0" />
-            Mã QR check-in
+            MÃ£ QR check-in
           </span>
           {/* {cafeId ? (
             <Button
@@ -95,7 +95,7 @@ export function QrScanPanel({
               ) : (
                 <RefreshCw className="h-3.5 w-3.5" />
               )}
-              Tạo QR Server (App scan)
+              Táº¡o QR Server (App scan)
             </Button>
           ) : null} */}
         </CardTitle>
@@ -103,7 +103,7 @@ export function QrScanPanel({
       <CardContent className="space-y-4 md:space-y-5">
         <div className="flex flex-col gap-2 md:flex-row md:gap-3">
           <Input
-            placeholder={`VD: ${QR_BOOKING_PREFIX}booking-001 hoặc Token`}
+            placeholder={`VD: ${QR_BOOKING_PREFIX}booking-001 hoáº·c Token`}
             value={manualCode}
             onChange={(e) => {
               setManualCode(e.target.value);
@@ -124,7 +124,7 @@ export function QrScanPanel({
             ) : (
               <>
                 <Search className="mr-2 h-4 w-4" />
-                Xác nhận
+                XÃ¡c nháº­n
               </>
             )}
           </Button>
@@ -134,12 +134,12 @@ export function QrScanPanel({
           <div className="flex flex-col items-center gap-3 rounded-lg border bg-white p-4 md:p-6">
             <p className="text-center text-sm text-muted-foreground md:text-base">
               {presetLabel
-                ? `Khách quét mã QR tại ${presetLabel} để check-in`
-                : 'Khách quét mã QR bên dưới để check-in'}
+                ? `KhÃ¡ch quÃ©t mÃ£ QR táº¡i ${presetLabel} Ä‘á»ƒ check-in`
+                : 'KhÃ¡ch quÃ©t mÃ£ QR bÃªn dÆ°á»›i Ä‘á»ƒ check-in'}
             </p>
             {serverTokenPayload ? (
-              <Badge variant="secondary" className="text-xs text-green-700 bg-green-50 border-green-200">
-                ✓ Mã Token từ Server: {serverTokenPayload.token} (Hạn 30 phút)
+              <Badge variant="secondary" className="text-xs text-orange-700 bg-orange-50 border-orange-200">
+                âœ“ MÃ£ Token tá»« Server: {serverTokenPayload.token} (Háº¡n 30 phÃºt)
               </Badge>
             ) : null}
             <div className="rounded-lg bg-white p-3 shadow-sm ring-1 ring-border md:p-4">
@@ -152,13 +152,13 @@ export function QrScanPanel({
           </div>
         ) : (
           <div className="rounded-lg border border-dashed bg-muted/30 px-4 py-10 text-center text-sm text-muted-foreground md:py-12 md:text-base">
-            Nhập mã đặt chỗ hoặc chọn bàn đã đặt trên sơ đồ để tạo QR cho khách.
+            Nháº­p mÃ£ Ä‘áº·t chá»— hoáº·c chá»n bÃ n Ä‘Ã£ Ä‘áº·t trÃªn sÆ¡ Ä‘á»“ Ä‘á»ƒ táº¡o QR cho khÃ¡ch.
           </div>
         )}
 
         {resolveQr.isError && (
-          <p className="text-xs text-rose-600">
-            {(resolveQr.error as Error)?.message ?? 'Không thể xác thực mã.'}
+          <p className="text-xs text-orange-600">
+            {(resolveQr.error as Error)?.message ?? 'KhÃ´ng thá»ƒ xÃ¡c thá»±c mÃ£.'}
           </p>
         )}
       </CardContent>

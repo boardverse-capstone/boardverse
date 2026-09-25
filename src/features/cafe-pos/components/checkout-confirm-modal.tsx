@@ -16,6 +16,10 @@ import {
   ShieldCheck,
   Loader2,
 } from "lucide-react";
+import {
+  backdropCloseHandler,
+  useDismissOnBackdrop,
+} from "../lib/use-dismiss-on-backdrop";
 
 export interface CheckoutConfirmModalProps {
   isOpen: boolean;
@@ -69,6 +73,12 @@ export function CheckoutConfirmModal({
       fetchHistory();
     }
   }, [isOpen, session, onFetchHistory]);
+
+  // Click ra ngoài backdrop hoặc nhấn Escape để đóng
+  useDismissOnBackdrop(isOpen, () => {
+    if (loading || loadingHistory) return;
+    handleCloseModal();
+  }, { busy: loading || loadingHistory });
 
   if (!isOpen || !session) return null;
 
@@ -159,15 +169,24 @@ export function CheckoutConfirmModal({
   const invoiceData = apiResponse?.data || apiResponse;
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-neutral-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl animate-in fade-in-50 duration-150 max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 bg-neutral-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+      onClick={backdropCloseHandler(() => {
+        if (loading || loadingHistory) return;
+        handleCloseModal();
+      }, loading || loadingHistory)}
+    >
+      <div
+        className="bg-white border border-neutral-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl animate-in fade-in-50 duration-150 max-h-[90vh] overflow-y-auto"
+        onClick={(event) => event.stopPropagation()}
+      >
         {/* HEADER MODAL */}
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
           <div className="flex items-center gap-2">
             <div
               className={`p-2 rounded-lg border ${
                 apiResponse
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  ? "bg-orange-50 text-orange-700 border-orange-200"
                   : "bg-amber-50 text-amber-700 border-amber-200"
               }`}
             >
@@ -180,8 +199,8 @@ export function CheckoutConfirmModal({
             <div>
               <h3 className="font-bold text-base text-neutral-950">
                 {apiResponse
-                  ? "Hóa Đơn Chốt Phiên (UNPAID)"
-                  : "Xem Trước & Confirm Checkout"}
+                  ? "Hóa đơn chốt phiên (CHƯA THANH TOÁN)"
+                  : "Xem trước & Xác nhận chốt phiên"}
               </h3>
               <p className="text-[11px] text-neutral-500 font-medium">
                 Bàn:{" "}
@@ -224,7 +243,7 @@ export function CheckoutConfirmModal({
                   </span>
                   <span
                     className={`font-mono font-bold ${
-                      totalPenalty > 0 ? "text-rose-600" : "text-neutral-900"
+                      totalPenalty > 0 ? "text-orange-600" : "text-neutral-900"
                     }`}
                   >
                     +{totalPenalty.toLocaleString("vi-VN")}đ
@@ -238,28 +257,28 @@ export function CheckoutConfirmModal({
                     <span>Đang đối soát lịch sử linh kiện từ server...</span>
                   </div>
                 ) : damagedOrMissingComponents.length > 0 ? (
-                  <div className="bg-white border border-rose-100 rounded-lg p-2 space-y-1">
-                    <div className="text-[10px] font-bold text-rose-700 uppercase flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3 text-rose-500" />
+                  <div className="bg-white border border-orange-100 rounded-lg p-2 space-y-1">
+                    <div className="text-[10px] font-bold text-orange-700 uppercase flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 text-orange-500" />
                       Linh kiện mất / hỏng ghi nhận:
                     </div>
                     {damagedOrMissingComponents.map((item, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between text-[11px] bg-rose-50/50 p-1 rounded border border-rose-100/50"
+                        className="flex items-center justify-between text-[11px] bg-orange-50/50 p-1 rounded border border-orange-100/50"
                       >
                         <span className="font-bold text-neutral-800 truncate">
                           • {item.componentName} (x{item.quantity} {item.reason}
                           )
                         </span>
-                        <span className="font-mono font-bold text-rose-600">
+                        <span className="font-mono font-bold text-orange-600">
                           +{item.penaltyFee.toLocaleString("vi-VN")}đ
                         </span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-[11px] text-emerald-700 bg-emerald-50 p-1.5 rounded border border-emerald-100 font-medium">
+                  <div className="text-[11px] text-orange-700 bg-orange-50 p-1.5 rounded border border-orange-100 font-medium">
                     ✓ Không có linh kiện bị mất/hỏng.
                   </div>
                 )}
@@ -291,7 +310,7 @@ export function CheckoutConfirmModal({
                 className="h-9 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg px-4 flex items-center gap-1.5 shadow-2xs"
               >
                 <span>
-                  {loading ? "Đang xử lý..." : "Confirm & Chạy API Checkout"}
+                  {loading ? "Đang xử lý..." : "Xác nhận & Chạy API Checkout"}
                 </span>
                 <ArrowRight className="w-4 h-4" />
               </Button>
@@ -314,7 +333,7 @@ export function CheckoutConfirmModal({
                     #{invoiceData?.id?.slice(0, 8)}
                   </strong>
                   <span className="px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded font-bold uppercase ml-1">
-                    {invoiceData?.status || "UNPAID"}
+                    {invoiceData?.status || "CHƯA TT"}
                   </span>
                 </div>
               </div>
@@ -366,7 +385,7 @@ export function CheckoutConfirmModal({
               <div className="space-y-2 text-xs border-t border-neutral-100 pt-3">
                 <div className="flex justify-between items-center">
                   <span className="text-neutral-600">
-                    Tiền giờ chơi (Subtotal):
+                    Tiền giờ chơi (Tạm tính):
                   </span>
                   <span className="font-mono font-bold text-neutral-900">
                     {Number(invoiceData?.subtotal || 0).toLocaleString("vi-VN")}
@@ -389,7 +408,7 @@ export function CheckoutConfirmModal({
                 </div>
 
                 {Number(invoiceData?.depositAppliedAmount || 0) > 0 && (
-                  <div className="flex justify-between items-center text-emerald-600">
+                  <div className="flex justify-between items-center text-orange-600">
                     <span className="flex items-center gap-1">
                       <ShieldCheck className="w-3.5 h-3.5" />
                       Tiền cọc cấn trừ (BR-09):
@@ -407,7 +426,7 @@ export function CheckoutConfirmModal({
                 {/* SỬA DÒNG NÀY: TỔNG ĐƠN CHỜ THU = SUBTOTAL + PENALTY - DEPOSIT */}
                 <div className="pt-2 border-t border-neutral-200 flex justify-between items-center text-sm font-extrabold text-neutral-950">
                   <span>TỔNG ĐƠN CHỜ THU:</span>
-                  <span className="font-mono text-emerald-600 text-lg">
+                  <span className="font-mono text-orange-600 text-lg">
                     {(Number(invoiceData?.totalAmount || 0) > 0
                       ? Number(invoiceData.totalAmount)
                       : Math.max(
@@ -433,7 +452,7 @@ export function CheckoutConfirmModal({
                 ✓ Đơn đã chuyển sang Đơn Chờ Thanh Toán (UNPAID)
               </span>
               <span className="font-mono text-[10px] font-bold bg-amber-200 px-1.5 py-0.5 rounded">
-                READY FOR PAY
+                SẴN SÀNG THANH TOÁN
               </span>
             </div>
 

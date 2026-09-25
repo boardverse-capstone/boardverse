@@ -14,7 +14,6 @@ import {
 } from '../hooks/useMasterGameCategories';
 import {
   useUpdateMasterGameMetadata,
-  useUpdateMasterGameThumbnail,
 } from '../hooks/useUpdateMasterGameMeta';
 
 interface MasterGameMetaPanelProps {
@@ -26,7 +25,6 @@ export function MasterGameMetaPanel({ gameTemplateId }: MasterGameMetaPanelProps
   const { data: linked = [], isLoading } = useMasterGameCategories(gameTemplateId);
   const setCategoriesMutation = useSetMasterGameCategories(gameTemplateId);
   const metadataMutation = useUpdateMasterGameMetadata(gameTemplateId);
-  const thumbnailMutation = useUpdateMasterGameThumbnail(gameTemplateId);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [name, setName] = useState('');
@@ -36,7 +34,6 @@ export function MasterGameMetaPanel({ gameTemplateId }: MasterGameMetaPanelProps
   const [playTimeMinutes, setPlayTimeMinutes] = useState<number | ''>('');
   const [designer, setDesigner] = useState('');
   const [yearPublished, setYearPublished] = useState<number | ''>('');
-  const [thumbnailUrl, setThumbnailUrl] = useState('');
 
   useEffect(() => {
     setSelectedIds(linked.map((item) => item.id));
@@ -91,22 +88,20 @@ export function MasterGameMetaPanel({ gameTemplateId }: MasterGameMetaPanelProps
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Metadata & Thumbnail</CardTitle>
-          <CardDescription>
-            PUT /master-games/{'{id}'} và PATCH .../thumbnail
-          </CardDescription>
+          <CardTitle className="text-base">Metadata</CardTitle>
+         
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid gap-2">
             <Label htmlFor="mg-name">Tên</Label>
-            <Input id="mg-name" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input id="mg-name" value={name ?? ''} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="mg-desc">Mô tả</Label>
             <Textarea
               id="mg-desc"
               rows={3}
-              value={description}
+              value={description ?? ''}
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
@@ -116,7 +111,7 @@ export function MasterGameMetaPanel({ gameTemplateId }: MasterGameMetaPanelProps
               <Input
                 id="mg-min"
                 type="number"
-                value={minPlayers}
+                value={minPlayers === '' ? '' : minPlayers}
                 onChange={(e) =>
                   setMinPlayers(e.target.value === '' ? '' : Number(e.target.value))
                 }
@@ -127,7 +122,7 @@ export function MasterGameMetaPanel({ gameTemplateId }: MasterGameMetaPanelProps
               <Input
                 id="mg-max"
                 type="number"
-                value={maxPlayers}
+                value={maxPlayers === '' ? '' : maxPlayers}
                 onChange={(e) =>
                   setMaxPlayers(e.target.value === '' ? '' : Number(e.target.value))
                 }
@@ -140,7 +135,7 @@ export function MasterGameMetaPanel({ gameTemplateId }: MasterGameMetaPanelProps
               <Input
                 id="mg-time"
                 type="number"
-                value={playTimeMinutes}
+                value={playTimeMinutes === '' ? '' : playTimeMinutes}
                 onChange={(e) =>
                   setPlayTimeMinutes(e.target.value === '' ? '' : Number(e.target.value))
                 }
@@ -151,7 +146,7 @@ export function MasterGameMetaPanel({ gameTemplateId }: MasterGameMetaPanelProps
               <Input
                 id="mg-year"
                 type="number"
-                value={yearPublished}
+                value={yearPublished === '' ? '' : yearPublished}
                 onChange={(e) =>
                   setYearPublished(e.target.value === '' ? '' : Number(e.target.value))
                 }
@@ -162,7 +157,7 @@ export function MasterGameMetaPanel({ gameTemplateId }: MasterGameMetaPanelProps
             <Label htmlFor="mg-designer">Designer</Label>
             <Input
               id="mg-designer"
-              value={designer}
+              value={designer ?? ''}
               onChange={(e) => setDesigner(e.target.value)}
             />
           </div>
@@ -182,28 +177,6 @@ export function MasterGameMetaPanel({ gameTemplateId }: MasterGameMetaPanelProps
           >
             Lưu metadata
           </Button>
-
-          <div className="border-t pt-3">
-            <div className="grid gap-2">
-              <Label htmlFor="mg-thumb">Thumbnail URL</Label>
-              <Input
-                id="mg-thumb"
-                value={thumbnailUrl}
-                onChange={(e) => setThumbnailUrl(e.target.value)}
-                placeholder="https://cdn.example.com/games/catan.jpg"
-              />
-            </div>
-            <Button
-              className="mt-2"
-              variant="outline"
-              disabled={thumbnailMutation.isPending || !thumbnailUrl.trim()}
-              onClick={() =>
-                thumbnailMutation.mutate({ thumbnailUrl: thumbnailUrl.trim() })
-              }
-            >
-              Cập nhật thumbnail
-            </Button>
-          </div>
         </CardContent>
       </Card>
     </div>

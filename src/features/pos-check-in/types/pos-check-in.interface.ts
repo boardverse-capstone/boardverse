@@ -408,6 +408,39 @@ export interface CafeSettlementPending {
   createdAt: string;
 }
 
+/** Split Bill — GET .../payment-status */
+export interface SessionPaymentMemberStatus {
+  memberId: string;
+  displayName: string;
+  totalAmount: number;
+  amountPaid: number;
+  status: string;
+  paymentMethod: string | null;
+}
+
+export interface SessionPaymentStatus {
+  sessionId: string;
+  totalAmount: number;
+  totalPaid: number;
+  totalRemaining: number;
+  members: SessionPaymentMemberStatus[];
+}
+
+/** Split Bill — POST .../pay-member response item */
+export interface MemberPaymentResult {
+  memberId: string;
+  displayName: string;
+  amountDue: number;
+  amountPaid: number;
+  paymentMethod: string;
+  status: string;
+  paidAt: string | null;
+  orderId: string | null;
+  qrImageUrl: string | null;
+  paymentUrl: string | null;
+  transferContent: string | null;
+}
+
 export type SessionLifecycleStatus =
   | 'Active'
   | 'Checking'

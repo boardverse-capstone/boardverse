@@ -13,7 +13,7 @@ export interface CreateCategoryRequest {
   isActive: boolean;
 }
 
-export type UpdateCategoryRequest = CreateCategoryRequest;
+export type UpdateCategoryRequest = Partial<CreateCategoryRequest>;
 
 export interface CategoryListParams {
   includeInactive?: boolean;

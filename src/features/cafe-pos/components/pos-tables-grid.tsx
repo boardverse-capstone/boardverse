@@ -39,12 +39,12 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
   return (
     <div className="flex flex-col h-full space-y-6">
       {/* HEADER POS BAR */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-5 border border-neutral-200 rounded-2xl shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-neutral-200/60 bg-gradient-to-br from-white via-neutral-50/40 to-amber-50/30 p-5 shadow-md">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-neutral-900">
+          <h1 className="text-xl font-extrabold tracking-tight text-neutral-900">
             Sơ đồ bàn trực tiếp (POS)
           </h1>
-          <p className="text-xs text-neutral-500 font-medium mt-0.5">
+          <p className="mt-0.5 text-xs font-medium text-neutral-500">
             Quản lý trực quan bàn chơi, quét giao hộp game và nhận bàn theo mã
             đặt chỗ.
           </p>
@@ -54,9 +54,9 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
           {/* Nút nhận bàn bằng QR */}
           <Button
             type="button"
-            className="h-9 px-3.5 bg-neutral-900 text-white hover:bg-neutral-800 text-xs font-semibold rounded-lg shadow-2xs flex items-center gap-2 transition-all"
+            className="h-9 gap-2 rounded-lg bg-gradient-to-r from-orange-600 to-amber-600 px-3.5 text-xs font-semibold text-white shadow-sm hover:from-orange-700 hover:to-amber-700"
           >
-            <QrCode className="w-4 h-4 text-emerald-400" />
+            <QrCode className="size-4" />
             <span>Quét mã đặt chỗ (nhận bàn)</span>
           </Button>
 
@@ -65,10 +65,10 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
             type="button"
             variant="outline"
             onClick={handleRefreshAll}
-            className="h-9 px-3 border-neutral-200 text-neutral-700 hover:bg-neutral-50 text-xs font-semibold rounded-lg"
+            className="h-9 rounded-lg border-neutral-200 px-3 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
           >
             <RefreshCw
-              className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
+              className={`size-3.5 ${loading ? "animate-spin" : ""}`}
             />
             <span>Đồng bộ</span>
           </Button>
@@ -76,25 +76,36 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
       </div>
 
       {/* THANH BỘ LỌC TRẠNG THÁI BÀN */}
-      <div className="flex items-center justify-between border-b border-neutral-200 pb-3">
+      <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
         <div className="flex gap-2">
-          {["ALL", "Available", "Occupied"].map((st) => (
-            <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`h-8 px-3.5 text-xs font-bold rounded-lg border transition-all ${
-                statusFilter === st
-                  ? "bg-neutral-900 text-white border-neutral-900 shadow-2xs"
-                  : "bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50"
-              }`}
-            >
-              {st === "ALL"
+          {(["ALL", "Available", "Occupied"] as const).map((st) => {
+            const tone =
+              st === "ALL"
+                ? "from-neutral-600 to-amber-600 border-neutral-600"
+                : st === "Available"
+                  ? "from-orange-600 to-amber-600 border-orange-600"
+                  : "from-amber-500 to-orange-500 border-amber-500";
+            const label =
+              st === "ALL"
                 ? "Tất cả bàn"
                 : st === "Available"
                   ? "Bàn trống"
-                  : "Đang chơi"}
-            </button>
-          ))}
+                  : "Đang chơi";
+            const active = statusFilter === st;
+            return (
+              <button
+                key={st}
+                onClick={() => setStatusFilter(st)}
+                className={`h-8 rounded-lg border px-3.5 text-xs font-bold transition-all ${
+                  active
+                    ? `bg-gradient-to-r text-white shadow-sm ${tone}`
+                    : "border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
         <span className="text-xs font-semibold text-neutral-500">
@@ -104,26 +115,30 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
 
       {/* GRID LƯỚI HIỂN THỊ SƠ ĐỒ BÀN */}
       {loading && tables.length === 0 ? (
-        <div className="text-center py-20 border border-dashed border-neutral-200 rounded-2xl bg-neutral-50/50 text-xs font-bold text-neutral-400 uppercase tracking-wider">
+        <div className="rounded-2xl border border-dashed border-neutral-300 bg-gradient-to-br from-neutral-50/40 to-amber-50/30 py-20 text-center text-xs font-bold uppercase tracking-wider text-neutral-500">
           Đang kết nối dữ liệu sơ đồ bàn POS...
         </div>
+      ) : filteredTables.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-neutral-200 bg-gradient-to-br from-neutral-50/40 to-amber-50/30 py-20 text-center text-xs font-bold uppercase tracking-wider text-neutral-500">
+          Không có bàn nào khớp bộ lọc.
+        </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {filteredTables.map((table) => {
             const isOccupied = table.status === "Occupied";
 
             return (
               <div
                 key={table.id}
-                className={`group relative border rounded-2xl p-4 flex flex-col justify-between gap-4 transition-all duration-200 ${
+                className={`group relative rounded-2xl border p-4 flex flex-col justify-between gap-4 transition-all duration-200 ${
                   isOccupied
-                    ? "bg-amber-50/40 border-amber-200/80 shadow-xs hover:border-amber-300"
-                    : "bg-white border-neutral-200/80 shadow-2xs hover:border-neutral-300 hover:shadow-xs"
+                    ? "border-amber-200/80 bg-gradient-to-br from-amber-50/60 via-white to-orange-50/40 shadow-xs hover:border-amber-300"
+                    : "border-orange-200/70 bg-gradient-to-br from-orange-50/40 via-white to-amber-50/30 shadow-2xs hover:border-orange-300 hover:shadow-xs"
                 }`}
               >
                 {/* TÊN BÀN & BADGE TRẠNG THÁI */}
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-base text-neutral-900 tracking-tight">
+                  <span className="text-base font-bold tracking-tight text-neutral-900">
                     {table.name}
                   </span>
 
@@ -131,7 +146,7 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
                     className={`h-2.5 w-2.5 rounded-full ${
                       isOccupied
                         ? "bg-amber-500 animate-pulse"
-                        : "bg-emerald-500"
+                        : "bg-orange-500"
                     }`}
                   />
                 </div>
@@ -140,38 +155,42 @@ export function PosTablesGrid({ cafeId }: PosTablesGridProps) {
                 <div className="min-h-60px flex flex-col justify-center">
                   {isOccupied && table.activeSession ? (
                     <div className="space-y-1">
-                      <div className="text-xs font-bold text-neutral-800 truncate">
+                      <div className="truncate text-xs font-bold text-amber-900">
                         🎮 {table.activeSession.gameName}
                       </div>
-                      <div className="text-[10px] font-mono text-neutral-400">
+                      <div className="font-mono text-[10px] text-amber-700/70">
                         Mã barcode: {table.activeSession.barcode}
                       </div>
                     </div>
                   ) : (
-                    <div className="text-xs font-medium text-neutral-400 italic">
+                    <div className="text-xs font-medium italic text-orange-700/70">
                       Bàn sẵn sàng nhận khách
                     </div>
                   )}
                 </div>
 
                 {/* NÚT THAO TÁC THEO TỪNG TRẠNG THÁI */}
-                <div className="pt-2 border-t border-neutral-100 flex items-center justify-between">
+                <div
+                  className={`flex items-center justify-between border-t pt-2 ${
+                    isOccupied ? "border-amber-100" : "border-orange-100"
+                  }`}
+                >
                   {isOccupied ? (
                     <Button
                       type="button"
                       size="sm"
-                      className="w-full h-8 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 font-bold text-[11px] rounded-lg shadow-none flex items-center justify-center gap-1.5"
+                      className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-orange-200 bg-gradient-to-r from-orange-50 to-orange-50 text-[11px] font-bold text-orange-700 shadow-none hover:from-orange-100 hover:to-orange-100"
                     >
-                      <LogOut className="w-3.5 h-3.5" />
+                      <LogOut className="size-3.5" />
                       <span>Kết thúc & Trả game</span>
                     </Button>
                   ) : (
                     <Button
                       type="button"
                       size="sm"
-                      className="w-full h-8 bg-neutral-900 text-white hover:bg-neutral-800 font-bold text-[11px] rounded-lg shadow-2xs flex items-center justify-center gap-1.5"
+                      className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-orange-600 to-amber-600 text-[11px] font-bold text-white shadow-sm hover:from-orange-700 hover:to-amber-700"
                     >
-                      <PlayCircle className="w-3.5 h-3.5 text-emerald-400" />
+                      <PlayCircle className="size-3.5" />
                       <span>Giao game (Bắt đầu)</span>
                     </Button>
                   )}
