@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { UsersRound, ArrowRight } from "lucide-react";
+import { AxiosError } from "axios";
 import {
   Dialog,
   DialogContent,
@@ -29,7 +30,26 @@ import {
   LobbyMergeService,
 } from "../services/lobby-merge.service";
 import type { LobbyMergeRequestDto } from "../types/lobby-merge.interface";
-import { useCreateMergeRequest, useBulkCreateMergeRequests } from "../hooks/useMergeRequestMutations";
+import {
+  useCreateMergeRequest,
+  useBulkCreateMergeRequests,
+  isMergeDifferentGamesError,
+} from "../hooks/useMergeRequestMutations";
+
+/**
+ * Helper: detect lỗi `MergeDifferentGames` từ raw Error object (do service throw Error thuần).
+ * Service throw Error có message chứa code BE → match theo string.
+ */
+function isDifferentGamesMessage(msg: string): boolean {
+  // [FIX #vi-message] BE trả 2 dạng:
+  //  - Cũ: "MergeDifferentGames" (mã lỗi tiếng Anh)
+  //  - Mới (i18n): "Hai nhóm đang chơi game khác nhau" (Việt)
+  // Bắt cả "khác game" lẫ "game khác" để dedup-toast luôn ưu tiên message VN.
+  return (
+    /MergeDifferentGames/i.test(msg) ||
+    /khác\s*game|game\s*khác|chơi\s*game\s*khác/i.test(msg)
+  );
+}
 
 export interface LobbyOption {
   id: string;
@@ -70,7 +90,7 @@ export interface LobbyMergeCreateDialogProps {
    * Map `memberId → lobbyId` để dialog lọc đúng member khi staff đổi source.
    * Nếu không truyền → dialog hiển thị tất cả member của mọi lobby (fallback).
    */
-  memberLobbyIds?: Record<string, string>;
+  memberLobbyIds?: Record<string, string[]>;
   onSuccess?: (created: LobbyMergeRequestDto | LobbyMergeRequestDto[]) => void;
 }
 
@@ -133,25 +153,90 @@ export function LobbyMergeCreateDialog({
    * đổi source lobby, ta lọc lại theo `sourceLobbyId` để chỉ hiển thị member
    * đúng lobby nguồn.
    */
+  /**
+   * [FIX #lobby-source-filter] Member list hiển thị phải khớp lobby nguồn đã chọn.
+   *
+   * - sourceLobbyId rỗng → trả [] để hiển thị placeholder "Chọn lobby nguồn trước".
+   *   KHÔNG fallback về `members` (toàn bộ) vì staff sẽ thấy member của mọi
+   *   lobby gộp lại → tick nhầm dẫn đến merge sai.
+   * - sourceLobbyId có + memberLobbyIds có → filter đúng lobby.
+   * - sourceLobbyId có + memberLobbyIds thiếu → fallback `members` (1 lobby duy nhất
+   *   là hợp lý vì staff chỉ tick từ danh sách hiện). Log cảnh báo dev.
+   */
   const filteredMembers = useMemo(() => {
-    if (!sourceLobbyId || !memberLobbyIds) return members;
-    return members.filter((m) => memberLobbyIds[m.id] === sourceLobbyId);
+    if (!sourceLobbyId) return [];
+    if (!memberLobbyIds) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "[lobby-merge] memberLobbyIds thiếu — hiển thị toàn bộ members; staff có thể tick nhầm member của lobby khác.",
+        );
+      }
+      return members;
+    }
+    // [FIX #multi-lobby-member] 1 user có thể đứng trong nhiều lobby (host ở
+    // Bàn 02 đồng thời player ở Bàn 03). Filter cho phép nếu `sourceLobbyId`
+    // nằm trong danh sách lobby của user đó.
+    const norm = (s: string) =>
+      s.normalize("NFKC").replace(/[\s\u200B-\u200F\uFEFF]/g, "").trim();
+    const normSourceId = norm(sourceLobbyId);
+    const filtered = members.filter((m) => {
+      const lobbies = memberLobbyIds[norm(m.id)];
+      return Array.isArray(lobbies) && lobbies.includes(normSourceId);
+    });
+    if (process.env.NODE_ENV !== "production") {
+      const sample = members.slice(0, 3).map((m) => ({
+        memberId: m.id,
+        mappedLobbies: memberLobbyIds[norm(m.id)],
+        match: Array.isArray(memberLobbyIds[norm(m.id)]) &&
+          memberLobbyIds[norm(m.id)].includes(normSourceId),
+      }));
+      console.info("[lobby-merge] filter", {
+        sourceLobbyId,
+        memberLobbyIdsKeysCount: Object.keys(memberLobbyIds).length,
+        membersCount: members.length,
+        filteredCount: filtered.length,
+        sample,
+      });
+    }
+    return filtered;
   }, [members, memberLobbyIds, sourceLobbyId]);
+
+  // [FIX #ui-unique-key] Cuối cùng vẫn dedup theo id để React key warning không
+  // xảy ra khi 2 session khác nhau nhưng BE trả cùng userId 2 lần cho cùng
+  // sourceLobbyId (host đứng cả ở lobby A lẫ lobby B với role khác nhau).
+  const visibleMembers = useMemo<LobbyMergeMember[]>(() => {
+    const seen = new Set<string>();
+    const out: LobbyMergeMember[] = [];
+    for (const m of filteredMembers) {
+      const id = String(m.id).trim();
+      if (id.length === 0) continue;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(m);
+    }
+    return out;
+  }, [filteredMembers]);
 
   /**
    * Member thuộc lobby nguồn hiện tại đã tick chọn — dùng cho summary box.
    */
   const sourceMembers = useMemo(() => {
-    return filteredMembers.filter((m) => memberIds.includes(m.id));
-  }, [filteredMembers, memberIds]);
+    return visibleMembers.filter((m) => memberIds.includes(m.id));
+  }, [visibleMembers, memberIds]);
 
   /**
    * Reset member đã chọn nếu không thuộc lobby nguồn mới — tránh giữ tick "ma".
    */
   useEffect(() => {
     if (!sourceLobbyId || !memberLobbyIds) return;
+    const norm = (s: string) =>
+      s.normalize("NFKC").replace(/[\s\u200B-\u200F\uFEFF]/g, "").trim();
+    const normSourceId = norm(sourceLobbyId);
     setMemberIds((current) =>
-      current.filter((id) => memberLobbyIds[id] === sourceLobbyId),
+      current.filter((id) => {
+        const lobbies = memberLobbyIds[norm(id)];
+        return Array.isArray(lobbies) && lobbies.includes(normSourceId);
+      }),
     );
   }, [sourceLobbyId, memberLobbyIds]);
 
@@ -304,6 +389,23 @@ export function LobbyMergeCreateDialog({
         r.ok ? r.request : null,
       );
       const fail = results.filter((r) => !r.ok);
+
+      // Phát hiện lỗi MergeDifferentGames — staff cần EndGame + ComponentCheck trước.
+      // Khi đó tất cả member đều fail cùng 1 lý do → ưu tiên toast riêng.
+      const allFailsAreDifferentGames = fail.length > 0 && fail.every((f) => {
+        if (!f || f.ok) return false;
+        return isDifferentGamesMessage(f.error);
+      });
+
+      if (allFailsAreDifferentGames) {
+        toast.error(
+          "Lobby nguồn đang chơi game khác và chưa trả hộp về quán. " +
+            "Vào POS → bấm \"Trả game\" + \"Kiểm kê linh kiện\" cho lobby nguồn, rồi thử lại.",
+          { duration: 8000 },
+        );
+        return;
+      }
+
       if (success.length === 0) {
         toast.error(`Không tạo được yêu cầu ghép: ${fail[0]?.error ?? "Lỗi"}`);
         return;
@@ -318,14 +420,30 @@ export function LobbyMergeCreateDialog({
       onSuccess?.(success.filter(Boolean) as LobbyMergeRequestDto[]);
       onClose();
     } catch (err) {
+      // Catch-all cho lỗi không lường trước (vd: throw Error thuần không phải AxiosError).
+      if (err instanceof AxiosError && isMergeDifferentGamesError(err)) {
+        toast.error(
+          "Lobby nguồn đang chơi game khác và chưa trả hộp về quán. " +
+            "Vào POS → bấm \"Trả game\" + \"Kiểm kê linh kiện\" cho lobby nguồn, rồi thử lại.",
+          { duration: 8000 },
+        );
+        return;
+      }
       toast.error(err instanceof Error ? err.message : "Tạo yêu cầu thất bại.");
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => (!open ? handleClose() : null)}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      {/* Layout ngang 2 cột, dialog mở rộng theo chiều ngang.
+          - sm:max-w-3xl (~768px) cho tablet
+          - md:max-w-5xl (~896px) cho laptop nhỏ
+          - lg:max-w-6xl (~1152px) cho desktop — đây là size lý tưởng cho 2 cột horizontal
+          - xl:max-w-7xl (~1280px) cho màn hình rộng
+          Lưu ý: PHẢI dùng `sm:max-w-*` thay vì `max-w-*` để thắng
+          `sm:max-w-md` mặc định trong DialogContent (cùng breakpoint, sau trong cascade). */}
+      <DialogContent className="flex max-h-[88vh] w-full flex-col gap-4 overflow-hidden p-5 sm:max-w-3xl md:max-w-5xl lg:max-w-6xl xl:max-w-7xl">
+        <DialogHeader className="shrink-0 gap-1">
           <DialogTitle className="flex items-center gap-2">
             <UsersRound className="size-4" />
             Tạo yêu cầu ghép lobby
@@ -336,160 +454,218 @@ export function LobbyMergeCreateDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
-            <div className="space-y-1.5">
-              <Label>Lobby nguồn (rời đi)</Label>
-              <Select
-                value={sourceLobbyId}
-                onValueChange={(v) => {
-                  // Nếu chọn trùng lobby đích → tự swap source ↔ target.
-                  if (v && v === targetLobbyId) {
-                    setTargetLobbyId(sourceLobbyId);
-                  }
-                  setSourceLobbyId(v);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn lobby nguồn" />
-                </SelectTrigger>
-                <SelectContent>
-                  {stableLobbies.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>
-                      {l.name} {l.status ? `· ${l.status}` : ""}
-                      {l.availableSeats != null ? ` · ghế trống ${l.availableSeats}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {sourceLobby ? (
-                <p className="text-xs text-neutral-600">
-                  Đang chơi: {sourceLobby.activeMemberCount} thành viên
-                </p>
-              ) : null}
-            </div>
-
-            <div className="flex items-center justify-center pb-1">
-              <ArrowRight className="size-5 text-neutral-400" />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Lobby đích (nhận vào)</Label>
-              <Select
-                value={targetLobbyId}
-                onValueChange={(v) => {
-                  // Nếu chọn trùng lobby nguồn → tự swap source ↔ target.
-                  if (v && v === sourceLobbyId) {
-                    setSourceLobbyId(targetLobbyId);
-                  }
-                  setTargetLobbyId(v);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn lobby đích" />
-                </SelectTrigger>
-                <SelectContent>
-                  {stableLobbies.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>
-                      {l.name} {l.status ? `· ${l.status}` : ""}
-                      {l.availableSeats != null ? ` · ghế trống ${l.availableSeats}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {targetLobby ? (
-                <p className="text-xs text-neutral-600">
-                  Đang chơi: {targetLobby.activeMemberCount} thành viên
-                  {targetLobby.availableSeats != null
-                    ? ` · ghế trống ${targetLobby.availableSeats}`
-                    : ""}
-                </p>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Thành viên muốn chuyển</Label>
-            {filteredMembers.length === 0 ? (
-              <p className="rounded-md border border-dashed py-3 text-center text-sm text-neutral-600">
-                {sourceLobbyId
-                  ? "Lobby nguồn không có thành viên nào."
-                  : "Chọn lobby nguồn trước."}
-              </p>
-            ) : (
-              <div className="max-h-56 space-y-1 overflow-y-auto rounded-md border p-2">
-                {filteredMembers.map((m) => {
-                  const selected = memberIds.includes(m.id);
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => toggleMember(m.id)}
-                      className={`flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm transition ${
-                        selected
-                          ? "bg-orange-50 ring-1 ring-orange-400"
-                          : "hover:bg-neutral-50"
-                      }`}
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span
-                          aria-hidden
-                          className={`inline-flex size-4 shrink-0 items-center justify-center rounded-sm border ${
-                            selected
-                              ? "border-orange-500 bg-orange-500 text-white"
-                              : "border-neutral-300"
-                          }`}
-                        >
-                          {selected ? "✓" : ""}
-                        </span>
-                        <span className="truncate font-medium">{m.displayName}</span>
-                        {m.isHost ? (
-                          <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
-                            Host
-                          </Badge>
-                        ) : null}
-                      </span>
-                      <span className="font-mono text-xs text-neutral-500">
-                        {m.id.slice(0, 8)}
-                      </span>
-                    </button>
-                  );
-                })}
+        {/* Body 2 cột trên md+, xếp dọc trên mobile.
+            items-start: 2 cột không ép height bằng nhau.
+            md:overflow-hidden: dialog không scroll toàn bộ — mỗi cột scroll nội bộ. */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden md:flex-row md:items-start">
+          {/* === CỘT TRÁI: Source / Target + Member list === */}
+          <div className="flex min-w-0 min-h-0 flex-1 flex-col gap-3 md:overflow-y-auto md:pr-3">
+            {/* Source / Target — luôn 2 cột ngang từ sm+ (select ngắn không cần wrap). */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
+              <div className="min-w-0 space-y-1.5">
+                <Label>Lobby nguồn (rời đi)</Label>
+                <Select
+                  value={sourceLobbyId}
+                  onValueChange={(v) => {
+                    // Nếu chọn trùng lobby đích → tự swap source ↔ target.
+                    if (v && v === targetLobbyId) {
+                      setTargetLobbyId(sourceLobbyId);
+                    }
+                    setSourceLobbyId(v);
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Chọn lobby nguồn" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* [FIX #select-empty-value] Radix Select cấm value rỗng.
+                        Lọc id rỗng để tránh React crash khi BE trả lobby
+                        chưa gắn id (walk-in session). */}
+                    {stableLobbies
+                      .filter((l) => l.id && l.id.trim().length > 0)
+                      .map((l) => (
+                        <SelectItem key={l.id} value={l.id}>
+                          {l.name} {l.status ? `· ${l.status}` : ""}
+                          {l.availableSeats != null ? ` · ghế trống ${l.availableSeats}` : ""}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {sourceLobby ? (
+                  <p className="truncate text-xs text-neutral-600">
+                    Đang chơi: {sourceLobby.activeMemberCount} thành viên
+                  </p>
+                ) : null}
               </div>
-            )}
-            {memberIds.length > 0 ? (
-              <p className="text-xs text-neutral-700">
-                Đã chọn {memberIds.length} thành viên
-              </p>
+
+              <div className="hidden items-center justify-center pb-1 sm:flex">
+                <ArrowRight className="size-5 shrink-0 text-neutral-400" />
+              </div>
+
+              <div className="min-w-0 space-y-1.5">
+                <Label>Lobby đích (nhận vào)</Label>
+                <Select
+                  value={targetLobbyId}
+                  onValueChange={(v) => {
+                    // Nếu chọn trùng lobby nguồn → tự swap source ↔ target.
+                    if (v && v === sourceLobbyId) {
+                      setSourceLobbyId(targetLobbyId);
+                    }
+                    setTargetLobbyId(v);
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Chọn lobby đích" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* [FIX #select-empty-value] Radix Select cấm value rỗng.
+                        Lọc id rỗng để tránh React crash khi BE trả lobby
+                        chưa gắn id (walk-in session). */}
+                    {stableLobbies
+                      .filter((l) => l.id && l.id.trim().length > 0)
+                      .map((l) => (
+                        <SelectItem key={l.id} value={l.id}>
+                          {l.name} {l.status ? `· ${l.status}` : ""}
+                          {l.availableSeats != null ? ` · ghế trống ${l.availableSeats}` : ""}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {targetLobby ? (
+                  <p className="truncate text-xs text-neutral-600">
+                    Đang chơi: {targetLobby.activeMemberCount} thành viên
+                    {targetLobby.availableSeats != null
+                      ? ` · ghế trống ${targetLobby.availableSeats}`
+                      : ""}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Member list — max-height cố định theo viewport, scroll nội bộ.
+                60vh ~ 7-10 thành viên hiển thị, dài hơn thì scroll.
+                items cao 2.5rem để click dễ, ID hiển thị 10 ký tự thay vì 8 cho dễ đọc. */}
+            <div className="flex min-h-0 flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <Label>Thành viên muốn chuyển</Label>
+                {memberIds.length > 0 ? (
+                  <span className="text-xs text-neutral-700">
+                    Đã chọn <strong className="text-orange-700">{memberIds.length}</strong>
+                  </span>
+                ) : null}
+              </div>
+              {visibleMembers.length === 0 ? (
+                <p className="rounded-md border border-dashed py-3 text-center text-sm text-neutral-600">
+                  {sourceLobbyId
+                    ? "Lobby nguồn không có thành viên nào."
+                    : "Chọn lobby nguồn trước."}
+                </p>
+              ) : (
+                <div className="max-h-[60vh] space-y-1 overflow-y-auto rounded-md border bg-white p-2">
+                  {visibleMembers.map((m, idx) => {
+                    // [FIX #unique-key] Dùng composite key id+idx để React không
+                    // warning khi 1 user đứng trong nhiều lobby (host ở Bàn 02 đồng
+                    // thời player ở Bàn 03). idx đảm bảo uniqueness trong cùng
+                    // render; id giữ cho React khớp component identity qua update.
+                    const compositeKey = `${m.id}::${idx}`;
+                    const selected = memberIds.includes(m.id);
+                    return (
+                      <button
+                        key={compositeKey}
+                        type="button"
+                        onClick={() => toggleMember(m.id)}
+                        className={`flex w-full min-w-0 items-center justify-between gap-3 rounded px-2.5 py-2 text-left text-sm transition ${
+                          selected
+                            ? "bg-orange-50 ring-1 ring-orange-400"
+                            : "hover:bg-neutral-50"
+                        }`}
+                      >
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <span
+                            aria-hidden
+                            className={`inline-flex size-4 shrink-0 items-center justify-center rounded-sm border ${
+                              selected
+                                ? "border-orange-500 bg-orange-500 text-white"
+                                : "border-neutral-300"
+                            }`}
+                          >
+                            {selected ? "✓" : ""}
+                          </span>
+                          <span className="truncate font-medium">{m.displayName}</span>
+                          {m.isHost ? (
+                            <Badge variant="outline" className="shrink-0 px-1.5 py-0 text-[10px]">
+                              Host
+                            </Badge>
+                          ) : null}
+                        </span>
+                        <span className="shrink-0 font-mono text-xs text-neutral-500">
+                          {m.id.slice(0, 10)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Compact hint: hướng dẫn ngắn khi chưa chọn đủ */}
+            {!sourceLobbyId || !targetLobbyId ? (
+              <div className="rounded-md border border-amber-200 bg-amber-50/50 p-3 text-xs text-amber-900">
+                <p className="font-semibold">Cần chọn đủ:</p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                  <li className={sourceLobbyId ? "text-emerald-700" : ""}>
+                    Lobby nguồn
+                  </li>
+                  <li className={targetLobbyId ? "text-emerald-700" : ""}>
+                    Lobby đích
+                  </li>
+                  <li className={memberIds.length > 0 ? "text-emerald-700" : ""}>
+                    Ít nhất 1 thành viên
+                  </li>
+                </ul>
+              </div>
             ) : null}
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="merge-reason">Lý do (tuỳ chọn, tối đa 500 ký tự)</Label>
-            <Textarea
-              id="merge-reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Ví dụ: Khách yêu cầu chuyển sang nhóm bạn."
-              rows={2}
-              maxLength={500}
-            />
-            <p className="text-right text-xs text-neutral-500">{reason.length}/500</p>
-          </div>
-
-          {sourceMembers.length > 0 ? (
-            <div className="rounded-md border border-orange-200 bg-orange-50/50 p-3 text-xs text-orange-900">
-              <p className="font-semibold">Sẽ tạo {sourceMembers.length} yêu cầu:</p>
-              <ul className="mt-1 list-disc space-y-0.5 pl-4">
-                {sourceMembers.map((m) => (
-                  <li key={m.id}>{m.displayName}</li>
-                ))}
-              </ul>
+          {/* === CỘT PHẢI: Lý do + Summary ===
+              - lg:w-[360px] đủ rộng cho textarea.
+              - shrink-0: chiếm đúng width, không bị ép.
+              - Cao theo nội dung (không stretch). */}
+          <div className="flex shrink-0 flex-col gap-3 md:w-full md:border-t md:pt-4 lg:w-[360px] lg:border-l lg:border-t-0 lg:pt-0 lg:pl-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="merge-reason">Lý do (tuỳ chọn, tối đa 500 ký tự)</Label>
+              <Textarea
+                id="merge-reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Ví dụ: Khách yêu cầu chuyển sang nhóm bạn để chơi chung."
+                rows={5}
+                maxLength={500}
+                className="w-full resize-none"
+              />
+              <p className="text-right text-xs text-neutral-500">{reason.length}/500</p>
             </div>
-          ) : null}
+
+            {sourceMembers.length > 0 ? (
+              <div className="rounded-md border border-orange-200 bg-orange-50/50 p-3 text-xs text-orange-900">
+                <p className="font-semibold">Sẽ tạo {sourceMembers.length} yêu cầu:</p>
+                <ul className="mt-1 list-disc space-y-0.5 overflow-y-auto pl-4 max-h-[160px]">
+                  {sourceMembers.map((m) => (
+                    <li key={m.id} className="break-words">
+                      {m.displayName}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div className="rounded-md border border-dashed p-3 text-xs text-neutral-500">
+                Tick thành viên ở cột trái để xem trước các yêu cầu sẽ gửi.
+              </div>
+            )}
+          </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 gap-2 border-t pt-3">
           <Button type="button" variant="outline" onClick={handleClose} disabled={busy}>
             Huỷ
           </Button>

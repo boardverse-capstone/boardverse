@@ -56,7 +56,7 @@ import {
   Store,
   UserCheck,
 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   formatPlayerRange,
@@ -349,9 +349,17 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         continue;
       }
       if (map.has(sessionId)) continue;
-      const memberCount = Array.isArray((session as any).members)
-        ? (session as any).members.length
-        : 0;
+      // [FIX #active-member-count] Đếm member từ session sau detail merge
+      // (usePosDashboard đã merge detail vào session). BE có thể trả ở
+      // members/players/sessionMembers/participants — thử lần lượt.
+      const rawMembers =
+        (session as any).members ??
+        (session as any).Members ??
+        (session as any).players ??
+        (session as any).sessionMembers ??
+        (session as any).participants ??
+        [];
+      const memberCount = Array.isArray(rawMembers) ? rawMembers.length : 0;
       const tableLabel =
         session.tableName ||
         session.TableName ||
@@ -388,32 +396,184 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
       if (!["active", "playing", "checking", "unpaid"].includes(status)) {
         continue;
       }
-      const membersRaw = (session as any).members ?? (session as any).Members ?? [];
-      out[sessionId] = membersRaw.map((m: any, idx: number) => ({
-        id: String(m?.userId ?? m?.UserId ?? m?.id ?? idx),
-        displayName: String(
-          m?.userName ?? m?.UserName ?? m?.displayName ?? "Khách",
+      // [FIX #members-field-name] BE trả member ở nhiều tên field khác nhau tuỳ
+      // endpoint. Thử lần lượt các key phổ biến. Khi chưa biết đúng key, dùng
+      // log debug ở usePosDashboard để xác nhận (xem console F12).
+      const membersRaw =
+        (session as any).members ??
+        (session as any).Members ??
+        (session as any).players ??
+        (session as any).Players ??
+        (session as any).sessionMembers ??
+        (session as any).SessionMembers ??
+        (session as any).participants ??
+        (session as any).Participants ??
+        (session as any).attendees ??
+        (session as any).Attendees ??
+        [];
+      const list: LobbyMergeMember[] = membersRaw.map((m: any, idx: number) => ({
+        id: String(
+          m?.userId ?? m?.UserId ?? m?.id ?? m?.Id ?? m?.playerId ?? idx,
         ),
-        isHost: Boolean(m?.isHost ?? m?.IsHost ?? idx === 0),
+        displayName: String(
+          m?.userName ??
+            m?.UserName ??
+            m?.displayName ??
+            m?.DisplayName ??
+            m?.fullName ??
+            m?.FullName ??
+            "Khách",
+        ),
+        isHost: Boolean(m?.isHost ?? m?.IsHost ?? m?.isHost ?? idx === 0),
       }));
+
+      // [FIX #host-not-in-members] BE tách host ra khỏi `members[]` — host đứng
+      // ở `hostId`/`hostName` riêng (giống logic `readPresentCount` ở
+      // player-range.ts). Nếu `members[]` đã chứa host thì KHÔNG push thêm.
+      // So khớp theo `id` (đã được normalize thành string từ userId)
+      // hoặc theo `displayName` (đã được normalize thành string từ userName).
+      const normForMatch = (s: string) =>
+        s.normalize("NFKC").replace(/[\s\u200B-\u200F\uFEFF]/g, "").trim();
+      const hostId = normForMatch(
+        String((session as any).hostId ?? (session as any).HostId ?? ""),
+      );
+      const hostName = normForMatch(
+        String((session as any).hostName ?? (session as any).HostName ?? ""),
+      );
+      const hostAlreadyInList = list.some((m) => {
+        const uid = m.id
+          .normalize("NFKC")
+          .replace(/[\s\u200B-\u200F\uFEFF]/g, "")
+          .trim();
+        const name = m.displayName
+          .normalize("NFKC")
+          .replace(/[\s\u200B-\u200F\uFEFF]/g, "")
+          .trim()
+          .toLowerCase();
+        return (
+          (hostId.length > 0 && uid === hostId) ||
+          (hostName.length > 0 && name === hostName.toLowerCase())
+        );
+      });
+      const hasSeparateHost = hostId.length > 0 || hostName.length > 0;
+      if (hasSeparateHost && !hostAlreadyInList) {
+        list.unshift({
+          id: hostId || `host-${sessionId}`,
+          displayName: hostName || "Host",
+          isHost: true,
+        });
+      }
+
+      // [FIX #dedup-v2] BE có thể trả members[] với 6+ entry trùng nhau
+      // (cùng userId, cùng userName, cùng isHost — do hub push lặp).
+      // Dedup 2 lớp:
+      //  1) Key theo `id` exact (sau khi trim) — bắt trùng userId.
+      //  2) Key theo `displayName` (lowercase, trim) — bắt trùng khi id
+      //     khác đuôi (vd suffix thay đổi qua mỗi push).
+      // Ưu tiên entry có `isHost=true` khi trùng.
+      const dedupMap = new Map<string, LobbyMergeMember>();
+      const pickPreferred = (
+        current: LobbyMergeMember,
+        incoming: LobbyMergeMember,
+      ): LobbyMergeMember => {
+        if (incoming.isHost && !current.isHost) return incoming;
+        if (!incoming.isHost && current.isHost) return current;
+        return current;
+      };
+      for (const m of list) {
+        // [FIX #dedup-v3] Normalize id + name để bắt ký tự ẩn (BOM, zero-width,
+        // non-breaking space) mà BE có thể nhúng vào userId qua các lần push.
+        const idKey = m.id
+          .normalize("NFKC")
+          .replace(/[\s\u200B-\u200F\uFEFF]/g, "")
+          .trim();
+        const nameKey = m.displayName
+          .normalize("NFKC")
+          .replace(/[\s\u200B-\u200F\uFEFF]/g, "")
+          .trim()
+          .toLowerCase();
+
+        // Lớp 1: dedup theo id exact (sau normalize)
+        if (idKey.length > 0) {
+          const existingById = dedupMap.get(idKey);
+          if (existingById) {
+            dedupMap.set(idKey, pickPreferred(existingById, m));
+            continue;
+          }
+        }
+        // Lớp 2: dedup theo displayName (skip fallback "Khách")
+        if (nameKey.length > 0 && nameKey !== "khách") {
+          let merged = false;
+          for (const [k, v] of dedupMap.entries()) {
+            const vNameKey = v.displayName
+              .normalize("NFKC")
+              .replace(/[\s\u200B-\u200F\uFEFF]/g, "")
+              .trim()
+              .toLowerCase();
+            if (vNameKey === nameKey) {
+              dedupMap.set(k, pickPreferred(v, m));
+              merged = true;
+              break;
+            }
+          }
+          if (merged) continue;
+        }
+        dedupMap.set(idKey.length > 0 ? idKey : `name-${nameKey}`, m);
+      }
+      const deduped = Array.from(dedupMap.values());
+      // [DEBUG] in ra để check dữ liệu thật từ BE (xem browser console F12)
+      if (deduped.length > 1) {
+        console.warn(
+          `[lobby-merge] session ${sessionId}: ${list.length} raw → ${deduped.length} after dedup`,
+          list,
+        );
+      }
+      out[sessionId] = deduped;
     }
     return out;
   }, [sessions]);
 
   /**
-   * Map `memberId → lobbyId (sessionId giả)` — dialog dùng để lọc member khi staff
-   * đổi lobby nguồn. Không có map này thì dialog hiển thị tất cả member gộp lại
-   * (gây bug: tick member xong đổi source → member đó "biến mất").
+   * Map `memberId → danh sách lobbyId chứa member đó`. Một user có thể đồng thời
+   * ở nhiều lobby (host ở Bàn 02 đồng thời player ở Bàn 03) — dùng mảng thay vì
+   * string đơn để tránh ghi đè mất lobby.
    */
-  const mergeMemberLobbyIds = useMemo<Record<string, string>>(() => {
-    const out: Record<string, string> = {};
+  const mergeMemberLobbyIds = useMemo<Record<string, string[]>>(() => {
+    const out: Record<string, string[]> = {};
+    const norm = (s: string) =>
+      s.normalize("NFKC").replace(/[\s\u200B-\u200F\uFEFF]/g, "").trim();
     for (const [sessionId, list] of Object.entries(mergeMembers)) {
       for (const m of list) {
-        out[m.id] = sessionId;
+        const key = norm(m.id);
+        if (!out[key]) out[key] = [];
+        if (!out[key].includes(sessionId)) out[key].push(sessionId);
       }
     }
     return out;
   }, [mergeMembers]);
+
+  // [DEBUG lobby-merge] Expose data ra window để inspect nhanh trong console.
+  // Gõ `__lobbyMergeDebug` ở DevTools console sau khi mở tab POS Phiên.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (process.env.NODE_ENV === "production") return;
+    (window as any).__lobbyMergeDebug = {
+      sessions: sessions.map((s) => ({
+        id: s.id,
+        status: s.status,
+        members: (s as any).members,
+        players: (s as any).players,
+        sessionMembers: (s as any).sessionMembers,
+        participants: (s as any).participants,
+        attendees: (s as any).attendees,
+        hostId: (s as any).hostId,
+        hostName: (s as any).hostName,
+      })),
+      mergeMembers,
+      mergeLobbies,
+      mergeMemberLobbyIds,
+    };
+  }, [sessions, mergeMembers, mergeLobbies, mergeMemberLobbyIds]);
 
   const { connected: hubConnected } = useCafePosHub({
     enabled: Boolean(cafeId),

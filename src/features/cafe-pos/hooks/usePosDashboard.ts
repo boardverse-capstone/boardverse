@@ -289,6 +289,24 @@ export function usePosDashboard(opts?: {
         }),
       );
 
+      // [DEBUG lobby-merge] log raw detail của lobby đầu tiên để tìm field chứa members.
+      // Xem browser console F12 — nếu thấy key `members` / `players` / `sessionMembers`
+      // thì sửa fallback trong mergeMembers (src/.../pos-feature-container.tsx).
+      if (details.length > 0 && process.env.NODE_ENV !== "production") {
+        const first = details[0];
+        const keys = first ? Object.keys(first) : [];
+        console.info(
+          "[lobby-merge] detail keys:",
+          keys,
+          "sample member-like:",
+          keys
+            .filter((k) =>
+              /member|player|attendee|participant|user|host/i.test(k),
+            )
+            .map((k) => ({ key: k, value: first?.[k] })),
+        );
+      }
+
       const liveSessions = details.filter(
         (s: any) =>
           !isTerminalSessionStatus(s.status ?? s.Status ?? s.sessionStatus),
