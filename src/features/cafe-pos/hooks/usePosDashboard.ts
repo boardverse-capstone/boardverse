@@ -59,20 +59,14 @@ function isTerminalSessionStatus(status: unknown) {
 function parseUtcCheckInTime(time: string, date: string) {
   const [hour, minute] = time.split(":").map(Number);
   const [day, month, year] = date.split("/").map(Number);
-  return new Date(Date.UTC(year, month - 1, day, hour, minute));
+  return new Date(year, month - 1, day, hour, minute);
 }
 
 function formatUtcCheckInTime(time: string, date: string) {
-  const value = parseUtcCheckInTime(time, date);
-  if (Number.isNaN(value.getTime())) return `${time} ${date}`;
-  return new Intl.DateTimeFormat("vi-VN", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    hour: "2-digit",
-    minute: "2-digit",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(value);
+  // [FIX #2026-10-02-window-shifted-7h] BE trả giờ local VN (15:30 nghĩa là 15:30 VN),
+  // không phải UTC. Hiển thị raw `${time} ${date}` để không shift.
+  // Trước đây parse Date.UTC rồi format Asia/Ho_Chi_Minh → shift +7h sai.
+  return `${time} ${date}`;
 }
 
 function formatPosCheckInError(error: unknown) {
@@ -93,7 +87,10 @@ function formatPosCheckInError(error: unknown) {
     if (now > toValue) {
       return `Đã quá giờ nhận bàn. Thời gian nhận bàn kết thúc lúc ${to}.`;
     }
-    return `Không thể nhận bàn trong thời điểm hiện tại. Thời gian cho phép: ${from} – ${to}.`;
+    // [FIX #2026-10-02-now-in-window] now nằm trong [fromValue, toValue] → nên
+    // hiển thị thông báo trung tính (không phải "Không thể") để staff biết
+    // request đang được gửi. Trước đây return "Không thể..." sai ngữ nghĩa.
+    return `Đang trong khung giờ nhận bàn (${from} – ${to}). Đang gửi yêu cầu...`;
   }
   if (/status.*holding|trạng thái.*holding/i.test(message)) {
     return "Đơn đang ở trạng thái giữ chỗ, chưa thể nhận bàn.";

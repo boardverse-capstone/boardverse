@@ -63,6 +63,14 @@ const MERGE_ERROR_MESSAGES: Record<
     title: 'Lobby đích không đủ ghế trống.',
     hint: 'Chọn lobby đích khác có nhiều ghế hơn.',
   },
+  // 409 — Postgres retry deadlock/serialization 5 lần liên tiếp.
+  // Nguyên nhân: nhiều staff merge cùng lobby đích → conflict lock FOR UPDATE
+  // trên ActiveSession (BR-REQUIRED §17.4). BE đã retry 5 lần rồi mới báo lỗi.
+  // Staff chỉ cần đợi + thử lại; nếu lặp lại nhiều → escalate admin check DB.
+  SerializationRetriesExhausted: {
+    title: 'Hệ thống đang quá tải — Postgres retry deadlock 5 lần liên tiếp.',
+    hint: 'Đợi 5–10 giây rồi bấm lại. Nếu vẫn lỗi → liên hệ admin kiểm tra DB.',
+  },
 };
 
 /** Trích error code BE từ response body — server trả `message` hoặc `Message`. */
@@ -129,6 +137,21 @@ function formatApiError(err: unknown): string {
       )
     ) {
       const known = MERGE_ERROR_MESSAGES.MissingConfiguration;
+      const statusPrefix = status ? `[${status}] ` : '';
+      return known.hint
+        ? `${statusPrefix}${known.title} ${known.hint}`
+        : `${statusPrefix}${known.title}`;
+    }
+
+    // 4) SerializationRetriesExhausted — Postgres deadlock retry exhausted.
+    // Fallback khi BE chỉ trả message VN (không kèm errorCode).
+    if (
+      typeof rawMessage === 'string' &&
+      /(serialization|deadlock|retry.*exhausted|quá\s*tải.*deadlock|retry.*liên\s*tiếp)/i.test(
+        rawMessage,
+      )
+    ) {
+      const known = MERGE_ERROR_MESSAGES.SerializationRetriesExhausted;
       const statusPrefix = status ? `[${status}] ` : '';
       return known.hint
         ? `${statusPrefix}${known.title} ${known.hint}`
