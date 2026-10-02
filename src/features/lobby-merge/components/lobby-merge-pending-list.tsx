@@ -6,13 +6,11 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Check,
   X,
-  Clock,
   RefreshCw,
   Table2,
   ArrowRight,
   UsersRound,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
@@ -20,7 +18,6 @@ import {
   usePendingMergeRequests,
 } from "../hooks/useMergeRequests";
 import { useLobbyMergeRealtime } from "../hooks/useLobbyMergeRealtime";
-import { useCancelMergeRequest } from "../hooks/useMergeRequestMutations";
 import {
   LOBBY_MERGE_STATUS_LABELS,
   type LobbyMergeRequestDto,
@@ -131,15 +128,11 @@ export function LobbyMergePendingList({
     pauseWhenHidden: true,
   });
 
-  const cancel = useCancelMergeRequest();
-
-  const handleCancel = useCallback(
-    (requestId: string) => {
-      if (!cafeId) return;
-      cancel.mutate({ cafeId, requestId });
-    },
-    [cafeId, cancel],
-  );
+  // [FIX #staff-cancel-merge 2026-10-02] Bỏ nút "Hủy yêu cầu" riêng.
+  // Staff giờ dùng chung nút "Từ chối yêu cầu" → mở dialog nhập lý do +
+  // gọi API reject (status = Rejected). Hai thao tác (từ chối / hủy) trước
+  // đây đều kết thúc request mà không merge → gây phân vân cho staff; gộp lại
+  // để rõ ràng, mọi đường dẫn "dừng request" đều đi qua 1 nơi duy nhất.
 
   const handleApprove = useCallback((req: LobbyMergeRequestDto) => {
     setReviewState({ request: req, mode: "approve" });
@@ -300,6 +293,10 @@ export function LobbyMergePendingList({
                   <Check className="size-3.5" />
                   Duyệt
                 </Button>
+                {/* [FIX #staff-cancel-merge 2026-10-02] Gộp "Từ chối" + "Hủy
+                    yêu cầu" thành 1 nút duy nhất. Mở dialog để staff nhập lý
+                    do + gọi API reject. Bỏ nút Hủy riêng → staff không còn
+                    đường cancel nhanh không kiểm soát được. */}
                 <Button
                   type="button"
                   size="sm"
@@ -308,17 +305,7 @@ export function LobbyMergePendingList({
                   className="gap-1.5 border-rose-300 text-rose-800 hover:bg-rose-50"
                 >
                   <X className="size-3.5" />
-                  Từ chối
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => handleCancel(req.id)}
-                  disabled={cancel.isPending}
-                  className="gap-1.5 text-neutral-600"
-                >
-                  Hủy yêu cầu
+                  Từ chối yêu cầu
                 </Button>
               </div>
             </div>
@@ -341,11 +328,6 @@ export function LobbyMergePendingList({
           }}
         />
       ) : null}
-
-      {/* Icon giữ import Clock cho future use (đã có trong panel cũ) */}
-      <span className="hidden">
-        <Clock className="size-3.5" />
-      </span>
     </div>
   );
 }

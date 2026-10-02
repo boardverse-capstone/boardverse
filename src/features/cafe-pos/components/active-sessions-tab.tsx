@@ -422,8 +422,8 @@ export function ActiveSessionsTab({
                   )}
                   <span>
                     {isPaused
-                      ? "► Chạy tiếp đồng hồ"
-                      : "⏸ Tạm dừng đồng hồ"}
+                      ? "Chạy tiếp đồng hồ"
+                      : "Tạm dừng đồng hồ"}
                   </span>
                 </Button>
               ) : null}

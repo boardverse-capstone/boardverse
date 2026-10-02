@@ -620,13 +620,18 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         });
       }
 
-      // [FIX #dedup-v2] BE có thể trả members[] với 6+ entry trùng nhau
-      // (cùng userId, cùng userName, cùng isHost — do hub push lặp).
-      // Dedup 2 lớp:
-      //  1) Key theo `id` exact (sau khi trim) — bắt trùng userId.
-      //  2) Key theo `displayName` (lowercase, trim) — bắt trùng khi id
-      //     khác đuôi (vd suffix thay đổi qua mỗi push).
-      // Ưu tiên entry có `isHost=true` khi trùng.
+      // [FIX #dedup-walkin-name-collision 2026-10-02] Bỏ Lớp 2 (dedup theo
+      // `displayName`) — không an toàn với walk-in guest: 2 user thật khác
+      // nhau có thể cùng tên hiển thị (vd 2 khách "hùng" cùng join 1 session,
+      // đều `userId = null`, đều walk-in) → code cũ merge thành 1, mất member.
+      //
+      // Bug đã quan sát (bàn 1, session 7e52a379-...): BE trả 4 members bao gồm
+      // 2 "hùng" (id: 3ba1d0d0-..., 402e02a6-...), 1 "hải", 1 "jack". Sau
+      // Lớp 2 dedup → chỉ còn 3 members (mất 1 hùng).
+      //
+      // Giờ chỉ dedup theo `id` exact. Nếu BE trùng id thật (do hub push lặp) →
+      // Lớp 1 vẫn bắt được. Nếu BE trả 2 member khác id nhưng cùng tên → giữ
+      // cả 2 (đúng nghiệp vụ, 2 user thật).
       const dedupMap = new Map<string, LobbyMergeMember>();
       const pickPreferred = (
         current: LobbyMergeMember,
@@ -636,51 +641,31 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         if (!incoming.isHost && current.isHost) return current;
         return current;
       };
-      for (const m of list) {
-        // [FIX #dedup-v3] Normalize id + name để bắt ký tự ẩn (BOM, zero-width,
+      for (let idx = 0; idx < list.length; idx++) {
+        const m = list[idx];
+        // [FIX #dedup-v3] Normalize id để bắt ký tự ẩn (BOM, zero-width,
         // non-breaking space) mà BE có thể nhúng vào userId qua các lần push.
-        const idKey = m.id
-          .normalize("NFKC")
-          .replace(/[\s\u200B-\u200F\uFEFF]/g, "")
-          .trim();
-        const nameKey = m.displayName
-          .normalize("NFKC")
-          .replace(/[\s\u200B-\u200F\uFEFF]/g, "")
-          .trim()
-          .toLowerCase();
-
-        // Lớp 1: dedup theo id exact (sau normalize)
-        if (idKey.length > 0) {
-          const existingById = dedupMap.get(idKey);
-          if (existingById) {
-            dedupMap.set(idKey, pickPreferred(existingById, m));
-            continue;
-          }
+        const rawId = m?.id ?? "";
+        const idKey =
+          rawId && String(rawId).trim().length > 0
+            ? String(rawId)
+                .normalize("NFKC")
+                .replace(/[\s\u200B-\u200F\uFEFF]/g, "")
+                .trim()
+            : `idx-${idx}`; // Walk-in chưa có id → fallback index chỉ để key
+                            // trong Map, KHÔNG dùng để identify cross-session.
+        const existing = dedupMap.get(idKey);
+        if (existing) {
+          dedupMap.set(idKey, pickPreferred(existing, m));
+          continue;
         }
-        // Lớp 2: dedup theo displayName (skip fallback "Khách")
-        if (nameKey.length > 0 && nameKey !== "khách") {
-          let merged = false;
-          for (const [k, v] of dedupMap.entries()) {
-            const vNameKey = v.displayName
-              .normalize("NFKC")
-              .replace(/[\s\u200B-\u200F\uFEFF]/g, "")
-              .trim()
-              .toLowerCase();
-            if (vNameKey === nameKey) {
-              dedupMap.set(k, pickPreferred(v, m));
-              merged = true;
-              break;
-            }
-          }
-          if (merged) continue;
-        }
-        dedupMap.set(idKey.length > 0 ? idKey : `name-${nameKey}`, m);
+        dedupMap.set(idKey, m);
       }
       const deduped = Array.from(dedupMap.values());
       // [DEBUG] in ra để check dữ liệu thật từ BE (xem browser console F12)
       if (deduped.length > 1) {
-        console.warn(
-          `[lobby-merge] session ${sessionId}: ${list.length} raw → ${deduped.length} after dedup`,
+        console.info(
+          `[lobby-merge] session ${sessionId}: ${list.length} raw → ${deduped.length} after dedup-by-id`,
           list,
         );
       }
