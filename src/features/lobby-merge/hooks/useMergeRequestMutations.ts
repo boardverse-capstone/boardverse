@@ -349,21 +349,21 @@ export function useCancelMergeRequest() {
 }
 
 /**
- * Mutation: ghép nhiều member cùng lúc.
- * Trả về kết quả từng member (ok / fail).
+ * [FIX #2026-10-02-bulk-consolidate-single] Hook này giờ gửi 1 POST duy nhất
+ * với body `selectedMemberIds: string[]` (toàn bộ member). BE tạo 1
+ * LobbyMergeRequest record cho cặp (source, target).
  *
- * [FIX #2026-10-02-selectedMemberIds-required] Đổi `memberUserIds` →
- * `memberIds` — mỗi item là row Id (LobbyMember.Id / ActiveSessionMember.Id),
- * không phải UserId.
+ * Trước đây hook này loop N request (1 per member) → sai nghiệp vụ BE
+ * (1 cặp lobby chỉ có 1 Pending tại 1 thời điểm), request thứ 2+ luôn
+ * trả 409 `MergeRequestAlreadyExists` (xem timeline BE 2026-10-02).
+ *
+ * Return type đổi: từ `Array<ok/fail>` → `LobbyMergeRequestDto` (1 record).
  */
 export function useBulkCreateMergeRequests() {
   const queryClient = useQueryClient();
 
   return useMutation<
-    Array<
-      | { ok: true; memberId: string; request: LobbyMergeRequestDto }
-      | { ok: false; memberId: string; error: string }
-    >,
+    LobbyMergeRequestDto,
     Error,
     {
       cafeId: string;
@@ -375,17 +375,13 @@ export function useBulkCreateMergeRequests() {
   >({
     mutationFn: ({ cafeId, ...params }) =>
       LobbyMergeService.createBulkMergeRequests(cafeId, params),
-    onSuccess: (results, vars) => {
+    onSuccess: (request, vars) => {
       invalidateMergeQueries(queryClient, vars.cafeId);
-      const success = results.filter((r) => r.ok).length;
-      const fail = results.length - success;
-      if (fail === 0) {
-        toast.success(`Đã gửi ${success} yêu cầu ghép nhóm.`);
-      } else if (success === 0) {
-        toast.error(`Không thể gửi yêu cầu ghép nhóm (${fail} lỗi).`);
-      } else {
-        toast.warning(`Đã gửi ${success}/${results.length} yêu cầu — ${fail} lỗi.`);
-      }
+      toast.success(
+        request.statusText
+          ? `Đã tạo yêu cầu ghép nhóm — ${request.statusText}`
+          : `Đã tạo yêu cầu ghép nhóm (${vars.memberIds.length} thành viên).`,
+      );
     },
     onError: (error) => {
       // eslint-disable-next-line no-console

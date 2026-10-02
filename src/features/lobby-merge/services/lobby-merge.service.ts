@@ -268,6 +268,20 @@ export const LobbyMergeService = {
    * ActiveSessionMember (walk-in), không phải UserId. Mỗi item vẫn phải là
    * row Id, không phải userId.
    */
+  /**
+   * [FIX #2026-10-02-bulk-consolidate-single] Trước đây hàm này gửi
+   * N POST song song (1 request / 1 member) → sai nghiệp vụ BE: mỗi
+   * cặp (sourceLobby, targetLobby) chỉ cho phép 1 Pending request tại
+   * 1 thời điểm, nên request thứ 2+ luôn trả 409 `MergeRequestAlreadyExists`
+   * (xem timeline BE 2026-10-02: 201 + 201 + 409).
+   *
+   * BE yêu cầu: gộp toàn bộ member IDs vào 1 request duy nhất
+   * (body chứa `selectedMemberIds: string[]`). 1 request = 1 record,
+   * BE tự xử lý chuyển nhiều member trong transaction đó.
+   *
+   * Trả về `LobbyMergeRequestDto` giống `createMergeRequest` để caller
+   * dùng cùng pattern với path single (1 member).
+   */
   createBulkMergeRequests: async (
     cafeId: string,
     params: {
@@ -276,33 +290,19 @@ export const LobbyMergeService = {
       memberIds: string[];
       reason?: string;
     },
-  ): Promise<
-    Array<
-      | { ok: true; memberId: string; request: LobbyMergeRequestDto }
-      | { ok: false; memberId: string; error: string }
-    >
-  > => {
-    const results = await Promise.allSettled(
-      params.memberIds.map(async (memberId) => {
-        const idempotencyKey = `MERGE-${memberId}-${Date.now()}`;
-        return LobbyMergeService.createMergeRequest(cafeId, {
-          sourceLobbyId: params.sourceLobbyId,
-          targetLobbyId: params.targetLobbyId,
-          selectedMemberIds: [memberId],
-          reason: params.reason,
-          idempotencyKey,
-        });
-      }),
-    );
+  ): Promise<LobbyMergeRequestDto> => {
+    // Idempotency key theo CẶP lobby + timestamp — đảm bảo 1 request
+    // cho cùng cặp (source, target) trong khoảng thời gian ngắn sẽ
+    // trùng key → BE cache response. Trước đây key chứa `memberId`
+    // nên mỗi member khác key → BE không dedup.
+    const idempotencyKey = `MERGE-${params.sourceLobbyId}-${params.targetLobbyId}-${Date.now()}`;
 
-    return params.memberIds.map((memberId, idx) => {
-      const r = results[idx];
-      if (r.status === 'fulfilled') {
-        return { ok: true, memberId, request: r.value };
-      }
-      const msg =
-        r.reason instanceof Error ? r.reason.message : String(r.reason ?? 'Lỗi');
-      return { ok: false, memberId, error: msg };
+    return LobbyMergeService.createMergeRequest(cafeId, {
+      sourceLobbyId: params.sourceLobbyId,
+      targetLobbyId: params.targetLobbyId,
+      selectedMemberIds: params.memberIds,
+      reason: params.reason,
+      idempotencyKey,
     });
   },
 };

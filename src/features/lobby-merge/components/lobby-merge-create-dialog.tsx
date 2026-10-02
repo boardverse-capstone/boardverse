@@ -5,7 +5,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ExternalLink, Swords } from "lucide-react";
-import { AxiosError } from "axios";
 import {
   Dialog,
   DialogContent,
@@ -26,30 +25,10 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  LobbyMergeService,
-} from "../services/lobby-merge.service";
 import type { LobbyMergeRequestDto } from "../types/lobby-merge.interface";
 import {
   useCreateMergeRequest,
-  useBulkCreateMergeRequests,
-  isMergeDifferentGamesError,
 } from "../hooks/useMergeRequestMutations";
-
-/**
- * Helper: detect lỗi `MergeDifferentGames` từ raw Error object (do service throw Error thuần).
- * Service throw Error có message chứa code BE → match theo string.
- */
-function isDifferentGamesMessage(msg: string): boolean {
-  // [FIX #vi-message] BE trả 2 dạng:
-  //  - Cũ: "MergeDifferentGames" (mã lỗi tiếng Anh)
-  //  - Mới (i18n): "Hai nhóm đang chơi game khác nhau" (Việt)
-  // Bắt cả "khác game" lẫ "game khác" để dedup-toast luôn ưu tiên message VN.
-  return (
-    /MergeDifferentGames/i.test(msg) ||
-    /khác\s*game|game\s*khác|chơi\s*game\s*khác/i.test(msg)
-  );
-}
 
 export interface LobbyOption {
   id: string;
@@ -183,8 +162,7 @@ export function LobbyMergeCreateDialog({
   >({});
 
   const createOne = useCreateMergeRequest();
-  const createBulk = useBulkCreateMergeRequests();
-  const busy = createOne.isPending || createBulk.isPending;
+  const busy = createOne.isPending;
 
   // [NOTE] Reset state khi mở dialog: dùng `key` prop trên `<Dialog>` (key={`merge-${openCount}`}
   // thay đổi mỗi lần mở) để force remount → React reset tất cả useState → tránh
@@ -708,88 +686,29 @@ export function LobbyMergeCreateDialog({
       reason: reason.trim() || undefined,
     });
 
-    if (trimmedIds.length === 1) {
-      // 1 member → dùng mutation đơn để có loading state & toast riêng.
-      // [FIX #2026-10-02-selectedMemberIds-required] BE bắt buộc gửi
-      // `selectedMemberIds` (non-empty) trong body — chứa Id của LobbyMember
-      // (online) / ActiveSessionMember (walk-in). Idempotency key theo format
-      // BE đề xuất: `MERGE-{memberId}-{timestampMs}`.
-      createOne.mutate(
-        {
-          cafeId,
-          sourceLobbyId: resolvedSource,
-          targetLobbyId: resolvedTarget,
-          selectedMemberIds: trimmedIds,
-          reason: reason.trim() || undefined,
-          idempotencyKey: `MERGE-${trimmedIds[0]}-${Date.now()}`,
-        },
-        {
-          onSuccess: (data) => {
-            onSuccess?.(data);
-            onClose();
-          },
-        },
-      );
-      return;
-    }
-
-    // Nhiều member → dùng bulk helper trong service (Promise.allSettled).
-    // [FIX #2026-10-02-selectedMemberIds-required] Truyền `memberIds` (đã đổi
-    // tên từ `memberUserIds`) — mỗi item là row Id, service sẽ tự build body
-    // với `selectedMemberIds: [memberId]` cho từng request.
-    try {
-      const results = await LobbyMergeService.createBulkMergeRequests(cafeId, {
+    // [FIX #2026-10-02-bulk-consolidate-single] Gộp 1 + N+ member đều dùng
+    // cùng 1 mutation `createOne` (1 POST duy nhất). Trước đây tách 2 nhánh:
+    // - length === 1 → `createOne.mutate` (OK)
+    // - length > 1   → `createBulk.mergeRequests` (loop N POST → sai nghiệp vụ,
+    //   BE trả 409 `MergeRequestAlreadyExists` cho request thứ 2).
+    // Xem timeline BE 2026-10-02.
+    const idempotencyKey = `MERGE-${resolvedSource}-${resolvedTarget}-${Date.now()}`;
+    createOne.mutate(
+      {
+        cafeId,
         sourceLobbyId: resolvedSource,
         targetLobbyId: resolvedTarget,
-        memberIds: trimmedIds,
+        selectedMemberIds: trimmedIds,
         reason: reason.trim() || undefined,
-      });
-      const success = results.filter((r) => r.ok).map((r) =>
-        r.ok ? r.request : null,
-      );
-      const fail = results.filter((r) => !r.ok);
-
-      // Phát hiện lỗi MergeDifferentGames — staff cần EndGame + ComponentCheck trước.
-      // Khi đó tất cả member đều fail cùng 1 lý do → ưu tiên toast riêng.
-      const allFailsAreDifferentGames = fail.length > 0 && fail.every((f) => {
-        if (!f || f.ok) return false;
-        return isDifferentGamesMessage(f.error);
-      });
-
-      if (allFailsAreDifferentGames) {
-        toast.error(
-          "Lobby nguồn đang chơi game khác và chưa trả hộp về quán. " +
-            "Vào POS → bấm \"Trả game\" + \"Kiểm kê linh kiện\" cho lobby nguồn, rồi thử lại.",
-          { duration: 8000 },
-        );
-        return;
-      }
-
-      if (success.length === 0) {
-        toast.error(`Không tạo được yêu cầu ghép: ${fail[0]?.error ?? "Lỗi"}`);
-        return;
-      }
-      if (fail.length > 0) {
-        toast.warning(
-          `Đã gửi ${success.length}/${results.length} yêu cầu — ${fail.length} lỗi.`,
-        );
-      } else {
-        toast.success(`Đã gửi ${success.length} yêu cầu ghép nhóm.`);
-      }
-      onSuccess?.(success.filter(Boolean) as LobbyMergeRequestDto[]);
-      onClose();
-    } catch (err) {
-      // Catch-all cho lỗi không lường trước (vd: throw Error thuần không phải AxiosError).
-      if (err instanceof AxiosError && isMergeDifferentGamesError(err)) {
-        toast.error(
-          "Lobby nguồn đang chơi game khác và chưa trả hộp về quán. " +
-            "Vào POS → bấm \"Trả game\" + \"Kiểm kê linh kiện\" cho lobby nguồn, rồi thử lại.",
-          { duration: 8000 },
-        );
-        return;
-      }
-      toast.error(err instanceof Error ? err.message : "Tạo yêu cầu thất bại.");
-    }
+        idempotencyKey,
+      },
+      {
+        onSuccess: (data) => {
+          onSuccess?.([data]);
+          onClose();
+        },
+      },
+    );
   };
 
   return (
