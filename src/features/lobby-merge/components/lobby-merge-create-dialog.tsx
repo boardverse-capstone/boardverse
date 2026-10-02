@@ -710,13 +710,16 @@ export function LobbyMergeCreateDialog({
 
     if (trimmedIds.length === 1) {
       // 1 member → dùng mutation đơn để có loading state & toast riêng.
-      // Theo docs LobbyMergeController: body chỉ { sourceLobbyId, targetLobbyId, reason, idempotencyKey }.
-      // Service sẽ tự loop 1 member / idempotencyKey — không cần memberUserId.
+      // [FIX #2026-10-02-selectedMemberIds-required] BE bắt buộc gửi
+      // `selectedMemberIds` (non-empty) trong body — chứa Id của LobbyMember
+      // (online) / ActiveSessionMember (walk-in). Idempotency key theo format
+      // BE đề xuất: `MERGE-{memberId}-{timestampMs}`.
       createOne.mutate(
         {
           cafeId,
           sourceLobbyId: resolvedSource,
           targetLobbyId: resolvedTarget,
+          selectedMemberIds: trimmedIds,
           reason: reason.trim() || undefined,
           idempotencyKey: `MERGE-${trimmedIds[0]}-${Date.now()}`,
         },
@@ -730,12 +733,15 @@ export function LobbyMergeCreateDialog({
       return;
     }
 
-    // Nhiều member → dùng bulk helper trong service (Promise.allSettled)
+    // Nhiều member → dùng bulk helper trong service (Promise.allSettled).
+    // [FIX #2026-10-02-selectedMemberIds-required] Truyền `memberIds` (đã đổi
+    // tên từ `memberUserIds`) — mỗi item là row Id, service sẽ tự build body
+    // với `selectedMemberIds: [memberId]` cho từng request.
     try {
       const results = await LobbyMergeService.createBulkMergeRequests(cafeId, {
         sourceLobbyId: resolvedSource,
         targetLobbyId: resolvedTarget,
-        memberUserIds: trimmedIds,
+        memberIds: trimmedIds,
         reason: reason.trim() || undefined,
       });
       const success = results.filter((r) => r.ok).map((r) =>

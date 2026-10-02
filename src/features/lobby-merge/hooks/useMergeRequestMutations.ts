@@ -328,21 +328,25 @@ export function useCancelMergeRequest() {
 /**
  * Mutation: ghép nhiều member cùng lúc.
  * Trả về kết quả từng member (ok / fail).
+ *
+ * [FIX #2026-10-02-selectedMemberIds-required] Đổi `memberUserIds` →
+ * `memberIds` — mỗi item là row Id (LobbyMember.Id / ActiveSessionMember.Id),
+ * không phải UserId.
  */
 export function useBulkCreateMergeRequests() {
   const queryClient = useQueryClient();
 
   return useMutation<
     Array<
-      | { ok: true; memberUserId: string; request: LobbyMergeRequestDto }
-      | { ok: false; memberUserId: string; error: string }
+      | { ok: true; memberId: string; request: LobbyMergeRequestDto }
+      | { ok: false; memberId: string; error: string }
     >,
     Error,
     {
       cafeId: string;
       sourceLobbyId: string;
       targetLobbyId: string;
-      memberUserIds: string[];
+      memberIds: string[];
       reason?: string;
     }
   >({
