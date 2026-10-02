@@ -255,6 +255,11 @@ export function SessionMembersPanel({
         memberUserId: mergeMemberId,
       });
       setMergeMemberId('');
+      // [FIX #pos-merge-refresh] Sau khi ghep, so nguoi choi cua phien target phai tu cap nhat.
+      // Invalidate ca 3 cache: activeSession (modal chi tiet), activeSessions (tab phien), floorPlan (so do ban).
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.activeSession] });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.activeSessions] });
+      queryClient.invalidateQueries({ queryKey: [POS_QUERY_KEYS.floorPlan] });
       toast.success('ÄÃ£ chuyá»ƒn thÃ nh viÃªn sang phiÃªn khÃ¡c.');
     } catch (err) {
       toast.error((err as Error)?.message || 'KhÃ´ng thá»ƒ gá»™p phiÃªn.');

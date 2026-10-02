@@ -1374,10 +1374,15 @@ export const PosCheckInService = {
   ): Promise<CafeSessionDetail> => {
     const displayName = payload.displayName.trim();
     const phoneNumber = payload.phoneNumber?.replace(/\s/g, "") || "";
-    const body: Record<string, string> = { displayName };
+    const body: Record<string, unknown> = { displayName };
     if (phoneNumber) body.phoneNumber = phoneNumber;
     if (payload.username?.trim() && !displayName) {
       body.username = payload.username.trim();
+    }
+    // [FIX #guest-designate-host] Truyền designateAsHost khi FE muốn
+    // promote guest slot này thành host (vd: khách đầu tiên = người mở bàn).
+    if (payload.designateAsHost === true) {
+      body.designateAsHost = true;
     }
 
     try {

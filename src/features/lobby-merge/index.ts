@@ -48,10 +48,16 @@ export {
 export { LobbyMergePanel } from './components/lobby-merge-panel';
 export { LobbyMergeCreateDialog } from './components/lobby-merge-create-dialog';
 export { LobbyMergeReviewDialog } from './components/lobby-merge-review-dialog';
+export { LobbyMergePendingList } from './components/lobby-merge-pending-list';
 export type {
   LobbyOption,
   LobbyMergeMember,
+  LobbySessionMeta,
   LobbyMergeCreateDialogProps,
 } from './components/lobby-merge-create-dialog';
 export type { LobbyMergeReviewDialogProps } from './components/lobby-merge-review-dialog';
 export type { LobbyMergePanelProps } from './components/lobby-merge-panel';
+export type {
+  LobbyMergePendingListProps,
+  MergeLobbyEntry,
+} from './components/lobby-merge-pending-list';

@@ -104,6 +104,61 @@ function formatPosCheckInError(error: unknown) {
   );
 }
 
+/**
+ * [FIX #table-held-error] Format lỗi walk-in "Khởi tạo phiên chơi" (POST /pos/sessions)
+ * — biến message rời rạc từ BE thành hướng dẫn cụ thể cho staff.
+ *
+ * BE có thể trả:
+ *  - "Bàn 'XXX' đang được giữ hoặc trong sự kiện và không thể nhận game."
+ *    → Có thể do session cũ (sau lobby-merge) chưa BE trả lời "đóng phiên",
+ *      hoặc bàn đang nằm trong 1 event/hold do staff khác tạo.
+ *  - "Bàn 'XXX' đang có phiên chơi."
+ *    → Có session Active chưa end (phải EndSession trước).
+ *
+ * Staff không cần đọc UUID — hướng dẫn cần tên bàn hoặc cách xử lý tiếp.
+ */
+function formatStartSessionError(error: unknown) {
+  const fallback = "Không thể khởi tạo phiên chơi.";
+  if (!(error instanceof Error) && typeof error !== "object") {
+    return fallback;
+  }
+  const raw =
+    (error as any)?.response?.data?.message ??
+    (error as any)?.message ??
+    fallback;
+
+  // [Case 1] Bàn đang được giữ / trong sự kiện — nghi ngờ nhiều nhất:
+ //   session trước-nghiệp (sau lobby-merge) chưa được BE đóng.
+ //   Trước đây BE trả raw message khiến staff không biết phải làm gì.
+  const heldMatch = raw.match(
+    /Bàn\s+['"]?([0-9a-fA-F-]{8,})['"]?\s+đang được giữ hoặc trong sự kiện/i,
+  );
+  if (heldMatch) {
+    return (
+      "Bàn này đang bị giữ hoặc vẫn còn phiên chưa đóng (có thể do vừa ghép lobby). " +
+      "Vào tab “Phiên chơi” → tìm phiên của bàn này → bấm “Kết thúc phiên” (hoặc nhờ quản lý xử lý nếu thuộc event). "
+      + "Sau đó quay lại mở bàn."
+    );
+  }
+
+  // [Case 2] Bàn đang có phiên chơi Active
+  if (/đang có phiên chơi|already has an active session/i.test(raw)) {
+    return (
+      "Bàn này đang có phiên chơi chưa đóng. " +
+      "Vào tab “Phiên chơi” → chọn phiên của bàn này → bấm “Kết thúc phiên” → quay lại mở bàn."
+    );
+  }
+
+  // [Case 3] Variant EN phổ biến
+  if (/is held|is reserved|table is locked/i.test(raw)) {
+    return (
+      "Bàn này đang bị giữ / khoá. Vui lòng kiểm tra tab “Phiên chơi” hoặc liên hệ quản lý."
+    );
+  }
+
+  return raw || fallback;
+}
+
 function rememberVerifiedFromSession(
   session: any,
   verifiedGameIds: Set<string>,
@@ -702,11 +757,17 @@ export function usePosDashboard(opts?: {
 
       const guests = walkInGuests.filter((g) => g.displayName.trim());
       if (sessionId && guests.length > 0) {
-        for (const guest of guests) {
+        // [FIX #guest-designate-host] Guest đầu tiên = "khách liên hệ" = người mở bàn.
+        // Truyền designateAsHost=true cho BE promote thành host của phiên,
+        // tránh để hostId mặc định = "Khách vãng lai" vô danh.
+        // (Các guest từ idx 1 trở đi KHÔNG cần flag — họ chỉ là khách đi cùng.)
+        for (let i = 0; i < guests.length; i++) {
+          const guest = guests[i];
           try {
             await PosCheckInService.addGuestSlots(cafeId, sessionId, {
               displayName: guest.displayName.trim(),
               phoneNumber: guest.phoneNumber?.trim() || undefined,
+              designateAsHost: i === 0,
             });
           } catch (guestErr: any) {
             toast.error(
@@ -727,7 +788,9 @@ export function usePosDashboard(opts?: {
       await fetchAllData(cafeId);
       return true;
     } catch (err: any) {
-      toast.error(err?.message || "Không thể khởi tạo phiên chơi.");
+      // [FIX #table-held-error] BE message rời rạc → format lại thành hướng dẫn
+      // cụ thể (cách tìm & đóng phiên cũ trước khi mở bàn mới).
+      toast.error(formatStartSessionError(err));
       return false;
     }
   };

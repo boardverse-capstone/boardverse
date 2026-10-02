@@ -49,10 +49,22 @@ export interface LobbyMergePanelProps {
    */
   fetchSessionLobbyId?: (sessionId: string) => Promise<string | null>;
   /**
+   * [FIX #lobby-merge-game-filter] Fetch meta của session (gameTemplateId,
+   * gameName, hasInUseBox) — dialog dùng để ưu tiên lobby cùng game trong
+   * dropdown target + cảnh báo cross-game / box InUse. Optional — nếu không
+   * truyền, dialog chỉ lọc theo "ghế đầy" và cross-game hint sẽ thiếu.
+   */
+  fetchSessionMeta?: (sessionId: string) => Promise<import('./lobby-merge-create-dialog').LobbySessionMeta>;
+  /**
    * Map `memberId → danh sách lobbyId chứa member đó`. Một user có thể đồng thời
    * ở nhiều lobby (host ở Bàn 02 đồng thời player ở Bàn 03).
    */
   memberLobbyIds?: Record<string, string[]>;
+  /**
+   * [FIX #auto-refresh-ppl] Sau khi duyệt ghép thành công, refresh POS data
+   * (sessions + tables) để số lượng ppl bàn cập nhật ngay — không cần reload.
+   */
+  onApproved?: () => void;
 }
 
 const STATUS_TONE: Record<LobbyMergeRequestStatus, string> = {
@@ -76,7 +88,9 @@ export function LobbyMergePanel({
   membersByLobby = {},
   focusLobbyId,
   fetchSessionLobbyId,
+  fetchSessionMeta,
   memberLobbyIds,
+  onApproved,
 }: LobbyMergePanelProps) {
   // Realtime — auto invalidate pending & history khi BE push event.
   useLobbyMergeRealtime(cafeId ?? undefined, { showToast: true });
@@ -422,6 +436,7 @@ export function LobbyMergePanel({
         members={Object.values(membersByLobby).flat()}
         memberLobbyIds={memberLobbyIds}
         resolveLobbyId={fetchSessionLobbyId}
+        fetchSessionMeta={fetchSessionMeta}
         onSuccess={() => {
           void refetchPending();
         }}
@@ -433,6 +448,8 @@ export function LobbyMergePanel({
           request={reviewState.request}
           mode={reviewState.mode}
           isOpen={Boolean(reviewState)}
+          // [FIX #auto-refresh-ppl] Fire khi approve succeed → POS refresh.
+          onApproved={onApproved}
           onClose={() => {
             setReviewState(null);
             void refetchPending();

@@ -20,6 +20,7 @@ import { arcadeCardClass, scoreNumberClass } from "../lib/game-theme";
 import { cn } from "@/lib/utils";
 import {
   Clock,
+  Gamepad2,
   Users,
   CreditCard,
   LogOut,
@@ -30,8 +31,14 @@ import {
   Play,
 } from "lucide-react";
 
+import {
+  LobbyMergeCreateDialog,
+} from "@/features/lobby-merge";
+
 export interface ActiveSessionsTabProps {
   sessions: any[];
+  /** CafeId hiện tại — dùng cho các dialog con cần BE context. */
+  cafeId?: string | null;
   onEndSession: (sessionId: string) => void;
   onViewDetail: (sessionId: string) => void;
   onOpenInventory: (session: any) => void;
@@ -39,6 +46,12 @@ export interface ActiveSessionsTabProps {
   onResumeSession?: (sessionId: string) => void;
   onPauseSession?: (sessionId: string) => void;
   onResumePause?: (sessionId: string) => void;
+  /**
+   * [FIX #auto-refresh-ppl] Sau khi duyệt ghép lobby thành công, gọi callback
+   * này để parent refresh POS data (sessions + tables).
+   * Tách khỏi `onChanged` để không fire cho reject.
+   */
+  onLobbyMerged?: () => void;
 }
 
 function normStatus(value: unknown) {
@@ -115,6 +128,7 @@ function formatSessionStatusLabel(status?: string | null) {
 
 export function ActiveSessionsTab({
   sessions,
+  cafeId,
   onEndSession,
   onViewDetail,
   onOpenInventory,
@@ -122,8 +136,14 @@ export function ActiveSessionsTab({
   onResumeSession,
   onPauseSession,
   onResumePause,
+  onLobbyMerged,
 }: ActiveSessionsTabProps) {
   const activeSessions = (sessions || []).filter((s) => !isPaidByApi(s));
+
+  // [FIX #lobby-merge-header-merged] State pendingOpen + hook usePendingMergeRequests
+  // + Dialog LobbyMergePendingList đã được đưa ra parent (pos-feature-container.tsx)
+  // để render nút "Đang chờ (N)" cùng hàng với tab "Phiên chơi" (chỉ hiện khi
+  // tab sessions active). Component này chỉ render grid cards.
 
   if (!activeSessions || activeSessions.length === 0) {
     return (
@@ -142,7 +162,13 @@ export function ActiveSessionsTab({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="space-y-3">
+      {/* [FIX #lobby-merge-header-merged] Header badge "Đang chờ" + nút "Ghép
+          lobby" đã được đưa ra cùng hàng với tab "Phiên chơi" trong
+          pos-feature-container.tsx (nằm trong TabsList, chỉ hiện khi tab
+          sessions active). Không render header card tím ở đây nữa để tránh
+          trùng lặp và làm gọn UI. */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
       {activeSessions.map((ses: any) => {
         const isUnpaid = sessionLifecycle(ses) === "unpaid";
         const isChecking = sessionLifecycle(ses) === "checking";
@@ -354,12 +380,19 @@ export function ActiveSessionsTab({
               className="grid grid-cols-2 gap-2 border-t-2 border-current/10"
               onClick={(event) => event.stopPropagation()}
             >
-              {isChecking && !isUnpaid && !isPaidDone && onResumeSession ? (
+              {isChecking && !isUnpaid && !isPaidDone && onResumeSession && (readPresentCount(ses) ?? 0) > 0 ? (
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => onResumeSession(ses.id)}
+                  onClick={() => {
+                    const present = readPresentCount(ses);
+                    if (present == null || present <= 0) {
+                      toast.error("Phiên không còn người chơi nào. Không thể tiếp tục.");
+                      return;
+                    }
+                    onResumeSession?.(ses.id);
+                  }}
                   className="col-span-2 min-h-11 gap-2 border-2 border-orange-400 bg-orange-100 font-bold uppercase tracking-wider text-orange-800 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] hover:bg-orange-200"
                 >
                   ► Tiếp tục phiên
@@ -489,6 +522,11 @@ export function ActiveSessionsTab({
           </Card>
         );
       })}
+      </div>
+
+      {/* [FIX #lobby-merge-header-merged] Dialog LobbyMergePendingList đã đưa
+          ra parent (pos-feature-container.tsx) để bám sát nút "Đang chờ (N)"
+          trên TabsList. Render ở đây không còn cần thiết. */}
     </div>
   );
 }

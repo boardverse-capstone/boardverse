@@ -411,8 +411,12 @@ export function SessionDetailModal({
   };
 
   return (
+    // [FIX #lobby-merge-view-target] z-[60] để modal detail stack lên trên
+    // dialog ghép lobby (Radix Dialog dùng z-50 + isolate). Khi staff mở
+    // chi tiết phiên từ trong dialog ghép, modal này phải nằm trên cùng;
+    // đóng modal → quay về dialog ghép nguyên trạng.
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 p-3 backdrop-blur-xs sm:p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-neutral-950/40 p-3 backdrop-blur-xs sm:p-4"
       onClick={backdropCloseHandler(
         () => {
           if (addingGuest) return;
@@ -605,7 +609,7 @@ export function SessionDetailModal({
 
                 <div className="space-y-2">
                   <h4 className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-orange-100 to-amber-100 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-orange-800">
-                    <Users className="size-4 text-orange-600" /> Khách ({guests.length || 0})
+                    <Users className="size-4 text-orange-600" /> Người chơi ({guests.length || 0})
                   </h4>
                   <div className="flex flex-wrap gap-1.5">
                     {guests.map((m: any, idx: number) => {

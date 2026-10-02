@@ -256,6 +256,13 @@ export interface AddGuestSlotsPayload {
   username?: string;
   /** SĐT liên hệ (Swagger AddGuestSlotRequestDto) */
   phoneNumber?: string;
+  /**
+   * [FIX #guest-designate-host] true → BE promote guest slot này thành host
+   * của phiên (đổi session.hostId/hostName từ "Khách vãng lai" → displayName).
+   * Dùng cho khách đầu tiên (khách liên hệ / người mở bàn).
+   * Chỉ áp dụng được cho guest đầu tiên trong phiên — bỏ qua nếu đã có host.
+   */
+  designateAsHost?: boolean;
 }
 
 /** POST /api/cafes/{cafeId}/sessions/{sessionId}/members/add */

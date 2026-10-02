@@ -34,10 +34,22 @@ import { BoxComponentHistoryModal } from "./box-component-history-modal";
 import { PendingBookingsPanel } from "./pending-bookings-panel";
 import { SettlementsTab } from "./settlements-tab";
 import {
-  LobbyMergePanel,
+  LobbyMergeCreateDialog,
   type LobbyOption,
   type LobbyMergeMember,
+  type LobbySessionMeta,
 } from "@/features/lobby-merge";
+import {
+  LobbyMergePendingList,
+} from "@/features/lobby-merge/components/lobby-merge-pending-list";
+import { usePendingMergeRequests } from "@/features/lobby-merge/hooks/useMergeRequests";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   RefreshCw,
@@ -326,6 +338,91 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
   );
 
   /**
+   * [FIX #lobby-merge-game-filter] Fetch meta của session (game đang chơi + box
+   * InUse) để dialog merge lọc target theo game + phát hiện cross-game / box
+   * InUse (Gap 4 fix) sớm, tránh staff phải submit rồi mới biết BE chặn.
+   *
+   * Logic:
+   * - Gọi `handleGetSessionDetail` (BE trả `games[]` với `gameTemplateId`,
+   *   `gameName`; box gắn với session nằm ở `games[].cafeGameInventoryId`
+   *   + trạng thái có thể ở top-level `boxes[]` hoặc trong từng game).
+   * - `hasInUseBox = true` nếu CÓ ÍT NHẤT một box status = `InUse` trên bàn.
+   *   BE có thể đặt status ở nhiều chỗ → duyệt in game.box.status / game.status
+   *   / top-level `boxes[]` / `inventoryBox.status` tuỳ schema.
+   * - Fail im lặng → trả meta null → dialog vẫn hoạt động, chỉ thiếu filter.
+   */
+  const sessionMetaCacheRef = useRef<Map<string, LobbySessionMeta>>(new Map());
+  const fetchSessionMeta = useCallback(
+    async (sessionId: string): Promise<LobbySessionMeta> => {
+      const id = String(sessionId ?? "").trim();
+      if (!id) {
+        return { gameTemplateId: null, gameName: null, hasInUseBox: null };
+      }
+      const cached = sessionMetaCacheRef.current.get(id);
+      if (cached) return cached;
+      if (!handleGetSessionDetail) {
+        return { gameTemplateId: null, gameName: null, hasInUseBox: null };
+      }
+      try {
+        const detail: any = await handleGetSessionDetail(id);
+        const games: any[] = Array.isArray(detail?.games)
+          ? detail.games
+          : Array.isArray(detail?.Games)
+            ? detail.Games
+            : [];
+        // [FIX #first-game-wins] Mỗi session có thể gắn nhiều box game
+        // (BR: 1 bàn có thể chơi 2 game cùng lúc trong "combo"). Tuy nhiên,
+        // Gap 4 fix của BE chỉ quan tâm "CÒN box InUse nào không" — nếu box
+        // đầu tiên (primary) còn InUse → block cross-game. Lấy box đầu tiên
+        // để hiển thị game "chính" cho staff; hasInUseBox kiểm trên toàn bộ.
+        const firstGame = games[0] ?? null;
+        const gameTemplateId =
+          (firstGame?.gameTemplateId ??
+            firstGame?.GameTemplateId ??
+            null) as string | null;
+        const gameName =
+          (firstGame?.gameName ?? firstGame?.GameName ?? null) as string | null;
+
+        // hasInUseBox: duyệt games[] + top-level boxes[] (BE schema tuỳ version).
+        const IN_USE_RE = /InUse|In_Use|in_use|InUseBox/i;
+        let hasInUseBox: boolean | null = null;
+        for (const g of games) {
+          const status =
+            g?.status ?? g?.Status ?? g?.boxStatus ?? g?.BoxStatus ?? "";
+          if (IN_USE_RE.test(String(status))) {
+            hasInUseBox = true;
+            break;
+          }
+        }
+        if (hasInUseBox !== true) {
+          const topBoxes: any[] = Array.isArray(detail?.boxes)
+            ? detail.boxes
+            : Array.isArray(detail?.Boxes)
+              ? detail.Boxes
+              : [];
+          for (const b of topBoxes) {
+            const status =
+              b?.status ?? b?.Status ?? b?.inventoryBoxStatus ?? "";
+            if (IN_USE_RE.test(String(status))) {
+              hasInUseBox = true;
+              break;
+            }
+          }
+        }
+        if (hasInUseBox !== true && games.length > 0) {
+          hasInUseBox = false;
+        }
+        const meta: LobbySessionMeta = { gameTemplateId, gameName, hasInUseBox };
+        sessionMetaCacheRef.current.set(id, meta);
+        return meta;
+      } catch {
+        return { gameTemplateId: null, gameName: null, hasInUseBox: null };
+      }
+    },
+    [handleGetSessionDetail],
+  );
+
+  /**
    * Lobby đang active tại quán — tạm coi mỗi session live là 1 "lobby" trong UI POS.
    *
    * POS endpoint `/api/cafes/{cafeId}/pos/sessions` không trả `lobbyId` (đó là field
@@ -337,6 +434,18 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
    */
   const mergeLobbies = useMemo<LobbyOption[]>(() => {
     const map = new Map<string, LobbyOption>();
+    // [FIX #seat-capacity] Map nhanh tableId → seatCount để tính availableSeats
+    // cho lobby (dùng validate "đủ ghế" khi tạo yêu cầu ghép). Tách riêng
+    // thay vì gọi .find() trong loop để O(N+M) thay vì O(N*M).
+    const seatCountByTableId = new Map<string, number>();
+    for (const t of tables) {
+      const id = String(t.id ?? t.Id ?? "").trim();
+      if (!id) continue;
+      const seats = Number(t.seatCount ?? t.SeatCount ?? NaN);
+      if (Number.isFinite(seats) && seats > 0) {
+        seatCountByTableId.set(id, seats);
+      }
+    }
     for (const session of sessions) {
       const sessionId = String(
         session.id ?? session.Id ?? session.sessionId ?? "",
@@ -367,16 +476,61 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         session.TableLabel ||
         (session as any).cafeTableName ||
         "";
+      // [FIX #seat-capacity] Tính availableSeats = table.seatCount - members.length.
+      // Nếu session không map được table hoặc table thiếu seatCount → trả null
+      // (dialog sẽ fallback về cảnh báo "BE sẽ validate khi duyệt" thay vì block).
+      const sessionCafeTableId = String(
+        (session as any).cafeTableId ??
+          (session as any).tableId ??
+          (session as any).CafeTableId ??
+          "",
+      ).trim();
+      const seats = sessionCafeTableId
+        ? seatCountByTableId.get(sessionCafeTableId)
+        : undefined;
+      const availableSeats =
+        seats != null ? Math.max(0, seats - memberCount) : null;
+
+      // [FIX #lobby-merge-game-filter] Lấy gameTemplateId + gameName + hasInUseBox
+      // thẳng từ session.games[] nếu usePosDashboard đã merge detail vào (xem
+      // `handleGetSessionDetail` → setSessions → applyVerifiedFlags). Ưu tiên
+      // giá trị này → dialog merge không cần fetch lại qua `fetchSessionMeta`.
+      const sessionGames: any[] = Array.isArray((session as any).games)
+        ? (session as any).games
+        : Array.isArray((session as any).Games)
+          ? (session as any).Games
+          : [];
+      const firstGame = sessionGames[0] ?? null;
+      const gameTemplateId =
+        (firstGame?.gameTemplateId ??
+          firstGame?.GameTemplateId ??
+          null) as string | null;
+      const gameName =
+        (firstGame?.gameName ?? firstGame?.GameName ?? null) as string | null;
+      const IN_USE_RE = /InUse|In_Use|in_use/i;
+      let hasInUseBox: boolean | null = null;
+      if (sessionGames.length > 0) {
+        hasInUseBox = sessionGames.some((g) =>
+          IN_USE_RE.test(
+            String(g?.status ?? g?.Status ?? g?.boxStatus ?? g?.BoxStatus ?? ""),
+          ),
+        );
+      }
+
       map.set(sessionId, {
         id: sessionId,
         name: `Phiên ${tableLabel ? `· ${tableLabel}` : sessionId.slice(0, 8)}`,
         activeMemberCount: memberCount,
-        availableSeats: null,
+        availableSeats,
+        seatCount: seats ?? null,
         status: status,
+        gameTemplateId,
+        gameName,
+        hasInUseBox,
       });
     }
     return Array.from(map.values());
-  }, [sessions]);
+  }, [sessions, tables]);
 
   /**
    * Members theo sessionId — UI chỉ cần hiển thị để staff tick chọn.
@@ -424,7 +578,9 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
             m?.FullName ??
             "Khách",
         ),
-        isHost: Boolean(m?.isHost ?? m?.IsHost ?? m?.isHost ?? idx === 0),
+        isHost: Boolean(m?.isHost ?? m?.IsHost ?? m?.is_host),
+        // BE tách host khỏi `members[]` — nằm ở `hostId`/`hostName` riêng.
+        // Member đầu tiên KHÔNG auto là host.
       }));
 
       // [FIX #host-not-in-members] BE tách host ra khỏi `members[]` — host đứng
@@ -574,6 +730,33 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
       mergeMemberLobbyIds,
     };
   }, [sessions, mergeMembers, mergeLobbies, mergeMemberLobbyIds]);
+
+  // [FIX #lobby-merge-inline] Dialog ghép lobby mở từ nút trong header
+  // tab "Phiên chơi" — staff tự chọn source + target trong dialog
+  // (vì nút không gắn với card phiên cụ thể nào).
+  const [lobbyMergeOpen, setLobbyMergeOpen] = useState(false);
+  const handleOpenLobbyMerge = useCallback(() => {
+    if (!cafeId) {
+      toast.error("Thiếu cafeId — không thể mở dialog ghép lobby.");
+      return;
+    }
+    if (mergeLobbies.length < 2) {
+      toast.error("Cần ít nhất 2 lobby đang hoạt động để tạo yêu cầu ghép.");
+      return;
+    }
+    setLobbyMergeOpen(true);
+  }, [cafeId, mergeLobbies.length]);
+
+  // [FIX #lobby-merge-header-merged] Badge "Đang chờ (N)" hiển thị cùng hàng
+  // với tab "Phiên chơi" trong TabsList → state pendingOpen + hook count
+  // phải nằm ở parent (không phải trong ActiveSessionsTab) để render inline
+  // với TabsTrigger. Realtime hook tự invalidate khi BE push.
+  const [pendingOpen, setPendingOpen] = useState(false);
+  const { data: pendingRequests = [] } = usePendingMergeRequests(
+    cafeId ?? undefined,
+    { refetchInterval: 15_000, pauseWhenHidden: true },
+  );
+  const pendingCount = pendingRequests.length;
 
   const { connected: hubConnected } = useCafePosHub({
     enabled: Boolean(cafeId),
@@ -892,7 +1075,9 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
               onValueChange={(value) => setActiveTab(value as PosTab)}
               className="gap-3"
             >
-              <div className="flex max-w-full justify-start overflow-x-auto pb-1">
+              <div className="flex max-w-full items-center gap-3 pb-1">
+                {/* Cột trái: TabsList cuộn ngang khi màn hẹp. */}
+                <div className="min-w-0 flex-1 overflow-x-auto">
                 <TabsList
                   aria-label="Khu vực vận hành POS"
                   className="inline-flex h-auto min-h-11 flex-wrap items-center justify-center gap-1 self-center rounded-md border-2 border-orange-300/60 bg-gradient-to-r from-orange-100 via-amber-100 to-orange-100 p-1 shadow-[2px_2px_0_rgba(0,0,0,0.08)]"
@@ -925,14 +1110,49 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                     <Banknote className="size-3.5 shrink-0 -translate-y-[0.5px]" aria-hidden="true" />
                     <span className="-translate-y-[0.5px]">Giải ngân</span>
                   </TabsTrigger>
-                  <TabsTrigger
-                    value="merge"
-                    className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-orange-500 data-active:bg-gradient-to-r data-active:from-orange-600 data-active:to-amber-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
-                  >
-                    <UsersRound className="size-3.5 shrink-0 -translate-y-[0.5px]" aria-hidden="true" />
-                    <span className="-translate-y-[0.5px]">Ghép lobby</span>
-                  </TabsTrigger>
                 </TabsList>
+                </div>
+
+                {/* [FIX #lobby-merge-header-merged] Cột phải NGOÀI khung 4 TabsTrigger
+                    (vùng khoanh đỏ bên phải header). Chỉ render khi tab sessions
+                    active → staff không thấy nút thừa khi đang ở tab khác.
+                    `shrink-0` để cụm nút không bị ép xuống dòng khi màn hẹp. */}
+                {opsTab === "sessions" ? (
+                  <div className="flex shrink-0 items-center gap-2 self-center">
+                    {cafeId ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setPendingOpen(true)}
+                        className={cn(
+                          "inline-flex h-9 items-center gap-1.5 self-center whitespace-nowrap border-2 px-2.5 font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)]",
+                          pendingCount > 0
+                            ? "border-amber-500 bg-amber-100 text-amber-900 hover:bg-amber-200"
+                            : "border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50",
+                        )}
+                        aria-label={
+                          pendingCount > 0
+                            ? `Có ${pendingCount} yêu cầu ghép lobby đang chờ duyệt`
+                            : "Không có yêu cầu ghép lobby đang chờ"
+                        }
+                      >
+                        <span>Đang chờ ({pendingCount})</span>
+                      </Button>
+                    ) : null}
+                    {mergeLobbies.length >= 2 ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handleOpenLobbyMerge}
+                        className="inline-flex h-9 items-center gap-1.5 self-center whitespace-nowrap border-2 border-violet-400 bg-violet-100 px-2.5 font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-violet-800 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] hover:bg-violet-200"
+                      >
+                        <span>Ghép lobby</span>
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
               {loading ? (
@@ -1153,6 +1373,10 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
             <TabsContent value="sessions">
               <ActiveSessionsTab
                 sessions={sessions}
+                cafeId={cafeId || null}
+                // [FIX #auto-refresh-ppl] Sau khi duyệt ghép lobby → refresh POS data
+                // (sessions + tables), số lượng ppl của bàn cập nhật ngay.
+                onLobbyMerged={refreshData}
                 onEndSession={(sessionId: string) => {
                   const targetSes = sessions.find((s) => s.id === sessionId);
                   if (targetSes) setEndingSession(targetSes);
@@ -1187,16 +1411,6 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
               <SettlementsTab
                 cafeId={cafeId}
                 onFetchPaidSessions={handleFetchPaidSessions}
-              />
-            </TabsContent>
-            <TabsContent value="merge">
-              <LobbyMergePanel
-                cafeId={cafeId || null}
-                activeLobbies={mergeLobbies}
-                membersByLobby={mergeMembers}
-                memberLobbyIds={mergeMemberLobbyIds}
-                focusLobbyId={undefined}
-                fetchSessionLobbyId={fetchSessionLobbyId}
               />
             </TabsContent>
           </>
@@ -1352,6 +1566,70 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         session={endingSession}
         onConfirmEnd={handleEndSession}
       />
+
+      {/* [FIX #lobby-merge-inline] Dialog ghép lobby mở từ nút ở header
+          tab "Phiên chơi". Staff tự chọn source + target trong dialog. */}
+      {cafeId && lobbyMergeOpen ? (
+        <LobbyMergeCreateDialog
+          cafeId={cafeId}
+          isOpen={lobbyMergeOpen}
+          onClose={() => setLobbyMergeOpen(false)}
+          lobbies={mergeLobbies}
+          // Gộp tất cả member của mọi lobby — dialog tự filter theo source staff chọn.
+          members={
+            mergeMembers ? Object.values(mergeMembers).flat() : []
+          }
+          memberLobbyIds={mergeMemberLobbyIds}
+          resolveLobbyId={fetchSessionLobbyId}
+          // [FIX #lobby-merge-game-filter] Fetch game + box InUse của session
+          // để dialog lọc target theo game + cảnh báo cross-game / Gap 4.
+          fetchSessionMeta={fetchSessionMeta}
+          // [FIX #lobby-merge-view-target] Mở chi tiết phiên của lobby đích
+          // mà KHÔNG đóng dialog ghép — staff vẫn trong flow merge, tắt modal
+          // detail là quay lại ngay dialog ghép với selection giữ nguyên.
+          // mergeLobbies[].id === sessionId nên truyền trực tiếp.
+          onViewTargetDetail={(sessionId) => {
+            setSelectedDetailSessionId(sessionId);
+          }}
+          // Báo cho dialog biết modal detail đang mở → tắt chế độ modal
+          // của merge dialog (tránh Radix `inert` chặn thao tác trên detail)
+          // + chặn click-outside/ESC đóng nhầm merge dialog.
+          isTargetDetailOpen={Boolean(selectedDetailSessionId)}
+          onSuccess={() => {
+            setLobbyMergeOpen(false);
+            toast.success("Đã gửi yêu cầu ghép lobby.");
+          }}
+        />
+      ) : null}
+
+      {/* [FIX #lobby-merge-header-merged] Dialog hiển thị danh sách yêu cầu
+          ghép lobby đang chờ duyệt. Mở từ badge "Đang chờ (N)" cùng hàng
+          với tab "Phiên chơi". Realtime hook bên trong LobbyMergePendingList
+          tự invalidate khi BE push. */}
+      <Dialog open={pendingOpen} onOpenChange={setPendingOpen}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-mono uppercase tracking-wider">
+              <UsersRound className="size-4" aria-hidden="true" />
+              Yêu cầu ghép lobby đang chờ
+            </DialogTitle>
+            <DialogDescription>
+              Duyệt hoặc từ chối trước khi yêu cầu hết hạn. Thay đổi cập nhật realtime.
+            </DialogDescription>
+          </DialogHeader>
+          <LobbyMergePendingList
+            cafeId={cafeId ?? null}
+            mergeLobbies={mergeLobbies.map((l) => ({ id: l.id, name: l.name }))}
+            resolveLobbyId={fetchSessionLobbyId}
+            // [FIX #auto-refresh-ppl] Approve succeed → trigger fetchAllData ở parent.
+            onApproved={refreshData}
+            onChanged={() => {
+              // Sau duyệt/từ chối → tự đóng dialog để staff thấy badge số đã giảm.
+              setPendingOpen(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
