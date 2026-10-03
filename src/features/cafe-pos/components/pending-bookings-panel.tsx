@@ -583,7 +583,7 @@ export function PendingBookingsPanel({
   const tomorrowIso = addDaysIsoDate(todayIso, 1);
   const [playDate, setPlayDate] = useState(todayIso);
   const [statusFilter, setStatusFilter] =
-    useState<ReservationStatusFilter>("holding");
+    useState<ReservationStatusFilter>("all");
   const [reservationSearch, setReservationSearch] = useState("");
   const reservationDayLabel = formatReservationDayLabel(playDate, todayIso);
   const { lookup: lookupCover } = useGameCoverLookup(cafeId, boxes);
