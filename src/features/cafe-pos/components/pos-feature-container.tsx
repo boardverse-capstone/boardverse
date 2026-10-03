@@ -185,7 +185,6 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
     handleAddGuest,
     handleAttachSessionGame,
     handleAddSessionMembers,
-    handleReportInventoryLoss,
     handlePartialCheckout,
     handleMergeSessionMember,
     handleRefreshCheckoutPayment,
@@ -1328,7 +1327,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
                             className="min-h-11 w-full gap-2 border-2 border-orange-700 bg-gradient-to-b from-orange-500 to-orange-600 font-bold uppercase tracking-wider text-white shadow-[inset_0_-3px_0_rgba(0,0,0,0.2),0_2px_0_rgba(0,0,0,0.15)] transition-all hover:translate-y-[-1px] hover:from-orange-500 hover:to-orange-500"
                           >
                             <Play className="size-4" />
-                            ► BẮT ĐẦU PHIÊN
+                            BẮT ĐẦU PHIÊN
                           </Button>
                         ) : session ? (
                           <Button
@@ -1528,7 +1527,6 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
           }))}
         onAttachGame={handleAttachSessionGame}
         onAddMembers={handleAddSessionMembers}
-        onReportInventoryLoss={handleReportInventoryLoss}
         onPartialCheckout={handlePartialCheckout}
         onMergeMember={handleMergeSessionMember}
       />

@@ -123,17 +123,6 @@ interface SessionDetailModalProps {
   detailRefreshKey?: number;
   onAttachGame: (sessionId: string, barcode: string) => Promise<boolean>;
   onAddMembers: (sessionId: string, userIds: string[]) => Promise<boolean>;
-  onReportInventoryLoss: (
-    sessionId: string,
-    payload: {
-      sessionGameId: string;
-      missingComponents: Array<{
-        componentTemplateId: string;
-        missingQuantity: number;
-      }>;
-      notes?: string;
-    },
-  ) => Promise<boolean>;
   onPartialCheckout: (
     sessionId: string,
     memberUserIds: string[],
@@ -161,7 +150,6 @@ export function SessionDetailModal({
   detailRefreshKey = 0,
   onAttachGame,
   onAddMembers,
-  onReportInventoryLoss,
   onPartialCheckout,
   onMergeMember,
 }: SessionDetailModalProps) {
@@ -747,9 +735,6 @@ export function SessionDetailModal({
                     }
                     onAddMembers={(userIds) =>
                       onAddMembers(sessionId, userIds)
-                    }
-                    onReportInventoryLoss={(payload) =>
-                      onReportInventoryLoss(sessionId, payload)
                     }
                     onPartialCheckout={(memberUserIds, applyDeposit) =>
                       onPartialCheckout(
