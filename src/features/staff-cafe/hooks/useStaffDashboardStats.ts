@@ -16,6 +16,8 @@ export interface StaffDashboardStats {
   totalSessions: number;
   /** Quán đang làm việc */
   currentCafe: StaffWorkingCafe | null;
+  /** Ca làm việc gần nhất (theo openedAt) — dùng cho trang thông tin cá nhân. */
+  latestShift: { openedAt: string | null; totalRevenue: number; totalSessions: number } | null;
   /** Loading states */
   isLoadingCafe: boolean;
   isLoadingShifts: boolean;
@@ -76,6 +78,8 @@ export function useStaffDashboardStats(): StaffDashboardStats {
     let shiftsToday = 0;
     let totalRevenue = 0;
     let totalSessions = 0;
+    let latestShift: StaffDashboardStats['latestShift'] = null;
+    let latestOpenedAtMs = -1;
 
     for (const shift of shifts) {
       const openedAt = shift.openedAt ?? shift.opened_at ?? null;
@@ -85,9 +89,20 @@ export function useStaffDashboardStats(): StaffDashboardStats {
       if (isToday(openedAt)) shiftsToday++;
       totalRevenue += Number(shift.totalRevenue ?? shift.total_revenue ?? 0);
       totalSessions += Number(shift.totalSessions ?? shift.total_sessions ?? 0);
+
+      // Ca gần nhất = openedAt lớn nhất
+      const openedAtMs = new Date(openedAt).getTime();
+      if (!Number.isNaN(openedAtMs) && openedAtMs > latestOpenedAtMs) {
+        latestOpenedAtMs = openedAtMs;
+        latestShift = {
+          openedAt,
+          totalRevenue: Number(shift.totalRevenue ?? shift.total_revenue ?? 0),
+          totalSessions: Number(shift.totalSessions ?? shift.total_sessions ?? 0),
+        };
+      }
     }
 
-    return { totalShifts, shiftsToday, totalRevenue, totalSessions };
+    return { totalShifts, shiftsToday, totalRevenue, totalSessions, latestShift };
   }, [shiftsQuery.data]);
 
   return {

@@ -56,8 +56,6 @@ import { useAdminReportsOverview } from '../hooks/useAdminReportsOverview';
 import type {
   CafePerformanceItem,
   CafePerformanceSortBy,
-  DepositReportItem,
-  DepositReportStatus,
   LobbyFailureItem,
   LobbyFailureType,
   SortOrder,
@@ -71,14 +69,6 @@ const FAILURE_TYPE_OPTIONS: { value: LobbyFailureType | 'all'; label: string }[]
   { value: 'HostCancelled', label: 'Host đã hủy' },
   { value: 'RejectedByCafe', label: 'Cafe từ chối' },
   { value: 'ExpiredByCafe', label: 'Cafe quá hạn' },
-];
-
-const DEPOSIT_STATUS_OPTIONS: { value: DepositReportStatus | 'all'; label: string }[] = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'Pending', label: 'Chờ xử lý' },
-  { value: 'Paid', label: 'Đã thanh toán' },
-  { value: 'Refunded', label: 'Đã hoàn tiền' },
-  { value: 'Forfeited', label: 'Đã tịch thu' },
 ];
 
 function toUtcIso(localValue: string): string | undefined {
@@ -744,93 +734,77 @@ function LobbyFailuresTab() {
   );
 }
 
+/**
+ * [FE-REFACTOR 2026-10-04] Tab Deposits đơn giản hoá:
+ * - Bỏ filter, KPI, card nổi bật.
+ * - Chỉ giữ bảng "Bảng tiền cọc" gộp theo từng quán cafe.
+ * - Cột: ① Tổng BVC quán cafe · ② Tên quán cafe · ③ Trạng thái (Chưa chuyển / Đã chuyển) + Button toggle.
+ * - Gọi 1 lần status=all rồi tự group + sum BVC trên FE theo cafeId.
+ */
+type TransferToggle = 'pending' | 'paid';
+
+interface CafeDepositRow {
+  cafeId: string;
+  cafeName: string;
+  totalBvc: number;
+  /** true = còn deposit Pending (chưa chuyển), false = đã Paid hết (đã chuyển). */
+  hasPending: boolean;
+}
+
 function DepositsTab() {
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-  const [fromLocal, setFromLocal] = useState('');
-  const [toLocal, setToLocal] = useState('');
-  const [status, setStatus] = useState<DepositReportStatus | 'all'>('all');
-  const [appliedFrom, setAppliedFrom] = useState<string | undefined>();
-  const [appliedTo, setAppliedTo] = useState<string | undefined>();
-  const [appliedStatus, setAppliedStatus] = useState<DepositReportStatus | 'all'>('all');
-  const [filterError, setFilterError] = useState<string | null>(null);
+  const [pageSize] = useState<number>(1000);
+  /** Trạng thái đang hiển thị trên bảng — toggle bằng button. */
+  const [transferView, setTransferView] = useState<TransferToggle>('pending');
 
+  // Lấy toàn bộ deposit (page lớn để group theo cafe trên FE).
   const { data, isLoading, isError, refetch } = useAdminDepositsReport({
-    page,
+    page: 1,
     pageSize,
-    fromUtc: appliedFrom,
-    toUtc: appliedTo,
-    status: appliedStatus,
+    status: 'all',
   });
 
-  const columns = useMemo<ColumnDef<DepositReportItem>[]>(
-    () => [
-      {
-        accessorKey: 'username',
-        header: 'Người dùng',
-        cell: ({ row }) => (
-          <div>
-            <div className="font-medium">{row.original.username || 'Chưa có thông tin'}</div>
-            <div className="font-mono text-[11px] text-muted-foreground">
-              {row.original.userId?.slice(0, 8)}…
-            </div>
-          </div>
-        ),
-      },
-      { accessorKey: 'cafeName', header: 'Cafe' },
-      {
-        accessorKey: 'amountBvc',
-        header: 'BVC',
-        cell: ({ row }) => formatNumber(row.original.amountBvc),
-      },
-      {
-        accessorKey: 'amountVnd',
-        header: 'VND',
-        cell: ({ row }) => formatMoney(row.original.amountVnd),
-      },
-      {
-        accessorKey: 'status',
-        header: 'Trạng thái',
-        cell: ({ row }) => <StatusBadge status={row.original.status} kind="deposit" />,
-      },
-      {
-        accessorKey: 'createdAt',
-        header: 'Tạo lúc',
-        cell: ({ row }) => formatDateTime(row.original.createdAt),
-      },
-      {
-        accessorKey: 'paidAt',
-        header: 'Paid lúc',
-        cell: ({ row }) => formatDateTime(row.original.paidAt),
-      },
-    ],
-    [],
+  // Group theo cafeId + cafeName, sum BVC, xác định hasPending.
+  const groupedRows = useMemo<CafeDepositRow[]>(() => {
+    const items = data?.data ?? [];
+    const map = new Map<string, CafeDepositRow>();
+    for (const item of items) {
+      const key = item.cafeId || item.cafeName;
+      if (!key) continue;
+      const existing = map.get(key);
+      const isPending = String(item.status).toLowerCase() === 'pending';
+      if (existing) {
+        existing.totalBvc += Number(item.amountBvc ?? 0);
+        if (isPending) existing.hasPending = true;
+      } else {
+        map.set(key, {
+          cafeId: item.cafeId || '',
+          cafeName: item.cafeName || 'Chưa rõ quán',
+          totalBvc: Number(item.amountBvc ?? 0),
+          hasPending: isPending,
+        });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.totalBvc - a.totalBvc);
+  }, [data]);
+
+  // Lọc theo transferView: 'pending' = còn dở; 'paid' = đã chuyển hết.
+  const filteredRows = useMemo(
+    () =>
+      groupedRows.filter((row) =>
+        transferView === 'pending' ? row.hasPending : !row.hasPending,
+      ),
+    [groupedRows, transferView],
   );
 
-  const applyFilters = () => {
-    const fromUtc = toUtcIso(fromLocal);
-    const toUtc = toUtcIso(toLocal);
-    if (fromUtc && toUtc && new Date(fromUtc).getTime() > new Date(toUtc).getTime()) {
-      setFilterError('Thời điểm bắt đầu không được sau thời điểm kết thúc.');
-      return;
-    }
-    setFilterError(null);
-    setAppliedFrom(fromUtc);
-    setAppliedTo(toUtc);
-    setAppliedStatus(status);
-    setPage(1);
-  };
+  // Phân trang client-side trên groupedRows đã lọc.
+  const pagedRows = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, page, pageSize]);
 
-  const resetFilters = () => {
-    setFromLocal('');
-    setToLocal('');
-    setStatus('all');
-    setAppliedFrom(undefined);
-    setAppliedTo(undefined);
-    setAppliedStatus('all');
-    setFilterError(null);
-    setPage(1);
-  };
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const safePage = Math.min(page, totalPages);
 
   if (isLoading) {
     return <ReportLoadingState label="Đang tải báo cáo tiền cọc" />;
@@ -842,124 +816,95 @@ function DepositsTab() {
     );
   }
 
-  const summary = data?.summary;
-
   return (
     <div className="space-y-4">
-      <DateRangeFilters
-        fromLocal={fromLocal}
-        toLocal={toLocal}
-        onFromChange={setFromLocal}
-        onToChange={setToLocal}
-        onApply={applyFilters}
-        onReset={resetFilters}
-        error={filterError}
-        extra={
-          <div className="space-y-1.5">
-            <Label htmlFor="deposit-status">Trạng thái</Label>
-            <Select
-              value={status}
-              onValueChange={(value) => setStatus(value as DepositReportStatus | 'all')}
-            >
-              <SelectTrigger id="deposit-status" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DEPOSIT_STATUS_OPTIONS.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        }
-      />
-
-      {summary && (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <KpiCard label="Tổng tiền cọc" value={formatNumber(summary.totalDeposits)} icon={WalletCards} />
-          <KpiCard
-            label="Chờ xử lý"
-            value={formatNumber(summary.pendingDeposits)}
-            icon={Clock3}
-            tone="warning"
-          />
-          <KpiCard
-            label="Đã thanh toán"
-            value={formatNumber(summary.paidDeposits)}
-            icon={CheckCircle2}
-            tone="success"
-          />
-          <KpiCard
-            label="Đã hoàn tiền"
-            value={formatNumber(summary.refundedDeposits)}
-            icon={RotateCcw}
-          />
-          <KpiCard
-            label="Đã tịch thu"
-            value={formatNumber(summary.forfeitedDeposits)}
-            icon={ShieldAlert}
-            tone="danger"
-          />
-          <KpiCard
-            label="Giá trị chờ xử lý"
-            value={formatMoney(summary.totalAmountPending)}
-            icon={Clock3}
-            tone="warning"
-          />
-          <KpiCard
-            label="Giá trị đã thanh toán"
-            value={formatMoney(summary.totalAmountPaid)}
-            icon={Banknote}
-            tone="success"
-          />
-          <KpiCard
-            label="Giá trị đã hoàn"
-            value={formatMoney(summary.totalAmountRefunded)}
-            icon={RotateCcw}
-          />
-          <KpiCard
-            label="Giá trị bị tịch thu"
-            value={formatMoney(summary.totalAmountForfeited)}
-            icon={ShieldAlert}
-            tone="danger"
-          />
-        </div>
-      )}
-
       <div className="space-y-3">
         <div>
-          <h3 className="font-semibold">Chi tiết tiền cọc</h3>
+          <h3 className="font-semibold">Bảng tiền cọc</h3>
           <p className="text-sm text-muted-foreground">
-            Theo dõi số tiền và trạng thái của từng giao dịch.
+            Gộp theo quán cafe · số BVC cần chuyển cho từng quán.
           </p>
         </div>
-        {(data?.data ?? []).length === 0 ? (
+        {filteredRows.length === 0 ? (
           <ReportEmptyState
-            title="Không tìm thấy giao dịch tiền cọc"
-            description="Hãy thay đổi khoảng thời gian, trạng thái hoặc xóa bộ lọc."
+            title={
+              transferView === 'pending'
+                ? 'Không còn quán nào có tiền cọc chưa chuyển'
+                : 'Chưa có quán nào đã chuyển xong tiền cọc'
+            }
+            description="Bấm nút bên dưới để chuyển qua trạng thái còn lại."
           />
         ) : (
-          <PartnerDataTable columns={columns} data={data?.data ?? []} />
+          <PartnerDataTable columns={depositColumns} data={pagedRows} />
         )}
       </div>
 
-      {data?.meta && (
-        <CommonPagination
-          meta={data.meta}
-          pageSize={pageSize}
-          pageSizeOptions={[10, 20, 50, 100]}
-          onPageChange={setPage}
-          onLimitChange={(value) => {
-            setPageSize(value);
-            setPage(1);
-          }}
-        />
+      {filteredRows.length > 0 && (
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+          <Button
+            type="button"
+            variant={transferView === 'pending' ? 'default' : 'outline'}
+            onClick={() => {
+              setTransferView(transferView === 'pending' ? 'paid' : 'pending');
+              setPage(1);
+            }}
+            className="font-mono text-[11px] font-extrabold uppercase tracking-widest"
+          >
+            {transferView === 'pending'
+              ? '► Đang hiển thị: Chưa chuyển — bấm để xem Đã chuyển'
+              : '► Đang hiển thị: Đã chuyển — bấm để xem Chưa chuyển'}
+          </Button>
+          <div className="font-mono text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            Trang {safePage} / {totalPages} · {filteredRows.length} quán
+          </div>
+        </div>
       )}
     </div>
   );
 }
+
+/** Cột cố định cho bảng Bảng tiền cọc (gộp theo quán cafe). */
+const depositColumns: ColumnDef<CafeDepositRow>[] = [
+  {
+    id: 'totalBvc',
+    header: 'Tổng BVC quán cafe',
+    cell: ({ row }) => (
+      <span className="font-mono text-base font-extrabold text-stone-900">
+        {formatNumber(row.original.totalBvc)}
+      </span>
+    ),
+  },
+  {
+    id: 'cafeName',
+    header: 'Tên quán cafe',
+    cell: ({ row }) => (
+      <div>
+        <div className="font-medium">{row.original.cafeName}</div>
+        {row.original.cafeId && (
+          <div className="font-mono text-[11px] text-muted-foreground">
+            {row.original.cafeId.slice(0, 8)}…
+          </div>
+        )}
+      </div>
+    ),
+  },
+  {
+    id: 'status',
+    header: 'Trạng thái',
+    cell: ({ row }) =>
+      row.original.hasPending ? (
+        <Badge className="border-2 border-amber-500 bg-amber-100 font-mono text-[10px] font-extrabold uppercase tracking-widest text-amber-900">
+          <Clock3 className="mr-1 h-3 w-3" />
+          ► Chưa chuyển
+        </Badge>
+      ) : (
+        <Badge className="border-2 border-emerald-500 bg-emerald-100 font-mono text-[10px] font-extrabold uppercase tracking-widest text-emerald-900">
+          <CheckCircle2 className="mr-1 h-3 w-3" />
+          ► Đã chuyển
+        </Badge>
+      ),
+  },
+];
 
 function CafePerformanceTab() {
   const [page, setPage] = useState(1);

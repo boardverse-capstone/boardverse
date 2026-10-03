@@ -4,8 +4,6 @@ import type { ReactNode } from "react";
 import { Suspense } from "react";
 import {
   IconLayoutDashboard,
-  IconCalendar,
-  IconClipboard,
   IconDeviceDesktop,
   IconPackage,
 } from "@tabler/icons-react";
@@ -18,7 +16,7 @@ import type { NavItem } from "@/components/layout/nav-main";
 
 const STAFF_NAV: NavItem[] = [
   {
-    title: "Dashboard",
+    title: "Thông tin cá nhân",
     url: ROUTES.DASHBOARD.STAFF,
     icon: <IconLayoutDashboard />,
   },
@@ -32,16 +30,10 @@ const STAFF_NAV: NavItem[] = [
     url: ROUTES.STAFF.INVENTORY,
     icon: <IconPackage />,
   },
-  {
-    title: "Lịch làm việc",
-    url: "/staff/calendar",
-    icon: <IconCalendar />,
-  },
-  {
-    title: "Báo cáo ca",
-    url: ROUTES.STAFF.REPORTS,
-    icon: <IconClipboard />,
-  },
+  // [HIDDEN 2026-10-04] Ẩn theo yêu cầu — staff không cần truy cập trực tiếp.
+  // - "Lịch làm việc" (/staff/calendar)
+  // - "Báo cáo ca" (/staff/reports)
+  // Trang vẫn tồn tại trong filesystem nhưng không có link trong nav staff.
 ];
 
 export default function StaffLayout({ children }: { children: ReactNode }) {
