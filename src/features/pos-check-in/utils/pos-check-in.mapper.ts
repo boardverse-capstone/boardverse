@@ -615,9 +615,9 @@ export function mapApiSession(raw: unknown, fallback?: Partial<ActiveSessionDeta
     depositCreditTotal:
       num(r, 'depositCreditTotal', 'DepositCreditTotal') || fallback?.depositCreditTotal || 0,
     billingModel:
-      str(r, 'billingModel', 'BillingModel').toUpperCase() === 'PER_DRINK'
-        ? 'PER_DRINK'
-        : 'BY_HOUR',
+      str(r, 'billingModel', 'BillingModel') === 'PerDrink' || str(r, 'billingModel', 'BillingModel').toUpperCase() === 'PER_DRINK'
+        ? 'PerDrink'
+        : 'ByHour',
     endedAt: str(r, 'endedAt', 'EndedAt') || undefined,
     status: pickSessionLifecycleStatus(r, fallback?.status),
     guestCount: guestCountFromNum || guestCountCalculated || undefined,
@@ -684,9 +684,9 @@ export function mapApiSessionBill(raw: unknown, sessionId = ''): SessionBill {
     sessionId: str(r, 'sessionId', 'SessionId') || sessionId,
     bookingId: str(r, 'bookingId', 'BookingId'),
     billingModel:
-      str(r, 'billingModel', 'BillingModel').toUpperCase() === 'PER_DRINK'
-        ? 'PER_DRINK'
-        : 'BY_HOUR',
+      str(r, 'billingModel', 'BillingModel') === 'PerDrink' || str(r, 'billingModel', 'BillingModel').toUpperCase() === 'PER_DRINK'
+        ? 'PerDrink'
+        : 'ByHour',
     durationMinutes: num(r, 'durationMinutes', 'DurationMinutes'),
     lineItems: Array.isArray(lineItemsRaw)
       ? lineItemsRaw.map((item, index) => {

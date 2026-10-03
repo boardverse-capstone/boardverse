@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useCallback } from "react";
 import { apiClient } from "@/core/api/client";
@@ -15,6 +14,19 @@ export function useTournamentPos(cafeId: string | null) {
   const [tournaments, setTournaments] = useState<TournamentDetail[]>([]);
   const [activeTournament, setActiveTournament] = useState<TournamentDetail | null>(null);
   const [loading, setLoading] = useState(false);
+
+  /**
+   * Resolve tên giải đấu từ id để hiển thị trong toast. Rơi về chuỗi rút gọn
+   * nếu cache chưa sẵn sàng (vd: ngay sau một action thay đổi danh sách).
+   */
+  const titleOf = useCallback(
+    (tournamentId: string): string => {
+      const t = tournaments.find((x) => x.id === tournamentId);
+      if (t) return `"${t.title}"`;
+      return `giải #${tournamentId.slice(0, 6)}`;
+    },
+    [tournaments],
+  );
 
   // 1. GET /cafes/{cafeId}
   const fetchTournaments = useCallback(
@@ -81,7 +93,7 @@ export function useTournamentPos(cafeId: string | null) {
   const handleOpenRegistration = async (tournamentId: string) => {
     try {
       await apiClient.post(`/api/v1/pos/tournaments/${tournamentId}/open-registration`, {});
-      toast.success("Đã mở đăng ký!");
+      toast.success(`Đã mở đăng ký cho ${titleOf(tournamentId)}.`);
       await fetchTournaments();
       return true;
     } catch (err: any) {
@@ -94,7 +106,7 @@ export function useTournamentPos(cafeId: string | null) {
   const handleCloseRegistration = async (tournamentId: string) => {
     try {
       await apiClient.post(`/api/v1/pos/tournaments/${tournamentId}/close-registration`, {});
-      toast.success("Đã đóng đăng ký!");
+      toast.success(`Đã đóng đăng ký cho ${titleOf(tournamentId)}.`);
       await fetchTournaments();
       return true;
     } catch (err: any) {
@@ -107,7 +119,7 @@ export function useTournamentPos(cafeId: string | null) {
   const handleStartTournament = async (tournamentId: string) => {
     try {
       await apiClient.post(`/api/v1/pos/tournaments/${tournamentId}/start`, {});
-      toast.success("Giải đấu đã chính thức bắt đầu (Vòng 1)!");
+      toast.success(`${titleOf(tournamentId)} đã chính thức bắt đầu — Vòng 1!`);
       await fetchTournaments();
       return true;
     } catch (err: any) {
@@ -120,7 +132,7 @@ export function useTournamentPos(cafeId: string | null) {
   const handleAdvanceRound = async (tournamentId: string) => {
     try {
       await apiClient.post(`/api/v1/pos/tournaments/${tournamentId}/advance-round`, {});
-      toast.success("Đã chuyển sang vòng đấu tiếp theo!");
+      toast.success(`Đã chuyển ${titleOf(tournamentId)} sang vòng tiếp theo.`);
       await fetchTournaments();
       return true;
     } catch (err: any) {
@@ -133,7 +145,7 @@ export function useTournamentPos(cafeId: string | null) {
   const handleCompleteTournament = async (tournamentId: string) => {
     try {
       await apiClient.post(`/api/v1/pos/tournaments/${tournamentId}/complete`, {});
-      toast.success("Đã hoàn thành giải đấu & đồng bộ Elo/Karma!");
+      toast.success(`Đã hoàn thành ${titleOf(tournamentId)} — Elo & Karma đã đồng bộ!`);
       await fetchTournaments();
       return true;
     } catch (err: any) {
@@ -146,7 +158,7 @@ export function useTournamentPos(cafeId: string | null) {
   const handleCancelTournament = async (tournamentId: string, reason: string) => {
     try {
       await apiClient.post(`/api/v1/pos/tournaments/${tournamentId}/cancel`, { reason });
-      toast.success("Đã hủy giải đấu.");
+      toast.success(`Đã hủy ${titleOf(tournamentId)}.`);
       await fetchTournaments();
       return true;
     } catch (err: any) {
@@ -242,21 +254,6 @@ const handleUpdateMatchResult = async (dto: UpdateMatchResultDto): Promise<boole
       return false;
     }
   };
-  const fetchRoundPairingsPreview = useCallback(
-  async (tournamentId: string, roundNumber: number) => {
-    try {
-      const res: any = await apiClient.get(
-        `/api/v1/pos/tournaments/${tournamentId}/pairings/${roundNumber}/preview`
-      );
-      const resData = res?.data || res;
-      // Trả về pairings hoặc tables từ payload preview
-      return resData?.pairings || resData?.tables || [];
-    } catch (err) {
-      return [];
-    }
-  },
-  []
-);
 
   return {
     tournaments,
@@ -278,6 +275,5 @@ const handleUpdateMatchResult = async (dto: UpdateMatchResultDto): Promise<boole
     handleRecordMatchResult,
     handleUpdateMatchResult,
     handleCancelMatch,
-    fetchRoundPairingsPreview,
   };
 }

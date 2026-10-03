@@ -204,7 +204,7 @@ function normalizeOperationalStatus(value?: string | null): OperationalStatus | 
 
 function normalizeBillingModel(value?: string | null): BillingModel {
 
-  return value === 'PER_DRINK' ? 'PER_DRINK' : 'BY_HOUR';
+  return value === 'PerDrink' || value === 'PER_DRINK' ? 'PerDrink' : 'ByHour';
 
 }
 

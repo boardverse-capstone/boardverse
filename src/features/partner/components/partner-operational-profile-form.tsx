@@ -3,11 +3,13 @@
 import {
   AlertTriangle,
   ChevronUp,
+  ImagePlus,
   Loader2,
   Pencil,
   RefreshCw,
   RotateCcw,
   Save,
+  X,
 } from "lucide-react";
 import { useOperationalProfile } from "../hooks/useOperationalProfile";
 import type { OperationalProfileFormState as OpFormState } from "../hooks/useOperationalProfile";
@@ -92,35 +94,64 @@ function ErrorSummary({ errors }: { errors: Record<string, string> }) {
  *  nhanh giá trị hiện tại trước khi quyết định vào edit. */
 function CollapsedSnapshot({
   formData,
+  cafe,
 }: {
   formData: OpFormState;
+  cafe: ReturnType<typeof useOperationalProfile>["cafe"];
 }) {
   const rooms = formData.numberOfPrivateRooms;
-  const isByHour = formData.billingModel === "BY_HOUR";
+  const isByHour = formData.billingModel === "ByHour";
   const base = formData.basePrice;
   const block = formData.tieredBlockRate;
   const minutes = formData.tieredBlockMinutes;
   const deposit = formData.depositPercentage;
+  const hold = formData.defaultHoldDurationMinutes;
 
   const fmtVnd = (v: number | undefined) =>
     v === undefined ? "—" : new Intl.NumberFormat("vi-VN").format(v) + "đ";
 
-  const parts: string[] = [];
-  parts.push(`${rooms === undefined ? "—" : rooms} phòng riêng`);
-  parts.push(isByHour ? "Tính theo giờ" : "Tính theo đồ uống");
+  // 1. Cách tính phí
+  const billingLabel = isByHour ? "Tính theo giờ" : "Phí vào cửa";
+
+  // 2. 3 (hoặc 1) field giá tuỳ billing model
+  const priceParts: string[] = [];
   if (isByHour) {
-    parts.push(`giờ đầu ${fmtVnd(base)}`);
+    priceParts.push(`giờ đầu ${fmtVnd(base)}`);
     if (minutes !== undefined && block !== undefined) {
-      parts.push(`+ ${fmtVnd(block)} / ${minutes} phút`);
+      priceParts.push(`khung ${minutes} phút · ${fmtVnd(block)}`);
     } else if (minutes !== undefined) {
-      parts.push(`mỗi ${minutes} phút`);
+      priceParts.push(`mỗi ${minutes} phút`);
     }
   } else if (deposit !== undefined) {
-    parts.push(`đặt cọc ${deposit}%`);
+    priceParts.push(`đặt cọc ${deposit}%`);
   }
 
+  const phone = cafe?.phoneNumber ?? formData.phoneNumber;
+  const imageCount = formData.spaceImageUrls.length;
+  const gmLabel = formData.hasGameMaster ? "Có Game Master" : "Không có GM";
+
   return (
-    <p className="text-helper leading-snug">{parts.join(" · ")}</p>
+    <div className="space-y-1.5 text-helper leading-snug">
+      <p>
+        <strong className="font-semibold text-neutral-800">
+          {cafe?.cafeName || formData.cafeName || "—"}
+        </strong>
+        {phone ? (
+          <span className="text-neutral-500"> · {phone}</span>
+        ) : null}
+      </p>
+      <p>
+        <span className="font-medium text-neutral-700">{billingLabel}</span>
+        {priceParts.length > 0 ? (
+          <span className="text-neutral-500"> · {priceParts.join(" · ")}</span>
+        ) : null}
+      </p>
+      <p className="text-neutral-500">
+        {rooms === undefined ? "—" : rooms} phòng riêng ·{" "}
+        {imageCount} ảnh không gian · {gmLabel}
+        {hold !== undefined ? ` · giữ chỗ ${hold} phút` : ""}
+      </p>
+    </div>
   );
 }
 
@@ -168,10 +199,16 @@ export default function PartnerOperationalProfileForm({
     handleSubmit,
     resetToDefaults,
     refetch,
+    uploadImageFile,
+    uploadingImages,
+    imageUploadError,
+    removeImageUrl,
+    openImage,
+    cafe,
   } = useOperationalProfile();
 
-  const isByHour = formData.billingModel === "BY_HOUR";
-  const isPerDrink = formData.billingModel === "PER_DRINK";
+  const isByHour = formData.billingModel === "ByHour";
+  const isPerDrink = formData.billingModel === "PerDrink";
 
   /**
    * Switching billing models stashes the outgoing model's values so the
@@ -179,7 +216,7 @@ export default function PartnerOperationalProfileForm({
    * in the hook so the per-model cache survives across renders.
    */
   const switchBilling = (value: string) => {
-    if (value !== "BY_HOUR" && value !== "PER_DRINK") return;
+    if (value !== "ByHour" && value !== "PerDrink") return;
     setField("billingModel", value);
   };
 
@@ -213,7 +250,7 @@ export default function PartnerOperationalProfileForm({
                 {hydratedError}
               </p>
             ) : (
-              <CollapsedSnapshot formData={formData} />
+              <CollapsedSnapshot formData={formData} cafe={cafe} />
             )}
           </div>
           <Button
@@ -307,9 +344,169 @@ export default function PartnerOperationalProfileForm({
         </div>
       )}
 
-      <ErrorSummary errors={errors} />
+      <ErrorSummary errors={errors as Record<string, string>} />
 
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        {/* ─── Thông tin cơ bản (editable) ─── */}
+        <section
+          aria-labelledby="ops-section-basic"
+          className="space-y-3"
+        >
+          <SectionHeaderRow
+            id="ops-section-basic"
+            title="Thông tin cơ bản"
+          />
+          {(() => {
+            const errMap = errors as Record<string, string>;
+            return (
+              <>
+                <Field>
+                  <FieldLabel
+                    htmlFor="cafeName"
+                    className={SUB_LABEL_CLASS}
+                  >
+                    Tên quán
+                  </FieldLabel>
+                  <Input
+                    id="cafeName"
+                    name="cafeName"
+                    type="text"
+                    maxLength={200}
+                    value={formData.cafeName}
+                    onChange={handleChange}
+                    placeholder="BoardVerse Boardgame Cafe"
+                    aria-invalid={!!errMap.cafeName}
+                    aria-describedby={
+                      errMap.cafeName ? "ops-err-name" : undefined
+                    }
+                    className={INPUT_SHELL}
+                  />
+                  {errMap.cafeName ? (
+                    <FieldDescription
+                      id="ops-err-name"
+                      className="text-xs text-destructive leading-snug"
+                    >
+                      {errMap.cafeName}
+                    </FieldDescription>
+                  ) : (
+                    <FieldDescription className="text-helper">
+                      Tên hiển thị trên Boardverse và các bản đồ.
+                    </FieldDescription>
+                  )}
+                </Field>
+
+                <Field>
+                  <FieldLabel
+                    htmlFor="address"
+                    className={SUB_LABEL_CLASS}
+                  >
+                    Địa chỉ
+                  </FieldLabel>
+                  <Input
+                    id="address"
+                    name="address"
+                    type="text"
+                    maxLength={500}
+                    value={formData.address}
+                    onChange={handleChange}
+                    placeholder="Số nhà, đường, phường, quận, thành phố"
+                    aria-invalid={!!errMap.address}
+                    aria-describedby={
+                      errMap.address ? "ops-err-addr" : undefined
+                    }
+                    className={INPUT_SHELL}
+                  />
+                  {errMap.address ? (
+                    <FieldDescription
+                      id="ops-err-addr"
+                      className="text-xs text-destructive leading-snug"
+                    >
+                      {errMap.address}
+                    </FieldDescription>
+                  ) : null}
+                </Field>
+
+                <Field>
+                  <FieldLabel
+                    htmlFor="phoneNumber"
+                    className={SUB_LABEL_CLASS}
+                  >
+                    Số điện thoại hotline
+                  </FieldLabel>
+                  <Input
+                    id="phoneNumber"
+                    name="phoneNumber"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    value={formData.phoneNumber}
+                    onChange={handleChange}
+                    placeholder="0854315557"
+                    aria-invalid={!!errMap.phoneNumber}
+                    aria-describedby={
+                      errMap.phoneNumber ? "ops-err-phone" : undefined
+                    }
+                    className={cn(INPUT_SHELL, "tabular-nums")}
+                  />
+                  {errMap.phoneNumber ? (
+                    <FieldDescription
+                      id="ops-err-phone"
+                      className="text-xs text-destructive leading-snug"
+                    >
+                      {errMap.phoneNumber}
+                    </FieldDescription>
+                  ) : (
+                    <FieldDescription className="text-helper">
+                      Khách dùng số này để liên hệ khi cần.
+                    </FieldDescription>
+                  )}
+                </Field>
+
+                {/* Read-only summary từ đơn đăng ký */}
+                {(cafe?.numberOfTables !== undefined ||
+                  cafe?.operationalProfile?.numberOfGamesOwned !== undefined ||
+                  cafe?.operationalProfile?.applicationStatus) && (
+                  <div className="rounded-lg border border-neutral-100 bg-neutral-50/40 p-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {cafe?.operationalProfile?.applicationStatus && (
+                      <div className="space-y-0.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          Trạng thái đơn
+                        </p>
+                        <p className="text-sm font-semibold text-neutral-900">
+                          {cafe.operationalProfile.applicationStatus}
+                        </p>
+                      </div>
+                    )}
+                    {cafe?.numberOfTables !== undefined && (
+                      <div className="space-y-0.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          Số bàn đăng ký
+                        </p>
+                        <p className="text-sm font-semibold tabular-nums text-neutral-900">
+                          {cafe.numberOfTables.toLocaleString("vi-VN")}
+                        </p>
+                      </div>
+                    )}
+                    {cafe?.operationalProfile?.numberOfGamesOwned !==
+                      undefined && (
+                      <div className="space-y-0.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          Số game đang có
+                        </p>
+                        <p className="text-sm font-semibold tabular-nums text-neutral-900">
+                          {cafe.operationalProfile.numberOfGamesOwned.toLocaleString(
+                            "vi-VN",
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </section>
+
         {/* ─── Số phòng riêng (editable) ─── */}
         <section
           aria-labelledby="ops-section-rooms"
@@ -356,6 +553,413 @@ export default function PartnerOperationalProfileForm({
               </FieldDescription>
             )}
           </Field>
+        </section>
+
+        {/* ─── Giờ mở cửa (editable) ─── */}
+        <section
+          aria-labelledby="ops-section-hours"
+          className="space-y-3"
+        >
+          <SectionHeaderRow
+            id="ops-section-hours"
+            title="Giờ mở cửa"
+          />
+          {(() => {
+            const errMap = errors as Record<string, string>;
+            return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field>
+              <FieldLabel
+                htmlFor="weekdayStart"
+                className={SUB_LABEL_CLASS}
+              >
+                Ngày thường — mở cửa
+              </FieldLabel>
+              <Input
+                id="weekdayStart"
+                type="time"
+                name="workingHours.weekdayStart"
+                value={formData.workingHours.weekdayStart}
+                onChange={handleChange}
+                aria-invalid={!!errMap["workingHours.weekdayStart"]}
+                aria-describedby={
+                  errMap["workingHours.weekdayStart"]
+                    ? "ops-err-wh-ws"
+                    : undefined
+                }
+                className={INPUT_SHELL}
+              />
+              {errMap["workingHours.weekdayStart"] ? (
+                <FieldDescription
+                  id="ops-err-wh-ws"
+                  className="text-xs text-destructive leading-snug"
+                >
+                  {errMap["workingHours.weekdayStart"]}
+                </FieldDescription>
+              ) : null}
+            </Field>
+            <Field>
+              <FieldLabel
+                htmlFor="weekdayEnd"
+                className={SUB_LABEL_CLASS}
+              >
+                Ngày thường — đóng cửa
+              </FieldLabel>
+              <Input
+                id="weekdayEnd"
+                type="time"
+                name="workingHours.weekdayEnd"
+                value={formData.workingHours.weekdayEnd}
+                onChange={handleChange}
+                aria-invalid={!!errMap["workingHours.weekdayEnd"]}
+                aria-describedby={
+                  errMap["workingHours.weekdayEnd"]
+                    ? "ops-err-wh-we"
+                    : undefined
+                }
+                className={INPUT_SHELL}
+              />
+              {errMap["workingHours.weekdayEnd"] ? (
+                <FieldDescription
+                  id="ops-err-wh-we"
+                  className="text-xs text-destructive leading-snug"
+                >
+                  {errMap["workingHours.weekdayEnd"]}
+                </FieldDescription>
+              ) : null}
+            </Field>
+            <Field>
+              <FieldLabel
+                htmlFor="weekendStart"
+                className={SUB_LABEL_CLASS}
+              >
+                Cuối tuần — mở cửa
+              </FieldLabel>
+              <Input
+                id="weekendStart"
+                type="time"
+                name="workingHours.weekendStart"
+                value={formData.workingHours.weekendStart}
+                onChange={handleChange}
+                aria-invalid={!!errMap["workingHours.weekendStart"]}
+                aria-describedby={
+                  errMap["workingHours.weekendStart"]
+                    ? "ops-err-wh-xs"
+                    : undefined
+                }
+                className={INPUT_SHELL}
+              />
+              {errMap["workingHours.weekendStart"] ? (
+                <FieldDescription
+                  id="ops-err-wh-xs"
+                  className="text-xs text-destructive leading-snug"
+                >
+                  {errMap["workingHours.weekendStart"]}
+                </FieldDescription>
+              ) : null}
+            </Field>
+            <Field>
+              <FieldLabel
+                htmlFor="weekendEnd"
+                className={SUB_LABEL_CLASS}
+              >
+                Cuối tuần — đóng cửa
+              </FieldLabel>
+              <Input
+                id="weekendEnd"
+                type="time"
+                name="workingHours.weekendEnd"
+                value={formData.workingHours.weekendEnd}
+                onChange={handleChange}
+                aria-invalid={!!errMap["workingHours.weekendEnd"]}
+                aria-describedby={
+                  errMap["workingHours.weekendEnd"]
+                    ? "ops-err-wh-xe"
+                    : undefined
+                }
+                className={INPUT_SHELL}
+              />
+              {errMap["workingHours.weekendEnd"] ? (
+                <FieldDescription
+                  id="ops-err-wh-xe"
+                  className="text-xs text-destructive leading-snug"
+                >
+                  {errMap["workingHours.weekendEnd"]}
+                </FieldDescription>
+              ) : null}
+            </Field>
+          </div>
+            );
+          })()}
+          <FieldDescription className="text-helper">
+            Định dạng HH:MM (00:00 – 23:59). Giờ mở phải trước giờ đóng.
+          </FieldDescription>
+        </section>
+
+        {/* ─── Ảnh không gian (upload) ─── */}
+        <section
+          aria-labelledby="ops-section-images"
+          className="space-y-3"
+        >
+          <SectionHeaderRow
+            id="ops-section-images"
+            title="Ảnh không gian"
+          />
+          <p className="text-helper leading-snug">
+            Tải lên các ảnh chụp không gian quán (bàn ghế, khu vực chơi, phòng
+            riêng). Ảnh giúp khách hình dung trước khi đặt chỗ.
+          </p>
+          {(() => {
+            const errMap = errors as Record<string, string>;
+            const imgs = formData.spaceImageUrls;
+            return (
+              <>
+                {/* Grid thumbnail các ảnh đã upload */}
+                {imgs.length > 0 ? (
+                  <div
+                    className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"
+                    role="list"
+                    aria-label="Ảnh không gian đã chọn"
+                  >
+                    {imgs.map((url, idx) => {
+                      const errKey = `spaceImageUrls.${idx}`;
+                      const slotErr = errMap[errKey];
+                      return (
+                        <div
+                          key={`img-${idx}-${url}`}
+                          role="listitem"
+                          className="relative group rounded-xl overflow-hidden border border-neutral-200 bg-neutral-50 aspect-[4/3]"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt={`Ảnh không gian ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => openImage(idx)}
+                            aria-label={`Phóng to ảnh ${idx + 1}`}
+                            className="absolute inset-x-0 top-0 h-3/4 bg-black/0 hover:bg-black/20 transition-colors"
+                          />
+                          <div className="absolute bottom-0 inset-x-0 flex items-center justify-between px-2 py-1.5 bg-gradient-to-t from-black/70 to-transparent text-white text-[10px] font-medium">
+                            <span className="truncate">
+                              Ảnh {idx + 1}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeImageUrl(idx)}
+                              aria-label={`Xóa ảnh ${idx + 1}`}
+                              className="h-6 w-6 text-white hover:text-destructive hover:bg-white/20"
+                            >
+                              <X className="h-3.5 w-3.5" aria-hidden />
+                            </Button>
+                          </div>
+                          {slotErr ? (
+                            <p className="absolute top-1 left-1 right-1 text-[10px] text-destructive bg-white/90 rounded px-1.5 py-0.5 leading-snug">
+                              {slotErr}
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                {/* Nút upload + loading indicator */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <label
+                    className={cn(
+                      "inline-flex items-center justify-center gap-2 px-4 py-2 border border-dashed border-neutral-300 rounded-lg text-neutral-700 text-xs font-semibold uppercase tracking-wider cursor-pointer hover:bg-white/80 transition-colors",
+                      uploadingImages > 0
+                        ? "pointer-events-none opacity-60"
+                        : "",
+                    )}
+                  >
+                    {uploadingImages > 0 ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ImagePlus className="h-4 w-4" />
+                    )}
+                    {uploadingImages > 0
+                      ? `Đang tải lên…`
+                      : imgs.length > 0
+                        ? "Thêm ảnh khác"
+                        : "Chọn ảnh không gian"}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      onChange={async (e) => {
+                        const files = Array.from(e.target.files ?? []);
+                        for (const file of files) {
+                          await uploadImageFile(file);
+                        }
+                        // Reset input để có thể chọn lại cùng file
+                        e.target.value = "";
+                      }}
+                      disabled={uploadingImages > 0}
+                      className="hidden"
+                      aria-label="Tải ảnh không gian lên"
+                    />
+                  </label>
+                  <span className="text-[10px] text-neutral-500">
+                    JPEG, PNG, WEBP — tối đa 5MB mỗi ảnh
+                  </span>
+                </div>
+                {imageUploadError ? (
+                  <p
+                    role="alert"
+                    className="text-xs text-destructive leading-snug"
+                  >
+                    {imageUploadError}
+                  </p>
+                ) : null}
+              </>
+            );
+          })()}
+        </section>
+
+        {/* ─── Dịch vụ (editable) ─── */}
+        <section
+          aria-labelledby="ops-section-services"
+          className="space-y-3"
+        >
+          <SectionHeaderRow
+            id="ops-section-services"
+            title="Dịch vụ"
+          />
+          <label
+            htmlFor="hasGameMaster"
+            className={cn(
+              "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+              formData.hasGameMaster
+                ? "border-primary bg-primary/5"
+                : "border-neutral-200 bg-white hover:border-neutral-400",
+            )}
+          >
+            <input
+              id="hasGameMaster"
+              type="checkbox"
+              name="hasGameMaster"
+              checked={formData.hasGameMaster}
+              onChange={handleChange}
+              className="mt-1 h-4 w-4 rounded border-neutral-300 text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
+            />
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium leading-snug text-neutral-900">
+                Có Game Master hỗ trợ khách
+              </span>
+              <span className="text-helper">
+                Game Master hướng dẫn luật chơi, sắp xếp bàn, hỗ trợ khách
+                trong suốt buổi chơi.
+              </span>
+            </div>
+          </label>
+        </section>
+
+        {/* ─── Hoạt động (editable) ─── */}
+        <section
+          aria-labelledby="ops-section-ops"
+          className="space-y-3"
+        >
+          <SectionHeaderRow
+            id="ops-section-ops"
+            title="Hoạt động"
+          />
+          {(() => {
+            const errMap = errors as Record<string, string>;
+            return (
+              <>
+                <Field>
+                  <FieldLabel
+                    htmlFor="popularGamesList"
+                    className={SUB_LABEL_CLASS}
+                  >
+                    Board game phổ biến tại quán
+                  </FieldLabel>
+                  <Input
+                    id="popularGamesList"
+                    name="popularGamesList"
+                    type="text"
+                    maxLength={500}
+                    value={formData.popularGamesList}
+                    onChange={handleChange}
+                    placeholder="Catan, Azul, Ma Sói, ..."
+                    aria-invalid={!!errMap.popularGamesList}
+                    aria-describedby={
+                      errMap.popularGamesList
+                        ? "ops-err-games"
+                        : undefined
+                    }
+                    className={INPUT_SHELL}
+                  />
+                  {errMap.popularGamesList ? (
+                    <FieldDescription
+                      id="ops-err-games"
+                      className="text-xs text-destructive leading-snug"
+                    >
+                      {errMap.popularGamesList}
+                    </FieldDescription>
+                  ) : (
+                    <FieldDescription className="text-helper">
+                      Liệt kê tên các game nổi bật, phân cách bằng dấu phẩy.
+                      Giúp khách hình dung trước khi đến.
+                    </FieldDescription>
+                  )}
+                </Field>
+
+                <Field className="max-w-48">
+                  <FieldLabel
+                    htmlFor="defaultHoldDurationMinutes"
+                    className={SUB_LABEL_CLASS}
+                  >
+                    Thời gian giữ chỗ mặc định
+                  </FieldLabel>
+                  <div className="relative">
+                    <Input
+                      id="defaultHoldDurationMinutes"
+                      name="defaultHoldDurationMinutes"
+                      type="number"
+                      min={5}
+                      max={240}
+                      step={1}
+                      inputMode="numeric"
+                      value={formData.defaultHoldDurationMinutes ?? ""}
+                      onChange={handleChange}
+                      placeholder="30"
+                      aria-invalid={!!errMap.defaultHoldDurationMinutes}
+                      aria-describedby={
+                        errMap.defaultHoldDurationMinutes
+                          ? "ops-err-hold"
+                          : undefined
+                      }
+                      className={cn(INPUT_SHELL, "pr-14")}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-unit-suffix">
+                      phút
+                    </span>
+                  </div>
+                  {errMap.defaultHoldDurationMinutes ? (
+                    <FieldDescription
+                      id="ops-err-hold"
+                      className="text-xs text-destructive leading-snug"
+                    >
+                      {errMap.defaultHoldDurationMinutes}
+                    </FieldDescription>
+                  ) : (
+                    <FieldDescription className="text-helper">
+                      Sau khi booking, hệ thống giữ chỗ trong khoảng thời
+                      gian này trước khi tự động giải phóng.
+                    </FieldDescription>
+                  )}
+                </Field>
+              </>
+            );
+          })()}
         </section>
 
         {/* ─── Thanh toán (editable) ─── */}
@@ -715,13 +1319,13 @@ const BILLING_OPTIONS: ReadonlyArray<{
   hint: string;
 }> = [
   {
-    value: "BY_HOUR",
+    value: "ByHour",
     label: "Tính phí theo giờ chơi",
     hint: "Khách trả phí theo thời lượng sử dụng phòng và bàn.",
   },
   {
-    value: "PER_DRINK",
-    label: "Tính phí theo đồ uống",
-    hint: "Khách mua đồ uống và chơi board game tại khu vực chung của quán.",
+    value: "PerDrink",
+    label: "Phí vào cửa",
+    hint: "Khách trả phí vào cửa theo đơn đồ uống hoặc vé vào, chơi board game tại khu vực chung của quán.",
   },
 ];

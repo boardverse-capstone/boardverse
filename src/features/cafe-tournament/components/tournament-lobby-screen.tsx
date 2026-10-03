@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTournamentLobby } from "../hooks/useTournamentLobby";
 import { TournamentWalkInModal } from "./tournament-walkin-modal";
 import { TournamentPairingStudioModal } from "./tournament-pairing-studio-modal";
@@ -47,7 +47,6 @@ export function TournamentLobbyScreen({
   const {
     participants,
     loading,
-    fetchParticipants,
     handleCheckIn,
     handleAddWalkIn,
     handleNoShow,
@@ -138,23 +137,46 @@ export function TournamentLobbyScreen({
     };
   }, [activeView, tournamentId]);
 
-  const checkedInList = participants.filter(
-    (p) => p.status === "CheckedIn" || p.status === "Active",
-  );
+  // Memoized: re-derive only when participants/search/filterTab change, not
+  // on every render (search keystroke would otherwise re-iterate full roster).
+  const statusCounts = useMemo(() => {
+    let registered = 0;
+    let noShow = 0;
+    for (const p of participants) {
+      const status = p.status as string;
+      if (status === "Registered") registered++;
+      else if (status === "NoShow") noShow++;
+    }
+    return { registered, noShow };
+  }, [participants]);
+
+  const { checkedInList, filteredParticipants } = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    const checkedIn: typeof participants = [];
+    const filtered: typeof participants = [];
+
+    for (const p of participants) {
+      const status = p.status as string;
+      const isCheckedIn = status === "CheckedIn" || status === "Active";
+      if (isCheckedIn) checkedIn.push(p);
+
+      const name = (p.walkInDisplayName || p.username || "").toLowerCase();
+      const matchesSearch = !needle || name.includes(needle);
+      if (!matchesSearch) continue;
+
+      const matchesTab =
+        filterTab === "ALL"
+          ? true
+          : filterTab === "CheckedIn"
+            ? isCheckedIn
+            : status === filterTab;
+      if (matchesTab) filtered.push(p);
+    }
+
+    return { checkedInList: checkedIn, filteredParticipants: filtered };
+  }, [participants, search, filterTab]);
   const checkedInCount = checkedInList.length;
   const isEnoughToStart = checkedInCount >= minParticipants;
-
-  const filteredParticipants = participants.filter((p) => {
-    const name = (p.walkInDisplayName || p.username || "").toLowerCase();
-    const matchesSearch = name.includes(search.toLowerCase());
-    const matchesTab =
-      filterTab === "ALL"
-        ? true
-        : filterTab === "CheckedIn"
-          ? p.status === "CheckedIn" || p.status === "Active"
-          : p.status === filterTab;
-    return matchesSearch && matchesTab;
-  });
 
   const handleStartRegular = async () => {
     const ok = await handleStart();
@@ -179,7 +201,7 @@ export function TournamentLobbyScreen({
   };
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto pb-10">
+    <div className="flex flex-col gap-4 max-w-7xl mx-auto pb-10">
       {/* 1. Header Hero Bar */}
       <div className="bg-white p-4 rounded-3xl border border-neutral-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -298,8 +320,8 @@ export function TournamentLobbyScreen({
 
       {/* 3A. VIEW: DANH SÁCH VẬN ĐỘNG VIÊN & ĐIỂM DANH */}
       {activeView === "ROSTER" && (
-        <div className="space-y-4">
-          <div className="bg-white p-4 rounded-3xl border border-neutral-200 shadow-2xs space-y-3">
+        <div className="flex flex-col gap-4">
+          <div className="bg-white p-4 rounded-3xl border border-neutral-200 shadow-2xs flex flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-1.5 text-xs font-bold">
                 {(["ALL", "CheckedIn", "Registered", "NoShow"] as const).map(
@@ -318,8 +340,8 @@ export function TournamentLobbyScreen({
                         : tab === "CheckedIn"
                           ? `Đã đến (${checkedInCount})`
                           : tab === "Registered"
-                            ? `Chưa đến (${participants.filter((p) => p.status === "Registered").length})`
-                            : `No-Show (${participants.filter((p) => p.status === "NoShow").length})`}
+                            ? `Chưa đến (${statusCounts.registered})`
+                            : `No-Show (${statusCounts.noShow})`}
                     </button>
                   ),
                 )}
@@ -359,7 +381,7 @@ export function TournamentLobbyScreen({
                 return (
                   <div
                     key={p.id}
-                    className={`p-3.5 rounded-2xl border flex flex-col justify-between space-y-3 transition-all ${
+                    className={`p-3.5 rounded-2xl border flex flex-col gap-3 transition-all ${
                       isChecked
                         ? "bg-emerald-50/40 border-emerald-300"
                         : isNoShow || isWithdrawn
@@ -425,7 +447,7 @@ export function TournamentLobbyScreen({
                               await handleCheckIn(p.id);
                               setLoadingActionId(null);
                             }}
-                            className="h-7 px-3 bg-neutral-950 hover:bg-neutral-800 text-white text-[10px] font-bold rounded-lg"
+                            className="h-9 min-h-9 px-3 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold rounded-lg"
                           >
                             Check-in
                           </Button>
@@ -439,10 +461,10 @@ export function TournamentLobbyScreen({
                               await handleNoShow(p.id);
                               setLoadingActionId(null);
                             }}
-                            className="h-7 px-2 border-amber-200 text-amber-700 hover:bg-amber-50 text-[10px] font-bold rounded-lg"
+                            className="size-9 min-h-9 min-w-9 p-0 border-amber-200 text-amber-700 hover:bg-amber-50 rounded-lg"
                             title="Đánh dấu vắng mặt"
                           >
-                            <UserX className="w-3 h-3" />
+                            <UserX className="w-3.5 h-3.5" />
                           </Button>
 
                           <Button
@@ -455,10 +477,10 @@ export function TournamentLobbyScreen({
                                 name: displayName,
                               })
                             }
-                            className="h-7 px-2 border-rose-200 text-rose-700 hover:bg-rose-50 text-[10px] font-bold rounded-lg"
+                            className="size-9 min-h-9 min-w-9 p-0 border-rose-200 text-rose-700 hover:bg-rose-50 rounded-lg"
                             title="Xóa khỏi giải"
                           >
-                            <XCircle className="w-3 h-3" />
+                            <XCircle className="w-3.5 h-3.5" />
                           </Button>
                         </>
                       )}
@@ -479,7 +501,7 @@ export function TournamentLobbyScreen({
 
       {/* 3B. VIEW: XEM TRƯỚC BẢNG GHÉP CẶP ROUND 1 (PAIRING PREVIEW) */}
       {activeView === "PAIRING_PREVIEW" && (
-        <div className="bg-white p-5 rounded-3xl border border-neutral-200 shadow-2xs space-y-4">
+        <div className="bg-white p-5 rounded-3xl border border-neutral-200 shadow-2xs flex flex-col gap-4">
           <div className="flex items-center justify-between border-b pb-3">
             <div>
               <h3 className="font-black text-sm text-neutral-950 flex items-center gap-2">
@@ -508,7 +530,7 @@ export function TournamentLobbyScreen({
               Đang tính toán bảng cặp đấu...
             </div>
           ) : !previewData?.tables || previewData.tables.length === 0 ? (
-            <div className="text-center py-16 border border-dashed rounded-2xl bg-neutral-50/50 p-6 space-y-2">
+            <div className="flex flex-col items-center gap-2 text-center py-16 border border-dashed rounded-2xl bg-neutral-50/50 p-6">
               <Users className="w-8 h-8 text-neutral-300 mx-auto" />
               <p className="text-xs text-neutral-500 font-medium">
                 Chưa có dữ liệu bảng cặp. Cần ít nhất {minParticipants} VĐV điểm
@@ -532,7 +554,7 @@ export function TournamentLobbyScreen({
                     </span>
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div className="flex flex-col gap-1.5">
                     {table.players.map((p) => (
                       <div
                         key={p.userId}
@@ -568,10 +590,6 @@ export function TournamentLobbyScreen({
         onClose={() => setShowPairingStudio(false)}
         tournamentId={tournamentId}
         roundNumber={1}
-        onPairingSaved={() => {
-          void fetchParticipants();
-          void refreshPairingPreview();
-        }}
       />
 
       <CancelReasonDialog

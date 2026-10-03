@@ -427,7 +427,7 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
           variant="secondary"
           className="bg-orange-100/80 text-orange-900 border border-orange-200 text-xs"
         >
-          {session.billingModel === 'BY_HOUR' ? 'Theo giá»' : 'Theo Ä‘á»“ uá»‘ng'}
+          {session.billingModel === 'ByHour' ? 'Theo giá»' : 'Theo Ä‘á»“ uá»‘ng'}
         </Badge>
       </div>
 

@@ -308,7 +308,7 @@ function buildFallbackBill(
   return {
     sessionId,
     bookingId: session?.bookingId || sessionId,
-    billingModel: session?.billingModel || 'BY_HOUR',
+    billingModel: session?.billingModel || 'ByHour',
     durationMinutes: session?.startedAt
       ? Math.max(1, Math.ceil((Date.now() - new Date(session.startedAt).getTime()) / 60_000))
       : 0,
@@ -1424,7 +1424,7 @@ export const PosCheckInService = {
             presentCount: (current?.presentCount ?? 0) + 1,
             guestCount: (current?.guestCount ?? 0) + 1,
             depositCreditTotal: current?.depositCreditTotal ?? 0,
-            billingModel: current?.billingModel || 'BY_HOUR',
+        billingModel: current?.billingModel || 'ByHour',
             status: current?.status || 'Active',
           };
         }
@@ -1563,7 +1563,7 @@ export const PosCheckInService = {
         startedAt: current?.startedAt || new Date().toISOString(),
         presentCount: current?.presentCount ?? 1,
         depositCreditTotal: current?.depositCreditTotal ?? 0,
-        billingModel: current?.billingModel || 'BY_HOUR',
+        billingModel: current?.billingModel || 'ByHour',
         status: current?.status || 'Active',
       };
     }
@@ -2085,7 +2085,7 @@ export const PosCheckInService = {
       return {
         sessionId,
         bookingId: session.bookingId || sessionId,
-        billingModel: session.billingModel || 'BY_HOUR',
+        billingModel: session.billingModel || 'ByHour',
         durationMinutes,
         lineItems: [
           {

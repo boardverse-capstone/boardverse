@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { TournamentParticipant } from "../types/tournament.types";
 import { CancelReasonDialog } from "./cancel-reason-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -96,62 +96,70 @@ export function TournamentParticipantsTable({
     name: string;
   } | null>(null);
 
-  const filteredList = participants.filter((p) => {
-    const name = (p.username || "").toLowerCase();
-    const matchSearch = name.includes(search.toLowerCase());
+  // Single pass over participants computes BOTH the filtered roster and the
+  // status counts that power the filter tabs. Replaces the previous 6-array
+  // filter pipeline (filteredList + 5 status counts) that re-ran on every
+  // render — including every search keystroke. See audit P0-2.
+  const { filteredList, filterTabs } = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    const counts = {
+      all: participants.length,
+      checkedIn: 0,
+      registered: 0,
+      noShow: 0,
+      withdrawn: 0,
+    };
+    const filtered: TournamentParticipant[] = [];
 
-    if (statusFilter === "ALL") return matchSearch;
-    if (statusFilter === "CheckedIn") {
-      return matchSearch && (p.status === "CheckedIn" || p.status === "Active");
-    }
-    if (statusFilter === "Withdrawn") {
-      return (
-        matchSearch &&
-        (p.status === "Eliminated" ||
-          p.status === "NoShow" ||
-          (p.status as string) === "Withdrawn" ||
-          (p.status as string) === "Kicked")
-      );
-    }
-    return matchSearch && p.status === statusFilter;
-  });
+    for (const p of participants) {
+      const name = (p.username || "").toLowerCase();
+      const status = p.status as string;
 
-  const filterTabs = [
-    { id: "ALL", label: `Tất cả (${participants.length})` },
-    {
-      id: "CheckedIn",
-      label: `Đã đến (${
-        participants.filter((p) => p.status === "CheckedIn" || p.status === "Active")
-          .length
-      })`,
-    },
-    {
-      id: "Registered",
-      label: `Chưa đến (${participants.filter((p) => p.status === "Registered").length})`,
-    },
-    {
-      id: "NoShow",
-      label: `Vắng (${participants.filter((p) => p.status === "NoShow").length})`,
-    },
-    {
-      id: "Withdrawn",
-      label: `Đã rời (${
-        participants.filter(
-          (p) =>
-            p.status === "Eliminated" ||
-            (p.status as string) === "Withdrawn" ||
-            (p.status as string) === "Kicked",
-        ).length
-      })`,
-    },
-  ];
+      if (status === "CheckedIn" || status === "Active") counts.checkedIn++;
+      else if (status === "Registered") counts.registered++;
+      else if (status === "NoShow") counts.noShow++;
+      else if (
+        status === "Eliminated" ||
+        status === "Withdrawn" ||
+        status === "Kicked"
+      )
+        counts.withdrawn++;
+
+      if (needle && !name.includes(needle)) continue;
+
+      if (statusFilter === "ALL") filtered.push(p);
+      else if (statusFilter === "CheckedIn") {
+        if (status === "CheckedIn" || status === "Active") filtered.push(p);
+      } else if (statusFilter === "Withdrawn") {
+        if (
+          status === "Eliminated" ||
+          status === "NoShow" ||
+          status === "Withdrawn" ||
+          status === "Kicked"
+        ) {
+          filtered.push(p);
+        }
+      } else if (status === statusFilter) filtered.push(p);
+    }
+
+    return {
+      filteredList: filtered,
+      filterTabs: [
+        { id: "ALL", label: `Tất cả (${counts.all})` },
+        { id: "CheckedIn", label: `Đã đến (${counts.checkedIn})` },
+        { id: "Registered", label: `Chưa đến (${counts.registered})` },
+        { id: "NoShow", label: `Vắng (${counts.noShow})` },
+        { id: "Withdrawn", label: `Đã rời (${counts.withdrawn})` },
+      ],
+    };
+  }, [participants, search, statusFilter]);
   const showActionColumn = !isTournamentCompleted;
   const tableColSpan = showActionColumn ? 5 : 4;
 
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       {/* Header */}
-      <div className="space-y-3 border-b border-border p-4">
+      <div className="flex flex-col gap-3 border-b border-border p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -329,7 +337,7 @@ export function TournamentParticipantsTable({
                                 size="sm"
                                 disabled={isActionLoading}
                                 onClick={() => onCheckIn(p.id)}
-                                className="h-8 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                                className="h-9 min-h-9 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
                               >
                                 Check-in
                               </Button>
@@ -339,7 +347,7 @@ export function TournamentParticipantsTable({
                                 variant="outline"
                                 disabled={isActionLoading}
                                 onClick={() => onNoShow(p.id)}
-                                className="h-8 rounded-lg border-border px-2.5 text-xs font-semibold text-foreground hover:bg-muted/70"
+                                className="h-9 min-h-9 rounded-lg border-border px-2.5 text-xs font-semibold text-foreground hover:bg-muted/70"
                                 title="Đánh dấu vắng mặt"
                               >
                                 <UserX className="h-3.5 w-3.5" /> Vắng mặt
@@ -355,16 +363,16 @@ export function TournamentParticipantsTable({
                                     name: displayName,
                                   })
                                 }
-                                className="h-8 rounded-lg border-destructive/30 px-2.5 text-xs font-semibold text-destructive hover:bg-destructive/5 hover:text-destructive"
-                                title="Xóa khỏi danh sách đăng ký"
+                                className="h-9 min-h-9 rounded-lg border-destructive/30 px-2.5 text-xs font-semibold text-destructive hover:bg-destructive/5 hover:text-destructive"
+                                title="Xóa VĐV khỏi giải đấu"
                               >
-                                <ShieldAlert className="h-3.5 w-3.5" /> Xóa
+                                <ShieldAlert className="h-3.5 w-3.5" /> Xóa VĐV
                               </Button>
                             </>
                           )}
 
                           {isReady && (
-                            <span className="inline-flex h-8 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-xs font-semibold text-emerald-700">
+                            <span className="inline-flex h-9 min-h-9 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 text-xs font-semibold text-emerald-700">
                               <CheckCircle2 className="h-3.5 w-3.5" /> Đã check-in
                             </span>
                           )}

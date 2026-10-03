@@ -27,6 +27,12 @@ export const MANAGER_CAFE_QUERY_KEYS = {
 
 interface ManagerCafeMeResponse {
   cafe?: ManagerCafe;
+  /** Một số phiên bản BE trả cafeId ở top-level (vd: "bd21e50b-…")
+   *  thay vì wrap trong `cafe: {...}`. Phải đọc ở đây để
+   *  normalizeMeResponse có thể fallback sang UUID này khi
+   *  `data.cafe` không tồn tại — nếu không nút "+ Thêm Game Mới"
+   *  trên /manager/inventory sẽ bị disabled vĩnh viễn. */
+  cafeId?: string;
   profile?: ManagerCafeOperationalProfile;
   operationalProfile?: ManagerCafeOperationalProfile;
   operationalStatus?: ManagerCafe["operationalStatus"];
@@ -39,23 +45,37 @@ interface ManagerCafeMeResponse {
   address?: string;
   phoneNumber?: string;
   numberOfTables?: number;
+  numberOfGamesOwned?: number;
+  popularGamesList?: string;
+  defaultHoldDurationMinutes?: number;
+  applicationStatus?: string;
   workingHours?: ManagerCafe["workingHours"];
   operationalStatusReason?: string | null;
   isTableLayoutConfigured?: boolean;
+  /** BE mới trả phẳng toàn bộ profile ở top-level (không wrap trong
+   *  `cafe`/`profile`/`operationalProfile`) — các field dưới đây nằm
+   *  cùng cấp với `cafeId`. Phải đọc trực tiếp để hydrate form. */
+  numberOfPrivateRooms?: number;
+  spaceImageUrls?: string[];
+  hasGameMaster?: boolean;
+  billingModel?: string;
+  basePrice?: number;
+  tieredBlockRate?: number;
+  tieredBlockMinutes?: number;
+  depositPercentage?: number;
+  /** `name` thay vì `cafeName` trong một số phiên bản BE. */
+  name?: string;
 }
 
 /**
- * BE đang trả `billingModel: "TIME_BASED"` cho flow quản lý (trong khi
- * flow Partner vẫn dùng "BY_HOUR"). Chuẩn hoá về `BY_HOUR` để form
- * hồ sơ vận hành có thể render đúng nhánh giá theo giờ.
+ * BE trả `billingModel: "ByHour"` (camelCase) trong API vận hành.
+ * Giữ nguyên giá trị từ BE — FE dùng cùng convention.
  */
-function normalizeBillingModel(
-  raw: string | undefined,
-): ManagerCafeOperationalProfile["billingModel"] {
-  if (!raw) return "BY_HOUR";
-  if (raw === "TIME_BASED" || raw === "BY_HOUR") return "BY_HOUR";
-  if (raw === "PER_DRINK") return "PER_DRINK";
-  return "BY_HOUR";
+function normalizeBillingModel(raw: string | undefined): ManagerCafeOperationalProfile["billingModel"] {
+  if (!raw) return "ByHour";
+  if (raw === "ByHour" || raw === "TIME_BASED" || raw === "BY_HOUR") return "ByHour";
+  if (raw === "PerDrink" || raw === "PER_DRINK") return "PerDrink";
+  return "ByHour";
 }
 
 interface ActivateApiResponse {
@@ -103,7 +123,7 @@ function normalizeActivateResponse(raw: unknown): ActivateCafeResponse {
         numberOfPrivateRooms: 0,
         spaceImageUrls: [],
         hasGameMaster: false,
-        billingModel: "BY_HOUR",
+        billingModel: "ByHour",
       },
       operationalProfileUpdatedAt: null,
       canActivate: data.canActivate ?? false,
@@ -129,16 +149,31 @@ function normalizeMeResponse(raw: unknown): ManagerCafe {
     };
   }
   // Fallback: BE trả về phẳng (profile + status + canActivate) — synthesize.
+  // Phải đọc `cafeId` từ top-level vì response thật của BE không wrap
+  // cafe aggregate trong `cafe: {...}` mà để id trần ở ngoài
+  // (vd: data.cafeId = "bd21e50b-…"). Nếu không pick được, throw để
+  // hook bắt error thay vì render với id rỗng — nút "+ Thêm Game Mới"
+  // trên /manager/inventory phụ thuộc vào `cafeId` để bật.
+  const flatCafeId = data.cafeId;
+  if (!flatCafeId) {
+    throw new Error(
+      "Không tìm thấy cafeId trong phản hồi /api/manager/cafes/me — vui lòng đăng nhập lại hoặc liên hệ hỗ trợ.",
+    );
+  }
   const profile =
     data.profile ?? data.operationalProfile ?? {
       numberOfPrivateRooms: 0,
       spaceImageUrls: [],
       hasGameMaster: false,
-      billingModel: "BY_HOUR" as const,
+      billingModel: "ByHour" as const,
     };
+  // Một số phiên bản BE trả `name` thay vì `cafeName` ở top-level
+  // (vd: data.name = "lenguyedangkhoa cafe"). Pick cả 2 để tương thích
+  // ngược với shape cũ.
+  const flatCafeName = data.cafeName ?? (raw as { name?: string } | null)?.name ?? "";
   return {
-    id: "",
-    cafeName: data.cafeName ?? "",
+    id: flatCafeId,
+    cafeName: flatCafeName,
     address: data.address,
     phoneNumber: data.phoneNumber,
     numberOfTables: data.numberOfTables,
@@ -152,8 +187,43 @@ function normalizeMeResponse(raw: unknown): ManagerCafe {
       weekendEnd: "22:00",
     },
     operationalProfile: {
+      // BE trả phẳng (không có profile/operationalProfile wrapper), nên
+      // đọc trực tiếp các field từ `data` thay vì `profile` rỗng.
+      // Fallback về `profile` cho các phiên bản BE cũ wrap trong
+      // `profile: {...}` hoặc `operationalProfile: {...}`.
       ...profile,
-      billingModel: normalizeBillingModel(profile.billingModel),
+      ...(data.numberOfPrivateRooms !== undefined
+        ? { numberOfPrivateRooms: data.numberOfPrivateRooms }
+        : null),
+      ...(data.spaceImageUrls !== undefined
+        ? { spaceImageUrls: data.spaceImageUrls }
+        : null),
+      ...(data.hasGameMaster !== undefined
+        ? { hasGameMaster: data.hasGameMaster }
+        : null),
+      ...(data.billingModel !== undefined
+        ? { billingModel: normalizeBillingModel(data.billingModel) }
+        : { billingModel: normalizeBillingModel(profile.billingModel) }),
+      ...(data.basePrice !== undefined ? { basePrice: data.basePrice } : null),
+      ...(data.tieredBlockRate !== undefined
+        ? { tieredBlockRate: data.tieredBlockRate }
+        : null),
+      ...(data.tieredBlockMinutes !== undefined
+        ? { tieredBlockMinutes: data.tieredBlockMinutes }
+        : null),
+      ...(data.depositPercentage !== undefined
+        ? { depositPercentage: data.depositPercentage }
+        : null),
+      // Mirror các field flat từ BE vào operationalProfile để form
+      // chỉnh sửa có thể hydrate mà không cần gọi endpoint riêng.
+      cafeName: flatCafeName,
+      address: data.address,
+      phoneNumber: data.phoneNumber,
+      popularGamesList: data.popularGamesList ?? "",
+      defaultHoldDurationMinutes: data.defaultHoldDurationMinutes,
+      applicationStatus: data.applicationStatus,
+      numberOfTables: data.numberOfTables,
+      numberOfGamesOwned: data.numberOfGamesOwned,
     },
     operationalProfileUpdatedAt: data.operationalProfileUpdatedAt ?? null,
     canActivate: data.canActivate ?? false,
@@ -173,7 +243,10 @@ function normalizeSePayConfig(raw: unknown): SePayConfig | null {
   if (!("bankCode" in inner) || !inner.bankCode) return null;
   return {
     bankCode: inner.bankCode,
-    accountNumber: inner.accountNumber ?? "",
+    // BE mặc định trả `maskedAccountNumber`; fallback `accountNumber` raw
+    // (một số endpoint phiên bản cũ có thể chỉ trả raw).
+    accountNumber: inner.accountNumber ?? inner.maskedAccountNumber ?? "",
+    maskedAccountNumber: inner.maskedAccountNumber ?? null,
     accountHolder: inner.accountHolder ?? null,
     updatedAt: inner.updatedAt ?? null,
   };
@@ -215,22 +288,22 @@ function normalizePricingConfig(raw: unknown): PricingConfig | null {
   };
 }
 
+/**
+ * BE trả: `{ data: [...], meta: {...} }` (apiClient đã unwrap envelope
+ * `statusCode/message/data` trước khi gọi). Mỗi phần tử chỉ có
+ * `userId`, `email`, `username`, `joinedAt` — không còn `id`
+ * assignment hay `role`. Tương thích ngược với shape cũ.
+ */
 function normalizeStaffList(raw: unknown): CafeStaff[] {
-  const data = (raw ?? {}) as {
-    data?: CafeStaff[] | null;
-  } & { items?: CafeStaff[] };
-  const list = Array.isArray(data.data)
-    ? data.data
-    : Array.isArray(data.items)
-      ? data.items
-      : [];
+  const data = (raw ?? {}) as { data?: unknown };
+  const list = Array.isArray(data.data) ? data.data : [];
   return list.filter(
     (s): s is CafeStaff =>
       !!s &&
-      typeof s.id === "string" &&
-      typeof s.userId === "string" &&
-      typeof s.role === "string",
-  );
+      typeof s === "object" &&
+      typeof (s as { userId?: unknown }).userId === "string" &&
+      typeof (s as { joinedAt?: unknown }).joinedAt === "string",
+  ) as CafeStaff[];
 }
 
 export const ManagerCafeService = {
@@ -259,9 +332,13 @@ export const ManagerCafeService = {
     return normalizeActivateResponse(raw);
   },
 
-  /** PUT /api/cafes/{id}/sepay-config — lấy cấu hình SePay hiện tại. */
-  getSePayConfig: async (cafeId: string): Promise<SePayConfig | null> => {
-    const raw = await apiClient.get(`/api/cafes/${cafeId}/sepay-config`);
+  /**
+   * GET /api/sepay-accounts/my-cafe — lấy cấu hình SePay hiện tại của quán
+   * đang đăng nhập. Backend tự derive cafeId từ token, không cần truyền.
+   * Trả về `null` nếu manager chưa từng tạo tài khoản SePay (404).
+   */
+  getSePayConfig: async (): Promise<SePayConfig | null> => {
+    const raw = await apiClient.get(`/api/sepay-accounts/my-cafe`);
     return normalizeSePayConfig(raw);
   },
 

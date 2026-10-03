@@ -370,6 +370,17 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     [matches, participantLookup],
   );
 
+  // Memoized count: re-derives only when participants changes.
+  const checkedInCount = useMemo(
+    () =>
+      participants.reduce(
+        (n, p) =>
+          p.status === "CheckedIn" || p.status === "Active" ? n + 1 : n,
+        0,
+      ),
+    [participants],
+  );
+
   // Bắt đầu 1 bàn đấu
   const onStartMatch = async (matchId: string) => {
     if (!activeTournament) return;
@@ -508,7 +519,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
 
   if (loading && !activeTournament) {
     return (
-      <div className="flex h-96 flex-col items-center justify-center space-y-3">
+      <div className="flex h-96 flex-col items-center justify-center gap-3">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <span className="text-xs font-medium text-muted-foreground">
           Đang nạp dữ liệu giải đấu...
@@ -521,12 +532,9 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
   const isAnyMatchStarted = matches.some(
     (m) => m.status === "OnGoing" || m.status === "Completed",
   );
-  const checkedInCount = participants.filter(
-    (p) => p.status === "CheckedIn" || p.status === "Active",
-  ).length;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4 pb-10">
+    <div className="mx-auto max-w-7xl flex flex-col gap-4 pb-10">
       {/* 1. Header Bar */}
       <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
@@ -572,8 +580,8 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
 
       {/* 2. Hero Tournament Card */}
       {activeTournament ? (
-        <div className="space-y-4">
-          <div className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
             <div className="flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -841,13 +849,13 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
               </div>
 
               {mainView === "MATCHES" ? (
-                <div className="space-y-4 p-4">
+                <div className="flex flex-col gap-4 p-4">
                   {loadingMatches ? (
                     <div className="py-16 text-center text-xs font-medium text-muted-foreground">
                       Đang tải danh sách bàn đấu...
                     </div>
                   ) : normalizedMatches.length === 0 ? (
-                    <div className="space-y-2 rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center">
+                    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center">
                       <Swords className="mx-auto h-8 w-8 text-muted-foreground/50" />
                       <p className="text-sm font-medium text-foreground">
                         Chưa có bàn đấu nào
@@ -863,9 +871,9 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                         return (
                           <div
                             key={id}
-                            className="flex flex-col justify-between space-y-4 rounded-2xl border border-border bg-background p-4 shadow-sm"
+                            className="flex flex-col gap-4 rounded-2xl border border-border bg-background p-4 shadow-sm"
                           >
-                            <div className="space-y-3">
+                            <div className="flex flex-col gap-3">
                               {/* Header Bàn đấu */}
                               <div className="flex items-center justify-between gap-3">
                                 <span className="text-sm font-semibold text-foreground">
@@ -1082,15 +1090,6 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
           onClose={() => setShowPairingStudio(false)}
           tournamentId={activeTournament.id}
           roundNumber={activeTournament.currentRound || 1}
-          onPairingSaved={() => {
-            void fetchTournaments();
-            if (activeTournament.status === "OnGoing") {
-              void refreshMatches(
-                activeTournament.id,
-                activeTournament.currentRound,
-              );
-            }
-          }}
         />
       )}
 

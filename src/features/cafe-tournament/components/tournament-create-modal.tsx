@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState } from "react";
@@ -144,7 +143,7 @@ export function TournamentCreateModal({
 
   return (
     <div
-      className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 max-[480px]:p-2 max-[480px]:pb-[max(0.5rem,env(safe-area-inset-bottom))] max-[480px]:pt-[max(0.5rem,env(safe-area-inset-top))]"
       onClick={backdropCloseHandler(
         () => {
           if (isSubmitting) return;
@@ -154,7 +153,7 @@ export function TournamentCreateModal({
       )}
     >
       <div
-        className="bg-white border border-neutral-200 rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[90vh] flex flex-col"
+        className="bg-white border border-neutral-200 rounded-3xl max-w-2xl w-full p-6 flex flex-col gap-4 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[90vh]"
         onClick={(event) => event.stopPropagation()}
       >
         {/* Header */}
@@ -184,10 +183,10 @@ export function TournamentCreateModal({
         {/* Scrollable Form Body */}
         <form
           onSubmit={handleSubmit}
-          className="space-y-4 text-xs overflow-y-auto pr-1 flex-1 scrollbar-thin"
+          className="flex flex-col gap-5 text-xs overflow-y-auto pr-1 flex-1 scrollbar-thin"
         >
           {/* Nhóm 1: Thông tin cơ bản */}
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3">
             <h4 className="font-extrabold text-neutral-900 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Thông tin cơ
               bản
@@ -199,7 +198,7 @@ export function TournamentCreateModal({
               </label>
               <Input
                 required
-                placeholder="VD: Splendor Championship - Tháng 8/2026"
+                placeholder="VD: Giải Splendor Tháng 8"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="h-9 font-medium"
@@ -220,7 +219,7 @@ export function TournamentCreateModal({
           </div>
 
           {/* Nhóm 2: Lịch trình & Quy mô */}
-          <div className="space-y-3 pt-2 border-t border-neutral-100">
+          <div className="flex flex-col gap-3 pt-2 border-t border-neutral-100">
             <h4 className="font-extrabold text-neutral-900">
               Lịch trình & Sĩ số
             </h4>
@@ -292,6 +291,7 @@ export function TournamentCreateModal({
                   value={maxParticipants}
                   onChange={(e) => setMaxParticipants(Number(e.target.value))}
                   className="w-full h-9 px-3 rounded-xl border bg-white font-mono font-bold text-neutral-800 outline-none"
+                  aria-describedby="max-participants-hint"
                 >
                   <option value={4}>4 VĐV (1 bàn)</option>
                   <option value={8}>8 VĐV (2 bàn)</option>
@@ -300,6 +300,12 @@ export function TournamentCreateModal({
                   <option value={20}>20 VĐV (5 bàn)</option>
                   <option value={32}>32 VĐV (8 bàn)</option>
                 </select>
+                <p
+                  id="max-participants-hint"
+                  className="mt-1 text-[10px] text-neutral-500 leading-snug"
+                >
+                  Mỗi bàn 4 VĐV (theo luật Splendor). Hệ thống tự tính số bàn.
+                </p>
               </div>
             </div>
           </div>
@@ -320,9 +326,9 @@ export function TournamentCreateModal({
             </button>
 
             {showAdvanced && (
-              <div className="mt-3 space-y-3.5">
+              <div className="mt-3 flex flex-col gap-3">
                 {/* Phần 1: Thể thức thi đấu (Cố định cứng Tự động & Chung kết) */}
-                <div className="p-3 bg-neutral-50/70 rounded-2xl border border-neutral-200 space-y-2.5">
+                <div className="flex flex-col gap-2.5 p-3 bg-neutral-50/70 rounded-2xl border border-neutral-200">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-neutral-800 text-xs flex items-center gap-1.5">
                       <Layers className="w-3.5 h-3.5 text-amber-600" /> Thể thức
@@ -362,7 +368,7 @@ export function TournamentCreateModal({
                 </div>
 
                 {/* Phần 2: Điều kiện Elo, Karma & Phạt No-Show */}
-                <div className="p-3 bg-neutral-50/70 rounded-2xl border border-neutral-200 space-y-2.5">
+                <div className="flex flex-col gap-2.5 p-3 bg-neutral-50/70 rounded-2xl border border-neutral-200">
                   <span className="font-bold text-neutral-800 text-xs flex items-center gap-1.5">
                     <ShieldCheck className="w-3.5 h-3.5 text-blue-600" /> Điều
                     kiện tham gia & Điểm số

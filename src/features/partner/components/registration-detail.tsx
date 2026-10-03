@@ -299,7 +299,7 @@ export function RegistrationDetail({
             <InfoRow
               label="Mô hình tính phí"
               value={
-                application.billingModel === "BY_HOUR"
+                application.billingModel === "ByHour"
                   ? "Theo giờ chơi (BY_HOUR)"
                   : "Theo menu đồ uống (PER_DRINK)"
               }

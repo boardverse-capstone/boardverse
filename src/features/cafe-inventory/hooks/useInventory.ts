@@ -2,8 +2,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiClient } from "@/core/api/client";
+import {
+  ManagerCafeService,
+  MANAGER_CAFE_QUERY_KEYS,
+} from "@/features/manager-cafe/services/manager-cafe.service";
 
 /** Inline error surfaced to the container so it can render a recoverable state. */
 export interface InventoryError {
@@ -95,7 +100,6 @@ export function useInventory() {
     null,
   );
 
-  const [cafeId, setCafeId] = useState<string | null>(null);
   const [inventoryList, setInventoryList] = useState<any[]>([]);
   // Total count of items in the current view (active vs trash), taken
   // from the upstream envelope when present. Used to drive the tab count
@@ -133,6 +137,25 @@ export function useInventory() {
   // which row is currently being mutated (and we can prevent
   // double-clicks on the same row).
   const [mutatingId, setMutatingId] = useState<string | null>(null);
+
+  // Subscribe to the cafe aggregate that powers the operational
+  // profile. This is the SAME source of truth that
+  // `/manager/operational-profile` already uses — it always returns
+  // a single cafe for the signed-in manager regardless of activation
+  // status. The previous code called `/api/manager/my-cafes` and
+  // hit a hole: that endpoint returns `[]` for cafes that exist
+  // but haven't been activated yet (DATA_BLANK), so the inventory
+  // page rendered with `cafeId = null` forever and the
+  // "+ Thêm Game Mới" button stayed disabled. Pulling the same
+  // query key that the rest of the manager surface uses keeps
+  // everything in sync (no second API call) and survives every
+  // operational state.
+  const cafeQuery = useQuery({
+    queryKey: [MANAGER_CAFE_QUERY_KEYS.me],
+    queryFn: () => ManagerCafeService.getMe(),
+    staleTime: 30_000,
+  });
+  const cafeIdFromQuery = cafeQuery.data?.id ?? null;
 
   /**
    * Cancel any in-flight request. Safe to call repeatedly.
@@ -213,15 +236,17 @@ export function useInventory() {
   );
 
   const refreshInventory = useCallback(async () => {
-    if (cafeId) {
-      await loadInventory(cafeId, searchTerm);
+    if (cafeIdFromQuery) {
+      await loadInventory(cafeIdFromQuery, searchTerm);
     }
-  }, [cafeId, searchTerm, loadInventory]);
+  }, [cafeIdFromQuery, searchTerm, loadInventory]);
 
   // Re-fetch on any filter or pagination change. The 400ms debounce
   // keeps the search input snappy; other filters don't trigger a
   // debounce because they fire less often and we want the result to
-  // land immediately.
+  // land immediately. `cafeId` is now derived from `cafeQuery.data`,
+  // not local state — the manager-cafe query owns the cafe identity
+  // for the whole app.
   useEffect(() => {
     // Local controller for the init my-cafes fetch (separate from
     // `inflightRef` because that one is owned by `loadInventory`).
@@ -230,20 +255,14 @@ export function useInventory() {
     const initController = new AbortController();
     const initializePageData = async () => {
       try {
-        let currentCafeId = cafeId;
+        if (cafeQuery.isLoading) {
+          // The aggregate is still loading; nothing to do yet.
+          return;
+        }
+        const currentCafeId = cafeIdFromQuery;
         if (!currentCafeId) {
-          const response: any = await apiClient.get("/api/manager/my-cafes", {
-            signal: initController.signal,
-          });
-          if (initController.signal.aborted) return;
-          const cafes = response?.data || response || [];
-          if (cafes.length > 0) {
-            currentCafeId = cafes[0].id;
-            setCafeId(currentCafeId);
-          } else {
-            setLoading(false);
-            return;
-          }
+          setLoading(false);
+          return;
         }
         if (currentCafeId) {
           await loadInventory(currentCafeId, searchTerm);
@@ -274,7 +293,8 @@ export function useInventory() {
     sortDescending,
     pageNumber,
     pageSize,
-    cafeId,
+    cafeIdFromQuery,
+    cafeQuery.isLoading,
     loadInventory,
   ]);
 
@@ -287,10 +307,10 @@ export function useInventory() {
   // user confirms. This two-step pattern lets the user change their
   // mind without an immediate network call.
   const requestDelete = useCallback((id: string) => {
-    if (!cafeId) return;
+    if (!cafeIdFromQuery) return;
     if (mutatingId) return; // another row is in flight — drop the new request
     setPendingDeleteId(id);
-  }, [cafeId, mutatingId]);
+  }, [cafeIdFromQuery, mutatingId]);
 
   // Cancel a staged delete (e.g. user dismissed the confirmation).
   const cancelDelete = useCallback(() => {
@@ -300,13 +320,13 @@ export function useInventory() {
   // Actually perform the DELETE after the user confirmed.
   const confirmDelete = useCallback(async () => {
     const id = pendingDeleteId;
-    if (!id || !cafeId) return;
+    if (!id || !cafeIdFromQuery) return;
     if (mutatingId) return; // double-submit lock
     setPendingDeleteId(null);
     setMutatingId(id);
     try {
-      await apiClient.delete(`/api/cafes/${cafeId}/inventory/${id}`);
-      await loadInventory(cafeId, searchTerm);
+      await apiClient.delete(`/api/cafes/${cafeIdFromQuery}/inventory/${id}`);
+      await loadInventory(cafeIdFromQuery, searchTerm);
       toast.success("Đã chuyển tựa game vào thùng rác.");
     } catch (err) {
       const kind = classifyStatus(err);
@@ -324,15 +344,15 @@ export function useInventory() {
     } finally {
       setMutatingId(null);
     }
-  }, [pendingDeleteId, cafeId, mutatingId, loadInventory, searchTerm]);
+  }, [pendingDeleteId, cafeIdFromQuery, mutatingId, loadInventory, searchTerm]);
 
   const handleRestore = async (id: string) => {
-    if (!cafeId) return;
+    if (!cafeIdFromQuery) return;
     if (mutatingId) return; // already mutating another row
     setMutatingId(id);
     try {
-      await apiClient.post(`/api/cafes/${cafeId}/inventory/${id}/restore`);
-      await loadInventory(cafeId, searchTerm);
+      await apiClient.post(`/api/cafes/${cafeIdFromQuery}/inventory/${id}/restore`);
+      await loadInventory(cafeIdFromQuery, searchTerm);
       toast.success("Đã khôi phục tựa game về kho hoạt động.");
     } catch (err) {
       const kind = classifyStatus(err);
@@ -361,7 +381,7 @@ export function useInventory() {
     setIsEditOpen,
     selectedInventoryId,
     setSelectedInventoryId,
-    cafeId,
+    cafeId: cafeIdFromQuery,
     inventoryList,
     totalCount,
     loading,
