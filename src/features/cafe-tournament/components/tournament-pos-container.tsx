@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useTournamentPos } from "../hooks/useTournamentPos";
 import {
   TournamentMatch,
@@ -22,6 +23,8 @@ import { TournamentRowList } from "./tournament-row-list";
 import { CancelReasonDialog } from "./cancel-reason-dialog";
 import { StartWithOptionsDialog } from "./start-with-options-dialog";
 import { isMinParticipantsError } from "../hooks/useTournamentPos";
+import { useCafeMe } from "@/features/manager-cafe/hooks/useCafeMe";
+import { shouldBlockTournamentForStatus } from "@/features/manager-cafe/components/cafe-not-activated-panel";
 import { apiClient } from "@/core/api/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -41,6 +44,7 @@ import {
   LayoutGrid,
   Users,
   RotateCcw,
+  ArrowRight,
 } from "lucide-react";
 
 const primaryActionClass =
@@ -156,6 +160,12 @@ function MetricTile({
 }
 
 export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
+  const router = useRouter();
+  // Lấy trạng thái kích hoạt quán — nguồn chính thức cho cả 2 case
+  // "chưa có quán" và "quán tồn tại nhưng chưa kích hoạt". Hook không
+  // cần cafeId (gọi /api/manager/cafes/me từ session) nên an toàn khi
+  // cafeId prop đang null.
+  const { data: cafeMe, isLoading: cafeMeLoading } = useCafeMe();
   const {
     tournaments,
     activeTournament,
@@ -608,6 +618,61 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
       players,
     });
   };
+
+  // 1) Chưa có quán nào trong tài khoản — chặn luồng giải đấu và hướng
+  //    người dùng về hồ sơ vận hành để tạo quán.
+  // 2) Có quán nhưng chưa kích hoạt (DATA_BLANK / BANNED / SUSPENDED) —
+  //    cùng 1 panel, đợi cafeMe xong trước khi render để tránh flash.
+  const isBlockedByActivation =
+    !cafeMeLoading &&
+    (cafeId
+      ? shouldBlockTournamentForStatus(cafeMe?.operationalStatus)
+      : false);
+
+  if (!cafeId || isBlockedByActivation) {
+    return (
+      <div className="mx-auto max-w-2xl flex flex-col items-center gap-4 py-12">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Trophy className="h-6 w-6" />
+          </div>
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">
+            Giải đấu đang chờ quán của bạn
+          </h2>
+          <p className="max-w-md text-sm text-muted-foreground">
+            Hoàn tất hồ sơ vận hành để kích hoạt tính năng tổ chức giải đấu tại
+            quán.
+          </p>
+        </div>
+
+        <div
+          role="status"
+          aria-live="polite"
+          className="w-full rounded-lg border border-neutral-200 bg-neutral-50/60 p-3 space-y-1.5"
+        >
+          <p className="text-sub-label">Cần hoàn tất trước khi kích hoạt</p>
+          <ul className="space-y-1">
+            <li className="flex items-start gap-2 text-xs text-destructive leading-snug">
+              <span
+                aria-hidden="true"
+                className="mt-1.5 inline-block h-1.5 w-1.5 rounded-full bg-primary shrink-0"
+              />
+              <span>Cần tối thiểu 5 bàn công cộng.</span>
+            </li>
+          </ul>
+        </div>
+
+        <Button
+          type="button"
+          onClick={() => router.push("/manager/operational-profile")}
+          className={cn(primaryActionClass, "gap-1.5 px-5")}
+        >
+          Đi tới hồ sơ vận hành
+          <ArrowRight className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
 
   if (loading && !activeTournament) {
     return (

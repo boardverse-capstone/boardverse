@@ -10,8 +10,6 @@ import {
   ArrowDown,
   ChevronLeft,
   ChevronRight,
-  AlertCircle,
-  RefreshCw,
   X,
   Trash2,
 } from "lucide-react";
@@ -429,32 +427,7 @@ export function InventoryFeatureContainer() {
         </button>
       </div>
 
-      {/* ERROR STATE — recoverable network / 5xx with retry. */}
-      {error && !loading && inventoryList.length === 0 ? (
-        <div
-          role="alert"
-          aria-live="assertive"
-          className="flex flex-col items-center justify-center gap-3 py-12 border border-red-200 bg-red-50/60 rounded-xl text-center"
-        >
-          <AlertCircle className="w-7 h-7 text-red-500" aria-hidden />
-          <div className="space-y-1 px-6">
-            <p className="text-sm font-bold text-red-700">
-              Không tải được kho game
-            </p>
-            <p className="text-xs font-medium text-red-600/80 max-w-md">
-              {error.message}
-            </p>
-          </div>
-          <Button
-            type="button"
-            onClick={() => void refreshInventory()}
-            className="h-8 px-3.5 bg-white text-neutral-800 hover:bg-neutral-50 font-semibold text-xs uppercase border border-neutral-200 rounded-lg shadow-sm"
-          >
-            <RefreshCw className="w-3.5 h-3.5 mr-1.5" aria-hidden />
-            Thử lại
-          </Button>
-        </div>
-      ) : loading ? (
+      {loading ? (
         <div
           aria-live="polite"
           aria-busy="true"

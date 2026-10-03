@@ -214,7 +214,18 @@ export function useInventory() {
       } catch (err) {
         // AbortError is expected during cleanup — never surface it.
         if ((err as { name?: string })?.name === "CanceledError") return;
-        console.error("Lỗi lấy dữ liệu kho game:", err);
+        // 404 — cafe missing/unavailable. This is an expected state
+        // (e.g. the manager's cafe was deactivated), not a bug — log
+        // it as a debug breadcrumb instead of polluting the console
+        // with a red error every time the inventory page mounts.
+        const isMissingCafe = /không tìm thấy quán|khả dụng/i.test(
+          err instanceof Error ? err.message : "",
+        );
+        if (isMissingCafe) {
+          console.debug("Inventory skipped — cafe unavailable:", err);
+        } else {
+          console.error("Lỗi lấy dữ liệu kho game:", err);
+        }
         setInventoryList([]);
         setError(classifyError(err, NETWORK_FALLBACK_VI));
       } finally {
