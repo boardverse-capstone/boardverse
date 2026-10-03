@@ -62,6 +62,8 @@ export interface LobbyFailuresParams extends ReportListParams {
 
 export interface DepositsReportParams extends ReportListParams {
   status?: DepositReportStatus | 'all';
+  /** Lọc theo quán cafe — dùng khi admin muốn xem tiền đang giữ chỗ của từng quán. */
+  cafeId?: string;
 }
 
 export interface CafePerformanceParams extends ReportListParams {

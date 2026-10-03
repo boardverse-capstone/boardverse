@@ -16,6 +16,7 @@ export function useAdminDepositsReport(params: DepositsReportParams, enabled = t
       params.fromUtc,
       params.toUtc,
       params.status,
+      params.cafeId ?? 'all-cafes',
     ],
     queryFn: () => AdminReportsService.getDeposits(params),
     enabled,

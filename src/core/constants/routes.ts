@@ -8,7 +8,7 @@ export const ROUTES = {
   DASHBOARD: {
     ADMIN: '/admin/dashboard',
     MANAGER: '/manager/dashboard',
-    STAFF: '/staff/dashboard',
+    STAFF: '/staff/profile',
   },
   ADMIN: {
     REGISTRATIONS: '/admin/registrations',

@@ -170,7 +170,7 @@ export function mapDepositReportItem(raw: unknown): DepositReportItem {
     username: pickString(source.username) || 'Chưa có thông tin',
     cafeId: pickString(source.cafeId),
     cafeName: pickString(source.cafeName) || 'Chưa có thông tin',
-    amountBvc: pickNumber(source.amountBvc),
+    amountBvc: pickNumber(source.amountBvc, source.amount),
     amountVnd: pickNumber(source.amountVnd, source.amount),
     status: pickString(source.status) || 'Chưa có thông tin',
     createdAt: pickString(source.createdAt),

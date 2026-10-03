@@ -54,6 +54,7 @@ export const AdminReportsService = {
         fromUtc: params.fromUtc || undefined,
         toUtc: params.toUtc || undefined,
         status: params.status && params.status !== 'all' ? params.status : undefined,
+        cafeId: params.cafeId || undefined,
       },
     });
 
