@@ -59,20 +59,14 @@ function isTerminalSessionStatus(status: unknown) {
 function parseUtcCheckInTime(time: string, date: string) {
   const [hour, minute] = time.split(":").map(Number);
   const [day, month, year] = date.split("/").map(Number);
-  return new Date(Date.UTC(year, month - 1, day, hour, minute));
+  return new Date(year, month - 1, day, hour, minute);
 }
 
 function formatUtcCheckInTime(time: string, date: string) {
-  const value = parseUtcCheckInTime(time, date);
-  if (Number.isNaN(value.getTime())) return `${time} ${date}`;
-  return new Intl.DateTimeFormat("vi-VN", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    hour: "2-digit",
-    minute: "2-digit",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(value);
+  // [FIX #2026-10-02-window-shifted-7h] BE trả giờ local VN (15:30 nghĩa là 15:30 VN),
+  // không phải UTC. Hiển thị raw `${time} ${date}` để không shift.
+  // Trước đây parse Date.UTC rồi format Asia/Ho_Chi_Minh → shift +7h sai.
+  return `${time} ${date}`;
 }
 
 function formatPosCheckInError(error: unknown) {
@@ -93,7 +87,10 @@ function formatPosCheckInError(error: unknown) {
     if (now > toValue) {
       return `Đã quá giờ nhận bàn. Thời gian nhận bàn kết thúc lúc ${to}.`;
     }
-    return `Không thể nhận bàn trong thời điểm hiện tại. Thời gian cho phép: ${from} – ${to}.`;
+    // [FIX #2026-10-02-now-in-window] now nằm trong [fromValue, toValue] → nên
+    // hiển thị thông báo trung tính (không phải "Không thể") để staff biết
+    // request đang được gửi. Trước đây return "Không thể..." sai ngữ nghĩa.
+    return `Đang trong khung giờ nhận bàn (${from} – ${to}). Đang gửi yêu cầu...`;
   }
   if (/status.*holding|trạng thái.*holding/i.test(message)) {
     return "Đơn đang ở trạng thái giữ chỗ, chưa thể nhận bàn.";
@@ -102,6 +99,61 @@ function formatPosCheckInError(error: unknown) {
     /^Check-in reservation\s+['"][^'"]+['"]\s+thất bại:\s*/i,
     "",
   );
+}
+
+/**
+ * [FIX #table-held-error] Format lỗi walk-in "Khởi tạo phiên chơi" (POST /pos/sessions)
+ * — biến message rời rạc từ BE thành hướng dẫn cụ thể cho staff.
+ *
+ * BE có thể trả:
+ *  - "Bàn 'XXX' đang được giữ hoặc trong sự kiện và không thể nhận game."
+ *    → Có thể do session cũ (sau lobby-merge) chưa BE trả lời "đóng phiên",
+ *      hoặc bàn đang nằm trong 1 event/hold do staff khác tạo.
+ *  - "Bàn 'XXX' đang có phiên chơi."
+ *    → Có session Active chưa end (phải EndSession trước).
+ *
+ * Staff không cần đọc UUID — hướng dẫn cần tên bàn hoặc cách xử lý tiếp.
+ */
+function formatStartSessionError(error: unknown) {
+  const fallback = "Không thể khởi tạo phiên chơi.";
+  if (!(error instanceof Error) && typeof error !== "object") {
+    return fallback;
+  }
+  const raw =
+    (error as any)?.response?.data?.message ??
+    (error as any)?.message ??
+    fallback;
+
+  // [Case 1] Bàn đang được giữ / trong sự kiện — nghi ngờ nhiều nhất:
+ //   session trước-nghiệp (sau lobby-merge) chưa được BE đóng.
+ //   Trước đây BE trả raw message khiến staff không biết phải làm gì.
+  const heldMatch = raw.match(
+    /Bàn\s+['"]?([0-9a-fA-F-]{8,})['"]?\s+đang được giữ hoặc trong sự kiện/i,
+  );
+  if (heldMatch) {
+    return (
+      "Bàn này đang bị giữ hoặc vẫn còn phiên chưa đóng (có thể do vừa ghép lobby). " +
+      "Vào tab “Phiên chơi” → tìm phiên của bàn này → bấm “Kết thúc phiên” (hoặc nhờ quản lý xử lý nếu thuộc event). "
+      + "Sau đó quay lại mở bàn."
+    );
+  }
+
+  // [Case 2] Bàn đang có phiên chơi Active
+  if (/đang có phiên chơi|already has an active session/i.test(raw)) {
+    return (
+      "Bàn này đang có phiên chơi chưa đóng. " +
+      "Vào tab “Phiên chơi” → chọn phiên của bàn này → bấm “Kết thúc phiên” → quay lại mở bàn."
+    );
+  }
+
+  // [Case 3] Variant EN phổ biến
+  if (/is held|is reserved|table is locked/i.test(raw)) {
+    return (
+      "Bàn này đang bị giữ / khoá. Vui lòng kiểm tra tab “Phiên chơi” hoặc liên hệ quản lý."
+    );
+  }
+
+  return raw || fallback;
 }
 
 function rememberVerifiedFromSession(
@@ -288,6 +340,24 @@ export function usePosDashboard(opts?: {
           }
         }),
       );
+
+      // [DEBUG lobby-merge] log raw detail của lobby đầu tiên để tìm field chứa members.
+      // Xem browser console F12 — nếu thấy key `members` / `players` / `sessionMembers`
+      // thì sửa fallback trong mergeMembers (src/.../pos-feature-container.tsx).
+      if (details.length > 0 && process.env.NODE_ENV !== "production") {
+        const first = details[0];
+        const keys = first ? Object.keys(first) : [];
+        console.info(
+          "[lobby-merge] detail keys:",
+          keys,
+          "sample member-like:",
+          keys
+            .filter((k) =>
+              /member|player|attendee|participant|user|host/i.test(k),
+            )
+            .map((k) => ({ key: k, value: first?.[k] })),
+        );
+      }
 
       const liveSessions = details.filter(
         (s: any) =>
@@ -566,11 +636,11 @@ export function usePosDashboard(opts?: {
       await PosCheckInService.addSessionMembers(cafeId, sessionId, {
         userIds,
       });
-      toast.success("Đã thêm member đến muộn vào phiên.");
+      toast.success("Đã thêm người chơi đến muộn vào phiên.");
       await fetchAllData(cafeId);
       return true;
     } catch (err: any) {
-      toast.error(err?.message || "Không thể thêm member vào phiên.");
+      toast.error(err?.message || "Không thể thêm người chơi vào phiên.");
       return false;
     }
   };
@@ -631,11 +701,11 @@ export function usePosDashboard(opts?: {
         memberUserId,
         targetSessionId,
       });
-      toast.success("Đã chuyển member sang phiên khác.");
+      toast.success("Đã chuyển người chơi sang phiên khác.");
       await fetchAllData(cafeId);
       return true;
     } catch (err: any) {
-      toast.error(err?.message || "Không thể chuyển member sang phiên khác.");
+      toast.error(err?.message || "Không thể chuyển người chơi sang phiên khác.");
       return false;
     }
   };
@@ -684,11 +754,17 @@ export function usePosDashboard(opts?: {
 
       const guests = walkInGuests.filter((g) => g.displayName.trim());
       if (sessionId && guests.length > 0) {
-        for (const guest of guests) {
+        // [FIX #guest-designate-host] Guest đầu tiên = "khách liên hệ" = người mở bàn.
+        // Truyền designateAsHost=true cho BE promote thành host của phiên,
+        // tránh để hostId mặc định = "Khách vãng lai" vô danh.
+        // (Các guest từ idx 1 trở đi KHÔNG cần flag — họ chỉ là khách đi cùng.)
+        for (let i = 0; i < guests.length; i++) {
+          const guest = guests[i];
           try {
             await PosCheckInService.addGuestSlots(cafeId, sessionId, {
               displayName: guest.displayName.trim(),
               phoneNumber: guest.phoneNumber?.trim() || undefined,
+              designateAsHost: i === 0,
             });
           } catch (guestErr: any) {
             toast.error(
@@ -709,7 +785,9 @@ export function usePosDashboard(opts?: {
       await fetchAllData(cafeId);
       return true;
     } catch (err: any) {
-      toast.error(err?.message || "Không thể khởi tạo phiên chơi.");
+      // [FIX #table-held-error] BE message rời rạc → format lại thành hướng dẫn
+      // cụ thể (cách tìm & đóng phiên cũ trước khi mở bàn mới).
+      toast.error(formatStartSessionError(err));
       return false;
     }
   };

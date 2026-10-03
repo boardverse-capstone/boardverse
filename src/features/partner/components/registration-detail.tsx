@@ -27,12 +27,12 @@ interface RegistrationDetailProps {
 }
 
 const SECTION_STYLES = {
-  basic: "border-l-4 border-l-amber-400 bg-amber-50/40",
-  infra: "border-l-4 border-l-sky-400 bg-sky-50/40",
-  catalog: "border-l-4 border-l-violet-400 bg-violet-50/40",
-  services: "border-l-4 border-l-emerald-400 bg-emerald-50/40",
-  audit: "border-l-4 border-l-indigo-400 bg-indigo-50/40",
-  rejected: "border-l-4 border-l-rose-400 bg-rose-50/40",
+  basic: "border-l border-l-amber-300 bg-amber-50/40",
+  infra: "border-l border-l-sky-300 bg-sky-50/40",
+  catalog: "border-l border-l-violet-300 bg-violet-50/40",
+  services: "border-l border-l-emerald-300 bg-emerald-50/40",
+  audit: "border-l border-l-indigo-300 bg-indigo-50/40",
+  rejected: "border-l border-l-rose-300 bg-rose-50/40",
 } as const;
 
 function DetailSkeleton() {

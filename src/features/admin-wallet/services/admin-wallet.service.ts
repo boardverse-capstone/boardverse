@@ -24,6 +24,7 @@ import type {
 } from '../types/refund.interface';
 import {
   mapApiAdminWalletDetail,
+  mapApiWalletReconcile,
   normalizeAdminWalletListResponse,
   normalizeAdminWalletTransactionsPage,
 } from '../utils/wallet.mapper';
@@ -70,9 +71,12 @@ export const AdminWalletService = {
 
   /** GET /api/v1/admin/wallet/{userId}/reconcile */
   reconcileWallet: async (userId: string): Promise<WalletReconcileResult> => {
-    return apiClient.get<never, WalletReconcileResult>(
+    const raw = await apiClient.get<never, any>(
       `/api/v1/admin/wallet/${userId}/reconcile`,
     );
+    // [FIX #reconcile-nan] Normalize response qua mapper chống NaN — defensive
+    // chống trường hợp BE thiếu field hoặc đổi tên field (camelCase ↔ PascalCase).
+    return mapApiWalletReconcile(raw, userId);
   },
 
   /** GET /api/v1/admin/wallet/{userId}/transactions */

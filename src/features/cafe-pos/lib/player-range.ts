@@ -122,28 +122,13 @@ export function readPresentCount(source: any): number | null {
       ? source.Members
       : null;
 
-  // BE: host nằm ngoài `members` (hostId/hostName) — đếm cả host nếu chưa có trong list.
+  // [FIX #host-not-counted] Host là staff phụ trách phiên — KHÔNG tính là người chơi.
+  // BE rule: POST /pos/sessions/{id}/resume chỉ chấp nhận khi members.length > 0.
+  // Trước đây đếm cả hostName nên UI hiển thị "1 PPL" khi members: [] nhưng BE vẫn reject.
+  // Giờ chỉ đếm members.length thật; BE vẫn trả hostId/hostName riêng để tiện hiển thị tên host.
   if (members) {
-    const hostId = String(source.hostId ?? source.HostId ?? "");
-    const hostName = String(source.hostName ?? source.HostName ?? "")
-      .trim()
-      .toLowerCase();
-    const hostAlreadyInMembers = members.some((m: any) => {
-      const uid = String(m?.userId ?? m?.UserId ?? "");
-      const name = String(
-        m?.userName ?? m?.UserName ?? m?.username ?? "",
-      )
-        .trim()
-        .toLowerCase();
-      return (
-        (hostId.length > 0 && uid === hostId) ||
-        (hostName.length > 0 && name === hostName)
-      );
-    });
-    const hasSeparateHost = hostId.length > 0 || hostName.length > 0;
-    const total =
-      members.length + (hasSeparateHost && !hostAlreadyInMembers ? 1 : 0);
-    return pickPositive(total);
+    // Trả về 0 (không phải null) khi members rỗng để UI có thể hiển thị "0 PPL".
+    return members.length;
   }
 
   return pickPositive(

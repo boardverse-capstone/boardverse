@@ -567,7 +567,7 @@ export function PayConfirmModal({
             <span className="font-mono text-[11px] font-extrabold uppercase tracking-widest text-white [text-shadow:1px_1px_0_rgba(0,0,0,0.3)]">
               ► TỔNG THANH TOÁN:
             </span>
-            <span className="font-mono text-lg font-extrabold uppercase tracking-wide text-yellow-300 [text-shadow:2px_2px_0_rgba(0,0,0,0.4)]">
+            <span className="font-mono text-lg font-extrabold uppercase tracking-wide text-white [text-shadow:2px_2px_0_rgba(0,0,0,0.45),0_0_8px_rgba(255,255,255,0.35)]">
               {finalTotalAmount.toLocaleString("vi-VN")}đ
             </span>
           </div>

@@ -2,6 +2,9 @@ import apiClient from '@/core/api/client';
 import type { PaginatedResponse } from '@/shared/types/pagination.interface';
 import type {
   ApproveRegistrationResult,
+  BillingModel,
+  OperationalProfileResponse,
+  OperationalProfileUpdate,
   PartnerApplication,
   PartnerApplicationListParams,
   PartnerRegistrationRequest,
@@ -9,13 +12,17 @@ import type {
   SubmitRegistrationResponse,
   TransitionRegistrationRequest,
   TransitionRegistrationResponse,
+  WorkingHours,
 } from '../types/partner.interface';
 import {
   normalizeApproveRegistrationResponse,
+  normalizeOperationalProfileResponse,
   normalizePartnerDetailResponse,
   normalizePartnerListResponse,
   normalizePartnerMutationResponse,
 } from '../utils/partner.mapper';
+
+const USE_MOCK = false;
 
 export const PARTNER_QUERY_KEYS = {
   pending: 'partner-pending',
@@ -94,4 +101,29 @@ export const PartnerService = {
 
     return normalizePartnerMutationResponse(raw);
   },
+
+  /**
+   * PUT /api/cafe-partner/me/operational-profile
+   * Writes the manager's operational configuration.
+   *
+   * Read path removed in 2026-10: the form now hydrates from
+   * `ManagerCafeService.getMe()` (cafe aggregate) which already
+   * includes the operational profile. The standalone GET is gone —
+   * the partner service only writes this resource.
+   */
+  updateOperationalProfile: async (
+    payload: OperationalProfileUpdate,
+  ): Promise<OperationalProfileResponse> => {
+    if (USE_MOCK) {
+      throw new Error('Mock không hỗ trợ operational profile.');
+    }
+    const raw = await apiClient.put(
+      '/api/cafe-partner/me/operational-profile',
+      payload,
+    );
+    return normalizeOperationalProfileResponse(raw);
+  },
 } as const;
+
+/** Re-export for callers that only consume types. */
+export type { BillingModel, OperationalProfileResponse, OperationalProfileUpdate, WorkingHours };

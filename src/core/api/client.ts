@@ -92,6 +92,23 @@ apiClient.interceptors.response.use(
     return inner;
   },
   async (error: AxiosError<ApiResponse>) => {
+    // Cancellation is a deliberate "stop" signal, not a failure. axios
+    // raises a `CanceledError` (an `AxiosError` with `code ===
+    // "ERR_CANCELED"`) when an in-flight request is aborted via
+    // `AbortController` or `CancelToken`. Re-reject with the original
+    // so the caller can detect cancellation by name / `axios.isCancel`
+    // and skip the failure path. Without this, every caller that
+    // checks `err.name === "CanceledError"` would miss the cancel
+    // because the wrapper below replaces it with a plain
+    // `Error("canceled")` — and the caller would then wipe state and
+    // surface a phantom "Lỗi lấy dữ liệu…" error during a benign
+    // request-replacement race (e.g. when `cafeId` resolves and a
+    // newer effect re-fires `loadInventory` while the prior one is
+    // still in flight).
+    if (axios.isCancel(error)) {
+      return Promise.reject(error);
+    }
+
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     // Nếu là lỗi 401 và chưa retry

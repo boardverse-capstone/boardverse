@@ -2,205 +2,432 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { gsap } from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-gsap.registerPlugin(ScrollTrigger);
+import {
+  ArrowUpRight,
+  Coffee,
+  Sparkles,
+  Gamepad2,
+  BarChart3,
+  Image as ImageIcon,
+  CheckCircle2,
+  Clock,
+  Users,
+} from "lucide-react";
 
 export function PartnerLanding() {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const ctx = gsap.context(() => {
-      // Timeline xuất hiện ban đầu sắc nét
-      const tl = gsap.timeline();
-      tl.from("nav", { y: -20, opacity: 0, duration: 0.4, ease: "power1.out" })
-        .from(
-          ".hero-text-animate > *",
-          {
-            y: 20,
-            opacity: 0,
-            duration: 0.4,
-            stagger: 0.1,
-            ease: "power2.out",
-          },
-          "-=0.2",
-        )
-        .from(
-          ".hero-box-animate",
-          { scale: 0.95, opacity: 0, duration: 0.5, ease: "power2.out" },
-          "-=0.3",
-        );
-
-      // Hiệu ứng cuộn cho các thẻ tính năng
-      gsap.from(".feature-card-animate", {
-        scrollTrigger: {
-          trigger: "#features",
-          start: "top 80%",
-        },
-        y: 30,
-        opacity: 0,
-        duration: 0.5,
-        stagger: 0.15,
-        ease: "power2.out",
-      });
-    }, containerRef);
-
-    return () => ctx.revert();
+    const els = containerRef.current?.querySelectorAll<HTMLElement>(
+      ".reveal",
+    );
+    if (!els) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add("is-visible");
+            io.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.12 },
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
   }, []);
 
   return (
     <div
       ref={containerRef}
-      className="bg-white text-black min-h-screen selection:bg-black selection:text-white antialiased"
+      className="min-h-screen bg-[#f6f5f1] text-[#171717] antialiased"
     >
-      {/* NAVIGATION */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b-2 border-black px-6 py-4 flex justify-between items-center">
-        <div className="text-xl font-black tracking-tighter uppercase flex items-center gap-2">
-          🎲 Boardverse{" "}
-          <span className="text-[10px] font-bold border border-black px-2 py-0.5 bg-black text-white">
-            PARTNER
-          </span>
-        </div>
-        <button
-          onClick={() => router.push("/partner/register")}
-          className="bg-black text-white text-xs font-bold uppercase tracking-widest px-4 py-2 border border-black hover:bg-white hover:text-black transition-colors duration-200"
-        >
-          Đăng Ký Ngay
-        </button>
-      </nav>
+      <style jsx>{`
+        .reveal {
+          opacity: 0;
+          transform: translateY(16px);
+          transition:
+            opacity 0.5s ease,
+            transform 0.5s ease;
+        }
+        .reveal.is-visible {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .reveal {
+            opacity: 1;
+            transform: none;
+            transition: none;
+          }
+        }
+      `}</style>
 
-      {/* HERO SECTION */}
-      <header className="pt-32 pb-16 px-6 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center min-h-[85vh]">
-        <div className="hero-text-animate space-y-6">
-          <span className="inline-block border border-black text-black px-3 py-1 text-[10px] font-black uppercase tracking-wider bg-gray-50">
-            GIẢI PHÁP ĐỘT PHÁ DOANH THU CAFE
-          </span>
-          <h1 className="text-4xl md:text-5xl font-black tracking-tighter leading-none uppercase">
-            Biến Không Gian Cafe Của Bạn Thành{" "}
-            <span className="underline decoration-4 bg-gray-100 px-1">
-              Vũ Trụ Board Game
+      {/* ─── NAV ─────────────────────────────────────────────── */}
+      <nav className="sticky top-0 z-50 backdrop-blur-md bg-[#f6f5f1]/80 border-b border-black/5">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 font-bold tracking-tight">
+            <span className="text-lg">BoardVerse</span>
+            <span className="text-[10px] font-semibold border border-black/15 px-1.5 py-0.5 rounded-md text-neutral-500 uppercase tracking-wider">
+              Partner
             </span>
-          </h1>
-          <p className="text-gray-700 text-sm leading-relaxed max-w-lg">
-            Tích hợp nền tảng quản lý thông minh chuẩn Next.js, hệ thống AI trợ
-            lý tự động hướng dẫn luật chơi qua QR Code kết hợp cùng công nghệ
-            hình ảnh tiên tiến để tối ưu hóa công suất vận hành cơ sở kinh
-            doanh.
-          </p>
-          <div className="flex flex-wrap gap-4 pt-2">
-            <button
-              onClick={() => router.push("/partner/register")}
-              className="bg-black text-white text-xs font-bold uppercase tracking-widest px-6 py-3 border border-black hover:bg-white hover:text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-all duration-200"
-            >
-              Trở Thành Đối Tác
-            </button>
+          </div>
+          <div className="flex items-center gap-2">
             <a
               href="#features"
-              className="border border-black bg-white text-black text-xs font-bold uppercase tracking-widest px-6 py-3 hover:bg-gray-50 flex items-center transition-colors"
+              className="hidden sm:inline-flex text-sm text-neutral-600 hover:text-black px-3 py-1.5 rounded-full transition"
             >
-              Tìm hiểu thêm
+              Tính năng
             </a>
+            <a
+              href="#how"
+              className="hidden sm:inline-flex text-sm text-neutral-600 hover:text-black px-3 py-1.5 rounded-full transition"
+            >
+              Cách hoạt động
+            </a>
+            <button
+              onClick={() => router.push("/partner/register")}
+              className="text-sm font-semibold bg-black text-white pl-4 pr-3 py-1.5 rounded-full hover:bg-neutral-800 transition inline-flex items-center gap-1"
+            >
+              Đăng ký ngay
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
+      </nav>
 
-        {/* HERO VISUAL (MINIMALIST DASHBOARD SIMULATION) */}
-        <div className="hero-box-animate flex justify-center md:justify-end">
-          <div className="bg-white border-2 border-black p-6 w-full max-w-sm shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] space-y-4">
-            <div className="flex justify-between items-center border-b-2 border-black pb-3">
-              <span className="font-black text-xs uppercase tracking-wider">
-                📊 TĂNG TRƯỞNG DOANH SỐ
-              </span>
-              <span className="bg-black text-white text-[10px] font-bold px-2 py-0.5">
-                +45%
-              </span>
-            </div>
-
-            <div className="p-3 bg-gray-50 border border-black space-y-2">
-              <div className="flex justify-between text-xs font-bold">
-                <span>Trạng thái hệ thống:</span>
-                <span className="uppercase">ACTIVE</span>
-              </div>
-              <div className="w-full bg-gray-200 h-3 border border-black overflow-hidden">
-                <div className="bg-black h-full w-4/5"></div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 p-3 border border-black">
-              <div className="text-2xl">🎲</div>
+      {/* ─── HERO BENTO GRID ─────────────────────────────────── */}
+      <header className="max-w-7xl mx-auto px-6 pt-10 pb-12">
+        <div className="grid grid-cols-12 grid-rows-[auto_auto_auto] gap-4">
+          {/* Hero title — wide */}
+          <div className="col-span-12 md:col-span-8 reveal">
+            <div className="bg-white rounded-3xl p-8 md:p-10 border border-black/5 h-full flex flex-col justify-between min-h-[280px]">
               <div>
-                <p className="text-[10px] font-bold text-gray-500 uppercase">
-                  Kho dữ liệu tích hợp
-                </p>
-                <p className="text-xs font-black uppercase">
-                  50+ TỰA GAME ĐỘC QUYỀN
-                </p>
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider bg-[#fef3c7] text-[#92400e] px-2.5 py-1 rounded-full">
+                  <Sparkles className="h-3 w-3" />
+                  Chương trình đối tác 2026
+                </span>
+                <h1 className="mt-5 text-4xl md:text-6xl font-bold tracking-tight leading-[1.02]">
+                  Biến quán cafe của bạn thành{" "}
+                  <span className="text-[#d97706]">vũ trụ</span>{" "}
+                  <span className="italic font-serif">board game</span>.
+                </h1>
+              </div>
+              <p className="mt-6 text-neutral-600 text-base max-w-2xl leading-relaxed">
+                POS quản lý bàn, giải đấu trực tiếp, và tự động hoá media
+                — trên một nền tảng tiếng Việt duy nhất.
+              </p>
+            </div>
+          </div>
+
+          {/* CTA — right top */}
+          <div className="col-span-12 md:col-span-4 reveal">
+            <button
+              onClick={() => router.push("/partner/register")}
+              className="w-full h-full min-h-[280px] bg-[#171717] text-white rounded-3xl p-8 flex flex-col items-start justify-between text-left hover:bg-[#262626] transition group"
+            >
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white/10 group-hover:bg-white/20 transition">
+                <ArrowUpRight className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="text-2xl md:text-3xl font-semibold leading-tight">
+                  Trở thành Đối tác Cafe
+                </div>
+                <div className="mt-2 text-sm text-white/60">
+                  Gửi hồ sơ · Phê duyệt nhanh
+                </div>
+              </div>
+            </button>
+          </div>
+
+          {/* Pillar 1 — green */}
+          <div className="col-span-6 md:col-span-3 reveal">
+            <div className="bg-[#d1f4d6] rounded-3xl p-6 h-full min-h-[180px] flex flex-col justify-between">
+              <BarChart3 className="h-5 w-5 text-[#166534]" />
+              <div>
+                <div className="text-xl font-semibold tracking-tight">
+                  Quản lý vận hành
+                </div>
+                <div className="text-sm text-neutral-700 mt-1">
+                  Bàn, phiên chơi, đặt lịch, thanh toán
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Pillar 2 — pink */}
+          <div className="col-span-6 md:col-span-3 reveal">
+            <div className="bg-[#fbd1d1] rounded-3xl p-6 h-full min-h-[180px] flex flex-col justify-between">
+              <Gamepad2 className="h-5 w-5 text-[#991b1b]" />
+              <div>
+                <div className="text-xl font-semibold tracking-tight">
+                  Tổ chức giải đấu
+                </div>
+                <div className="text-sm text-neutral-700 mt-1">
+                  Bracket và kết quả trực tiếp
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Pillar 3 — yellow */}
+          <div className="col-span-6 md:col-span-3 reveal">
+            <div className="bg-[#fef3c7] rounded-3xl p-6 h-full min-h-[180px] flex flex-col justify-between">
+              <Clock className="h-5 w-5 text-[#92400e]" />
+              <div>
+                <div className="text-xl font-semibold tracking-tight">
+                  Onboard cùng bạn
+                </div>
+                <div className="text-sm text-neutral-700 mt-1">
+                  Cấu hình hệ thống khi bạn sẵn sàng
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Pillar 4 — orange */}
+          <div className="col-span-6 md:col-span-3 reveal">
+            <div className="bg-[#fed7aa] rounded-3xl p-6 h-full min-h-[180px] flex flex-col justify-between">
+              <Users className="h-5 w-5 text-[#9a3412]" />
+              <div>
+                <div className="text-xl font-semibold tracking-tight">
+                  Tiếng Việt, đầu tiên
+                </div>
+                <div className="text-sm text-neutral-700 mt-1">
+                  Toàn bộ UI và hỗ trợ
+                </div>
               </div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* FEATURES SECTION */}
+      {/* ─── FEATURES SECTION ────────────────────────────────── */}
       <section
         id="features"
-        className="py-20 bg-gray-50 border-t-2 border-b-2 border-black px-6"
+        className="max-w-7xl mx-auto px-6 py-12"
       >
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
-            <h2 className="text-3xl font-black tracking-tighter uppercase">
-              Tại sao nên chọn Boardverse?
-            </h2>
-            <p className="text-gray-600 text-xs font-medium">
-              Hệ sinh thái hạ tầng công nghệ giúp tối giản hóa quy trình vận
-              hành mô hình dịch vụ giải trí.
-            </p>
+        <div className="mb-8 reveal">
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+            Mọi thứ bạn cần để vận hành.
+          </h2>
+          <p className="mt-2 text-neutral-600 max-w-2xl">
+            POS, giải đấu và tự động hoá media — gói gọn trong một nền tảng
+            tiếng Việt cho quán cafe board game.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-12 gap-4">
+          {/* Feature 1 — wide: POS */}
+          <div className="col-span-12 md:col-span-8 reveal">
+            <div className="bg-white rounded-3xl p-8 border border-black/5 h-full min-h-[320px] flex flex-col md:flex-row gap-6">
+              <div className="flex-1 flex flex-col justify-between">
+                <div>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+                    <Coffee className="h-3 w-3" />
+                    POS & Quản lý bàn
+                  </span>
+                  <h3 className="mt-3 text-2xl md:text-3xl font-semibold tracking-tight leading-tight">
+                    Hệ thống POS chuẩn cho cafe board game.
+                  </h3>
+                  <p className="mt-3 text-neutral-600 leading-relaxed">
+                    Quản lý bàn, phiên chơi, đặt lịch và thanh toán trong một
+                    giao diện duy nhất. Đồng bộ với kho board game và thẻ thành
+                    viên.
+                  </p>
+                </div>
+                <ul className="mt-6 space-y-2">
+                  {[
+                    "Bàn, box, phiên chơi theo thời gian thực",
+                    "Đặt lịch và checkout trong cùng một giao diện",
+                    "Đồng bộ kho board game và thẻ thành viên",
+                  ].map((it) => (
+                    <li
+                      key={it}
+                      className="flex items-center gap-2 text-sm text-neutral-700"
+                    >
+                      <CheckCircle2 className="h-4 w-4 text-[#16a34a]" />
+                      {it}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="flex-1 grid grid-cols-2 gap-2 self-stretch">
+                {[
+                  { label: "Bàn trống", val: "8/12", color: "bg-[#d1f4d6]" },
+                  { label: "Đang chơi", val: "3", color: "bg-[#fef3c7]" },
+                  { label: "Đặt lịch", val: "5", color: "bg-[#fed7aa]" },
+                  { label: "Doanh thu", val: "2.4tr", color: "bg-[#fbd1d1]" },
+                ].map((c) => (
+                  <div
+                    key={c.label}
+                    className={`${c.color} rounded-2xl p-4 flex flex-col justify-between min-h-[110px]`}
+                  >
+                    <div className="text-[10px] uppercase tracking-wider text-neutral-700 font-semibold">
+                      {c.label}
+                    </div>
+                    <div className="text-2xl font-bold tracking-tight">
+                      {c.val}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Feature 1 */}
-            <div className="feature-card-animate bg-white border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] space-y-4">
-              <div className="text-2xl font-black">🤖</div>
-              <h3 className="text-sm font-black uppercase tracking-wide">
-                AI Trợ Lý Thông Minh
-              </h3>
-              <p className="text-gray-600 text-xs leading-relaxed">
-                Tự động hóa khâu tư vấn và hướng dẫn luật chơi chi tiết cho từng
-                nhóm khách hàng bằng AI Agent thông qua quét mã QR Code tại bàn.
-              </p>
+          {/* Feature 2 — narrow */}
+          <div className="col-span-12 md:col-span-4 reveal">
+            <div className="bg-[#171717] text-white rounded-3xl p-8 h-full min-h-[320px] flex flex-col justify-between">
+              <ImageIcon className="h-5 w-5 text-white/60" />
+              <div>
+                <h3 className="text-2xl font-semibold tracking-tight leading-tight">
+                  Media tự động.
+                </h3>
+                <p className="mt-3 text-white/60 text-sm leading-relaxed">
+                  Cloudinary + Remotion tạo ảnh và video highlight cho quán —
+                  tự tạo nội dung không cần thuê designer.
+                </p>
+              </div>
             </div>
-            {/* Feature 2 */}
-            <div className="feature-card-animate bg-white border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] space-y-4">
-              <div className="text-2xl font-black">🎬</div>
-              <h3 className="text-sm font-black uppercase tracking-wide">
-                Media Automation
-              </h3>
-              <p className="text-gray-600 text-xs leading-relaxed">
-                Ứng dụng xử lý Cloudinary và Remotion tích hợp sẵn tự động khởi
-                tạo các gói hình ảnh, video highlight truyền thông quảng bá cho
-                quán.
-              </p>
-            </div>
-            {/* Feature 3 */}
-            <div className="feature-card-animate bg-white border-2 border-black p-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] space-y-4">
-              <div className="text-2xl font-black">📈</div>
-              <h3 className="text-sm font-black uppercase tracking-wide">
-                Quản Lý Tối Ưu Lịch Trình
-              </h3>
-              <p className="text-gray-600 text-xs leading-relaxed">
-                Hệ thống dữ liệu phân tích chuẩn Next.js quản lý lượng thẻ thành
-                viên hội viên, thời gian chơi thực tế và phân bổ dòng tiền hiệu
-                quả.
-              </p>
+          </div>
+
+          {/* Feature 3 — full-width: Dashboard */}
+          <div className="col-span-12 reveal">
+            <div className="bg-[#d1f4d6] rounded-3xl p-8 border border-black/5 flex flex-col md:flex-row gap-6">
+              <div className="flex-1 flex flex-col justify-between">
+                <BarChart3 className="h-5 w-5 text-[#166534]" />
+                <div>
+                  <h3 className="mt-4 text-2xl md:text-3xl font-semibold tracking-tight leading-tight">
+                    Dashboard doanh thu theo giờ.
+                  </h3>
+                  <p className="mt-3 text-neutral-700 text-sm leading-relaxed max-w-md">
+                    Theo dõi công suất bàn, doanh thu theo giờ và xu hướng khách
+                    hàng trong một màn hình.
+                  </p>
+                </div>
+              </div>
+              <div className="flex-1 bg-white rounded-2xl p-5 border border-black/5">
+                <div
+                  className="flex items-end justify-between gap-1 h-32"
+                  aria-hidden="true"
+                >
+                  {[40, 65, 50, 80, 95, 70, 55, 75, 90, 60, 45, 70].map(
+                    (h, i) => (
+                      <div
+                        key={i}
+                        className="flex-1 bg-[#166534] rounded-t"
+                        style={{ height: `${h}%` }}
+                      />
+                    ),
+                  )}
+                </div>
+                <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-wider text-neutral-500 font-semibold">
+                  <span>10h</span>
+                  <span>14h</span>
+                  <span>18h</span>
+                  <span>22h</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="bg-white text-gray-500 py-8 text-center text-[10px] uppercase tracking-widest font-bold">
-        <p>&copy; 2026 Boardverse Platform. Tất cả quyền được bảo lưu.</p>
+      {/* ─── HOW IT WORKS ────────────────────────────────────── */}
+      <section id="how" className="max-w-7xl mx-auto px-6 py-12">
+        <div className="mb-8 reveal">
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+            Ba bước để bắt đầu.
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            {
+              n: "01",
+              t: "Gửi hồ sơ",
+              d: "Điền form đăng ký trong 5 phút với thông tin quán và giấy tờ cơ bản.",
+              bg: "bg-white",
+            },
+            {
+              n: "02",
+              t: "Phê duyệt & onboard",
+              d: "Đội ngũ BoardVerse xét duyệt và hỗ trợ bạn cấu hình hệ thống.",
+              bg: "bg-[#fef3c7]",
+            },
+            {
+              n: "03",
+              t: "Vận hành & tăng trưởng",
+              d: "Mở cửa quán, tiếp khách và theo dõi dashboard tăng trưởng mỗi ngày.",
+              bg: "bg-[#171717] text-white",
+            },
+          ].map((s) => (
+            <div
+              key={s.n}
+              className={`reveal ${s.bg} rounded-3xl p-8 border border-black/5 min-h-[260px] flex flex-col justify-between`}
+            >
+              <div className="text-6xl font-bold tracking-tighter opacity-30">
+                {s.n}
+              </div>
+              <div>
+                <h3
+                  className={`text-2xl font-semibold tracking-tight ${s.bg.includes("text-white") ? "text-white" : ""}`}
+                >
+                  {s.t}
+                </h3>
+                <p
+                  className={`mt-2 text-sm leading-relaxed ${s.bg.includes("text-white") ? "text-white/60" : "text-neutral-600"}`}
+                >
+                  {s.d}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── CTA + FOOTER BENTO ──────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-6 py-12">
+        <div className="grid grid-cols-12 gap-4">
+          {/* Big day number */}
+          <div className="col-span-12 md:col-span-8 reveal">
+            <div className="bg-white rounded-3xl p-8 md:p-10 border border-black/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 min-h-[260px]">
+              <div>
+                <h2 className="text-3xl md:text-4xl font-bold tracking-tight max-w-md">
+                  Sẵn sàng nâng cấp quán cafe của bạn?
+                </h2>
+                <p className="mt-3 text-neutral-600 max-w-md">
+                  Gửi hồ sơ miễn phí — đội ngũ BoardVerse phản hồi sớm.
+                </p>
+              </div>
+              <button
+                onClick={() => router.push("/partner/register")}
+                className="bg-[#171717] text-white rounded-full px-6 py-3.5 font-semibold text-sm inline-flex items-center gap-2 hover:bg-neutral-800 transition shrink-0"
+              >
+                Đăng ký đối tác
+                <ArrowUpRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+          {/* Footer card */}
+          <div className="col-span-12 md:col-span-4 reveal">
+            <div className="bg-[#171717] text-white rounded-3xl p-8 h-full min-h-[260px] flex flex-col justify-between">
+              <div className="text-7xl font-bold tracking-tighter">
+                2026<span className="text-[#d97706]">.</span>
+              </div>
+              <div>
+                <div className="text-sm text-white/60">BoardVerse Partner</div>
+                <div className="text-sm font-semibold">
+                  Nền tảng vận hành cafe board game
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer className="max-w-7xl mx-auto px-6 py-10 text-center text-xs text-neutral-500">
+        © 2026 BoardVerse Platform. Tất cả quyền được bảo lưu.
       </footer>
     </div>
   );

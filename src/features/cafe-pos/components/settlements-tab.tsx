@@ -543,7 +543,7 @@ export function SettlementsTab({
                 );
                 return (
                   <div
-                    key={id || Math.random()}
+                    key={id || `paid-session-${ses.sessionId ?? ses.id ?? ""}`}
                     className={cn(
                       arcadeCardClass,
                       "group flex flex-wrap items-center justify-between gap-3 border-2 border-orange-200 bg-gradient-to-br from-orange-50/80 via-white to-amber-50/40 px-4 py-3 transition-all hover:translate-y-[-2px]",

@@ -1,20 +1,31 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useTournamentPos } from "../hooks/useTournamentPos";
 import {
   TournamentMatch,
   TournamentParticipant,
 } from "../types/tournament.types";
+import {
+  buildParticipantLookup,
+  normalizeMatch,
+  normalizeMatchStatus,
+  normalizeMatchLabel,
+} from "../lib/match-normalize";
 import { MatchResultModal } from "./match-result-modal";
 import { TournamentCreateModal } from "./tournament-create-modal";
 import { TournamentPairingStudioModal } from "./tournament-pairing-studio-modal";
 import { TournamentParticipantsTable } from "./tournament-participants-table";
 import { TournamentPodiumModal } from "./tournament-podium-modal";
+import { TournamentRowList } from "./tournament-row-list";
+import { CancelReasonDialog } from "./cancel-reason-dialog";
 import { apiClient } from "@/core/api/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import {
   Trophy,
   Swords,
@@ -28,6 +39,118 @@ import {
   LayoutGrid,
   Users,
 } from "lucide-react";
+
+const primaryActionClass =
+  "h-9 rounded-xl bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90";
+const secondaryActionClass =
+  "h-9 rounded-xl border-border bg-background px-4 text-xs font-semibold text-foreground hover:bg-muted/70";
+const destructiveOutlineClass =
+  "h-9 rounded-xl border-destructive/30 px-4 text-xs font-semibold text-destructive hover:bg-destructive/5 hover:text-destructive";
+const toolbarButtonClass =
+  "h-8 rounded-xl border-border px-3 text-xs font-semibold text-foreground hover:bg-muted/70";
+
+function getTournamentStatusLabel(status?: string) {
+  switch (status) {
+    case "OnGoing":
+      return "Đang diễn ra";
+    case "Completed":
+      return "Đã hoàn tất";
+    case "RegistrationOpen":
+      return "Đang mở đăng ký";
+    case "RegistrationClosed":
+      return "Đã đóng đăng ký";
+    case "Draft":
+      return "Bản nháp";
+    case "Cancelled":
+      return "Đã hủy";
+    case "Scheduled":
+      return "Đã lên lịch";
+    default:
+      return status || "Chưa xác định";
+  }
+}
+
+function getTournamentStatusBadgeClass(status?: string) {
+  switch (status) {
+    case "OnGoing":
+      return "border-primary/20 bg-primary/10 text-primary";
+    case "Completed":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "RegistrationOpen":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    case "Cancelled":
+      return "border-destructive/20 bg-destructive/10 text-destructive";
+    case "RegistrationClosed":
+    case "Scheduled":
+    case "Draft":
+    default:
+      return "border-border bg-muted/60 text-muted-foreground";
+  }
+}
+
+function getMatchStatusLabel(status?: string) {
+  switch (status) {
+    case "Scheduled":
+      return "Đã lên lịch";
+    case "OnGoing":
+      return "Đang diễn ra";
+    case "Completed":
+      return "Đã kết thúc";
+    case "Cancelled":
+      return "Đã hủy";
+    default:
+      return status || "Chưa xác định";
+  }
+}
+
+function getMatchStatusBadgeClass(status?: string) {
+  switch (status) {
+    case "OnGoing":
+      return "border-primary/20 bg-primary/10 text-primary";
+    case "Completed":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "Cancelled":
+      return "border-destructive/20 bg-destructive/10 text-destructive";
+    case "Scheduled":
+    default:
+      return "border-border bg-muted/60 text-muted-foreground";
+  }
+}
+
+function MetricTile({
+  label,
+  value,
+  suffix,
+  valueClassName,
+}: {
+  label: string;
+  value: string | number;
+  suffix?: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
+      <span className="block text-xs font-medium text-muted-foreground">
+        {label}
+      </span>
+      <div className="mt-1 flex items-baseline gap-1.5">
+        <span
+          className={cn(
+            "text-xl font-semibold tracking-tight text-foreground",
+            valueClassName,
+          )}
+        >
+          {value}
+        </span>
+        {suffix && (
+          <span className="text-sm font-medium text-muted-foreground">
+            {suffix}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
   const {
@@ -62,27 +185,35 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPairingStudio, setShowPairingStudio] = useState(false);
   const [showPodiumModal, setShowPodiumModal] = useState(false);
+  const [showCancelTournament, setShowCancelTournament] = useState(false);
+  const [showCancelMatchFor, setShowCancelMatchFor] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<TournamentMatch | null>(
     null,
   );
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
-  // 1. Refresh danh sách VĐV
-  const refreshParticipants = useCallback(async (tournamentId: string) => {
-    try {
-      setLoadingParticipants(true);
-      const res: unknown = await apiClient.get(
-        `/api/v1/pos/tournaments/${tournamentId}/participants`,
-      );
-      const resData = res as { data?: TournamentParticipant[] };
-      const list = resData?.data || (res as TournamentParticipant[]) || [];
-      setParticipants(list);
-    } catch {
-      setParticipants([]);
-    } finally {
-      setLoadingParticipants(false);
-    }
-  }, []);
+  // 1. Refresh danh sách VĐV — guarded bởi isMounted để tránh setState sau unmount
+  const refreshParticipants = useCallback(
+    async (tournamentId: string, isMounted?: boolean) => {
+      try {
+        setLoadingParticipants(true);
+        const res: unknown = await apiClient.get(
+          `/api/v1/pos/tournaments/${tournamentId}/participants`,
+        );
+        const resData = res as { data?: TournamentParticipant[] };
+        const list = resData?.data || (res as TournamentParticipant[]) || [];
+        if (isMounted !== false) setParticipants(list);
+      } catch {
+        if (isMounted !== false) setParticipants([]);
+      } finally {
+        if (isMounted !== false) setLoadingParticipants(false);
+      }
+    },
+    [],
+  );
 
   // 2. Fetch danh sách Bàn đấu
   const refreshMatches = useCallback(
@@ -161,21 +292,12 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
       };
     }
 
-    const loadParticipants = async () => {
-      try {
-        setLoadingParticipants(true);
-        const res: unknown = await apiClient.get(
-          `/api/v1/pos/tournaments/${tournamentId}/participants`,
-        );
-        const resData = res as { data?: TournamentParticipant[] };
-        const list = resData?.data || (res as TournamentParticipant[]) || [];
-        if (isMounted) setParticipants(list);
-      } catch {
-        if (isMounted) setParticipants([]);
-      } finally {
-        if (isMounted) setLoadingParticipants(false);
-      }
-    };
+    // Sync participants + matches with BE when the active tournament changes.
+    // This is the canonical "sync external system on prop change" use case
+    // for useEffect (https://react.dev/reference/react/useEffect#examples-connecting).
+    // The setState inside is required; suppress the cascade-render warning.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void refreshParticipants(tournamentId, isMounted);
 
     const loadMatches = async () => {
       if (!isOngoing) {
@@ -213,7 +335,6 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
       }
     };
 
-    void loadParticipants();
     void loadMatches();
 
     return () => {
@@ -223,7 +344,31 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     activeTournament?.id,
     activeTournament?.status,
     activeTournament?.currentRound,
+    refreshParticipants,
   ]);
+
+  // 4. Pre-compute participant lookup + normalized match list once per
+  // (participants, matches) change. Replaces 70 lines of inline parser
+  // running O(n×m×4) Array.find per render. See audit P0-2.
+  const participantLookup = useMemo(
+    () => buildParticipantLookup(participants),
+    [participants],
+  );
+
+  const normalizedMatches = useMemo(
+    () =>
+      matches.map((match, idx) => {
+        const label = normalizeMatchLabel(match as any, idx);
+        return {
+          id: match.id || `table-${label.number}`,
+          number: label.number,
+          name: label.name,
+          status: normalizeMatchStatus(match as any),
+          players: normalizeMatch(match as any, participantLookup),
+        };
+      }),
+    [matches, participantLookup],
+  );
 
   // Bắt đầu 1 bàn đấu
   const onStartMatch = async (matchId: string) => {
@@ -253,7 +398,9 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
         `/api/v1/pos/tournaments/matches/${dto.matchId}/result`,
         dto,
       );
-      toast.success(res?.message || "Sửa kết quả bàn đấu thành công!");
+      toast.success(
+        res?.message || "Đã sửa kết quả — Elo/Karma sẽ được tính lại sau.",
+      );
       await refreshMatches(activeTournament.id, activeTournament.currentRound);
       await refreshParticipants(activeTournament.id);
       return true;
@@ -265,7 +412,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
       toast.error(
         error?.errors?.Results?.[0] ||
           error?.message ||
-          "Lỗi cập nhật kết quả.",
+          "Không thể cập nhật kết quả — vui lòng thử lại.",
       );
       return false;
     }
@@ -297,7 +444,9 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
       await fetchTournaments();
     } catch (err: unknown) {
       const error = err as { message?: string };
-      toast.error(error?.message || "Lỗi loại tuyển thủ.");
+      toast.error(
+        error?.message || "Không thể loại tuyển thủ — vui lòng thử lại.",
+      );
     } finally {
       setActionLoadingId(null);
     }
@@ -337,11 +486,31 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     }
   };
 
+  const openMatchResultModal = (
+    match: any,
+    matchNumber: number,
+    players: any[],
+  ) => {
+    if (!match.id || match.id.startsWith("table-")) {
+      toast.error(
+        "Bàn đấu chưa sẵn sàng — vui lòng tạo lại bảng cặp cho vòng này.",
+      );
+      return;
+    }
+
+    setSelectedMatch({
+      ...match,
+      id: match.id,
+      tableName: match.tableName || `Bàn #${matchNumber}`,
+      players,
+    });
+  };
+
   if (loading && !activeTournament) {
     return (
-      <div className="h-96 flex flex-col items-center justify-center space-y-3">
-        <div className="w-8 h-8 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin" />
-        <span className="text-xs text-neutral-400 font-bold">
+      <div className="flex h-96 flex-col items-center justify-center space-y-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <span className="text-xs font-medium text-muted-foreground">
           Đang nạp dữ liệu giải đấu...
         </span>
       </div>
@@ -352,67 +521,76 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
   const isAnyMatchStarted = matches.some(
     (m) => m.status === "OnGoing" || m.status === "Completed",
   );
+  const checkedInCount = participants.filter(
+    (p) => p.status === "CheckedIn" || p.status === "Active",
+  ).length;
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto pb-10">
+    <div className="mx-auto max-w-7xl space-y-4 pb-10">
       {/* 1. Header Bar */}
-      <div className="bg-white p-4 rounded-3xl border border-neutral-200/80 shadow-2xs flex items-center justify-between">
+      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-amber-500 text-white rounded-2xl shadow-xs">
-            <Trophy className="w-5 h-5" />
+          <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Trophy className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-base font-black text-neutral-950">
+            <h1 className="text-xl font-semibold tracking-tight text-foreground">
               Tournament Command Center
             </h1>
-            <p className="text-xs text-neutral-500">
+            <p className="text-sm text-muted-foreground">
               Quản lý và điều phối giải đấu Splendor tại quầy
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {tournaments.length > 1 && (
-            <select
-              value={activeTournament?.id || ""}
-              onChange={(e) => {
-                const found = tournaments.find((t) => t.id === e.target.value);
-                if (found) setActiveTournament(found);
-              }}
-              className="h-9 px-3 rounded-xl border bg-neutral-50 text-xs font-bold text-neutral-800"
-            >
-              {tournaments.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.title} ({t.status})
-                </option>
-              ))}
-            </select>
-          )}
-
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Button
             onClick={() => setShowCreateModal(true)}
-            className="h-9 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold rounded-xl px-4 flex items-center gap-1.5"
+            className={cn(primaryActionClass, "gap-1.5")}
           >
-            <Plus className="w-4 h-4" /> Tạo Giải Mới
+            <Plus className="h-4 w-4" /> Tạo giải mới
           </Button>
         </div>
       </div>
 
+      {/* 1b. Danh sách giải đấu dạng thanh ngang (thay thế dropdown cũ) */}
+      <TournamentRowList
+        tournaments={tournaments}
+        activeTournamentId={activeTournament?.id ?? null}
+        onSelect={setActiveTournament}
+        onOpenRegistration={handleOpenRegistration}
+        onCloseRegistration={handleCloseRegistration}
+        onStartTournament={handleStartTournament}
+        onAdvanceRound={handleAdvanceRound}
+        onCancelTournament={async (id) => {
+          await handleCancelTournament(id, "Không có lý do");
+        }}
+        onRefresh={fetchTournaments}
+        refreshing={loading}
+        loading={loading}
+      />
+
       {/* 2. Hero Tournament Card */}
       {activeTournament ? (
         <div className="space-y-4">
-          <div className="bg-white p-5 rounded-3xl border border-neutral-200 shadow-2xs space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+          <div className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <div className="flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
-                    {activeTournament.status}
-                  </span>
-                  <h2 className="text-lg font-black text-neutral-950">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "h-6 rounded-full px-2.5 text-xs font-semibold",
+                      getTournamentStatusBadgeClass(activeTournament.status),
+                    )}
+                  >
+                    {getTournamentStatusLabel(activeTournament.status)}
+                  </Badge>
+                  <h2 className="text-lg font-semibold tracking-tight text-foreground">
                     {activeTournament.title}
                   </h2>
                 </div>
-                <p className="text-xs text-neutral-500 font-medium mt-1">
+                <p className="mt-1 text-xs font-medium text-muted-foreground">
                   Trò chơi:{" "}
                   <strong>{activeTournament.gameName || "Splendor"}</strong> •
                   Bắt đầu:{" "}
@@ -425,13 +603,13 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
               </div>
 
               {/* Action Buttons theo State Machine */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {activeTournament.status === "Draft" && (
                   <Button
                     onClick={() => handleOpenRegistration(activeTournament.id)}
-                    className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl px-4"
+                    className={cn(primaryActionClass, "gap-1.5")}
                   >
-                    <Play className="w-3.5 h-3.5 mr-1" /> Mở Đăng Ký
+                    <Play className="h-3.5 w-3.5" /> Mở đăng ký
                   </Button>
                 )}
 
@@ -439,18 +617,18 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                   <>
                     <Button
                       onClick={() => setShowPairingStudio(true)}
-                      variant="outline"
-                      className="h-9 border-neutral-300 text-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5"
+                      className={cn(primaryActionClass, "gap-1.5")}
                     >
-                      <Swords className="w-3.5 h-3.5" /> Xếp Bảng Cặp R1
+                      <Swords className="h-3.5 w-3.5" /> Xếp bảng cặp R1
                     </Button>
                     <Button
                       onClick={() =>
                         handleCloseRegistration(activeTournament.id)
                       }
-                      className="h-9 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl px-4"
+                      variant="outline"
+                      className={secondaryActionClass}
                     >
-                      Đóng Đăng Ký
+                      Đóng đăng ký
                     </Button>
                   </>
                 )}
@@ -458,18 +636,17 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                 {activeTournament.status === "RegistrationClosed" && (
                   <>
                     <Button
-                      onClick={() => setShowPairingStudio(true)}
-                      variant="outline"
-                      className="h-9 border-neutral-300 text-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5"
+                      onClick={() => handleStartTournament(activeTournament.id)}
+                      className={cn(primaryActionClass, "gap-1.5 px-5")}
                     >
-                      <Swords className="w-3.5 h-3.5" /> Xếp Bảng Cặp R1
+                      <Swords className="h-4 w-4" /> Bắt đầu giải
                     </Button>
                     <Button
-                      onClick={() => handleStartTournament(activeTournament.id)}
-                      className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl px-5 shadow-xs"
+                      onClick={() => setShowPairingStudio(true)}
+                      variant="outline"
+                      className={cn(secondaryActionClass, "gap-1.5")}
                     >
-                      <Swords className="w-4 h-4 mr-1.5" /> Bắt Đầu Giải (Start
-                      R1)
+                      <Swords className="h-3.5 w-3.5" /> Xếp bảng cặp R1
                     </Button>
                   </>
                 )}
@@ -491,10 +668,10 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                             onClick={() =>
                               handleAdvanceRound(activeTournament.id)
                             }
-                            className="h-9 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl px-4"
+                            className={cn(primaryActionClass, "gap-1.5")}
                           >
-                            <ChevronRight className="w-4 h-4 mr-1" /> Chuyển
-                            Vòng Tiếp
+                            <ChevronRight className="h-4 w-4" /> Chuyển vòng
+                            tiếp
                           </Button>
                         )}
 
@@ -503,11 +680,11 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                             if (!canComplete) {
                               if (!isFinalRound) {
                                 toast.warning(
-                                  `Giải đấu chưa hoàn thành vòng ${totalRounds}. Hiện đang ở vòng #${activeTournament.currentRound}.`,
+                                  `Cần hoàn thành vòng ${totalRounds} trước khi tổng kết. Hiện đang ở vòng #${activeTournament.currentRound}.`,
                                 );
                               } else if (!isAllMatchesCompleted) {
                                 toast.warning(
-                                  "Vẫn còn bàn đấu ở vòng cuối chưa ghi nhận kết quả.",
+                                  `Vẫn còn ${matches.length - matches.filter((m) => m.status === "Completed").length} bàn đấu ở vòng cuối chưa ghi nhận kết quả.`,
                                 );
                               }
                               return;
@@ -522,21 +699,22 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                             }
                           }}
                           disabled={!canComplete}
-                          className={`h-9 text-xs font-bold rounded-xl px-4 transition-all flex items-center gap-1.5 ${
+                          className={cn(
+                            "h-9 rounded-xl px-4 text-xs font-semibold transition-all",
                             canComplete
-                              ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md ring-2 ring-emerald-400/40 animate-pulse"
-                              : "bg-neutral-200 text-neutral-400 cursor-not-allowed border border-neutral-300 opacity-60"
-                          }`}
+                              ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
+                              : "cursor-not-allowed border border-border bg-muted text-muted-foreground opacity-70",
+                          )}
                           title={
                             canComplete
-                              ? "Tất cả các ván vòng 4 đã xong. Bấm để tổng kết giải và đồng bộ Elo/Karma!"
-                              : "Chỉ hoàn thành giải khi đã thi đấu xong tất cả các bàn ở vòng 4."
+                              ? `Tất cả các ván vòng ${totalRounds} đã xong. Bấm để tổng kết giải và đồng bộ Elo/Karma.`
+                              : `Chỉ hoàn thành giải khi đã thi đấu xong tất cả các bàn ở vòng ${totalRounds}.`
                           }
                         >
-                          <CheckCircle2 className="w-4 h-4" />
+                          <CheckCircle2 className="h-4 w-4" />
                           {canComplete
-                            ? "Hoàn Thành Giải Đấu"
-                            : `Hoàn Thành Giải (Cần xong Vòng ${totalRounds})`}
+                            ? "Hoàn thành giải đấu"
+                            : `Hoàn thành giải (Cần xong vòng ${totalRounds})`}
                         </Button>
                       </>
                     );
@@ -546,9 +724,9 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                 {activeTournament.status === "Completed" && (
                   <Button
                     onClick={() => setShowPodiumModal(true)}
-                    className="h-9 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl px-4 flex items-center gap-1.5 shadow-xs"
+                    className={cn(primaryActionClass, "gap-1.5")}
                   >
-                    <Trophy className="w-4 h-4" /> Xem Bảng Vinh Danh
+                    <Trophy className="h-4 w-4" /> Xem bảng vinh danh
                   </Button>
                 )}
 
@@ -558,126 +736,84 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                   activeTournament.status !== "Cancelled" && (
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        const reason = prompt("Lý do hủy giải đấu:");
-                        if (reason?.trim()) {
-                          void handleCancelTournament(
-                            activeTournament.id,
-                            reason.trim(),
-                          );
-                        }
-                      }}
-                      className="h-9 border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold rounded-xl"
+                      onClick={() => setShowCancelTournament(true)}
+                      className={cn(destructiveOutlineClass, "gap-1.5")}
                     >
-                      <XCircle className="w-3.5 h-3.5 mr-1" /> Hủy Giải
+                      <XCircle className="h-3.5 w-3.5" /> Hủy giải
                     </Button>
                   )}
               </div>
             </div>
 
             {/* Quick Specs Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div className="p-3 bg-neutral-50 rounded-2xl border">
-                <span className="text-neutral-400 font-bold text-[10px] uppercase block">
-                  Tiến độ vòng
-                </span>
-                <span className="font-mono font-black text-neutral-900 text-sm">
-                  #{activeTournament.currentRound}/
-                  {activeTournament.totalRounds || 4}
-                </span>
-              </div>
-
-              <div className="p-3 bg-neutral-50 rounded-2xl border">
-                <span className="text-neutral-400 font-bold text-[10px] uppercase block">
-                  Sĩ số VĐV
-                </span>
-                <span className="font-mono font-black text-neutral-900 text-sm">
-                  {participants.length}/{activeTournament.maxParticipants}
-                </span>
-              </div>
-
-              <div className="p-3 bg-neutral-50 rounded-2xl border">
-                <span className="text-neutral-400 font-bold text-[10px] uppercase block">
-                  Đã Check-in
-                </span>
-                <span className="font-mono font-black text-emerald-700 text-sm">
-                  {
-                    participants.filter(
-                      (p) => p.status === "CheckedIn" || p.status === "Active",
-                    ).length
-                  }{" "}
-                  VĐV
-                </span>
-              </div>
-
-              <div className="p-3 bg-neutral-50 rounded-2xl border">
-                <span className="text-neutral-400 font-bold text-[10px] uppercase block">
-                  Thời lượng ván
-                </span>
-                <span className="font-mono font-black text-neutral-900 text-sm">
-                  {activeTournament.roundDurationMinutes} phút
-                </span>
-              </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <MetricTile
+                label="Tiến độ vòng"
+                value={`#${activeTournament.currentRound}/${
+                  activeTournament.totalRounds || 4
+                }`}
+              />
+              <MetricTile
+                label="Sĩ số VĐV"
+                value={`${participants.length}/${activeTournament.maxParticipants}`}
+              />
+              <MetricTile
+                label="Đã check-in"
+                value={checkedInCount}
+                suffix="VĐV"
+                valueClassName={
+                  checkedInCount > 0 ? "text-emerald-700" : undefined
+                }
+              />
+              <MetricTile
+                label="Thời lượng ván"
+                value={activeTournament.roundDurationMinutes}
+                suffix="phút"
+              />
             </div>
           </div>
 
-          {/* Thanh chuyển đổi View khi giải OnGoing */}
-          {activeTournament.status === "OnGoing" && (
-            <div className="flex items-center gap-2 bg-neutral-100/70 p-1.5 rounded-2xl w-fit">
-              <button
-                onClick={() => setMainView("MATCHES")}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
-                  mainView === "MATCHES"
-                    ? "bg-white text-neutral-950 shadow-xs"
-                    : "text-neutral-500 hover:text-neutral-900"
-                }`}
-              >
-                <LayoutGrid className="w-4 h-4" /> Bàn Đấu Vòng #
-                {activeTournament.currentRound} ({matches.length})
-              </button>
-
-              <button
-                onClick={() => setMainView("ROSTER")}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
-                  mainView === "ROSTER"
-                    ? "bg-white text-neutral-950 shadow-xs"
-                    : "text-neutral-500 hover:text-neutral-900"
-                }`}
-              >
-                <Users className="w-4 h-4" /> Danh Sách Tuyển Thủ (
-                {participants.length})
-              </button>
-            </div>
-          )}
-
           {/* 3. KHU VỰC NỘI DUNG CHÍNH */}
-          {activeTournament.status === "OnGoing" && mainView === "MATCHES" ? (
-            /* 3A. ARENA BÀN ĐẤU */
-            <div className="bg-white p-5 rounded-3xl border border-neutral-200 shadow-2xs space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
-                <div className="flex items-center gap-2">
-                  <Swords className="w-5 h-5 text-amber-600" />
-                  <h3 className="font-black text-sm text-neutral-950">
-                    Bàn Đấu Vòng #{activeTournament.currentRound} (
-                    {matches.length} bàn)
-                  </h3>
-                </div>
+          {activeTournament.status === "OnGoing" ? (
+            <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+              <div className="flex flex-col gap-3 border-b border-border p-4 lg:flex-row lg:items-center lg:justify-between">
+                <Tabs
+                  value={mainView}
+                  onValueChange={(value) =>
+                    setMainView(value as "MATCHES" | "ROSTER")
+                  }
+                >
+                  <TabsList className="h-10 rounded-xl bg-muted/70 p-1">
+                    <TabsTrigger
+                      value="MATCHES"
+                      className="rounded-lg px-3 text-xs font-semibold"
+                    >
+                      <LayoutGrid className="h-4 w-4" /> Bàn đấu vòng #
+                      {activeTournament.currentRound} ({matches.length})
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="ROSTER"
+                      className="rounded-lg px-3 text-xs font-semibold"
+                    >
+                      <Users className="h-4 w-4" /> Danh sách tuyển thủ (
+                      {participants.length})
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {!isAnyMatchStarted ? (
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => setShowPairingStudio(true)}
-                      className="h-8 text-xs font-bold rounded-xl border-amber-300 bg-amber-50/60 text-amber-900 hover:bg-amber-100 flex items-center gap-1.5"
+                      className={cn(toolbarButtonClass, "gap-1.5")}
                     >
-                      <Swords className="w-3.5 h-3.5 text-amber-600" /> Xếp Lại
-                      Bảng Cặp
+                      <Swords className="h-3.5 w-3.5" /> Xếp lại bảng cặp
                     </Button>
                   ) : (
-                    <span className="text-[11px] font-bold text-neutral-500 bg-neutral-100 border border-neutral-200 px-2.5 py-1 rounded-xl flex items-center gap-1">
-                      <Lock className="w-3 h-3 text-neutral-400" /> Đã khóa ghép
-                      cặp
+                    <span className="inline-flex h-8 items-center gap-1 rounded-xl border border-border bg-muted/50 px-2.5 text-xs font-semibold text-muted-foreground">
+                      <Lock className="h-3 w-3" /> Đã khóa ghép cặp
                     </span>
                   )}
 
@@ -691,251 +827,209 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                       )
                     }
                     disabled={loadingMatches}
-                    className="h-8 text-xs font-bold rounded-xl border-neutral-300 flex items-center gap-1"
+                    className={cn(toolbarButtonClass, "gap-1.5")}
                   >
                     <RefreshCw
-                      className={`w-3 h-3 ${loadingMatches ? "animate-spin" : ""}`}
-                    />{" "}
-                    Làm mới bàn đấu
+                      className={cn(
+                        "h-3.5 w-3.5",
+                        loadingMatches && "animate-spin",
+                      )}
+                    />
+                    Làm mới
                   </Button>
                 </div>
               </div>
 
-              {loadingMatches ? (
-                <div className="text-center py-16 text-xs text-neutral-400 font-bold">
-                  Đang tải danh sách bàn đấu...
-                </div>
-              ) : matches.length === 0 ? (
-                <div className="text-center py-16 border border-dashed rounded-2xl bg-neutral-50/50 p-6 space-y-2">
-                  <Swords className="w-8 h-8 text-neutral-300 mx-auto" />
-                  <p className="text-xs text-neutral-500 font-medium">
-                    Chưa có bàn đấu nào được khởi tạo cho vòng #
-                    {activeTournament.currentRound}.
-                  </p>
+              {mainView === "MATCHES" ? (
+                <div className="space-y-4 p-4">
+                  {loadingMatches ? (
+                    <div className="py-16 text-center text-xs font-medium text-muted-foreground">
+                      Đang tải danh sách bàn đấu...
+                    </div>
+                  ) : normalizedMatches.length === 0 ? (
+                    <div className="space-y-2 rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center">
+                      <Swords className="mx-auto h-8 w-8 text-muted-foreground/50" />
+                      <p className="text-sm font-medium text-foreground">
+                        Chưa có bàn đấu nào
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Vòng #{activeTournament.currentRound} chưa có bàn đấu
+                        được khởi tạo.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      {normalizedMatches.map(({ id, number, name, status: matchStatus, players: tablePlayers }) => {
+                        return (
+                          <div
+                            key={id}
+                            className="flex flex-col justify-between space-y-4 rounded-2xl border border-border bg-background p-4 shadow-sm"
+                          >
+                            <div className="space-y-3">
+                              {/* Header Bàn đấu */}
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-sm font-semibold text-foreground">
+                                  {name}
+                                </span>
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "h-6 rounded-full px-2.5 text-xs font-semibold",
+                                    getMatchStatusBadgeClass(matchStatus),
+                                  )}
+                                >
+                                  {getMatchStatusLabel(matchStatus)}
+                                </Badge>
+                              </div>
+
+                              {/* Danh sách VĐV trong bàn */}
+                              <div className="overflow-hidden rounded-xl border border-border bg-card divide-y divide-border/70">
+                                {tablePlayers.map((p) => (
+                                  <div
+                                    key={p.userId}
+                                    className={cn(
+                                      "flex items-center justify-between gap-3 px-3 py-2.5",
+                                      p.isWinner && "bg-amber-50/70",
+                                    )}
+                                  >
+                                    <div className="flex min-w-0 items-center gap-2 pr-2">
+                                      {p.isWinner && (
+                                        <Trophy className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                                      )}
+                                      <span className="truncate text-sm font-medium text-foreground">
+                                        {p.userName}
+                                      </span>
+                                    </div>
+
+                                    <div className="flex shrink-0 items-center gap-1.5 font-mono text-xs text-muted-foreground">
+                                      <span>Elo {p.currentElo}</span>
+                                      <span>•</span>
+                                      {p.score !== null ? (
+                                        <span className="font-semibold text-foreground">
+                                          {p.score}đ
+                                        </span>
+                                      ) : (
+                                        <span>--</span>
+                                      )}
+                                      {p.cardsBought !== null && (
+                                        <span>({p.cardsBought} thẻ)</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Action buttons */}
+                            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3">
+                              {id && !id.startsWith("table-") && matchStatus === "Scheduled" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      setShowCancelMatchFor({
+                                        id,
+                                        name,
+                                      })
+                                    }
+                                    className={cn(
+                                      destructiveOutlineClass,
+                                      "h-9 px-3",
+                                    )}
+                                  >
+                                    Hủy bàn
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => onStartMatch(id)}
+                                    className={cn(
+                                      primaryActionClass,
+                                      "h-9 px-3.5",
+                                    )}
+                                  >
+                                    Bắt đầu bàn
+                                  </Button>
+                                </>
+                              )}
+
+                              {matchStatus === "OnGoing" && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    const original = matches.find(
+                                      (m) => (m.id || `table-${number}`) === id,
+                                    );
+                                    if (original) {
+                                      openMatchResultModal(
+                                        original,
+                                        number,
+                                        tablePlayers,
+                                      );
+                                    }
+                                  }}
+                                  className={cn(
+                                    primaryActionClass,
+                                    "h-9 px-3.5",
+                                  )}
+                                >
+                                  Ghi kết quả
+                                </Button>
+                              )}
+
+                              {matchStatus === "Completed" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    const original = matches.find(
+                                      (m) => (m.id || `table-${number}`) === id,
+                                    );
+                                    if (original) {
+                                      openMatchResultModal(
+                                        original,
+                                        number,
+                                        tablePlayers,
+                                      );
+                                    }
+                                  }}
+                                  className={cn(
+                                    secondaryActionClass,
+                                    "h-9 px-3.5",
+                                  )}
+                                >
+                                  Sửa điểm
+                                </Button>
+                              )}
+
+                              {matchStatus === "Cancelled" && (
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  Không còn thao tác
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {matches.map((match: any, idx: number) => {
-                    const matchNumber =
-                      match.matchNumber || match.tableNumber || idx + 1;
-                    let tablePlayers: any[] = [];
-
-                    // Phân giải player1Id -> player4Id
-                    const slotIndices = [1, 2, 3, 4] as const;
-                    const flatPlayers = slotIndices
-                      .map((slot) => {
-                        const pId = match[`player${slot}Id`];
-                        if (!pId) return null;
-
-                        const participantInfo = participants.find(
-                          (p) => p.userId === pId || p.id === pId,
-                        );
-
-                        return {
-                          slot,
-                          userId: pId,
-                          userName:
-                            participantInfo?.username ||
-                            `VĐV #${pId.slice(0, 4)}`,
-                          avatarUrl: participantInfo?.avatarUrl,
-                          currentElo:
-                            participantInfo?.currentElo ||
-                            participantInfo?.initialElo ||
-                            1200,
-                          score: match[`player${slot}Score`],
-                          cardsBought: match[`player${slot}CardsBought`],
-                          isWinner:
-                            match.winnerPlayerId === pId ||
-                            match.winnerUserId === pId,
-                        };
-                      })
-                      .filter(Boolean);
-
-                    if (flatPlayers.length > 0) {
-                      tablePlayers = flatPlayers;
-                    } else if (
-                      Array.isArray(match.playerIds) &&
-                      match.playerIds.length > 0
-                    ) {
-                      tablePlayers = match.playerIds.map((pId: string) => {
-                        const participantInfo = participants.find(
-                          (p) => p.userId === pId || p.id === pId,
-                        );
-                        return {
-                          userId: pId,
-                          userName:
-                            participantInfo?.username ||
-                            `VĐV #${pId.slice(0, 4)}`,
-                          avatarUrl: participantInfo?.avatarUrl,
-                          currentElo:
-                            participantInfo?.currentElo ||
-                            participantInfo?.initialElo ||
-                            1200,
-                          score:
-                            match.scores?.find((s: any) => s.userId === pId)
-                              ?.score ?? null,
-                          cardsBought:
-                            match.scores?.find((s: any) => s.userId === pId)
-                              ?.cardsBought ?? null,
-                          isWinner:
-                            match.winnerUserId === pId ||
-                            match.winnerPlayerId === pId,
-                        };
-                      });
-                    } else if (Array.isArray(match.players)) {
-                      tablePlayers = match.players.map((p: any) => {
-                        const pId = p.userId || p.id;
-                        const participantInfo = participants.find(
-                          (part) => part.userId === pId || part.id === pId,
-                        );
-                        return {
-                          userId: pId,
-                          userName:
-                            p.userName ||
-                            p.username ||
-                            participantInfo?.username ||
-                            "VĐV",
-                          avatarUrl: p.avatarUrl || participantInfo?.avatarUrl,
-                          currentElo:
-                            p.currentElo ||
-                            participantInfo?.currentElo ||
-                            participantInfo?.initialElo ||
-                            1200,
-                          score: p.score ?? null,
-                          cardsBought: p.cardsBought ?? null,
-                          isWinner: p.isWinner || match.winnerUserId === pId,
-                        };
-                      });
+                <div className="bg-muted/10 p-4">
+                  <TournamentParticipantsTable
+                    participants={participants}
+                    loading={loadingParticipants}
+                    onCheckIn={onCheckIn}
+                    onNoShow={onNoShow}
+                    onKick={async (id, reason) => {
+                      await handleKickParticipant(id, reason);
+                    }}
+                    actionLoadingId={actionLoadingId}
+                    isTournamentCompleted={
+                      (activeTournament.status as string) === "Completed"
                     }
-
-                    const matchStatus = match.status || "Scheduled";
-
-                    return (
-                      <div
-                        key={match.id || `table-${matchNumber}`}
-                        className="p-4 rounded-3xl border border-neutral-200/90 bg-white space-y-3.5 shadow-2xs flex flex-col justify-between overflow-hidden"
-                      >
-                        <div className="space-y-3">
-                          {/* Header Bàn đấu */}
-                          <div className="flex items-center justify-between">
-                            <span className="font-black text-sm text-neutral-950">
-                              {match.tableName || `Bàn #${matchNumber}`}
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${
-                                matchStatus === "Completed"
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : matchStatus === "OnGoing"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : "bg-neutral-100 text-neutral-600"
-                              }`}
-                            >
-                              {matchStatus}
-                            </span>
-                          </div>
-
-                          {/* Danh sách 4 VĐV trong bàn */}
-                          <div className="space-y-2">
-                            {tablePlayers.map((p: any) => (
-                              <div
-                                key={p.userId}
-                                className={`flex items-center justify-between text-xs px-3 py-2 rounded-2xl border transition-colors ${
-                                  p.isWinner
-                                    ? "bg-amber-50/80 border-amber-300 font-bold"
-                                    : "bg-neutral-50/60 border-neutral-100"
-                                }`}
-                              >
-                                <div className="flex items-center gap-1.5 min-w-0 pr-2">
-                                  {p.isWinner && (
-                                    <Trophy className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                                  )}
-                                  <span className="text-neutral-900 truncate font-bold text-xs">
-                                    {p.userName}
-                                  </span>
-                                  <span className="text-[10px] font-mono text-neutral-400 shrink-0">
-                                    ({p.currentElo})
-                                  </span>
-                                </div>
-
-                                <div className="flex items-center gap-1.5 shrink-0 font-mono text-xs">
-                                  {p.score !== null && p.score !== undefined ? (
-                                    <span className="font-black text-neutral-900">
-                                      {p.score}đ
-                                    </span>
-                                  ) : (
-                                    <span className="text-neutral-300">--</span>
-                                  )}
-                                  {p.cardsBought !== null &&
-                                    p.cardsBought !== undefined && (
-                                      <span className="text-neutral-400 text-[10px]">
-                                        ({p.cardsBought} thẻ)
-                                      </span>
-                                    )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Action buttons */}
-                        <div className="pt-3 border-t border-neutral-100 flex flex-wrap items-center justify-end gap-1.5">
-                          {match.id &&
-                            matchStatus !== "Completed" &&
-                            matchStatus !== "Cancelled" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  const reason = prompt(
-                                    "Nhập lý do hủy bàn đấu:",
-                                  );
-                                  if (reason?.trim())
-                                    onCancelMatch(match.id, reason.trim());
-                                }}
-                                className="h-8 px-2.5 border-rose-200 text-rose-600 hover:bg-rose-50 text-[11px] font-bold rounded-xl"
-                              >
-                                Hủy Bàn
-                              </Button>
-                            )}
-
-                          {match.id && matchStatus === "Scheduled" && (
-                            <Button
-                              size="sm"
-                              onClick={() => onStartMatch(match.id)}
-                              className="h-8 px-3 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-xl shadow-2xs"
-                            >
-                              Bắt Đầu Bàn
-                            </Button>
-                          )}
-
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              if (!match.id || match.id.startsWith("table-")) {
-                                toast.error(
-                                  "Bàn đấu chưa có UUID hợp lệ trong cơ sở dữ liệu.",
-                                );
-                                return;
-                              }
-
-                              setSelectedMatch({
-                                ...match,
-                                id: match.id,
-                                tableName:
-                                  match.tableName || `Bàn #${matchNumber}`,
-                                players: tablePlayers,
-                              });
-                            }}
-                            className="h-8 px-3.5 bg-neutral-950 hover:bg-neutral-800 text-white text-[11px] font-bold rounded-xl shadow-2xs"
-                          >
-                            {matchStatus === "Completed"
-                              ? "Sửa Điểm"
-                              : "Ghi Kết Quả"}
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                    onRefresh={() => refreshParticipants(activeTournament.id)}
+                  />
                 </div>
               )}
             </div>
@@ -946,8 +1040,11 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
               loading={loadingParticipants}
               onCheckIn={onCheckIn}
               onNoShow={onNoShow}
-              onKick={handleKickParticipant}
+              onKick={async (id, reason) => {
+                await handleKickParticipant(id, reason);
+              }}
               actionLoadingId={actionLoadingId}
+              isTournamentCompleted={activeTournament.status === "Completed"}
               onRefresh={() => {
                 if (activeTournament) {
                   void refreshParticipants(activeTournament.id);
@@ -957,8 +1054,8 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
           )}
         </div>
       ) : (
-        <div className="text-center py-20 bg-white border border-dashed rounded-3xl p-6">
-          <p className="text-xs text-neutral-400 font-medium">
+        <div className="rounded-2xl border border-dashed border-border bg-card p-8 py-20 text-center">
+          <p className="text-xs font-medium text-muted-foreground">
             Chưa có giải đấu nào được chọn hoặc tạo mới.
           </p>
         </div>
@@ -1005,6 +1102,46 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
           participants={participants}
         />
       )}
+
+      {activeTournament && (
+        <CancelReasonDialog
+          open={showCancelTournament}
+          onOpenChange={setShowCancelTournament}
+          scope="tournament"
+          subjectName={activeTournament.title}
+          submitting={actionLoadingId === activeTournament.id}
+          onConfirm={async (reason) => {
+            setActionLoadingId(activeTournament.id);
+            try {
+              await handleCancelTournament(
+                activeTournament.id,
+                reason || "Không có lý do",
+              );
+            } finally {
+              setActionLoadingId(null);
+            }
+          }}
+        />
+      )}
+
+      <CancelReasonDialog
+        open={!!showCancelMatchFor}
+        onOpenChange={(open) => {
+          if (!open) setShowCancelMatchFor(null);
+        }}
+        scope="match"
+        subjectName={showCancelMatchFor?.name}
+        submitting={!!showCancelMatchFor && actionLoadingId === showCancelMatchFor.id}
+        onConfirm={async (reason) => {
+          if (!showCancelMatchFor) return;
+          setActionLoadingId(showCancelMatchFor.id);
+          try {
+            await onCancelMatch(showCancelMatchFor.id, reason || "Không có lý do");
+          } finally {
+            setActionLoadingId(null);
+          }
+        }}
+      />
     </div>
   );
 }
