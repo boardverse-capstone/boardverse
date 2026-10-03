@@ -14,6 +14,14 @@ import { AddGameDialog } from "@/features/cafe-inventory/components/add-game-dia
 
 export interface InventoryGamesSectionProps {
   cafeId: string;
+  /**
+   * Trạng thái vận hành của cơ sở (DATA_BLANK | ACTIVE | INACTIVE | ...).
+   * Optional — chỉ cần thiết khi dialog cần hiển thị hint riêng cho cafe
+   * chưa kích hoạt (vd: "Bạn có thể thêm game ngay cả khi quán đang ở
+   * trạng thái Bản nháp. Game sẽ hiển thị cho khách ngay khi quán được
+   * ACTIVE."). Khi không truyền thì dialog chạy như cũ.
+   */
+  cafeStatus?: string | null;
 }
 
 interface InventoryItem {
@@ -30,7 +38,10 @@ interface InventoryItem {
  * (đã có trong cafe-inventory) với onSuccess để refetch danh sách từ
  * GET /api/cafes/{cafeId}/inventory.
  */
-export function InventoryGamesSection({ cafeId }: InventoryGamesSectionProps) {
+export function InventoryGamesSection({
+  cafeId,
+  cafeStatus,
+}: InventoryGamesSectionProps) {
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
 
@@ -125,6 +136,7 @@ export function InventoryGamesSection({ cafeId }: InventoryGamesSectionProps) {
         isOpen={addOpen}
         onClose={() => setAddOpen(false)}
         cafeId={cafeId}
+        cafeStatus={cafeStatus ?? null}
         onSuccess={refetch}
       />
     </section>

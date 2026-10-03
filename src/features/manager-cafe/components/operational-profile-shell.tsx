@@ -200,7 +200,9 @@ export function OperationalProfileShell() {
         <SePayConfigSection cafeId={c.id} />
       </div>
 
-      <DepositRefundPolicySection cafeId={c.id} />
+      {/* DEPOSIT REFUND POLICY HIDDEN 2026-10 per request — restore by
+          uncommenting. The component + API still exist if needed. */}
+      {/* <DepositRefundPolicySection cafeId={c.id} /> */}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <TablesSection
@@ -209,7 +211,7 @@ export function OperationalProfileShell() {
           onAddClick={() => setTablesManageOpen(true)}
           onManageClick={() => setTablesManageOpen(true)}
         />
-        <InventoryGamesSection cafeId={c.id} />
+        <InventoryGamesSection cafeId={c.id} cafeStatus={status} />
       </div>
 
       <StaffSection cafeId={c.id} />
