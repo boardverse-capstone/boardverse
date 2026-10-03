@@ -636,11 +636,11 @@ export function usePosDashboard(opts?: {
       await PosCheckInService.addSessionMembers(cafeId, sessionId, {
         userIds,
       });
-      toast.success("Đã thêm member đến muộn vào phiên.");
+      toast.success("Đã thêm người chơi đến muộn vào phiên.");
       await fetchAllData(cafeId);
       return true;
     } catch (err: any) {
-      toast.error(err?.message || "Không thể thêm member vào phiên.");
+      toast.error(err?.message || "Không thể thêm người chơi vào phiên.");
       return false;
     }
   };
@@ -701,11 +701,11 @@ export function usePosDashboard(opts?: {
         memberUserId,
         targetSessionId,
       });
-      toast.success("Đã chuyển member sang phiên khác.");
+      toast.success("Đã chuyển người chơi sang phiên khác.");
       await fetchAllData(cafeId);
       return true;
     } catch (err: any) {
-      toast.error(err?.message || "Không thể chuyển member sang phiên khác.");
+      toast.error(err?.message || "Không thể chuyển người chơi sang phiên khác.");
       return false;
     }
   };

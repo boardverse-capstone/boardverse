@@ -610,7 +610,7 @@ export function SessionAdvancedOps({
           )}
           {!opsOpen ? (
             <p className="mt-0.5 text-[11px] text-white/85">
-              Bấm để mở gán hộp, thêm member, hao hụt, thanh toán một phần…
+              Bấm để mở gán hộp, thêm người chơi, hao hụt, thanh toán một phần…
             </p>
           ) : null}
         </div>
@@ -695,7 +695,7 @@ export function SessionAdvancedOps({
 
         <Section
           icon={<UserPlus className="size-4" />}
-          title="Thêm member đến muộn"
+          title="Thêm người chơi đến muộn"
           tone="pink"
         >
           {/* Banner sức chứa bàn — chặn vượt quá maxPlayers. */}
@@ -709,7 +709,7 @@ export function SessionAdvancedOps({
               )}
             >
               {remainingMemberSlots === 0
-                ? `Bàn đã đủ ${memberCapacity} người — không thể thêm member đến muộn.`
+                ? `Bàn đã đủ ${memberCapacity} người — không thể thêm người chơi đến muộn.`
                 : `Đang có ${currentMemberCount}/${memberCapacity} người — còn trống ${remainingMemberSlots} chỗ.`}
             </div>
           ) : null}
@@ -878,7 +878,7 @@ export function SessionAdvancedOps({
           >
             {pendingAction === "members"
               ? "Đang thêm..."
-              : `Thêm ${selectedUsers.length || ""} member`}
+              : `Thêm ${selectedUsers.length || ""} người chơi`}
           </Button>
         </Section>
 
@@ -1197,7 +1197,7 @@ export function SessionAdvancedOps({
             >
               {pendingAction === "merge"
                 ? "Đang chuyển..."
-                : "Chuyển member sang phiên đích"}
+                : "Chuyển người chơi sang phiên đích"}
             </Button>
           </Section>
         </div>
