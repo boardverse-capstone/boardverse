@@ -103,7 +103,6 @@ function CollapsedSnapshot({
   const isByHour = formData.billingModel === "ByHour";
   const base = formData.basePrice;
   const block = formData.tieredBlockRate;
-  const minutes = formData.tieredBlockMinutes;
   const deposit = formData.depositPercentage;
   const hold = formData.defaultHoldDurationMinutes;
 
@@ -117,10 +116,22 @@ function CollapsedSnapshot({
   const priceParts: string[] = [];
   if (isByHour) {
     priceParts.push(`giờ đầu ${fmtVnd(base)}`);
-    if (minutes !== undefined && block !== undefined) {
-      priceParts.push(`khung ${minutes} phút · ${fmtVnd(block)}`);
-    } else if (minutes !== undefined) {
-      priceParts.push(`mỗi ${minutes} phút`);
+    const hours = formData.tieredBlockHours;
+    if (hours !== undefined && block !== undefined) {
+      // Hiển thị giờ đẹp: 0.25 = 15 phút, 0.5 = 30 phút, 1 = 1 giờ.
+      // Dùng Number.isInteger để giữ nguyên (vd 1, 2), thập phân 0.25.
+      const hoursLabel = Number.isInteger(hours)
+        ? `${hours}`
+        : hours.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+      const minuteLabel = Math.round(hours * 60);
+      priceParts.push(
+        `khung ${hoursLabel} giờ (${minuteLabel} phút) · ${fmtVnd(block)}`,
+      );
+    } else if (hours !== undefined) {
+      const hoursLabel = Number.isInteger(hours)
+        ? `${hours}`
+        : hours.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+      priceParts.push(`mỗi ${hoursLabel} giờ`);
     }
   } else if (deposit !== undefined) {
     priceParts.push(`đặt cọc ${deposit}%`);
@@ -1032,9 +1043,9 @@ export default function PartnerOperationalProfileForm({
               <p className={SUB_LABEL_CLASS}>Giá theo giờ chơi</p>
               <p className="text-helper">
                 Khách trả giờ đầu theo <strong>Giá giờ đầu tiên</strong>. Từ
-                phút thứ 61 trở đi, mỗi <strong>khung giờ</strong> phát
+                giờ thứ 2 trở đi, mỗi <strong>khung giờ</strong> phát
                 sinh thêm <strong>Phí khung giờ</strong>. Ví dụ: giờ đầu
-                60.000đ, sau đó cứ mỗi 15 phút cộng 20.000đ.
+                60.000đ, sau đó cứ mỗi 0.25 giờ (15 phút) cộng 20.000đ.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Field>
@@ -1082,33 +1093,33 @@ export default function PartnerOperationalProfileForm({
 
                 <Field>
                   <FieldLabel
-                    htmlFor="tieredBlockMinutes"
+                    htmlFor="tieredBlockHours"
                     className={SUB_LABEL_CLASS}
                   >
                     Độ dài mỗi khung giờ
                   </FieldLabel>
                   <div className="relative">
                     <Input
-                      id="tieredBlockMinutes"
+                      id="tieredBlockHours"
                       type="number"
-                      name="tieredBlockMinutes"
-                      min={1}
-                      max={480}
-                      step={1}
-                      inputMode="numeric"
-                      value={formData.tieredBlockMinutes ?? ""}
+                      name="tieredBlockHours"
+                      min={1 / 60}
+                      max={24}
+                      step={0.25}
+                      inputMode="decimal"
+                      value={formData.tieredBlockHours ?? ""}
                       onChange={handleChange}
-                      placeholder="15"
+                      placeholder="0.25"
                       aria-invalid={!!errors.tieredBlockMinutes}
                       aria-describedby={
                         errors.tieredBlockMinutes
                           ? "ops-err-block-min"
                           : undefined
                       }
-                      className={cn(INPUT_SHELL, "pr-14")}
+                      className={cn(INPUT_SHELL, "pr-12")}
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-unit-suffix">
-                      phút
+                      giờ
                     </span>
                   </div>
                   {errors.tieredBlockMinutes ? (
@@ -1121,7 +1132,8 @@ export default function PartnerOperationalProfileForm({
                   ) : (
                     <FieldDescription className="text-helper">
                       Sau giờ đầu, thời gian được làm tròn theo bội số
-                      khung giờ này.
+                      khung giờ này. Có thể nhập số thập phân (vd 0.25 = 15
+                      phút).
                     </FieldDescription>
                   )}
                 </Field>

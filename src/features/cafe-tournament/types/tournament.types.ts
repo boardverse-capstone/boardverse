@@ -120,6 +120,8 @@ export interface TournamentDetail {
   registeredCount: number;
   checkedInCount: number;
   entryFee?: number;
+  prize?: string | null;
+  imageUrl?: string | null;
   pairingMode?: "Auto" | "Manual";
   manualPairings?: {
     round1Set: boolean;
@@ -153,12 +155,22 @@ export interface CreateTournamentDto {
   hasThirdPlaceMatch?: boolean;
   winnerKarmaBonus?: number;
   finalistKarmaBonus?: number;
+  /** Phí tham gia (VND). Optional — không thu phí khi bỏ trống. */
+  entryFee?: number;
+  /** Mô tả giải thưởng (chuỗi tự do, vd: "1.000.000đ + Cúp"). */
+  prize?: string;
+  /** URL ảnh bìa giải đấu (tùy chọn). */
+  imageUrl?: string;
 }
 
 export interface MatchPlayerResultItem {
   userId: string;
   score: number;
   cardsBought?: number;
+  /** Số thẻ Quý tộc (Nobles) sở hữu — tiebreaker khi cùng điểm & cùng thẻ. */
+  nobleCards?: number;
+  /** Số viên đá quý còn lại trong kho — tiebreaker cuối cùng. */
+  gemsRemaining?: number;
 }
 
 export interface RecordMatchResultDto {

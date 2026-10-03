@@ -183,6 +183,48 @@ export function useTournamentPos(cafeId: string | null) {
     }
   };
 
+  /**
+   * Check-in hàng loạt — duyệt song song danh sách VĐV đã chọn.
+   * BE chỉ có endpoint đơn lẻ, nên ta loop với Promise.allSettled để:
+   *  - Một VĐV lỗi không chặn các VĐV khác
+   *  - Tổng thời gian ≈ 1 round-trip thay vì N lần nối tiếp
+   * Trả về { ok, failed[] } để UI hiển thị kết quả chi tiết.
+   */
+  const handleBulkCheckIn = async (
+    tournamentId: string,
+    participantIds: string[],
+  ): Promise<{ ok: number; failed: string[] }> => {
+    if (participantIds.length === 0) return { ok: 0, failed: [] };
+
+    const results = await Promise.allSettled(
+      participantIds.map((id) =>
+        apiClient.post(
+          `/api/v1/pos/tournaments/${tournamentId}/participants/${id}/check-in`,
+          {},
+        ),
+      ),
+    );
+
+    const failed: string[] = [];
+    results.forEach((r, idx) => {
+      if (r.status === "rejected") {
+        failed.push(participantIds[idx]!);
+      }
+    });
+
+    const ok = participantIds.length - failed.length;
+    if (ok > 0) {
+      toast.success(
+        `Đã check-in ${ok}/${participantIds.length} VĐV${failed.length > 0 ? ` (${failed.length} lỗi)` : ""}.`,
+      );
+    }
+    if (failed.length > 0 && ok === 0) {
+      toast.error(`Check-in thất bại cho cả ${failed.length} VĐV.`);
+    }
+    await fetchTournaments();
+    return { ok, failed };
+  };
+
   const handleNoShowParticipant = async (tournamentId: string, participantId: string) => {
     try {
       await apiClient.post(
@@ -270,6 +312,7 @@ const handleUpdateMatchResult = async (dto: UpdateMatchResultDto): Promise<boole
     handleCompleteTournament,
     handleCancelTournament,
     handleCheckInParticipant,
+    handleBulkCheckIn,
     handleNoShowParticipant,
     handleStartMatch,
     handleRecordMatchResult,

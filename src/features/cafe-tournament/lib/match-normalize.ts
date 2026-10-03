@@ -94,9 +94,18 @@ export function buildParticipantLookup(
 
 function resolveUserName(
   rawName: string | undefined | null,
+  participant: TournamentParticipant | undefined,
   userId: string,
 ): string {
   if (rawName && rawName.trim().length > 0) return rawName;
+  // Fallback theo thứ tự ưu tiên: walk-in tên → username → 4 ký tự đầu UUID.
+  // Không bao giờ để staff nhìn thấy UUID đầy đủ trên modal.
+  if (participant?.walkInDisplayName && participant.walkInDisplayName.trim()) {
+    return participant.walkInDisplayName;
+  }
+  if (participant?.username && participant.username.trim()) {
+    return participant.username;
+  }
   return `VĐV #${userId.slice(0, 4)}`;
 }
 
@@ -112,7 +121,7 @@ function buildPlayer(
   const participant = lookup.get(userId);
   return {
     userId,
-    userName: resolveUserName(fallbackName, userId),
+    userName: resolveUserName(fallbackName, participant, userId),
     avatarUrl: participant?.avatarUrl ?? null,
     currentElo:
       participant?.currentElo ??

@@ -10,7 +10,11 @@ const ALLOWED_MIME_TYPES = new Set([
   "image/webp",
   "application/pdf",
 ]);
-const FOLDER = "boardverse/partner-applications";
+const ALLOWED_FOLDERS = new Set([
+  "boardverse/partner-applications",
+  "boardverse/tournament-covers",
+]);
+const DEFAULT_FOLDER = "boardverse/partner-applications";
 
 function fail(message: string, status: number) {
   return NextResponse.json({ statusCode: status, message }, { status });
@@ -40,6 +44,13 @@ export async function POST(request: Request) {
     return fail("Thiếu file đính kèm (field 'file').", 400);
   }
 
+  // Caller chỉ định folder (mặc định = partner-applications). Whitelist để
+  // tránh ghi lung tung vào Cloudinary.
+  const requestedFolder = String(formData.get("folder") ?? "").trim();
+  const folder = requestedFolder && ALLOWED_FOLDERS.has(requestedFolder)
+    ? requestedFolder
+    : DEFAULT_FOLDER;
+
   if (file.size === 0) {
     return fail("File rỗng, vui lòng chọn lại ảnh giấy phép.", 400);
   }
@@ -62,7 +73,7 @@ export async function POST(request: Request) {
     const base64 = `data:${file.type};base64,${buffer.toString("base64")}`;
 
     const result = await cloudinary.uploader.upload(base64, {
-      folder: FOLDER,
+      folder,
       resource_type: "auto",
       overwrite: false,
       invalidate: true,
