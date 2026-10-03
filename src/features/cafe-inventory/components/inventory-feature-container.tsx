@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useInventory } from "@/features/cafe-inventory/hooks/useInventory";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ROUTES } from "@/core/constants/routes";
 import {
   Search,
   ArrowUp,
@@ -14,6 +16,7 @@ import {
   RefreshCw,
   X,
   Trash2,
+  Store,
 } from "lucide-react";
 import { InventoryCard } from "@/features/cafe-inventory/components/inventory-card";
 import { AddGameDialog } from "@/features/cafe-inventory/components/add-game-dialog";
@@ -117,6 +120,12 @@ export function InventoryFeatureContainer() {
       ? pageNumber * pageSize < totalCount
       : inventoryList.length >= pageSize;
 
+  // `my-cafes` resolved empty — manager chưa sở hữu cơ sở nào (hoặc cafe
+  // chưa activate và upstream filter). Nút "Thêm game" bị disable nhưng
+  // user không có lý do rõ ràng → hiển thị inline hint + link đăng ký
+  // cafe thay vì để nút chết khô mà không biết tại sao.
+  const noCafeResolved = !cafeId && !loading && !error;
+
   return (
     <div className="space-y-6">
       {/* HEADER BAR */}
@@ -130,15 +139,51 @@ export function InventoryFeatureContainer() {
             cơ sở.
           </p>
         </div>
-        <Button
-          onClick={() => setIsAddOpen(true)}
-          disabled={!cafeId}
-          aria-label="Thêm board game mới vào kho"
-          className={`${PRIMARY_BUTTON_CLASS} px-4`}
-        >
-          + Thêm Game Mới
-        </Button>
+        <div className="flex items-center gap-3 shrink-0">
+          <Button
+            onClick={() => setIsAddOpen(true)}
+            disabled={!cafeId}
+            aria-label="Thêm board game mới vào kho"
+            className={`${PRIMARY_BUTTON_CLASS} px-4`}
+          >
+            + Thêm Game Mới
+          </Button>
+        </div>
       </div>
+
+      {/* Inline hint khi manager chưa có cơ sở — giải thích tại sao nút
+          "Thêm game" bị disable và chỉ đường đến form đăng ký cafe. */}
+      {noCafeResolved && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex flex-wrap items-start gap-3 text-xs text-neutral-700 px-3 py-2.5 rounded-lg border border-amber-200 bg-amber-50"
+        >
+          <Store
+            className="h-4 w-4 mt-0.5 shrink-0 text-amber-700"
+            aria-hidden
+          />
+          <div className="leading-snug flex-1 min-w-0">
+            <p className="font-medium text-amber-900">
+              Bạn chưa có cơ sở nào để quản lý kho.
+            </p>
+            <p className="text-amber-800/90 mt-0.5">
+              Đăng ký một cơ sở trước rồi quay lại đây để nhập các board
+              game. Bạn có thể thêm game ngay cả khi chưa kích hoạt.
+            </p>
+          </div>
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs font-medium border-amber-300 bg-white hover:bg-amber-100 text-amber-900 shrink-0"
+          >
+            <Link href={ROUTES.PARTNER.REGISTER}>
+              Đăng ký cơ sở
+            </Link>
+          </Button>
+        </div>
+      )}
 
       {/* FILTER BAR — single column on mobile, two columns from `sm`,
           four columns from `xl`. The previous `lg:grid-cols-4` made
@@ -502,6 +547,28 @@ export function InventoryFeatureContainer() {
               + Thêm game đầu tiên
             </Button>
           )}
+          {/* Khi không có cafe: hint inline + link đăng ký thay vì nút
+              "Thêm game đầu tiên" chết khô. */}
+          {viewMode === "active" &&
+            !searchTerm &&
+            status === "All" &&
+            noCafeResolved && (
+              <div className="mt-3 inline-flex flex-col items-center gap-2">
+                <p className="text-xs text-neutral-600">
+                  Bạn cần đăng ký một cơ sở trước khi nhập kho.
+                </p>
+                <Button
+                  asChild
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs font-medium"
+                >
+                  <Link href={ROUTES.PARTNER.REGISTER}>
+                    Đăng ký cơ sở ngay
+                  </Link>
+                </Button>
+              </div>
+            )}
         </div>
       ) : (
         <>
