@@ -31,6 +31,12 @@ export interface LobbyMergeReviewDialogProps {
    * Mặc định BẬT cho khớp với rule `lobby-merge.md` (mục Demo mode).
    */
   bypassDemoLocks?: boolean;
+  /**
+   * [FIX #auto-refresh-ppl] Sau khi ghép lobby thành công, refresh POS data
+   * (sessions + members) để số lượng ppl của bàn cập nhật ngay — không cần reload.
+   * Chỉ fire khi mode = approve VÀ mutation succeed.
+   */
+  onApproved?: () => void;
 }
 
 export function LobbyMergeReviewDialog({
@@ -40,6 +46,7 @@ export function LobbyMergeReviewDialog({
   isOpen,
   onClose,
   bypassDemoLocks = true,
+  onApproved,
 }: LobbyMergeReviewDialogProps) {
   const [note, setNote] = useState("");
 
@@ -67,7 +74,14 @@ export function LobbyMergeReviewDialog({
           payload: trimmed ? { reviewNote: trimmed } : undefined,
           opts: { bypassDemoLocks },
         },
-        { onSuccess: () => onClose() },
+        {
+          onSuccess: () => {
+            // [FIX #auto-refresh-ppl] Ghép thành công → refresh POS data
+            // (số lượng ppl bàn cập nhật ngay, không cần reload).
+            onApproved?.();
+            onClose();
+          },
+        },
       );
     } else {
       reject.mutate(

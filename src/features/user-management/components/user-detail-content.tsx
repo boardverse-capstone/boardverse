@@ -112,11 +112,11 @@ function SectionCard({
 
   return (
 
-    <div className="space-y-4 rounded-xl border border-indigo-100 bg-indigo-50/30 p-5">
+    <div className="space-y-4 rounded-xl border border-neutral-200 bg-neutral-50 p-5">
 
       <div>
 
-        <h3 className="text-sm font-semibold text-indigo-900">{title}</h3>
+        <h3 className="text-sm font-semibold text-neutral-900">{title}</h3>
 
       </div>
 

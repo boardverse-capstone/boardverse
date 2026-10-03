@@ -11,13 +11,25 @@ import type { LobbyMergeRequestDto } from '../types/lobby-merge.interface';
  */
 export function usePendingMergeRequests(
   cafeId: string | undefined,
-  options?: { refetchInterval?: number; enabled?: boolean },
+  options?: {
+    refetchInterval?: number;
+    enabled?: boolean;
+    /**
+     * Nếu true, KHÔNG refetch khi tab ở background — tiết kiệm tài nguyên.
+     * Mặc định `true` cho polling.
+     */
+    pauseWhenHidden?: boolean;
+  },
 ) {
   return useQuery<LobbyMergeRequestDto[]>({
     queryKey: [LOBBY_MERGE_QUERY_KEYS.pending, cafeId],
     queryFn: () => LobbyMergeService.getPendingMergeRequests(cafeId!),
     enabled: (options?.enabled ?? true) && Boolean(cafeId),
     refetchInterval: options?.refetchInterval,
+    refetchIntervalInBackground: options?.pauseWhenHidden ? false : undefined,
+    // [FIX #race-condition] Refresh on window focus để staff thấy status
+    // mới nhất khi quay lại tab — giảm double-action race condition.
+    refetchOnWindowFocus: true,
     staleTime: 15_000,
   });
 }

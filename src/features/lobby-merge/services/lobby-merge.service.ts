@@ -72,6 +72,11 @@ export const LobbyMergeService = {
   /**
    * POST /api/cafes/{cafeId}/lobby-merge/merge-requests
    * Tạo yêu cầu ghép nhóm.
+   *
+   * [FIX #2026-10-02-selectedMemberIds-required] Body PHẢI chứa
+   * `selectedMemberIds` non-empty. Mỗi Guid là `LobbyMember.Id` (online) /
+   * `ActiveSessionMember.Id` (walk-in) — KHÔNG dùng `UserId`.
+   * BE validate: null/[] → throw 400 `SelectedMemberIdsRequired`.
    */
   createMergeRequest: async (
     cafeId: string,
@@ -85,9 +90,19 @@ export const LobbyMergeService = {
       throw new Error('Lobby nguồn và lobby đích phải khác nhau.');
     }
 
+    // [FIX #2026-10-02-selectedMemberIds-required] BE bắt buộc non-empty.
+    // đặt validate ở FE để fail-fast (không phải đợi BE trả 400).
+    const selectedIds = Array.isArray(payload.selectedMemberIds)
+      ? payload.selectedMemberIds.map((x) => String(x ?? '').trim()).filter(Boolean)
+      : [];
+    if (selectedIds.length === 0) {
+      throw new Error('Cần chọn ít nhất 1 thành viên để chuyển nhóm.');
+    }
+
     const body: Record<string, unknown> = {
       sourceLobbyId,
       targetLobbyId,
+      selectedMemberIds: selectedIds,
     };
     if (payload.reason?.trim()) body.reason = payload.reason.trim();
     if (payload.idempotencyKey?.trim()) {
@@ -247,41 +262,47 @@ export const LobbyMergeService = {
    *
    * Dùng `Promise.allSettled` để 1 member fail không chặn các member còn lại.
    * `idempotencyKey` được tạo tự động cho mỗi member.
+   *
+   * [FIX #2026-10-02-selectedMemberIds-required] Đổi tên `memberUserIds` →
+   * `memberIds` cho rõ nghĩa: BE cần `Id` của LobbyMember (online) /
+   * ActiveSessionMember (walk-in), không phải UserId. Mỗi item vẫn phải là
+   * row Id, không phải userId.
+   */
+  /**
+   * [FIX #2026-10-02-bulk-consolidate-single] Trước đây hàm này gửi
+   * N POST song song (1 request / 1 member) → sai nghiệp vụ BE: mỗi
+   * cặp (sourceLobby, targetLobby) chỉ cho phép 1 Pending request tại
+   * 1 thời điểm, nên request thứ 2+ luôn trả 409 `MergeRequestAlreadyExists`
+   * (xem timeline BE 2026-10-02: 201 + 201 + 409).
+   *
+   * BE yêu cầu: gộp toàn bộ member IDs vào 1 request duy nhất
+   * (body chứa `selectedMemberIds: string[]`). 1 request = 1 record,
+   * BE tự xử lý chuyển nhiều member trong transaction đó.
+   *
+   * Trả về `LobbyMergeRequestDto` giống `createMergeRequest` để caller
+   * dùng cùng pattern với path single (1 member).
    */
   createBulkMergeRequests: async (
     cafeId: string,
     params: {
       sourceLobbyId: string;
       targetLobbyId: string;
-      memberUserIds: string[];
+      memberIds: string[];
       reason?: string;
     },
-  ): Promise<
-    Array<
-      | { ok: true; memberUserId: string; request: LobbyMergeRequestDto }
-      | { ok: false; memberUserId: string; error: string }
-    >
-  > => {
-    const results = await Promise.allSettled(
-      params.memberUserIds.map(async (memberUserId) => {
-        const idempotencyKey = `MERGE-${memberUserId}-${Date.now()}`;
-        return LobbyMergeService.createMergeRequest(cafeId, {
-          sourceLobbyId: params.sourceLobbyId,
-          targetLobbyId: params.targetLobbyId,
-          reason: params.reason,
-          idempotencyKey,
-        });
-      }),
-    );
+  ): Promise<LobbyMergeRequestDto> => {
+    // Idempotency key theo CẶP lobby + timestamp — đảm bảo 1 request
+    // cho cùng cặp (source, target) trong khoảng thời gian ngắn sẽ
+    // trùng key → BE cache response. Trước đây key chứa `memberId`
+    // nên mỗi member khác key → BE không dedup.
+    const idempotencyKey = `MERGE-${params.sourceLobbyId}-${params.targetLobbyId}-${Date.now()}`;
 
-    return params.memberUserIds.map((memberUserId, idx) => {
-      const r = results[idx];
-      if (r.status === 'fulfilled') {
-        return { ok: true, memberUserId, request: r.value };
-      }
-      const msg =
-        r.reason instanceof Error ? r.reason.message : String(r.reason ?? 'Lỗi');
-      return { ok: false, memberUserId, error: msg };
+    return LobbyMergeService.createMergeRequest(cafeId, {
+      sourceLobbyId: params.sourceLobbyId,
+      targetLobbyId: params.targetLobbyId,
+      selectedMemberIds: params.memberIds,
+      reason: params.reason,
+      idempotencyKey,
     });
   },
 };

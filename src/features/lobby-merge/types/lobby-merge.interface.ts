@@ -67,10 +67,20 @@ export interface LobbyMergeRequestDto {
   reviewedAt?: string | null;
 }
 
-/** Body POST /merge-requests */
+/** Body POST /merge-requests
+ *
+ * [FIX #2026-10-02-selectedMemberIds-required] BE yêu cầu `selectedMemberIds`
+ * là **required non-empty** từ 2026-10-02. Mỗi Guid trong lần là `LobbyMember.Id`
+ * (online source, `ReservationId != null`) hoặc `ActiveSessionMember.Id`
+ * (walk-in source, `ReservationId == null`) — KHÔNG dùng `UserId` để tránh
+ * nhầm lẫn giữa các session khác nhau của cùng một user.
+ * Xem `APIs/lobby-merge.md` §"ID semantics của selectedMemberIds".
+ */
 export interface CreateMergeRequestPayload {
   sourceLobbyId: string;
   targetLobbyId: string;
+  /** Required non-empty — Id của LobbyMember (online) / ActiveSessionMember (walk-in). */
+  selectedMemberIds: string[];
   reason?: string;
   idempotencyKey?: string;
 }

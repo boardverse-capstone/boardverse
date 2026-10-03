@@ -49,9 +49,22 @@ export interface LobbyMergePanelProps {
    */
   fetchSessionLobbyId?: (sessionId: string) => Promise<string | null>;
   /**
-   * Map `memberId → lobbyId` — để dialog lọc đúng member khi staff đổi source.
+   * [FIX #lobby-merge-game-filter] Fetch meta của session (gameTemplateId,
+   * gameName, hasInUseBox) — dialog dùng để ưu tiên lobby cùng game trong
+   * dropdown target + cảnh báo cross-game / box InUse. Optional — nếu không
+   * truyền, dialog chỉ lọc theo "ghế đầy" và cross-game hint sẽ thiếu.
    */
-  memberLobbyIds?: Record<string, string>;
+  fetchSessionMeta?: (sessionId: string) => Promise<import('./lobby-merge-create-dialog').LobbySessionMeta>;
+  /**
+   * Map `memberId → danh sách lobbyId chứa member đó`. Một user có thể đồng thời
+   * ở nhiều lobby (host ở Bàn 02 đồng thời player ở Bàn 03).
+   */
+  memberLobbyIds?: Record<string, string[]>;
+  /**
+   * [FIX #auto-refresh-ppl] Sau khi duyệt ghép thành công, refresh POS data
+   * (sessions + tables) để số lượng ppl bàn cập nhật ngay — không cần reload.
+   */
+  onApproved?: () => void;
 }
 
 const STATUS_TONE: Record<LobbyMergeRequestStatus, string> = {
@@ -75,7 +88,9 @@ export function LobbyMergePanel({
   membersByLobby = {},
   focusLobbyId,
   fetchSessionLobbyId,
+  fetchSessionMeta,
   memberLobbyIds,
+  onApproved,
 }: LobbyMergePanelProps) {
   // Realtime — auto invalidate pending & history khi BE push event.
   useLobbyMergeRealtime(cafeId ?? undefined, { showToast: true });
@@ -85,7 +100,13 @@ export function LobbyMergePanel({
     mode: "approve" | "reject";
   } | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [historyLobbyId, setHistoryLobbyId] = useState<string>(focusLobbyId ?? "");
+  // [FIX #select-empty-value] Dùng sentinel "__all__" thay vì "" vì Radix Select
+  // cấm value rỗng (dùng "" để clear). Khi gửi BE, map "__all__" → undefined
+  // để query lấy toàn bộ (không filter lobby).
+  const ALL_LOBBY_SENTINEL = "__all__";
+  const [historyLobbyId, setHistoryLobbyId] = useState<string>(
+    focusLobbyId ?? ALL_LOBBY_SENTINEL,
+  );
   const [resolvingLobbyIds, setResolvingLobbyIds] = useState(false);
 
   const {
@@ -94,7 +115,11 @@ export function LobbyMergePanel({
     isError: pendingError,
     refetch: refetchPending,
   } = usePendingMergeRequests(cafeId ?? undefined, {
-    refetchInterval: 30_000,
+    // [FIX #race-condition] Poll 15s + pause khi tab ẩn + refetch on focus.
+    // Trước đây 30s + luôn chạy → 2 staff dễ bị race (cùng Pending → 1 bấm
+    // Approve, 1 bấm Reject → 1 bị 409).
+    refetchInterval: 15_000,
+    pauseWhenHidden: true,
   });
 
   const {
@@ -103,7 +128,11 @@ export function LobbyMergePanel({
     refetch: refetchHistory,
   } = useLobbyMergeHistory(
     cafeId ?? undefined,
-    historyLobbyId || focusLobbyId || undefined,
+    // [FIX #select-empty-value] "__all__" sentinel → undefined (BE nhận undefined
+    // = không filter, trả toàn bộ lịch sử).
+    historyLobbyId === ALL_LOBBY_SENTINEL
+      ? focusLobbyId || undefined
+      : historyLobbyId || focusLobbyId || undefined,
   );
 
   const cancel = useCancelMergeRequest();
@@ -325,12 +354,17 @@ export function LobbyMergePanel({
                     <SelectValue placeholder="Tất cả lobby" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Tất cả lobby</SelectItem>
-                    {activeLobbies.map((l) => (
-                      <SelectItem key={l.id} value={l.id}>
-                        {l.name}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="__all__">Tất cả lobby</SelectItem>
+                    {/* [FIX #select-empty-value] Radix Select cấm value rỗng.
+                        Lọc id rỗng để tránh React crash khi BE trả lobby
+                        chưa gắn id (walk-in session). */}
+                    {activeLobbies
+                      .filter((l) => l.id && l.id.trim().length > 0)
+                      .map((l) => (
+                        <SelectItem key={l.id} value={l.id}>
+                          {l.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
                 <Button
@@ -390,13 +424,19 @@ export function LobbyMergePanel({
         isOpen={createOpen}
         onClose={() => setCreateOpen(false)}
         lobbies={activeLobbies}
-        members={
-          historyLobbyId && membersByLobby[historyLobbyId]
-            ? membersByLobby[historyLobbyId]
-            : Object.values(membersByLobby).flat()
-        }
+        // [FIX #lobby-source-filter] Truyền TẤT CẢ members gộp lại cùng
+        // `memberLobbyIds` đầy đủ. Dialog sẽ tự filter theo `sourceLobbyId`
+        // (do staff chọn trong dropdown dialog), không phụ thuộc vào
+        // `historyLobbyId` của tab "Lịch sử".
+        //
+        // Trước đó: dùng `membersByLobby[historyLobbyId]` (hoặc rỗng khi chưa
+        // chọn) → staff chọn source lobby trong dialog dropdown mà vẫn thấy
+        // "Chọn lobby nguồn trước" / "0 thành viên" vì prop `members` không
+        // khớp `sourceLobbyId` đã chọn trong dialog.
+        members={Object.values(membersByLobby).flat()}
         memberLobbyIds={memberLobbyIds}
         resolveLobbyId={fetchSessionLobbyId}
+        fetchSessionMeta={fetchSessionMeta}
         onSuccess={() => {
           void refetchPending();
         }}
@@ -408,6 +448,8 @@ export function LobbyMergePanel({
           request={reviewState.request}
           mode={reviewState.mode}
           isOpen={Boolean(reviewState)}
+          // [FIX #auto-refresh-ppl] Fire khi approve succeed → POS refresh.
+          onApproved={onApproved}
           onClose={() => {
             setReviewState(null);
             void refetchPending();

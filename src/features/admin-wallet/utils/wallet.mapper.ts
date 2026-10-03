@@ -10,6 +10,7 @@ import type {
   RawAdminWalletListResponse,
   RawAdminWalletTransaction,
   RawAdminWalletTransactionsPage,
+  WalletReconcileResult,
 } from '../types/wallet.interface';
 
 function pickString(...values: (string | null | undefined)[]): string {
@@ -101,8 +102,39 @@ export function normalizeAdminWalletListResponse(
   };
 }
 
-export function formatWalletBalance(value: number): string {
+export function formatWalletBalance(value: number | null | undefined): string {
+  // [FIX #reconcile-nan] BE có thể trả null hoặc thiếu field → FE đang hiển thị
+  // "NaN". Guard ngay tại đây để mọi caller (đối soát, chi tiết ví, ...) đều an toàn.
+  if (typeof value !== 'number' || Number.isNaN(value) || !Number.isFinite(value)) {
+    return '—';
+  }
   return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value);
+}
+
+/**
+ * [FIX #reconcile-nan] Map response BE cho endpoint reconcile về shape chuẩn.
+ * Hỗ trợ cả camelCase và PascalCase (theo convention các DTO khác trong cùng module).
+ * Trước đó service truyền thẳng response → nếu BE thiếu field / đổi tên → render "NaN".
+ */
+export function mapApiWalletReconcile(
+  raw: any,
+  fallbackUserId: string,
+): WalletReconcileResult {
+  const walletBalance = pickNumber(raw?.walletBalance, raw?.WalletBalance);
+  const ledgerSum = pickNumber(raw?.ledgerSum, raw?.LedgerSum);
+  const difference = pickNumber(
+    raw?.difference,
+    raw?.Difference,
+    // Một số BE chỉ trả 2 field, FE tự tính chênh lệch
+    walletBalance - ledgerSum,
+  );
+  return {
+    userId: pickString(raw?.userId, raw?.UserId, fallbackUserId),
+    walletBalance,
+    ledgerSum,
+    difference,
+    isReconciled: pickBoolean(raw?.isReconciled ?? raw?.IsReconciled, difference === 0),
+  };
 }
 
 export function formatWalletDate(value?: string | null): string {

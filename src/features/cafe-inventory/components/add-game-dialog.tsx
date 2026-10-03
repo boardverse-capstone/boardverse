@@ -1,9 +1,15 @@
-﻿"use client";
+"use client";
 
-import { useBulkAddInventory } from "../hooks/useBulkAddInventory";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { toast } from "sonner";
+import { apiClient } from "@/core/api/client";
+import {
+  type MasterGameItem,
+  useBulkAddInventory,
+} from "../hooks/useBulkAddInventory";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Trash2, Plus, Minus } from "lucide-react";
+import { Search, Trash2, Plus, Minus, Inbox } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -19,26 +25,215 @@ interface AddGameDialogProps {
   onSuccess: () => void;
 }
 
+/** Hard cap mirrored in the validator — keeps the Sheet from accepting
+ *  more selections than the API will. */
+const MAX_CART_ITEMS = 20;
+/** Largest box quantity a single game template can have at insert time. */
+const MAX_BOX_QUANTITY = 1000;
+
+interface CartItem {
+  gameTemplateId: string;
+  gameName: string;
+  boxQuantity: number;
+  status: "Available" | "Maintenance";
+  componentPenalties: { gameComponentTemplateId: string; penaltyFee: number }[];
+}
+
+interface CardConfig {
+  status: "Available" | "Maintenance";
+  quantity: number;
+}
+
+const NETWORK_FALLBACK_VI =
+  "Không thể tải danh sách board game hệ thống. Vui lòng kiểm tra mạng và thử lại.";
+
 export function AddGameDialog({
   isOpen,
   onClose,
   cafeId,
   onSuccess,
 }: AddGameDialogProps) {
-  const {
-    searchTerm,
-    setSearchTerm,
-    masterGames,
-    cart,
-    clearCart,
-    loading,
-    submitLoading,
-    addToCart,
-    removeFromCart,
-    updateCartItemQuantity,
-    updateCartItemStatus,
-    handleBulkSubmit,
-  } = useBulkAddInventory(isOpen, cafeId, onClose, onSuccess);
+  // Local UI state — the Sheet remounts on close so these reset
+  // naturally without a "reset on isOpen=false" effect.
+  const [searchTerm, setSearchTerm] = useState("");
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cardConfigs, setCardConfigs] = useState<Record<string, CardConfig>>(
+    {},
+  );
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const submitLoadingRef = useRef(false);
+
+  const { masterGames, loading, refreshFor } = useBulkAddInventory(
+    isOpen,
+    cafeId,
+  );
+
+  // Debounced refresh — keeps the search input snappy while still
+  // triggering a fresh fetch once typing settles.
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      refreshFor(searchTerm);
+    }, 350);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [isOpen, searchTerm, refreshFor]);
+
+  // Card config defaults are read on-demand with a getter-style helper
+  // (see `getCardConfig`) so we don't need a "seed new configs as
+  // masterGames grows" effect — that would be the
+  // `react-hooks/set-state-in-effect` lint violation this file
+  // already steers around. The downside is configs reset on close
+  // alongside the cart, which is fine for a dialog-scoped concern.
+  const getCardConfig = (gameId: string): CardConfig =>
+    cardConfigs[gameId] ?? { status: "Available", quantity: 1 };
+
+  const toggleCardStatus = (gameId: string) => {
+    setCardConfigs((prev) => {
+      const current = prev[gameId] ?? { status: "Available", quantity: 1 };
+      return {
+        ...prev,
+        [gameId]: {
+          ...current,
+          status: current.status === "Available" ? "Maintenance" : "Available",
+        },
+      };
+    });
+  };
+
+  const updateCardQuantity = (gameId: string, val: number) => {
+    const clamped = Math.max(1, Math.min(MAX_BOX_QUANTITY, val));
+    setCardConfigs((prev) => ({
+      ...prev,
+      [gameId]: { ...prev[gameId], quantity: clamped },
+    }));
+  };
+
+  const addToCart = (game: MasterGameItem) => {
+    const config = cardConfigs[game.id] || { status: "Available", quantity: 1 };
+    setCart((prev) => {
+      if (prev.some((item) => item.gameTemplateId === game.id)) return prev;
+      if (prev.length >= MAX_CART_ITEMS) {
+        toast.error(`Tối đa ${MAX_CART_ITEMS} tựa mỗi lần nhập kho.`);
+        return prev;
+      }
+      const componentPenalties = (game.components || []).map(
+        (comp: { id: string }) => ({
+          gameComponentTemplateId: comp.id,
+          penaltyFee: 0,
+        }),
+      );
+      return [
+        ...prev,
+        {
+          gameTemplateId: game.id,
+          gameName: game.name,
+          boxQuantity: config.quantity,
+          status: config.status,
+          componentPenalties,
+        },
+      ];
+    });
+  };
+
+  const removeFromCart = (gameTemplateId: string) => {
+    setCart((prev) => prev.filter((item) => item.gameTemplateId !== gameTemplateId));
+  };
+
+  const updateCartItemQuantity = (id: string, qty: number) => {
+    const clamped = Math.max(1, Math.min(MAX_BOX_QUANTITY, qty));
+    setCart((prev) =>
+      prev.map((item) =>
+        item.gameTemplateId === id ? { ...item, boxQuantity: clamped } : item,
+      ),
+    );
+  };
+
+  const updateCartItemStatus = (id: string, status: "Available" | "Maintenance") => {
+    setCart((prev) =>
+      prev.map((item) => (item.gameTemplateId === id ? { ...item, status } : item)),
+    );
+  };
+
+  const clearCart = () => setCart([]);
+
+  const handleBulkSubmit = useCallback(async () => {
+    if (submitLoadingRef.current) return;
+    if (cart.length === 0) return;
+    if (cart.length > MAX_CART_ITEMS) {
+      toast.error(`Mỗi lần nhập tối đa ${MAX_CART_ITEMS} tựa.`);
+      return;
+    }
+    submitLoadingRef.current = true;
+    setSubmitLoading(true);
+
+    // Promise.allSettled so a single 4xx for one game doesn't kill the
+    // rest of the batch — the manager can fix the bad rows and
+    // re-submit only those, instead of starting over.
+    const results = await Promise.allSettled(
+      cart.map((item) =>
+        apiClient.post(`/api/cafes/${cafeId}/inventory`, {
+          gameTemplateId: item.gameTemplateId,
+          boxQuantity: item.boxQuantity,
+          status: item.status,
+          componentPenalties: item.componentPenalties,
+        }),
+      ),
+    );
+
+    const failed = results
+      .map((result, i) => ({ result, item: cart[i] }))
+      .filter((entry) => entry.result.status === "rejected");
+
+    if (failed.length === 0) {
+      toast.success(`Nhập kho thành công ${cart.length} tựa game.`);
+      clearCart();
+      onSuccess();
+      onClose();
+    } else if (failed.length === cart.length) {
+      const first = failed[0];
+      const rejected = first.result as PromiseRejectedResult;
+      const reason =
+        rejected.reason instanceof Error
+          ? rejected.reason.message
+          : typeof rejected.reason === "string"
+            ? rejected.reason
+            : NETWORK_FALLBACK_VI;
+      toast.error(reason);
+    } else {
+      const succeededIds = new Set(
+        results
+          .map((r, i) => ({ r, i }))
+          .filter((entry) => entry.r.status === "fulfilled")
+          .map((entry) => cart[entry.i].gameTemplateId),
+      );
+      setCart((prev) =>
+        prev.filter((it) => !succeededIds.has(it.gameTemplateId)),
+      );
+      const failedNames = failed
+        .map((f) => f.item.gameName)
+        .join(", ");
+      toast.error(
+        `${failed.length}/${cart.length} tựa nhập thất bại: ${failedNames}. Vui lòng thử lại với các mục còn lại.`,
+      );
+      onSuccess();
+    }
+
+    submitLoadingRef.current = false;
+    setSubmitLoading(false);
+  }, [cart, cafeId, onSuccess, onClose]);
+
+  const cartIsFull = cart.length === MAX_CART_ITEMS;
+  // Avoid re-creating the empty-state copy unless the search term flips.
+  const noResultsLabel = useMemo(() => {
+    if (searchTerm.trim()) {
+      return `Không có tựa game nào khớp với “${searchTerm.trim()}”.`;
+    }
+    return "Không còn tựa game nào có thể nhập — tất cả đều đã ở trong kho hoặc thùng rác.";
+  }, [searchTerm]);
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -46,132 +241,234 @@ export function AddGameDialog({
         side="right"
         className="!w-[70vw] !max-w-[70vw] h-screen bg-[#F6F6F7] p-0 flex flex-col gap-0 border-l border-neutral-200 text-neutral-900 font-sans antialiased overflow-hidden"
       >
-        {/* HEADER */}
         <SheetHeader className="bg-white p-5 border-b border-neutral-200 shrink-0">
           <SheetTitle className="text-lg font-bold tracking-tight text-neutral-900">
-            Nháº­p game má»›i
+            Nhập game mới
           </SheetTitle>
           <SheetDescription className="text-xs font-medium text-neutral-500">
-            TÃ¬m kiáº¿m board game há»‡ thá»‘ng, thÃªm vÃ o danh sÃ¡ch vÃ  thiáº¿t láº­p tráº¡ng
-            thÃ¡i, sá»‘ lÆ°á»£ng trá»±c tiáº¿p táº¡i vÃ¹ng Summary.
+            Tìm kiếm board game hệ thống, thêm vào danh sách và thiết lập trạng
+            thái, số lượng trực tiếp tại vùng Summary.
           </SheetDescription>
         </SheetHeader>
 
-        {/* WORKSPACE CONTAINER */}
         <div className="flex-1 flex min-h-0 w-full overflow-hidden">
-          {/* PHÃ‚N VÃ™NG 1: TÃŒM KIáº¾M & LÆ¯á»šI CARD (70% DIá»†N TÃCH) */}
+          {/* PHÂN VÙNG 1: TÌM KIẾM & LƯỚI CARD (70% DIỆN TÍCH) */}
           <div className="w-[70%] p-6 flex flex-col gap-4 min-h-0 border-r border-neutral-200 bg-[#F6F6F7]">
             <div className="relative shrink-0">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+              <label htmlFor="add-game-search" className="sr-only">
+                Tìm kiếm board game
+              </label>
+              <Search
+                className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                aria-hidden
+              />
               <Input
-                type="text"
-                placeholder="Nháº­p tá»« khÃ³a tÃ¬m kiáº¿m tÃªn board game há»‡ thá»‘ng..."
+                id="add-game-search"
+                type="search"
+                role="searchbox"
+                inputMode="search"
+                autoComplete="off"
+                placeholder="Nhập từ khóa tìm kiếm tên board game hệ thống..."
                 value={searchTerm}
+                maxLength={120}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full h-10 border-neutral-200 rounded-lg pl-9 bg-white text-sm focus-visible:ring-1 focus-visible:ring-neutral-400 shadow-xs"
               />
             </div>
 
-            {/* VÃ™NG LÆ¯á»šI CARD CUá»˜N */}
-            <div className="flex-1 overflow-y-auto pr-2 min-h-0 scrollbar-thin">
+            <div
+              className="flex-1 overflow-y-auto pr-2 min-h-0 scrollbar-thin"
+              aria-busy={loading}
+              aria-live="polite"
+            >
               {loading ? (
                 <div className="text-center py-20 text-xs font-semibold text-neutral-400 uppercase tracking-wider">
-                  Äang quÃ©t dá»¯ liá»‡u kho...
+                  Đang quét dữ liệu kho…
                 </div>
               ) : masterGames.length === 0 ? (
-                <div className="text-center py-20 text-xs font-semibold text-neutral-400 uppercase tracking-wider">
-                  KhÃ´ng cÃ³ tá»±a game má»›i nÃ o phÃ¹ há»£p.
+                <div className="text-center py-20 px-6 space-y-1">
+                  <Inbox
+                    className="w-7 h-7 text-neutral-300 mx-auto"
+                    aria-hidden
+                  />
+                  <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider max-w-sm mx-auto leading-relaxed">
+                    {noResultsLabel}
+                  </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 pb-6">
+                <ul className="grid grid-cols-1 xl:grid-cols-2 gap-4 pb-6 list-none p-0">
                   {masterGames.map((game) => {
                     const isAddedInCart = cart.some(
                       (c) => c.gameTemplateId === game.id,
                     );
-
+                    const config = getCardConfig(game.id);
                     return (
-                      <div
+                      <li
                         key={game.id}
-                        className="bg-white border border-neutral-200/80 rounded-xl p-4 flex flex-col justify-between gap-3 min-h-[130px] h-auto transition-all hover:border-neutral-300"
+                        className="bg-white border border-neutral-200/80 rounded-xl p-4 flex flex-col justify-between gap-3 min-h-[130px] h-auto transition-all hover:border-neutral-300 min-w-0"
                       >
                         <div className="space-y-1.5 min-w-0">
-                          <h4 className="font-bold text-sm text-neutral-900 truncate tracking-tight">
+                          <h4 className="font-bold text-sm text-neutral-900 tracking-tight max-w-full break-words [overflow-wrap:anywhere]">
                             {game.name}
                           </h4>
-                          <p className="text-xs text-neutral-400 line-clamp-2 leading-normal">
-                            {game.description ||
-                              "ChÆ°a cÃ³ mÃ´ táº£ tÃ³m táº¯t ná»™i dung."}
+                          <p className="text-xs text-neutral-400 line-clamp-2 leading-normal break-words [overflow-wrap:anywhere]">
+                            {game.description?.trim() ||
+                              "Chưa có mô tả tóm tắt nội dung."}
                           </p>
                         </div>
 
-                        {/* ÄÃƒ Sá»¬A: ÄÆ°a dÃ²ng linh kiá»‡n vÃ  nÃºt Chá»n Game náº±m ngang hÃ ng nhau */}
                         <div className="flex items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 mt-auto shrink-0">
-                          <span className="inline-block text-[10px] font-semibold text-neutral-500 bg-neutral-50 border border-neutral-200 rounded px-2 py-0.5 tracking-tight truncate max-w-[70%]">
-                            ðŸ’¡ Linh kiá»‡n: PhÃ­ pháº¡t máº·c Ä‘á»‹nh lÃ  0Ä‘
-                          </span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <button
+                              type="button"
+                              aria-label={
+                                config.status === "Available"
+                                  ? `Đặt ${game.name} thành Bảo trì`
+                                  : `Đặt ${game.name} thành Sẵn sàng`
+                              }
+                              aria-pressed={config.status !== "Available"}
+                              onClick={() => toggleCardStatus(game.id)}
+                              className={`h-6 px-2 text-[9px] font-bold uppercase rounded-md border transition-colors ${
+                                config.status === "Available"
+                                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                  : "bg-amber-50 border-amber-200 text-amber-800"
+                              }`}
+                            >
+                              {config.status === "Available"
+                                ? "Sẵn sàng"
+                                : "Bảo trì"}
+                            </button>
+
+                            <div
+                              role="group"
+                              aria-label={`Số hộp cho ${game.name}`}
+                              className="flex items-center border border-neutral-200 rounded-md bg-white h-6 px-0.5 shadow-2xs"
+                            >
+                              <Button
+                                type="button"
+                                aria-label="Giảm 1 hộp"
+                                disabled={config.quantity <= 1}
+                                onClick={() =>
+                                  updateCardQuantity(game.id, config.quantity - 1)
+                                }
+                                className="p-1 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
+                              >
+                                <Minus className="w-2.5 h-2.5" aria-hidden />
+                              </Button>
+
+                              <Input
+                                type="number"
+                                aria-label={`Số hộp cho ${game.name}`}
+                                inputMode="numeric"
+                                min={1}
+                                max={MAX_BOX_QUANTITY}
+                                step={1}
+                                value={config.quantity}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  if (raw === "") {
+                                    updateCardQuantity(game.id, 1);
+                                    return;
+                                  }
+                                  const parsed = parseInt(raw, 10);
+                                  if (Number.isNaN(parsed)) return;
+                                  updateCardQuantity(game.id, parsed);
+                                }}
+                                className="w-10 h-full text-center text-xs font-mono font-bold text-neutral-800 focus:outline-none bg-transparent tabular-nums"
+                              />
+
+                              <Button
+                                type="button"
+                                aria-label="Tăng 1 hộp"
+                                disabled={config.quantity >= MAX_BOX_QUANTITY}
+                                onClick={() =>
+                                  updateCardQuantity(game.id, config.quantity + 1)
+                                }
+                                className="p-1 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
+                              >
+                                <Plus className="w-2.5 h-2.5" aria-hidden />
+                              </Button>
+                            </div>
+                          </div>
 
                           <Button
                             type="button"
-                            disabled={isAddedInCart}
+                            disabled={isAddedInCart || cartIsFull}
+                            aria-label={
+                              isAddedInCart
+                                ? `${game.name} đã có trong danh sách nhập`
+                                : cartIsFull
+                                  ? `Đã đạt giới hạn ${MAX_CART_ITEMS} tựa — không thể thêm`
+                                  : `Thêm ${game.name} vào danh sách nhập`
+                            }
                             onClick={() => addToCart(game)}
                             className="h-7 px-3.5 bg-neutral-950 text-white hover:bg-neutral-800 text-[11px] font-semibold rounded-md disabled:bg-neutral-100 disabled:text-neutral-400 shrink-0 shadow-xs transition-colors"
                           >
-                            {isAddedInCart ? "ÄÃ£ Chá»n" : "Chá»n Game"}
+                            {isAddedInCart ? "Đã Chọn" : "Chọn Game"}
                           </Button>
                         </div>
-                      </div>
+                      </li>
                     );
                   })}
-                </div>
+                </ul>
               )}
             </div>
           </div>
 
-          {/* PHÃ‚N VÃ™NG 2: SUMMARY TÃ“M Táº®T GIá»Ž HÃ€NG (30% DIá»†N TÃCH) */}
-          <div className="w-[30%] bg-white p-5 flex flex-col justify-between min-h-0 shadow-[-2px_0px_12px_rgba(0,0,0,0.03)] z-10">
+          {/* PHÂN VÙNG 2: SUMMARY TÓM TẮT GIỎ HÀNG (30% DIỆN TÍCH) */}
+          <aside
+            aria-label="Danh sách chờ nhập"
+            className="w-[30%] bg-white p-5 flex flex-col justify-between min-h-0 shadow-[-2px_0px_12px_rgba(0,0,0,0.03)] z-10"
+          >
             <div className="flex flex-col min-h-0 flex-1">
               <div className="border-b border-neutral-100 pb-3 flex justify-between items-center shrink-0">
                 <span className="text-xs font-bold uppercase tracking-wider text-neutral-900">
-                  Danh sÃ¡ch chá»n ({cart.length})
+                  Danh sách chọn ({cart.length}/{MAX_CART_ITEMS})
                 </span>
                 {cart.length > 0 && (
                   <button
                     type="button"
                     onClick={clearCart}
-                    className="text-[10px] font-bold text-neutral-400 hover:text-orange-500 uppercase transition-colors"
+                    className="text-[10px] font-bold text-neutral-400 hover:text-red-500 uppercase transition-colors"
                   >
-                    XÃ³a háº¿t
+                    Xóa hết
                   </button>
                 )}
               </div>
 
-              {/* Danh sÃ¡ch cuá»™n cÃ¡c game Ä‘Ã£ chá»n á»Ÿ summary */}
-              <div className="flex-1 overflow-y-auto space-y-3 pt-3 pr-1 min-h-0 scrollbar-thin">
+              <ul className="flex-1 overflow-y-auto space-y-3 pt-3 pr-1 min-h-0 scrollbar-thin list-none p-0">
                 {cart.length === 0 ? (
-                  <div className="text-center py-20 text-xs text-neutral-400 font-medium leading-relaxed px-4">
-                    ChÆ°a cÃ³ board game nÃ o Ä‘Æ°á»£c chá»n vÃ o danh sÃ¡ch tÃ³m táº¯t.
-                  </div>
+                  <li className="text-center py-20 text-xs text-neutral-400 font-medium leading-relaxed px-4">
+                    Chưa có board game nào được chọn vào danh sách tóm tắt.
+                  </li>
                 ) : (
                   cart.map((item) => (
-                    <div
+                    <li
                       key={item.gameTemplateId}
-                      className="border border-neutral-200/80 rounded-xl p-3 space-y-3 bg-neutral-50/50 relative transition-colors hover:border-neutral-300"
+                      className="border border-neutral-200/80 rounded-xl p-3 space-y-3 bg-neutral-50/50 relative transition-colors hover:border-neutral-300 min-w-0"
                     >
                       <Button
                         type="button"
+                        aria-label={`Bỏ ${item.gameName} khỏi danh sách`}
                         onClick={() => removeFromCart(item.gameTemplateId)}
-                        className="absolute top-2.5 right-2.5 text-neutral-400 hover:text-orange-600 transition-colors"
+                        className="absolute top-2.5 right-2.5 text-neutral-400 hover:text-red-600 transition-colors"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3.5 h-3.5" aria-hidden />
                       </Button>
 
-                      <div className="font-bold text-xs text-neutral-900 pr-6 truncate">
+                      <div className="font-bold text-xs text-neutral-900 pr-6 break-words [overflow-wrap:anywhere]">
                         {item.gameName}
                       </div>
 
                       <div className="flex items-center justify-between gap-2 border-t border-neutral-100/70 pt-2">
                         <button
                           type="button"
+                          aria-label={
+                            item.status === "Available"
+                              ? `Đặt ${item.gameName} thành Bảo trì`
+                              : `Đặt ${item.gameName} thành Sẵn sàng`
+                          }
+                          aria-pressed={item.status !== "Available"}
                           onClick={() =>
                             updateCartItemStatus(
                               item.gameTemplateId,
@@ -182,84 +479,108 @@ export function AddGameDialog({
                           }
                           className={`h-6 px-2 text-[9px] font-bold uppercase rounded-md border transition-colors ${
                             item.status === "Available"
-                              ? "bg-orange-50 border-orange-200 text-orange-700"
-                              : "bg-orange-50 border-orange-200 text-orange-600"
+                              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                              : "bg-amber-50 border-amber-200 text-amber-800"
                           }`}
                         >
-                          {item.status === "Available"
-                            ? "Available"
-                            : "UnAvail"}
+                          {item.status === "Available" ? "Sẵn sàng" : "Bảo trì"}
                         </button>
 
-                        <div className="flex items-center border border-neutral-200 rounded-md bg-white h-6 px-0.5 shadow-2xs">
+                        <div
+                          role="group"
+                          aria-label={`Số hộp cho ${item.gameName}`}
+                          className="flex items-center border border-neutral-200 rounded-md bg-white h-6 px-0.5 shadow-2xs"
+                        >
                           <Button
                             type="button"
+                            aria-label="Giảm 1 hộp"
+                            disabled={item.boxQuantity <= 1}
                             onClick={() =>
                               updateCartItemQuantity(
                                 item.gameTemplateId,
                                 item.boxQuantity - 1,
                               )
                             }
-                            className="p-1 text-neutral-400 hover:text-neutral-900 transition-colors"
+                            className="p-1 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
                           >
-                            <Minus className="w-2.5 h-2.5" />
+                            <Minus className="w-2.5 h-2.5" aria-hidden />
                           </Button>
 
                           <Input
                             type="number"
+                            aria-label={`Số hộp cho ${item.gameName}`}
+                            inputMode="numeric"
                             min={1}
-                            max={1000}
+                            max={MAX_BOX_QUANTITY}
+                            step={1}
                             value={item.boxQuantity}
-                            onChange={(e) =>
-                              updateCartItemQuantity(
-                                item.gameTemplateId,
-                                parseInt(e.target.value) || 1,
-                              )
-                            }
-                            className="w-8 h-full text-center text-xs font-mono font-bold text-neutral-800 focus:outline-none bg-transparent"
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              if (raw === "") {
+                                updateCartItemQuantity(item.gameTemplateId, 1);
+                                return;
+                              }
+                              const parsed = parseInt(raw, 10);
+                              if (Number.isNaN(parsed)) return;
+                              updateCartItemQuantity(item.gameTemplateId, parsed);
+                            }}
+                            className="w-10 h-full text-center text-xs font-mono font-bold text-neutral-800 focus:outline-none bg-transparent tabular-nums"
                           />
 
                           <Button
                             type="button"
+                            aria-label="Tăng 1 hộp"
+                            disabled={item.boxQuantity >= MAX_BOX_QUANTITY}
                             onClick={() =>
                               updateCartItemQuantity(
                                 item.gameTemplateId,
                                 item.boxQuantity + 1,
                               )
                             }
-                            className="p-1 text-neutral-400 hover:text-neutral-900 transition-colors"
+                            className="p-1 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
                           >
-                            <Plus className="w-2.5 h-2.5" />
+                            <Plus className="w-2.5 h-2.5" aria-hidden />
                           </Button>
                         </div>
                       </div>
-                    </div>
+                    </li>
                   ))
                 )}
-              </div>
+              </ul>
             </div>
 
-            {/* ACTION SUBMIT CHÃ‚N FORM */}
             <div className="pt-4 border-t border-neutral-100 shrink-0 bg-white">
               <Button
                 type="button"
-                onClick={handleBulkSubmit}
-                disabled={
-                  cart.length === 0 || cart.length > 20 || submitLoading
-                }
-                className="w-full h-10 bg-linear-to-b from-[#2A2A2A] to-[#1A1A1A] text-white font-semibold text-xs uppercase tracking-wider rounded-lg border border-neutral-950 border-t-neutral-700 shadow-[0px_1px_2px_rgba(0,0,0,0.15),inset_0px_1px_0px_rgba(255,255,255,0.08)] hover:from-[#333333] hover:to-[#222222] active:from-[#1A1A1A] active:to-[#111111] disabled:from-neutral-200 disabled:to-neutral-200 disabled:text-neutral-400 disabled:border-neutral-200 disabled:shadow-none flex items-center justify-center gap-2 transition-all duration-150"
+                onClick={() => {
+                  void handleBulkSubmit();
+                }}
+                disabled={cart.length === 0 || submitLoading}
+                aria-busy={submitLoading}
+                className="w-full h-10 bg-gradient-to-b from-[#2A2A2A] to-[#1A1A1A] text-white font-semibold text-xs uppercase tracking-wider rounded-lg border border-neutral-950 border-t-neutral-700 shadow-[0px_1px_2px_rgba(0,0,0,0.15),inset_0px_1px_0px_rgba(255,255,255,0.08)] hover:from-[#333333] hover:to-[#222222] active:from-[#1A1A1A] active:to-[#111111] disabled:from-neutral-200 disabled:to-neutral-200 disabled:text-neutral-400 disabled:border-neutral-200 disabled:shadow-none flex items-center justify-center gap-2 transition-all duration-150"
               >
                 {submitLoading ? (
                   <>
-                    <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                    <span>ÄANG LÆ¯U KHO...</span>
+                    <span
+                      className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin"
+                      aria-hidden
+                    />
+                    <span>ĐANG LƯU KHO…</span>
                   </>
                 ) : (
-                  `XÃC NHáº¬N NHáº¬P KHO (${cart.length})`
+                  `XÁC NHẬN NHẬP KHO (${cart.length})`
                 )}
               </Button>
+              {cartIsFull && (
+                <p
+                  role="status"
+                  className="mt-2 text-[10px] text-neutral-500 text-center"
+                >
+                  Đã đạt giới hạn {MAX_CART_ITEMS} tựa mỗi lần nhập.
+                </p>
+              )}
             </div>
-          </div>
+          </aside>
         </div>
       </SheetContent>
     </Sheet>
