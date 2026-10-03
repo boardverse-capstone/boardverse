@@ -4,12 +4,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Barcode,
-  Box,
   Boxes,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Layers,
+  Package,
   Search,
   Split,
   UserPlus,
@@ -26,6 +26,10 @@ import type { ComponentChecklistItem } from "@/features/pos-check-in/types/pos-c
 import type { PosBoxItem } from "./pos-boxes-tab";
 import { isBoxStatusAvailable } from "./pos-boxes-tab";
 import { NumberStepper } from "./number-stepper";
+import { GameCoverThumb } from "./game-cover-thumb";
+import { useGameCoverLookup } from "@/features/pos-check-in/hooks/useGameCoverLookup";
+import { cn } from "@/lib/utils";
+import { readPlayerRange } from "../lib/player-range";
 
 type InventoryLossPayload = {
   sessionGameId: string;
@@ -67,6 +71,12 @@ type SessionAdvancedOpsProps = {
   sessionId: string;
   detail: any;
   boxes?: PosBoxItem[];
+  /** Layout bàn của quán (từ GET /pos/tables) — dùng để resolve SeatCount theo cafeTableId. */
+  tables?: Array<{
+    id: string;
+    name?: string;
+    seatCount?: number;
+  }>;
   otherSessions: Array<{
     id: string;
     tableName?: string;
@@ -259,6 +269,7 @@ export function SessionAdvancedOps({
   cafeId,
   detail,
   boxes = [],
+  tables = [],
   otherSessions,
   playingUserIds = [],
   busy = false,
@@ -356,6 +367,30 @@ export function SessionAdvancedOps({
     });
   }, [members]);
 
+  // [FIX #add-member-overflow] Đọc sức chứa tối đa của bàn/phiên (BE trả về maxPlayers/Capacity...).
+  // Ưu tiên SeatCount của bàn (đã có trong prop `tables` từ GET /pos/tables) vì đó là giới hạn thực tế
+  // khi "thêm người vào bàn". Fallback về maxPlayers/maxSeats/capacity từ `detail` nếu bàn không có.
+  const tableSeatCount = useMemo<number | null>(() => {
+    const tableId = String(
+      detail?.cafeTableId ?? detail?.CafeTableId ?? detail?.tableId ?? "",
+    ).trim();
+    if (!tableId || tables.length === 0) return null;
+    const matched = tables.find((t) => String(t.id) === tableId);
+    if (!matched) return null;
+    const n = Number(matched.seatCount);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [detail, tables]);
+  const memberCapacity = useMemo<number | null>(() => {
+    if (tableSeatCount != null) return tableSeatCount;
+    const range = readPlayerRange(detail);
+    return range.max;
+  }, [detail, tableSeatCount]);
+  const currentMemberCount = members.length;
+  const remainingMemberSlots =
+    memberCapacity != null
+      ? Math.max(0, memberCapacity - currentMemberCount)
+      : null;
+
   const groupedGames = useMemo(() => {
     const map = new Map<string, GroupedGame>();
     boxes.forEach((box) => {
@@ -390,6 +425,55 @@ export function SessionAdvancedOps({
       );
     });
   }, [groupedGames, pickerSearch]);
+
+  // Lookup ảnh bìa game cho picker (ưu tiên ảnh từ prop boxes, fallback qua hook).
+  const coverLookup = useGameCoverLookup(cafeId, boxes);
+  const coverByTemplate = useMemo(() => {
+    const byTemplate = new Map<string, string>();
+    const byName = new Map<string, string>();
+    for (const b of boxes) {
+      const url = b.imageUrl?.trim();
+      if (!url) continue;
+      if (b.gameTemplateId) byTemplate.set(b.gameTemplateId, url);
+      if (b.gameName)
+        byName.set(b.gameName.trim().toLowerCase(), url);
+    }
+    return { byTemplate, byName };
+  }, [boxes]);
+  const resolveGroupCover = (group: GroupedGame): string | null => {
+    if (group.gameTemplateId) {
+      const url = coverByTemplate.byTemplate.get(group.gameTemplateId);
+      if (url) return url;
+    }
+    if (group.gameName) {
+      const url = coverByTemplate.byName.get(group.gameName.trim().toLowerCase());
+      if (url) return url;
+    }
+    const sampleBox = group.allBoxes[0];
+    return coverLookup.lookup({
+      gameTemplateId: group.gameTemplateId,
+      gameName: group.gameName,
+      cafeGameInventoryId: sampleBox?.id ?? sampleBox?.cafeGameInventoryId,
+      imageUrl: sampleBox?.imageUrl,
+    });
+  };
+  const resolveBoxCover = (box: PosBoxItem): string | null => {
+    if (box.imageUrl) return box.imageUrl;
+    if (box.gameTemplateId) {
+      const url = coverByTemplate.byTemplate.get(box.gameTemplateId);
+      if (url) return url;
+    }
+    if (box.gameName) {
+      const url = coverByTemplate.byName.get(box.gameName.trim().toLowerCase());
+      if (url) return url;
+    }
+    return coverLookup.lookup({
+      gameTemplateId: box.gameTemplateId,
+      gameName: box.gameName,
+      cafeGameInventoryId: box.id ?? box.cafeGameInventoryId,
+      imageUrl: box.imageUrl ?? null,
+    });
+  };
 
   const status = String(
     detail?.status ?? detail?.Status ?? detail?.sessionStatus ?? "",
@@ -614,6 +698,21 @@ export function SessionAdvancedOps({
           title="Thêm member đến muộn"
           tone="pink"
         >
+          {/* Banner sức chứa bàn — chặn vượt quá maxPlayers. */}
+          {memberCapacity != null ? (
+            <div
+              className={cn(
+                "rounded-md border px-2 py-1.5 text-[11px] font-medium",
+                remainingMemberSlots === 0
+                  ? "border-rose-300 bg-rose-50 text-rose-800"
+                  : "border-orange-200 bg-orange-50/70 text-orange-800",
+              )}
+            >
+              {remainingMemberSlots === 0
+                ? `Bàn đã đủ ${memberCapacity} người — không thể thêm member đến muộn.`
+                : `Đang có ${currentMemberCount}/${memberCapacity} người — còn trống ${remainingMemberSlots} chỗ.`}
+            </div>
+          ) : null}
           <div className="flex gap-2">
             <Input
               value={searchQuery}
@@ -624,14 +723,14 @@ export function SessionAdvancedOps({
                 }
               }}
               placeholder="Tên, email hoặc SĐT"
-              disabled={disabled}
+              disabled={disabled || remainingMemberSlots === 0}
               className="h-8 border-orange-200 bg-white text-xs focus-visible:border-orange-400 focus-visible:ring-orange-200"
             />
             <Button
               type="button"
               size="sm"
               variant="outline"
-              disabled={disabled || searching}
+              disabled={disabled || searching || remainingMemberSlots === 0}
               className="h-8 border-orange-200 px-2.5 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
               aria-label="Tìm khách hàng"
             >
@@ -654,19 +753,33 @@ export function SessionAdvancedOps({
               {searchResults.map((user) => {
                 const selected = selectedUsers.some((item) => item.id === user.id);
                 const playing = playingUserIdSet.has(user.id);
+                // Đã chọn đủ số chỗ trống thì khóa các user chưa chọn.
+                const capacityFull =
+                  memberCapacity != null &&
+                  !selected &&
+                  selectedUsers.length >= remainingMemberSlots!;
                 return (
                   <button
                     key={user.id}
                     type="button"
-                    disabled={disabled || selected || playing}
+                    disabled={disabled || selected || playing || capacityFull}
                     onClick={() => {
                       if (playing) {
                         toast.error("Người này đang chơi, không thêm vào bàn được.");
                         return;
                       }
+                      if (memberCapacity != null) {
+                        if (selectedUsers.length >= remainingMemberSlots!) {
+                          toast.error(
+                            `Bàn đã đủ ${memberCapacity} người, không thể thêm.`,
+                          );
+                          return;
+                        }
+                      }
                       setSelectedUsers((current) => [...current, user]);
                     }}
-                    className="w-full rounded-md px-2 py-1.5 text-left hover:bg-orange-100 disabled:opacity-50"
+                    className="w-full rounded-md px-2 py-1.5 text-left hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    title={capacityFull ? `Bàn đã đủ ${memberCapacity} người` : undefined}
                   >
                     <span className="block text-xs font-semibold text-orange-950">
                       {user.fullName || user.username}
@@ -674,7 +787,9 @@ export function SessionAdvancedOps({
                     <span className="block truncate text-[10px] text-orange-700/80">
                       {playing
                         ? "Đang chơi — không thêm được"
-                        : user.email || user.phone || user.username}
+                        : capacityFull
+                          ? `Bàn đã đủ ${memberCapacity} người`
+                          : user.email || user.phone || user.username}
                     </span>
                   </button>
                 );
@@ -706,10 +821,25 @@ export function SessionAdvancedOps({
           <Button
             type="button"
             size="sm"
-            disabled={disabled || selectedUsers.length === 0}
+            disabled={
+              disabled ||
+              selectedUsers.length === 0 ||
+              (memberCapacity != null &&
+                currentMemberCount + selectedUsers.length > memberCapacity)
+            }
             onClick={() => {
               if (selectedUsers.length === 0) {
                 toast.error("Chọn ít nhất một member.");
+                return;
+              }
+              // Chặn cuối cùng trước khi gọi API — defensive.
+              if (
+                memberCapacity != null &&
+                currentMemberCount + selectedUsers.length > memberCapacity
+              ) {
+                toast.error(
+                  `Bàn đã đủ ${memberCapacity} người (đang có ${currentMemberCount}, thêm ${selectedUsers.length} sẽ vượt giới hạn).`,
+                );
                 return;
               }
               void runAction(
@@ -1086,104 +1216,172 @@ export function SessionAdvancedOps({
           }}
         >
           <div
-            className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl"
+            className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border-2 border-neutral-400/70 bg-white shadow-[4px_4px_0_rgba(120,120,120,0.25),0_10px_30px_rgba(0,0,0,0.15)] animate-in fade-in-50 duration-150"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
-              <div className="flex min-w-0 items-center gap-2">
-                {pickerGame ? (
-                  <button
-                    type="button"
-                    onClick={() => setPickerGame(null)}
-                    className="rounded-lg p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950"
-                    aria-label="Quay lại danh sách game"
-                  >
-                    <ChevronLeft className="size-5" />
-                  </button>
-                ) : (
-                  <div className="rounded-lg border border-neutral-200 bg-neutral-100 p-2">
-                    <Layers className="size-4 text-neutral-800" />
+            {/* HEADER arcade — gradient + scanlines + LED */}
+            <div className="relative shrink-0 overflow-hidden border-b-2 border-neutral-700/30 bg-gradient-to-br from-neutral-600 via-amber-600 to-orange-600 px-5 py-3 text-white shadow-[inset_0_-3px_0_rgba(0,0,0,0.18)]">
+              <div className="pointer-events-none absolute -top-8 -right-8 size-24 rounded-full bg-white/15 blur-2xl" />
+              <div className="pointer-events-none absolute -bottom-6 left-1/3 size-16 rounded-full bg-yellow-300/20 blur-xl" />
+              <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_2px,rgba(255,255,255,0.04)_2px,rgba(255,255,255,0.04)_4px)]" />
+              <div className="relative flex items-center justify-between">
+                <div className="flex min-w-0 items-center gap-2">
+                  {pickerGame ? (
+                    <button
+                      type="button"
+                      onClick={() => setPickerGame(null)}
+                      className="rounded-md border-2 border-white/40 p-1 text-white/90 transition-all hover:bg-white/20 hover:text-white"
+                      aria-label="Quay lại danh sách game"
+                    >
+                      <ChevronLeft className="size-5" />
+                    </button>
+                  ) : (
+                    <div className="rounded-md border-2 border-white/40 bg-white/20 p-2 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.15)] backdrop-blur-xs">
+                      <Layers className="size-4" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <h3 className="flex items-center gap-1.5 truncate font-mono text-sm font-extrabold uppercase tracking-widest">
+                      <span className="size-1.5 animate-pulse rounded-full bg-yellow-300 shadow-[0_0_6px_currentColor]" />
+                      {pickerGame ? `▸ ${pickerGame.gameName}` : "► Kho Game"}
+                    </h3>
+                    <p className="mt-0.5 font-mono text-[11px] font-bold uppercase tracking-widest text-white/90">
+                      {pickerGame
+                        ? `${pickerGame.availableBoxes.length}/${pickerGame.totalBoxes} hộp sẵn sàng`
+                        : `${groupedGames.length} tựa · ${boxes.length} hộp`}
+                    </p>
                   </div>
-                )}
-                <div className="min-w-0">
-                  <h3 className="truncate font-bold text-neutral-950">
-                    {pickerGame ? pickerGame.gameName : "Chọn game từ kho"}
-                  </h3>
-                  <p className="text-[11px] text-neutral-500">
-                    {pickerGame
-                      ? `${pickerGame.availableBoxes.length}/${pickerGame.totalBoxes} hộp sẵn sàng`
-                      : `${groupedGames.length} tựa · ${boxes.length} hộp`}
-                  </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPickerOpen(false);
+                    setPickerGame(null);
+                    setPickerSearch("");
+                  }}
+                  className="rounded-lg p-1 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+                  aria-label="Đóng"
+                >
+                  <X className="size-5" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setPickerOpen(false);
-                  setPickerGame(null);
-                  setPickerSearch("");
-                }}
-                className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-950"
-              >
-                <X className="size-5" />
-              </button>
             </div>
 
             {!pickerGame ? (
               <>
-                <div className="border-b border-neutral-100 p-3">
+                <div className="border-b border-neutral-100 bg-gradient-to-r from-amber-50/50 via-white to-neutral-50/40 p-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-neutral-400" />
                     <Input
                       value={pickerSearch}
                       onChange={(e) => setPickerSearch(e.target.value)}
                       placeholder="Tìm tên game hoặc mã vạch..."
-                      className="h-9 border-neutral-200 bg-neutral-50/50 pl-9 text-xs"
+                      className="h-9 border-neutral-200 bg-white pl-9 text-xs focus-visible:border-amber-400 focus-visible:ring-neutral-200"
                       autoFocus
                     />
                   </div>
                 </div>
-                <div className="flex-1 space-y-2 overflow-y-auto p-3">
+                <div className="flex-1 space-y-2 overflow-y-auto bg-gradient-to-br from-amber-50/20 via-white to-neutral-50/20 p-3">
                   {filteredGames.length === 0 ? (
-                    <p className="py-10 text-center text-xs text-neutral-400">
+                    <p className="py-10 text-center text-xs font-medium text-amber-600">
                       Không có game/hộp phù hợp trong kho.
                     </p>
                   ) : (
-                    filteredGames.map((group, groupIdx) => (
-                      <button
-                        key={`${group.gameTemplateId || "g"}-${group.gameName}-${groupIdx}`}
-                        type="button"
-                        onClick={() => setPickerGame(group)}
-                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white p-3 text-left hover:border-neutral-400"
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-100 text-neutral-700">
-                            <Box className="size-5" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-extrabold text-neutral-950">
+                    filteredGames.map((group, groupIdx) => {
+                      const cover = resolveGroupCover(group);
+                      const pal = pickerPalette(groupIdx);
+                      return (
+                        <button
+                          key={`${group.gameTemplateId || "g"}-${group.gameName}-${groupIdx}`}
+                          type="button"
+                          onClick={() => setPickerGame(group)}
+                          className={cn(
+                            "group/game relative flex w-full items-center gap-3 overflow-hidden rounded-xl border-2 bg-gradient-to-r p-2.5 text-left transition-all hover:-translate-y-0.5",
+                            pal.ring,
+                            pal.soft,
+                            pal.shadow,
+                          )}
+                        >
+                          <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_2px,rgba(255,255,255,0.05)_2px,rgba(255,255,255,0.05)_4px)]" />
+                          <span
+                            className={cn(
+                              "pointer-events-none absolute left-2 top-2 size-1.5 animate-pulse rounded-full shadow-[0_0_6px_currentColor]",
+                              pal.accent,
+                            )}
+                          />
+                          <GameCoverThumb
+                            src={cover}
+                            alt={group.gameName}
+                            initials={group.gameName}
+                            size="sm"
+                            className="relative shrink-0 ring-2 ring-white/70"
+                          />
+                          <div className="relative min-w-0 flex-1">
+                            <p
+                              className={cn(
+                                "truncate font-mono text-sm font-extrabold uppercase tracking-wider",
+                                pal.text,
+                              )}
+                            >
                               {group.gameName}
                             </p>
-                            <p className="text-[11px] font-semibold text-orange-700">
-                              {group.availableBoxes.length}/{group.totalBoxes}{" "}
+                            <p
+                              className={cn(
+                                "font-mono text-[11px] font-bold uppercase tracking-widest",
+                                pal.sub,
+                              )}
+                            >
+                              ► {group.availableBoxes.length}/{group.totalBoxes}{" "}
                               hộp sẵn sàng
                             </p>
                           </div>
-                        </div>
-                        <ChevronRight className="size-5 shrink-0 text-neutral-400" />
-                      </button>
-                    ))
+                          <span
+                            className={cn(
+                              "relative shrink-0 rounded-md border-2 px-2 py-1 font-mono text-[10px] font-extrabold uppercase tracking-widest shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)] group-hover/game:translate-x-0.5",
+                              pal.chip,
+                            )}
+                          >
+                            Chọn ▶
+                          </span>
+                        </button>
+                      );
+                    })
                   )}
                 </div>
               </>
             ) : (
-              <div className="flex-1 space-y-2 overflow-y-auto p-3">
+              <div className="flex-1 space-y-2 overflow-y-auto bg-gradient-to-br from-amber-50/20 via-white to-neutral-50/20 p-3">
+                {/* Banner game đang chọn — phong cách arcade */}
+                <div className="relative overflow-hidden rounded-xl border-2 border-amber-500/60 bg-gradient-to-br from-amber-100 via-orange-50 to-yellow-50 p-2.5 shadow-[2px_2px_0_rgba(245,158,11,0.4)]">
+                  <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_2px,rgba(255,255,255,0.06)_2px,rgba(255,255,255,0.06)_4px)]" />
+                  <span className="pointer-events-none absolute right-2 top-2 size-1.5 animate-pulse rounded-full bg-orange-500 shadow-[0_0_6px_currentColor]" />
+                  <div className="relative flex items-center gap-3">
+                    <GameCoverThumb
+                      src={resolveGroupCover(pickerGame)}
+                      alt={pickerGame.gameName}
+                      initials={pickerGame.gameName}
+                      size="md"
+                      className="ring-2 ring-white/80"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate font-mono text-sm font-extrabold uppercase tracking-wider text-orange-950">
+                        ▸ {pickerGame.gameName}
+                      </p>
+                      <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-orange-800">
+                        ► Chọn 1 hộp bên dưới để gán
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {pickerGame.availableBoxes.length === 0 ? (
-                  <p className="py-10 text-center text-xs text-neutral-400">
+                  <p className="py-8 text-center text-xs font-medium text-orange-600">
                     Game này không còn hộp trống để gán.
                   </p>
                 ) : (
-                  pickerGame.availableBoxes.map((box, boxIdx) => (
+                  pickerGame.availableBoxes.map((box, boxIdx) => {
+                    const boxCover = resolveBoxCover(box);
+                    return (
                       <button
                         key={box.barcode || `${box.id}-${boxIdx}`}
                         type="button"
@@ -1194,21 +1392,31 @@ export function SessionAdvancedOps({
                           setPickerGame(null);
                           setPickerSearch("");
                         }}
-                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white p-3 text-left hover:border-orange-400 hover:bg-orange-50/40 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="group/box relative flex w-full items-center gap-3 overflow-hidden rounded-xl border-2 border-orange-400 bg-gradient-to-r from-amber-100 via-orange-50 to-yellow-50 p-2.5 text-left shadow-[2px_2px_0_rgba(249,115,22,0.45)] transition-all hover:-translate-y-0.5 hover:border-orange-500 hover:shadow-[3px_3px_0_rgba(249,115,22,0.6)] disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <div className="min-w-0">
-                          <p className="font-mono text-sm font-bold text-neutral-950">
+                        <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_2px,rgba(255,255,255,0.06)_2px,rgba(255,255,255,0.06)_4px)]" />
+                        <span className="pointer-events-none absolute right-2 top-2 size-1.5 animate-pulse rounded-full bg-orange-500 shadow-[0_0_6px_currentColor]" />
+                        <GameCoverThumb
+                          src={boxCover}
+                          alt={box.gameName || box.barcode}
+                          initials={box.gameName || box.barcode}
+                          size="sm"
+                          className="relative shrink-0 ring-2 ring-white/80"
+                        />
+                        <div className="relative min-w-0 flex-1">
+                          <p className="truncate font-mono text-sm font-extrabold uppercase tracking-wider text-orange-950">
                             {box.barcode}
                           </p>
-                          <p className="text-[11px] text-neutral-500">
-                            {formatBoxStatus(box.status)}
+                          <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-orange-800">
+                            ► {formatBoxStatus(box.status)}
                           </p>
                         </div>
-                        <span className="shrink-0 rounded-md border border-orange-200 bg-orange-50 px-2 py-0.5 text-[10px] font-bold text-orange-800">
-                          Chọn
+                        <span className="relative shrink-0 rounded-md border-2 border-orange-600 bg-gradient-to-b from-orange-400 to-orange-600 px-2 py-1 font-mono text-[10px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)] group-hover/box:translate-x-0.5">
+                          Chọn ▶
                         </span>
                       </button>
-                    ))
+                    );
+                  })
                 )}
               </div>
             )}
@@ -1217,4 +1425,66 @@ export function SessionAdvancedOps({
       ) : null}
     </div>
   );
+}
+
+/* Bảng màu arcade cho danh sách game trong picker — đồng bộ start-session-modal. */
+const PICKER_PALETTES = [
+  {
+    ring: "border-orange-400",
+    soft: "from-orange-100 via-amber-50 to-yellow-50",
+    text: "text-orange-950",
+    sub: "text-orange-800",
+    chip: "border-orange-500 bg-gradient-to-b from-orange-400 to-orange-600 text-white",
+    shadow: "shadow-[2px_2px_0_rgba(249,115,22,0.45)] hover:shadow-[3px_3px_0_rgba(249,115,22,0.6)]",
+    accent: "bg-orange-500",
+  },
+  {
+    ring: "border-amber-400",
+    soft: "from-amber-100 via-orange-50 to-yellow-50",
+    text: "text-amber-950",
+    sub: "text-amber-800",
+    chip: "border-amber-500 bg-gradient-to-b from-amber-400 to-amber-600 text-white",
+    shadow: "shadow-[2px_2px_0_rgba(245,158,11,0.45)] hover:shadow-[3px_3px_0_rgba(245,158,11,0.6)]",
+    accent: "bg-amber-500",
+  },
+  {
+    ring: "border-orange-400",
+    soft: "from-orange-50 via-amber-50 to-orange-50",
+    text: "text-orange-950",
+    sub: "text-orange-800",
+    chip: "border-orange-400 bg-gradient-to-b from-orange-400 to-amber-500 text-white",
+    shadow: "shadow-[2px_2px_0_rgba(249,115,22,0.4)] hover:shadow-[3px_3px_0_rgba(249,115,22,0.55)]",
+    accent: "bg-amber-500",
+  },
+  {
+    ring: "border-amber-400",
+    soft: "from-amber-50 via-orange-50 to-amber-50",
+    text: "text-amber-950",
+    sub: "text-amber-800",
+    chip: "border-amber-400 bg-gradient-to-b from-amber-400 to-orange-500 text-white",
+    shadow: "shadow-[2px_2px_0_rgba(245,158,11,0.4)] hover:shadow-[3px_3px_0_rgba(245,158,11,0.55)]",
+    accent: "bg-orange-500",
+  },
+  {
+    ring: "border-orange-300",
+    soft: "from-orange-100 via-amber-100 to-yellow-50",
+    text: "text-orange-950",
+    sub: "text-orange-800",
+    chip: "border-orange-400 bg-gradient-to-b from-amber-400 to-orange-600 text-white",
+    shadow: "shadow-[2px_2px_0_rgba(249,115,22,0.35)] hover:shadow-[3px_3px_0_rgba(249,115,22,0.5)]",
+    accent: "bg-orange-500",
+  },
+  {
+    ring: "border-amber-300",
+    soft: "from-amber-100 via-yellow-50 to-orange-50",
+    text: "text-amber-950",
+    sub: "text-amber-800",
+    chip: "border-amber-400 bg-gradient-to-b from-amber-500 to-orange-500 text-white",
+    shadow: "shadow-[2px_2px_0_rgba(245,158,11,0.35)] hover:shadow-[3px_3px_0_rgba(245,158,11,0.5)]",
+    accent: "bg-amber-500",
+  },
+] as const;
+
+function pickerPalette(idx: number) {
+  return PICKER_PALETTES[idx % PICKER_PALETTES.length];
 }

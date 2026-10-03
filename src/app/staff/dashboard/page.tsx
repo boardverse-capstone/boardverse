@@ -71,7 +71,7 @@ function StatCard({
         {loading ? (
           <Skeleton className="h-8 w-24" />
         ) : (
-          <div className="font-mono text-2xl font-extrabold tracking-wide text-white [text-shadow:1px_1px_0_rgba(0,0,0,0.2)]">
+          <div className="font-mono text-2xl font-extrabold tracking-wide text-stone-900 [text-shadow:1px_1px_0_rgba(255,255,255,0.7)]">
             {value}
           </div>
         )}

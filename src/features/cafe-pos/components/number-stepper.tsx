@@ -82,6 +82,42 @@ export function NumberStepper({
   const decDisabled = disabled || value <= min;
   const incDisabled = disabled || value >= max;
 
+  // Ô số có thể click để nhập trực tiếp (hỗ trợ POS tablet — gõ nhanh hơn bấm +/-).
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState<string>(String(value));
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const lastValueRef = React.useRef(value);
+
+  // Khi đang nhập thì KHÔNG đồng bộ draft theo value (để người dùng gõ tự do);
+  // khi không nhập thì sync draft theo value prop.
+  React.useEffect(() => {
+    if (!editing) setDraft(String(value));
+  }, [value, editing]);
+
+  React.useEffect(() => {
+    if (editing) {
+      lastValueRef.current = value;
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  const commit = () => {
+    const safeDraft = typeof draft === "string" ? draft : String(draft ?? "");
+    const parsed = Number(safeDraft.replace(/[^\d.-]/g, ""));
+    if (Number.isFinite(parsed)) {
+      onChange(clamp(parsed));
+    } else {
+      setDraft(String(lastValueRef.current));
+    }
+    setEditing(false);
+  };
+
+  const cancel = () => {
+    setDraft(String(lastValueRef.current));
+    setEditing(false);
+  };
+
   return (
     <div
       role="group"
@@ -104,22 +140,59 @@ export function NumberStepper({
       >
         <Minus />
       </Button>
-      <span
-        aria-live="polite"
-        aria-atomic="true"
-        className={cn(
-          "flex-1 select-none text-center font-bold tabular-nums",
-          "border-x border-input",
-          dims.cell,
-        )}
-      >
-        {value}
-        {unit ? (
-          <span className="ml-1 text-[10px] font-medium text-muted-foreground">
-            {unit}
-          </span>
-        ) : null}
-      </span>
+      {editing ? (
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              cancel();
+            }
+          }}
+          aria-label="Nhập số lượng"
+          className={cn(
+            "flex-1 min-w-0 select-all border-x border-input bg-background text-center font-bold tabular-nums outline-none focus-visible:bg-amber-50",
+            dims.cell,
+          )}
+        />
+      ) : (
+        <span
+          aria-live="polite"
+          aria-atomic="true"
+          role="button"
+          tabIndex={disabled ? -1 : 0}
+          onClick={() => !disabled && setEditing(true)}
+          onKeyDown={(e) => {
+            if (disabled) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setEditing(true);
+            }
+          }}
+          title="Click để nhập số"
+          className={cn(
+            "flex-1 cursor-text select-none text-center font-bold tabular-nums hover:bg-muted/60",
+            "border-x border-input focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400",
+            dims.cell,
+          )}
+        >
+          {value}
+          {unit ? (
+            <span className="ml-1 text-[10px] font-medium text-muted-foreground">
+              {unit}
+            </span>
+          ) : null}
+        </span>
+      )}
       <Button
         type="button"
         variant="ghost"

@@ -1476,6 +1476,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         }}
         onAddGuest={handleAddGuest}
         boxes={assignableBoxes}
+        tables={tables}
         detailRefreshKey={detailRefreshKey}
         playingUserIds={[
           ...new Set(

@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { toast } from "sonner";
 import {
   formatPlayerRange,
   mergePlayerRange,
@@ -10,6 +11,7 @@ import {
 } from "../lib/player-range";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/features/auth/store/auth.store";
 import { apiClient } from "@/core/api/client";
 import { SessionAdvancedOps } from "./session-advanced-ops";
@@ -111,6 +113,12 @@ interface SessionDetailModalProps {
     barcode: string;
     status: string;
   }>;
+  /** Layout bàn của quán (từ GET /pos/tables) — cần để giới hạn số người trong bàn. */
+  tables?: Array<{
+    id: string;
+    name?: string;
+    seatCount?: number;
+  }>;
   /** Tăng sau khi chốt kiểm kê 1 hộp → reload lại list hộp trong chi tiết */
   detailRefreshKey?: number;
   onAttachGame: (sessionId: string, barcode: string) => Promise<boolean>;
@@ -149,6 +157,7 @@ export function SessionDetailModal({
   otherSessions,
   playingUserIds = [],
   boxes = [],
+  tables = [],
   detailRefreshKey = 0,
   onAttachGame,
   onAddMembers,
@@ -165,6 +174,24 @@ export function SessionDetailModal({
   );
   const staffId = useAuthStore((s) => s.user?.id);
   const staffUsername = useAuthStore((s) => s.user?.username);
+
+  // [FIX #guest-overflow] Sức chứa bàn từ GET /pos/tables (SeatCount).
+  // Ưu tiên SeatCount của bàn; fallback về maxPlayers của phiên nếu BE trả lồng.
+  const tableSeatCount = useMemo<number | null>(() => {
+    const tableId = String(
+      detail?.cafeTableId ?? detail?.CafeTableId ?? detail?.tableId ?? "",
+    ).trim();
+    if (tableId && tables.length > 0) {
+      const matched = tables.find((t) => String(t.id) === tableId);
+      if (matched) {
+        const n = Number(matched.seatCount);
+        if (Number.isFinite(n) && n > 0) return n;
+      }
+    }
+    const range = mergePlayerRange(detail);
+    return range.max;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail, tables]);
 
   const loading = isOpen && !!sessionId && fetchingId !== sessionId;
 
@@ -387,9 +414,23 @@ export function SessionDetailModal({
     }
     return true;
   });
+  const currentMemberCount = guests.length;
+  const remainingGuestSlots =
+    tableSeatCount != null
+      ? Math.max(0, tableSeatCount - currentMemberCount)
+      : null;
 
   const handleAddGuest = async () => {
     if (!onAddGuest || !guestName.trim()) return;
+    if (
+      tableSeatCount != null &&
+      currentMemberCount >= tableSeatCount
+    ) {
+      toast.error(
+        `Bàn đã đủ ${tableSeatCount} người, không thể thêm khách vãng lai.`,
+      );
+      return;
+    }
     setAddingGuest(true);
     try {
       const ok = await onAddGuest(sessionId, guestName.trim());
@@ -639,29 +680,53 @@ export function SessionDetailModal({
                   </div>
 
                   {onAddGuest && cafeId && (
-                    <div className="flex gap-2">
-                      <Input
-                        value={guestName}
-                        onChange={(e) => setGuestName(e.target.value)}
-                        placeholder="Tên khách vãng lai..."
-                        className="h-8 border-orange-200 bg-white text-xs focus-visible:border-orange-400 focus-visible:ring-orange-200"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            void handleAddGuest();
+                    <div className="space-y-1.5">
+                      {/* Banner sức chứa — chặn thêm khách vãng lai khi bàn đã đầy. */}
+                      {tableSeatCount != null ? (
+                        <div
+                          className={cn(
+                            "rounded-md border px-2 py-1 text-[10px] font-semibold",
+                            remainingGuestSlots === 0
+                              ? "border-rose-300 bg-rose-50 text-rose-800"
+                              : "border-orange-200 bg-orange-50/70 text-orange-800",
+                          )}
+                        >
+                          {remainingGuestSlots === 0
+                            ? `Bàn đã đủ ${tableSeatCount} người — không thể thêm khách vãng lai.`
+                            : `Bàn còn ${remainingGuestSlots}/${tableSeatCount} chỗ trống.`}
+                        </div>
+                      ) : null}
+                      <div className="flex gap-2">
+                        <Input
+                          value={guestName}
+                          onChange={(e) => setGuestName(e.target.value)}
+                          placeholder="Tên khách vãng lai..."
+                          disabled={
+                            addingGuest || remainingGuestSlots === 0
                           }
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={addingGuest || !guestName.trim()}
-                        onClick={() => void handleAddGuest()}
-                        className="h-8 shrink-0 bg-gradient-to-r from-orange-500 to-amber-500 px-3 text-[10px] font-bold uppercase text-white shadow-sm hover:from-orange-600 hover:to-amber-600"
-                      >
-                        <UserPlus className="mr-1 size-3" />
-                        {addingGuest ? "..." : "Thêm"}
-                      </Button>
+                          className="h-8 border-orange-200 bg-white text-xs focus-visible:border-orange-400 focus-visible:ring-orange-200"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              void handleAddGuest();
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={
+                            addingGuest ||
+                            !guestName.trim() ||
+                            remainingGuestSlots === 0
+                          }
+                          onClick={() => void handleAddGuest()}
+                          className="h-8 shrink-0 bg-gradient-to-r from-orange-500 to-amber-500 px-3 text-[10px] font-bold uppercase text-white shadow-sm hover:from-orange-600 hover:to-amber-600"
+                        >
+                          <UserPlus className="mr-1 size-3" />
+                          {addingGuest ? "..." : "Thêm"}
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -674,6 +739,7 @@ export function SessionDetailModal({
                     sessionId={sessionId}
                     detail={detail}
                     boxes={boxes}
+                    tables={tables}
                     otherSessions={otherSessions}
                     playingUserIds={playingUserIds}
                     onAttachGame={(barcode) =>
