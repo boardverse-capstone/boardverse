@@ -309,7 +309,7 @@ export function AddGameDialog({
                   </p>
                 </div>
               ) : (
-                <ul className="grid grid-cols-1 xl:grid-cols-2 gap-4 pb-6 list-none p-0">
+                <ul className="grid grid-cols-1 xl:grid-cols-2 gap-4 pb-6 list-none p-0 auto-rows-fr">
                   {masterGames.map((game) => {
                     const isAddedInCart = cart.some(
                       (c) => c.gameTemplateId === game.id,
@@ -318,20 +318,20 @@ export function AddGameDialog({
                     return (
                       <li
                         key={game.id}
-                        className="bg-white border border-neutral-200/80 rounded-xl p-4 flex flex-col justify-between gap-3 min-h-[130px] h-auto transition-all hover:border-neutral-300 min-w-0"
+                        className="group bg-white border border-neutral-200/80 rounded-xl p-4 flex flex-col gap-3 h-full transition-all hover:border-neutral-300 hover:shadow-sm min-w-0"
                       >
-                        <div className="space-y-1.5 min-w-0">
-                          <h4 className="font-bold text-sm text-neutral-900 tracking-tight max-w-full break-words [overflow-wrap:anywhere]">
+                        <div className="space-y-2 min-w-0">
+                          <h4 className="font-bold text-sm text-neutral-900 tracking-tight line-clamp-2 leading-snug">
                             {game.name}
                           </h4>
-                          <p className="text-xs text-neutral-400 line-clamp-2 leading-normal break-words [overflow-wrap:anywhere]">
+                          <p className="text-xs text-neutral-500 line-clamp-2 leading-relaxed">
                             {game.description?.trim() ||
                               "Chưa có mô tả tóm tắt nội dung."}
                           </p>
                         </div>
 
-                        <div className="flex items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 mt-auto shrink-0">
-                          <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="mt-auto border-t border-neutral-100 pt-3 space-y-2.5 shrink-0">
+                          <div className="flex items-center gap-2 min-w-0">
                             <button
                               type="button"
                               aria-label={
@@ -341,10 +341,10 @@ export function AddGameDialog({
                               }
                               aria-pressed={config.status !== "Available"}
                               onClick={() => toggleCardStatus(game.id)}
-                              className={`h-6 px-2 text-[9px] font-bold uppercase rounded-md border transition-colors ${
+                              className={`h-7 px-2.5 text-[10px] font-bold uppercase tracking-wide rounded-md border transition-colors shrink-0 ${
                                 config.status === "Available"
-                                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                                  : "bg-amber-50 border-amber-200 text-amber-800"
+                                  ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                                  : "bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100"
                               }`}
                             >
                               {config.status === "Available"
@@ -355,7 +355,7 @@ export function AddGameDialog({
                             <div
                               role="group"
                               aria-label={`Số hộp cho ${game.name}`}
-                              className="flex items-center border border-neutral-200 rounded-md bg-white h-6 px-0.5 shadow-2xs"
+                              className="flex items-center border border-neutral-200 rounded-md bg-white h-7 px-0.5 shadow-xs ml-auto"
                             >
                               <Button
                                 type="button"
@@ -364,9 +364,9 @@ export function AddGameDialog({
                                 onClick={() =>
                                   updateCardQuantity(game.id, config.quantity - 1)
                                 }
-                                className="p-1 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
+                                className="h-6 w-7 p-0 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
                               >
-                                <Minus className="w-2.5 h-2.5" aria-hidden />
+                                <Minus className="w-3 h-3" aria-hidden />
                               </Button>
 
                               <Input
@@ -387,7 +387,7 @@ export function AddGameDialog({
                                   if (Number.isNaN(parsed)) return;
                                   updateCardQuantity(game.id, parsed);
                                 }}
-                                className="w-10 h-full text-center text-xs font-mono font-bold text-neutral-800 focus:outline-none bg-transparent tabular-nums"
+                                className="w-12 h-6 text-center text-sm font-mono font-bold text-neutral-800 focus:outline-none bg-transparent tabular-nums border-0 focus-visible:ring-0 px-1"
                               />
 
                               <Button
@@ -397,9 +397,9 @@ export function AddGameDialog({
                                 onClick={() =>
                                   updateCardQuantity(game.id, config.quantity + 1)
                                 }
-                                className="p-1 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
+                                className="h-6 w-7 p-0 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
                               >
-                                <Plus className="w-2.5 h-2.5" aria-hidden />
+                                <Plus className="w-3 h-3" aria-hidden />
                               </Button>
                             </div>
                           </div>
@@ -415,9 +415,9 @@ export function AddGameDialog({
                                   : `Thêm ${game.name} vào danh sách nhập`
                             }
                             onClick={() => addToCart(game)}
-                            className="h-7 px-3.5 bg-neutral-950 text-white hover:bg-neutral-800 text-[11px] font-semibold rounded-md disabled:bg-neutral-100 disabled:text-neutral-400 shrink-0 shadow-xs transition-colors"
+                            className="w-full h-8 bg-neutral-950 text-white hover:bg-neutral-800 text-[11px] font-bold uppercase tracking-wider rounded-md disabled:bg-neutral-100 disabled:text-neutral-400 shadow-xs transition-colors"
                           >
-                            {isAddedInCart ? "Đã Chọn" : "Chọn Game"}
+                            {isAddedInCart ? "Đã chọn" : "Chọn game"}
                           </Button>
                         </div>
                       </li>
@@ -458,22 +458,22 @@ export function AddGameDialog({
                   cart.map((item) => (
                     <li
                       key={item.gameTemplateId}
-                      className="border border-neutral-200/80 rounded-xl p-3 space-y-3 bg-neutral-50/50 relative transition-colors hover:border-neutral-300 min-w-0"
+                      className="border border-neutral-200/80 rounded-xl p-3 space-y-2.5 bg-neutral-50/50 relative transition-colors hover:border-neutral-300 min-w-0"
                     >
                       <Button
                         type="button"
                         aria-label={`Bỏ ${item.gameName} khỏi danh sách`}
                         onClick={() => removeFromCart(item.gameTemplateId)}
-                        className="absolute top-2.5 right-2.5 text-neutral-400 hover:text-red-600 transition-colors"
+                        className="absolute top-2.5 right-2.5 h-6 w-6 p-0 text-neutral-400 hover:text-red-600 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" aria-hidden />
                       </Button>
 
-                      <div className="font-bold text-xs text-neutral-900 pr-6 break-words [overflow-wrap:anywhere]">
+                      <div className="font-bold text-xs text-neutral-900 pr-7 line-clamp-2 leading-snug">
                         {item.gameName}
                       </div>
 
-                      <div className="flex items-center justify-between gap-2 border-t border-neutral-100/70 pt-2">
+                      <div className="flex items-center gap-2 border-t border-neutral-100/70 pt-2.5">
                         <button
                           type="button"
                           aria-label={
@@ -490,10 +490,10 @@ export function AddGameDialog({
                                 : "Available",
                             )
                           }
-                          className={`h-6 px-2 text-[9px] font-bold uppercase rounded-md border transition-colors ${
+                          className={`h-7 px-2.5 text-[10px] font-bold uppercase tracking-wide rounded-md border transition-colors shrink-0 ${
                             item.status === "Available"
-                              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                              : "bg-amber-50 border-amber-200 text-amber-800"
+                              ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                              : "bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100"
                           }`}
                         >
                           {item.status === "Available" ? "Sẵn sàng" : "Bảo trì"}
@@ -502,7 +502,7 @@ export function AddGameDialog({
                         <div
                           role="group"
                           aria-label={`Số hộp cho ${item.gameName}`}
-                          className="flex items-center border border-neutral-200 rounded-md bg-white h-6 px-0.5 shadow-2xs"
+                          className="flex items-center border border-neutral-200 rounded-md bg-white h-7 px-0.5 shadow-xs ml-auto"
                         >
                           <Button
                             type="button"
@@ -514,9 +514,9 @@ export function AddGameDialog({
                                 item.boxQuantity - 1,
                               )
                             }
-                            className="p-1 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
+                            className="h-6 w-7 p-0 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
                           >
-                            <Minus className="w-2.5 h-2.5" aria-hidden />
+                            <Minus className="w-3 h-3" aria-hidden />
                           </Button>
 
                           <Input
@@ -537,7 +537,7 @@ export function AddGameDialog({
                               if (Number.isNaN(parsed)) return;
                               updateCartItemQuantity(item.gameTemplateId, parsed);
                             }}
-                            className="w-10 h-full text-center text-xs font-mono font-bold text-neutral-800 focus:outline-none bg-transparent tabular-nums"
+                            className="w-12 h-6 text-center text-sm font-mono font-bold text-neutral-800 focus:outline-none bg-transparent tabular-nums border-0 focus-visible:ring-0 px-1"
                           />
 
                           <Button
@@ -550,9 +550,9 @@ export function AddGameDialog({
                                 item.boxQuantity + 1,
                               )
                             }
-                            className="p-1 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
+                            className="h-6 w-7 p-0 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
                           >
-                            <Plus className="w-2.5 h-2.5" aria-hidden />
+                            <Plus className="w-3 h-3" aria-hidden />
                           </Button>
                         </div>
                       </div>
