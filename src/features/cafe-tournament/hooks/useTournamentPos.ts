@@ -8,7 +8,31 @@ import {
   RecordMatchResultDto,
   TournamentStatus,
   UpdateMatchResultDto,
+  StartWithOptionsDto,
 } from "../types/tournament.types";
+
+/**
+ * Phát hiện lỗi "không đủ VĐV" từ backend khi gọi POST /start.
+ * Backend .NET trả message thường có dạng:
+ *  - "Số lượng người tham gia không đủ..."
+ *  - "Minimum participants not reached"
+ *  - "Không đủ tuyển thủ..."
+ *  - "Not enough participants"
+ * Match theo keyword (lowercase, có thể tiếng Việt/Anh) để quyết định có
+ * đề xuất fallback `/start-with-options` hay không. Tránh match quá rộng
+ * (chỉ chứa từ "participant") để không false-positive với lỗi khác.
+ */
+export function isMinParticipantsError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("không đủ") ||
+    m.includes("not enough") ||
+    m.includes("minimum participants") ||
+    m.includes("số lượng") ||
+    m.includes("minparticipants") ||
+    (m.includes("participant") && (m.includes("min") || m.includes("minimum")))
+  );
+}
 
 export function useTournamentPos(cafeId: string | null) {
   const [tournaments, setTournaments] = useState<TournamentDetail[]>([]);
@@ -136,15 +160,47 @@ export function useTournamentPos(cafeId: string | null) {
   };
 
   // 6. POST /{tournamentId}/start (Build Round 1)[cite: 1]
-  const handleStartTournament = async (tournamentId: string) => {
+  // Trả về { ok, message? } thay vì auto-toast để caller (UI) có thể
+  // phát hiện lỗi "không đủ VĐV" và đề xuất fallback /start-with-options.
+  // Nếu fail vì lý do khác, caller có thể toast bình thường.
+  const handleStartTournament = async (
+    tournamentId: string,
+  ): Promise<{ ok: boolean; message?: string }> => {
     try {
       await apiClient.post(`/api/v1/pos/tournaments/${tournamentId}/start`, {});
       toast.success(`${titleOf(tournamentId)} đã chính thức bắt đầu — Vòng 1!`);
       await fetchTournaments();
-      return true;
+      return { ok: true };
     } catch (err: any) {
-      toast.error(err?.message || "Chưa đủ điều kiện bắt đầu giải.");
-      return false;
+      return {
+        ok: false,
+        message: err?.message || "Chưa đủ điều kiện bắt đầu giải.",
+      };
+    }
+  };
+
+  // 6b. POST /{tournamentId}/start-with-options
+  // Bắt đầu giải với options override (partial start, reduced rounds).
+  // Dùng khi Manager muốn tiến hành dù không đủ MinParticipants.
+  const handleStartWithOptions = async (
+    tournamentId: string,
+    dto: StartWithOptionsDto,
+  ): Promise<{ ok: boolean; message?: string }> => {
+    try {
+      await apiClient.post(
+        `/api/v1/pos/tournaments/${tournamentId}/start-with-options`,
+        dto,
+      );
+      toast.success(
+        `${titleOf(tournamentId)} đã bắt đầu với tùy chọn — Vòng 1!`,
+      );
+      await fetchTournaments();
+      return { ok: true };
+    } catch (err: any) {
+      return {
+        ok: false,
+        message: err?.message || "Không thể bắt đầu giải với tùy chọn.",
+      };
     }
   };
 
@@ -329,6 +385,7 @@ const handleUpdateMatchResult = async (dto: UpdateMatchResultDto): Promise<boole
     handleCloseRegistration,
     handleReopenRegistration,
     handleStartTournament,
+    handleStartWithOptions,
     handleAdvanceRound,
     handleCompleteTournament,
     handleCancelTournament,

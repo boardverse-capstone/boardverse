@@ -20,6 +20,8 @@ import { TournamentParticipantsTable } from "./tournament-participants-table";
 import { TournamentPodiumModal } from "./tournament-podium-modal";
 import { TournamentRowList } from "./tournament-row-list";
 import { CancelReasonDialog } from "./cancel-reason-dialog";
+import { StartWithOptionsDialog } from "./start-with-options-dialog";
+import { isMinParticipantsError } from "../hooks/useTournamentPos";
 import { apiClient } from "@/core/api/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -165,6 +167,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     handleCloseRegistration,
     handleReopenRegistration,
     handleStartTournament,
+    handleStartWithOptions,
     handleAdvanceRound,
     handleCompleteTournament,
     handleCancelTournament,
@@ -193,6 +196,13 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     id: string;
     name: string;
   } | null>(null);
+  // Đề xuất fallback /start-with-options khi /start fail vì MinParticipants
+  const [startWithOptionsPrompt, setStartWithOptionsPrompt] = useState<{
+    message: string;
+    currentCount: number;
+    minRequired: number;
+  } | null>(null);
+  const [startingWithOptions, setStartingWithOptions] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<TournamentMatch | null>(
     null,
   );
@@ -526,6 +536,59 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     }
   };
 
+  // Bắt đầu giải với detection MinParticipants.
+  // - Nếu /start OK: giải bắt đầu bình thường.
+  // - Nếu fail vì lỗi khác: toast.error(message) để Manager biết.
+  // - Nếu fail vì "không đủ VĐV": mở dialog đề xuất dùng
+  //   /start-with-options (Manager nhập reducedRounds + reason).
+  const onStartTournament = async () => {
+    if (!activeTournament) return;
+    setActionLoadingId(activeTournament.id);
+    try {
+      const result = await handleStartTournament(activeTournament.id);
+      if (!result.ok) {
+        const message = result.message ?? "Chưa đủ điều kiện bắt đầu giải.";
+        if (isMinParticipantsError(message)) {
+          setStartWithOptionsPrompt({
+            message,
+            currentCount: participants.length,
+            minRequired: activeTournament.minParticipants ?? 0,
+          });
+        } else {
+          toast.error(message);
+        }
+      }
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Confirm dialog → gọi /start-with-options
+  const onConfirmStartWithOptions = async (dto: {
+    reducedRounds: number;
+    reason: string;
+  }) => {
+    if (!activeTournament) return;
+    setStartingWithOptions(true);
+    try {
+      const result = await handleStartWithOptions(activeTournament.id, {
+        allowPartialStart: true,
+        reducedRounds: dto.reducedRounds,
+        reason: dto.reason,
+      });
+      if (!result.ok) {
+        const message =
+          result.message ?? "Không thể bắt đầu giải với tùy chọn.";
+        toast.error(message);
+      } else {
+        // Sau khi start thành công, refresh VĐV để sync badge trạng thái
+        await refreshParticipants(activeTournament.id);
+      }
+    } finally {
+      setStartingWithOptions(false);
+    }
+  };
+
   const openMatchResultModal = (
     match: any,
     matchNumber: number,
@@ -673,7 +736,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                 {activeTournament.status === "RegistrationClosed" && (
                   <>
                     <Button
-                      onClick={() => handleStartTournament(activeTournament.id)}
+                      onClick={onStartTournament}
                       className={cn(primaryActionClass, "gap-1.5 px-5")}
                     >
                       <Swords className="h-4 w-4" /> Bắt đầu giải
@@ -1167,6 +1230,27 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
               setActionLoadingId(null);
             }
           }}
+        />
+      )}
+
+      {activeTournament && (
+        <StartWithOptionsDialog
+          open={!!startWithOptionsPrompt}
+          onOpenChange={(next) => {
+            if (!next) setStartWithOptionsPrompt(null);
+          }}
+          tournamentTitle={activeTournament.title}
+          currentParticipants={
+            startWithOptionsPrompt?.currentCount ?? participants.length
+          }
+          minParticipants={
+            startWithOptionsPrompt?.minRequired ??
+            activeTournament.minParticipants ??
+            0
+          }
+          reasonFromBackend={startWithOptionsPrompt?.message}
+          submitting={startingWithOptions}
+          onConfirm={onConfirmStartWithOptions}
         />
       )}
 
