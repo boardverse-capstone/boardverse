@@ -48,6 +48,22 @@ export function useBulkAddInventory(isOpen: boolean, cafeId: string) {
   const [existingGameIds, setExistingGameIds] = useState<string[]>([]);
   const [deletedGameIds, setDeletedGameIds] = useState<string[]>([]);
 
+  // Caches the latest dedup IDs so the debounced `refreshFor` callback
+  // can stay referentially stable. Without this, every time
+  // `setExistingGameIds` ran (after the initial prime fetch) the hook
+  // would re-render and return a brand-new `refreshFor` arrow, which
+  // the dialog's debounce effect lists as a dep — turning into an
+  // infinite re-fetch loop. Storing the IDs in a ref breaks the cycle:
+  // the callback identity never changes, but it still reads fresh
+  // values via `.current`.
+  const dedupRef = useRef<{ active: string[]; trash: string[] }>({
+    active: [],
+    trash: [],
+  });
+  useEffect(() => {
+    dedupRef.current = { active: existingGameIds, trash: deletedGameIds };
+  }, [existingGameIds, deletedGameIds]);
+
   // Cancel in-flight requests when the Sheet closes, filters change,
   // or the hook unmounts. Without this the user can switch search
   // terms and watch the stale results land on top of fresh ones.
@@ -58,20 +74,20 @@ export function useBulkAddInventory(isOpen: boolean, cafeId: string) {
   }, []);
 
   /**
-   * Run one fetch cycle. `searchTerm` and the dedup IDs are passed in
-   * by the caller rather than stored in hook state so this hook
-   * doesn't subscribe to keystrokes and re-render the dialog tree.
+   * Run one fetch cycle. `searchTerm` is passed in by the caller
+   * rather than stored in hook state so this hook doesn't subscribe
+   * to keystrokes and re-render the dialog tree. Dedup IDs are read
+   * from `dedupRef` so the callback identity stays stable — the
+   * dialog's debounce effect depends on it, and an unstable identity
+   * here would loop infinitely.
    */
   const runFetch = useCallback(
-    async (
-      searchTerm: string,
-      activeIds: string[],
-      trashIds: string[],
-    ) => {
+    async (searchTerm: string) => {
       cancelInflight();
       const controller = new AbortController();
       inflightRef.current = controller;
 
+      const { active, trash } = dedupRef.current;
       setLoading(true);
       try {
         const endpoint = searchTerm.trim()
@@ -83,12 +99,22 @@ export function useBulkAddInventory(isOpen: boolean, cafeId: string) {
         });
         if (controller.signal.aborted) return;
 
-        const list: MasterGameItem[] = response?.data || response || [];
+        // Unwrap the paginated envelope: backend returns
+        // `{ data: BoardGame[], meta: {...} }` inside the
+        // `ApiResponse.data` field that the axios interceptor already
+        // unwrapped one level. Walk through both shapes so the hook
+        // keeps working if the backend switches between them.
+        const inner = response?.data ?? response;
+        const list: MasterGameItem[] = Array.isArray(inner)
+          ? inner
+          : Array.isArray(inner?.data)
+            ? inner.data
+            : [];
 
         // Loại bỏ hoàn toàn các game đã tồn tại hoạt động hoặc đã bị xóa mềm
         const filteredList = list
           .filter(
-            (game) => !activeIds.includes(game.id) && !trashIds.includes(game.id),
+            (game) => !active.includes(game.id) && !trash.includes(game.id),
           )
           .slice(0, MAX_MASTER_GAMES);
 
@@ -130,8 +156,20 @@ export function useBulkAddInventory(isOpen: boolean, cafeId: string) {
           }),
         ]);
         if (cancelled || controller.signal.aborted) return;
-        const activeList = activeRes?.data || activeRes || [];
-        const deletedList = deletedRes?.data || deletedRes || [];
+
+        // Unwrap the same paginated envelope as the master-games
+        // call: `{ data: Inventory[], meta }` inside the
+        // `ApiResponse.data` that the axios interceptor already
+        // unwrapped one level. Tolerate either the array or the
+        // `{ data, meta }` shape.
+        const unwrap = (res: any): any[] => {
+          const inner = res?.data ?? res;
+          if (Array.isArray(inner)) return inner;
+          if (Array.isArray(inner?.data)) return inner.data;
+          return [];
+        };
+        const activeList = unwrap(activeRes);
+        const deletedList = unwrap(deletedRes);
         const activeIds = activeList.map(
           (item: any) => item.gameTemplateId || item.gameId || item.id,
         );
@@ -158,12 +196,22 @@ export function useBulkAddInventory(isOpen: boolean, cafeId: string) {
   // Cancel any pending request on unmount (e.g. user navigates away).
   useEffect(() => cancelInflight, [cancelInflight]);
 
+  // `refreshFor` is referentially stable (deps: []) — the dialog's
+  // debounce effect depends on it. If this ever became unstable it
+  // would loop the dialog into infinite re-fetches, which is the bug
+  // this comment is here to prevent regressing.
+  const refreshFor = useCallback(
+    (searchTerm: string) => {
+      void runFetch(searchTerm);
+    },
+    [runFetch],
+  );
+
   return {
     masterGames,
     loading,
     existingGameIds,
     deletedGameIds,
-    refreshFor: (searchTerm: string) =>
-      runFetch(searchTerm, existingGameIds, deletedGameIds),
+    refreshFor,
   };
 }

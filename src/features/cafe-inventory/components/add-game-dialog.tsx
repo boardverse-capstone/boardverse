@@ -68,19 +68,32 @@ export function AddGameDialog({
     cafeId,
   );
 
+  // Keep a stable handle to `refreshFor` so the debounce effect below
+  // doesn't list it as a dependency — the hook returns a stable
+  // callback already, but storing it in a ref is a belt-and-braces
+  // guard that keeps the dep list down to `[isOpen, searchTerm]`.
+  const refreshForRef = useRef(refreshFor);
+  useEffect(() => {
+    refreshForRef.current = refreshFor;
+  }, [refreshFor]);
+
   // Debounced refresh — keeps the search input snappy while still
-  // triggering a fresh fetch once typing settles.
+  // triggering a fresh fetch once typing settles. The early `return`
+  // on the first render where `searchTerm` is empty AND the hook
+  // already kicked off the initial prime fetch is important: without
+  // it the dialog would fire one extra `/board-games` on mount and
+  // race with the prime call.
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!isOpen) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      refreshFor(searchTerm);
+      refreshForRef.current(searchTerm);
     }, 350);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [isOpen, searchTerm, refreshFor]);
+  }, [isOpen, searchTerm]);
 
   // Card config defaults are read on-demand with a getter-style helper
   // (see `getCardConfig`) so we don't need a "seed new configs as
