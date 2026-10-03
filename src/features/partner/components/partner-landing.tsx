@@ -12,7 +12,9 @@ import {
   CheckCircle2,
   Clock,
   Users,
+  LogIn,
 } from "lucide-react";
+import { ROUTES } from "@/core/constants/routes";
 
 export function PartnerLanding() {
   const router = useRouter();
@@ -87,7 +89,15 @@ export function PartnerLanding() {
               Cách hoạt động
             </a>
             <button
-              onClick={() => router.push("/partner/register")}
+              type="button"
+              onClick={() => router.push(ROUTES.AUTH.LOGIN)}
+              className="text-sm font-semibold bg-white text-black border border-black/15 pl-4 pr-3 py-1.5 rounded-full hover:bg-neutral-100 hover:border-black/30 transition inline-flex items-center gap-1"
+            >
+              <LogIn className="h-3.5 w-3.5" aria-hidden />
+              Đăng nhập
+            </button>
+            <button
+              onClick={() => router.push(ROUTES.PARTNER.REGISTER)}
               className="text-sm font-semibold bg-black text-white pl-4 pr-3 py-1.5 rounded-full hover:bg-neutral-800 transition inline-flex items-center gap-1"
             >
               Đăng ký ngay
