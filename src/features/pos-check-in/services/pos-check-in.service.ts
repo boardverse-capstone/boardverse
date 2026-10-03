@@ -524,6 +524,12 @@ function mapSessionPaymentStatus(
             : m.PaymentMethod != null
               ? String(m.PaymentMethod)
               : null,
+        paidAt:
+          m.paidAt != null
+            ? String(m.paidAt)
+            : m.PaidAt != null
+              ? String(m.PaidAt)
+              : null,
       };
     })
     .filter((m): m is SessionPaymentMemberStatus => !!m);

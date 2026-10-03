@@ -16,9 +16,23 @@ function normalizePayStatus(status?: string | null) {
     .replace(/[_\s-]/g, "");
 }
 
-function isMemberPaid(status?: string | null) {
+function isMemberStatusPaid(status?: string | null) {
   const st = normalizePayStatus(status);
   return st === "paidcash" || st === "paidqr" || st === "paid";
+}
+
+/**
+ * Member coi là "đã trả thật" khi:
+ *  - status thuộc nhóm paid (paidcash | paidqr | paid), VÀ
+ *  - paidAt là timestamp thật (không null/empty).
+ *
+ * Lý do: BE có thể set status = PaidQr ngay khi vừa tạo QR — lúc này chưa có
+ * webhook SePay xác nhận. Nếu chỉ dựa vào status, POS sẽ auto-fire
+ * "Thanh toán thành công" dù khách chưa quét QR.
+ */
+function isMemberPaid(status?: string | null, paidAt?: string | null) {
+  if (!isMemberStatusPaid(status)) return false;
+  return Boolean(paidAt && String(paidAt).trim().length > 0);
 }
 
 function statusLabel(status?: string | null) {
@@ -54,6 +68,22 @@ export function SplitBillPanel({
   const [busy, setBusy] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [qrList, setQrList] = useState<MemberPaymentResult[]>([]);
+  /**
+   * Cache kết quả `payMembers` / `regenerateMemberQr` theo memberId.
+   * Dùng để biết member nào có `paidAt` thật (CASH hoặc QR đã webhook)
+   * khi `/payment-status` BE chưa cập nhật kịp. Lưu state (không ref) để
+   * React re-render khi cache đổi và linter không cảnh báo truy cập ref
+   * trong render.
+   *
+   * Reset cache khi đổi session/quán: dùng useEffect thay vì key prop
+   * (giữ component identity) nhưng suppress React Compiler cảnh báo
+   * "cascading renders" vì đây là sync giữa 2 nguồn state (sessionId ↔
+   * cache) — chỉ chạy 1 lần khi session đổi, không có loop.
+   */
+  const [paymentResultByMember, setPaymentResultByMember] = useState<
+    Map<string, MemberPaymentResult>
+  >(() => new Map());
+  const prevSessionKey = useRef(`${cafeId}::${sessionId}`);
   const hasInitializedSelection = useRef(false);
   const notifiedAllPaid = useRef(false);
   const onAllPaidRef = useRef(onAllPaid);
@@ -69,6 +99,25 @@ export function SplitBillPanel({
   useEffect(() => {
     onQrListChangeRef.current = onQrListChange;
   }, [onQrListChange]);
+
+  const rememberPaymentResults = useCallback((rows: MemberPaymentResult[]) => {
+    setPaymentResultByMember((prev) => {
+      const next = new Map(prev);
+      rows.forEach((row) => {
+        if (row?.memberId) next.set(row.memberId, row);
+      });
+      return next;
+    });
+  }, []);
+
+  const rememberPaymentResult = useCallback((row: MemberPaymentResult | null) => {
+    if (!row?.memberId) return;
+    setPaymentResultByMember((prev) => {
+      const next = new Map(prev);
+      next.set(row.memberId, row);
+      return next;
+    });
+  }, []);
 
   // Không gọi onQrListChange trong updater setState (React có thể chạy lúc render → lỗi cập nhật cha).
   const setQrListAndNotify = useCallback(
@@ -86,9 +135,25 @@ export function SplitBillPanel({
     onQrListChangeRef.current?.(qrList);
   }, [qrList]);
 
+  /** Member coi là chưa trả khi KHÔNG có paidAt thật (CASH ngay, hoặc QR đã webhook). */
   const unpaidMembers = useMemo(
-    () => (status?.members || []).filter((m) => !isMemberPaid(m.status)),
-    [status],
+    () =>
+      (status?.members || []).filter((m) => {
+        const cachedPaidAt = paymentResultByMember.get(m.memberId)?.paidAt;
+        return !isMemberPaid(m.status, m.paidAt ?? cachedPaidAt ?? null);
+      }),
+    [status, paymentResultByMember],
+  );
+
+  /** Tổng paidAt từ cache + status — dùng cho check "tất cả đã trả thật". */
+  const resolvePaidAt = useCallback(
+    (memberId: string, statusPaidAt?: string | null): string | null => {
+      const fromCache = paymentResultByMember.get(memberId)?.paidAt;
+      const fromStatus = statusPaidAt ?? null;
+      const candidate = fromStatus || fromCache || null;
+      return candidate && String(candidate).trim().length > 0 ? candidate : null;
+    },
+    [paymentResultByMember],
   );
 
   const loadStatus = useCallback(
@@ -124,7 +189,13 @@ export function SplitBillPanel({
         });
 
         const unpaidIds = next.members
-          .filter((m) => !isMemberPaid(m.status))
+          .filter(
+            (m) =>
+              !isMemberPaid(
+                m.status,
+                resolvePaidAt(m.memberId, m.paidAt ?? null),
+              ),
+          )
           .map((m) => m.memberId);
 
         setSelectedIds((prev) => {
@@ -143,9 +214,24 @@ export function SplitBillPanel({
           return kept;
         });
 
-        const allPaid =
+        /**
+         * Chỉ coi "đã thu đủ" khi:
+         *  1. Tất cả members có status paid (paidcash | paidqr | paid) VÀ paidAt thật, HOẶC
+         *  2. Tổng đã thu từ BE (totalPaid) >= tổng hóa đơn (totalAmount) — backend đã
+         *     cộng dồn từ MemberPayments audit, đáng tin cậy hơn status từng member.
+         *
+         * Tránh case BE trả status=PaidQr ngay khi tạo QR (chưa có webhook SePay).
+         */
+        const totalMatches =
           next.members.length > 0 &&
-          next.members.every((m) => isMemberPaid(m.status));
+          next.totalAmount > 0 &&
+          next.totalPaid >= next.totalAmount;
+        const allMembersMarkedPaid =
+          next.members.length > 0 &&
+          next.members.every((m) =>
+            isMemberPaid(m.status, resolvePaidAt(m.memberId, m.paidAt ?? null)),
+          );
+        const allPaid = totalMatches || allMembersMarkedPaid;
         if (allPaid && !notifiedAllPaid.current) {
           notifiedAllPaid.current = true;
           onAllPaidRef.current?.();
@@ -164,15 +250,24 @@ export function SplitBillPanel({
         if (!silent) setLoading(false);
       }
     },
-    [cafeId, sessionId],
+    [cafeId, sessionId, resolvePaidAt],
   );
 
-  loadStatusRef.current = loadStatus;
+  useEffect(() => {
+    loadStatusRef.current = loadStatus;
+  });
 
   // Chỉ load lại khi đổi session/quán — không phụ thuộc callback (tránh loop nhấp nháy).
   useEffect(() => {
+    const key = `${cafeId}::${sessionId}`;
+    const isNewSession = prevSessionKey.current !== key;
+    prevSessionKey.current = key;
     hasInitializedSelection.current = false;
     notifiedAllPaid.current = false;
+    if (isNewSession) {
+      // Reset cache khi chuyển session — lần render đầu của session mới.
+      setPaymentResultByMember(new Map());
+    }
     void loadStatusRef.current();
   }, [cafeId, sessionId]);
 
@@ -216,6 +311,10 @@ export function SplitBillPanel({
         paymentMethod,
         notes,
       });
+      // Lưu kết quả vào cache để biết member nào có paidAt thật (CASH ngay,
+      // QR chỉ có paidAt sau khi SePay webhook thành công).
+      rememberPaymentResults(results);
+
       if (paymentMethod === "QR_CODE") {
         const withQr = results.filter((r) => qrValue(r));
         setQrListAndNotify(withQr.length > 0 ? withQr : results);
@@ -227,12 +326,23 @@ export function SplitBillPanel({
         toast.success(`Đã thu tiền mặt ${results.length} khách.`);
       }
       const next = await loadStatus();
-      if (
-        next &&
-        next.members.length > 0 &&
-        next.members.every((m) => isMemberPaid(m.status))
-      ) {
-        onAllPaid?.();
+      /**
+       * KHÔNG auto-fire onAllPaid ngay sau khi tạo QR — chờ polling
+       * `/payment-status` xác nhận đã có paidAt thật (CASH có ngay, QR
+       * chỉ có sau webhook). Việc check "đã thu đủ" được thực hiện trong
+       * `loadStatus` (line 161-178) dựa trên totalPaid >= totalAmount
+       * hoặc paidAt thật của từng member.
+       */
+      if (paymentMethod === "CASH" && next) {
+        const allMarkedPaid =
+          next.members.length > 0 &&
+          next.members.every((m) =>
+            isMemberPaid(m.status, resolvePaidAt(m.memberId, m.paidAt ?? null)),
+          );
+        if (allMarkedPaid && !notifiedAllPaid.current) {
+          notifiedAllPaid.current = true;
+          onAllPaidRef.current?.();
+        }
       }
     } catch (err: unknown) {
       toast.error(
@@ -255,6 +365,8 @@ export function SplitBillPanel({
         toast.error("Không tạo lại được QR.");
         return;
       }
+      // Cập nhật cache để tránh stale paidAt từ lần pay trước.
+      rememberPaymentResult(row);
       setQrListAndNotify((prev) => {
         const others = prev.filter((p) => p.memberId !== memberId);
         return [...others, row];
@@ -270,9 +382,10 @@ export function SplitBillPanel({
     }
   };
 
-  const selectedCount = unpaidMembers.filter((m) =>
-    selectedIds.has(m.memberId),
-  ).length;
+  const selectedCount = useMemo(
+    () => unpaidMembers.filter((m) => selectedIds.has(m.memberId)).length,
+    [unpaidMembers, selectedIds],
+  );
 
   return (
     <div className="min-h-0 space-y-3 overflow-y-auto rounded-xl border border-amber-200 bg-amber-50/40 p-3">
@@ -377,7 +490,8 @@ export function SplitBillPanel({
           </p>
         ) : (
           status?.members.map((m) => {
-            const paid = isMemberPaid(m.status);
+            const cachedPaidAt = paymentResultByMember.get(m.memberId)?.paidAt;
+            const paid = isMemberPaid(m.status, m.paidAt ?? cachedPaidAt ?? null);
             const checked = selectedIds.has(m.memberId);
             return (
               <label

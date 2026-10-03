@@ -423,6 +423,13 @@ export interface SessionPaymentMemberStatus {
   amountPaid: number;
   status: string;
   paymentMethod: string | null;
+  /**
+   * Thời điểm thanh toán thật (UTC). BE có thể không trả trong `/payment-status`
+   * — mapper sẽ set null nếu BE thiếu field.
+   * - CASH: set ngay khi staff confirm.
+   * - QR_CODE: chỉ set sau khi SePay webhook thành công (null = pending).
+   */
+  paidAt: string | null;
 }
 
 export interface SessionPaymentStatus {
