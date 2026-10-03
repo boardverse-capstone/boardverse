@@ -284,6 +284,23 @@ export function AddGameDialog({
           : typeof rejected.reason === "string"
             ? rejected.reason
             : NETWORK_FALLBACK_VI;
+      // Log the full rejection so we can diagnose failures that the
+      // toast can't surface (status code, upstream message, payload).
+      // Without this, "thêm game không thành công" is a black box —
+      // the user reports the symptom but we can't tell whether it's a
+      // 401, a 403 on cafe ownership, a 422 from the validator, or a
+      // network timeout.
+      console.error("[add-game-dialog] all cart rows failed", {
+        cafeId,
+        cart: cart.map((c) => ({
+          gameTemplateId: c.gameTemplateId,
+          gameName: c.gameName,
+          boxQuantity: c.boxQuantity,
+          status: c.status,
+          penaltyCount: c.componentPenalties.length,
+        })),
+        rejection: rejected.reason,
+      });
       toast.error(reason);
     } else {
       const succeededIds = new Set(
