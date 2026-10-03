@@ -90,10 +90,21 @@ export function ProfileLocationSection({ onSaved, className }: ProfileLocationSe
           {isLoading ? (
             <p className="text-xs text-muted-foreground">Đang tải...</p>
           ) : location?.hasLocation && location.latitude != null && location.longitude != null ? (
-            <p className="text-xs text-muted-foreground">
-              {location.source ? `${location.source} · ` : ''}
-              {formatProfileDate(location.updatedAt)}
-            </p>
+            <div className="space-y-0.5">
+              {location.hasResolvedName && location.displayName ? (
+                <p className="text-xs font-medium text-foreground">
+                  {location.displayName}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">
+                  Đang phân giải địa chỉ…
+                </p>
+              )}
+              <p className="text-[11px] text-muted-foreground tabular-nums">
+                {location.source ? `${location.source} · ` : ''}
+                {formatProfileDate(location.updatedAt)}
+              </p>
+            </div>
           ) : (
             <p className="text-xs text-amber-700">Chưa lưu vị trí. Dùng GPS hoặc nhập thủ công.</p>
           )}
