@@ -660,7 +660,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
         onSelect={setActiveTournament}
         onOpenRegistration={handleOpenRegistration}
         onCloseRegistration={handleCloseRegistration}
-        onStartTournament={handleStartTournament}
+        onStartTournament={onStartTournament}
         onAdvanceRound={handleAdvanceRound}
         onCancelTournament={async (id) => {
           await handleCancelTournament(id, "Không có lý do");
