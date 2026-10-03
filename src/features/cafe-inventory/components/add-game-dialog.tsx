@@ -176,6 +176,11 @@ export function AddGameDialog({
     // summary on the right. Reading `cardConfigs[game.id]?.status`
     // here would silently propagate a stale toggle — exactly what the
     // report "ấn + thì status tự chuyển sang Bảo trì" was about.
+    //
+    // We also snap the left-hand card pill back to "Sẵn sàng" after
+    // a successful add so the two sides never disagree about the
+    // current intent. Quantity is preserved (the manager may want to
+    // re-add the same game with the same box count later).
     const quantity =
       cardConfigs[game.id]?.quantity ?? 1;
     setCart((prev) => {
@@ -201,6 +206,18 @@ export function AddGameDialog({
           componentPenalties,
         },
       ];
+    });
+    setCardConfigs((prev) => {
+      const current = prev[game.id] ?? { status: "Available", quantity };
+      // No-op when the card is already at default — avoids a needless
+      // re-render of the (now-disabled) "Chọn game" button row.
+      if (current.status === "Available" && current.quantity === quantity) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [game.id]: { status: "Available", quantity },
+      };
     });
   };
 
