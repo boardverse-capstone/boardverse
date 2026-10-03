@@ -160,15 +160,41 @@ export function useBulkAddInventory(isOpen: boolean, cafeId: string) {
     (async () => {
       setLoading(true);
       try {
-        const [activeRes, deletedRes]: any = await Promise.all([
-          apiClient.get(
+        // Tách 2 dedup call ra khỏi Promise.all: trang operational-profile
+        // có cafe status = DATA_BLANK (chưa kích hoạt) nhưng API vẫn cho
+        // phép add inventory. Trước đây cả 2 fetch cùng fail nếu một cái
+        // 4xx (vd /inventory/deleted chưa có data) → toast error đỏ che
+        // hết master games list, user tưởng "không thêm được". Bây giờ
+        // mỗi fetch độc lập: lỗi → set dedup rỗng + log console, KHÔNG
+        // toast. Master games vẫn load bình thường.
+        let activeRes: any = null;
+        let deletedRes: any = null;
+        try {
+          activeRes = await apiClient.get(
             `/api/cafes/${cafeId}/inventory?sortDescending=true&pageNumber=1&pageSize=100`,
             { signal: controller.signal },
-          ),
-          apiClient.get(`/api/cafes/${cafeId}/inventory/deleted`, {
-            signal: controller.signal,
-          }),
-        ]);
+          );
+        } catch (err) {
+          if (!isCanceled(err)) {
+            console.warn(
+              "[useBulkAddInventory] dedup active fetch failed, tiếp tục với empty list",
+              err,
+            );
+          }
+        }
+        try {
+          deletedRes = await apiClient.get(
+            `/api/cafes/${cafeId}/inventory/deleted`,
+            { signal: controller.signal },
+          );
+        } catch (err) {
+          if (!isCanceled(err)) {
+            console.warn(
+              "[useBulkAddInventory] dedup deleted fetch failed, tiếp tục với empty list",
+              err,
+            );
+          }
+        }
         if (cancelled || controller.signal.aborted) return;
 
         // Unwrap the same paginated envelope as the master-games
@@ -177,6 +203,7 @@ export function useBulkAddInventory(isOpen: boolean, cafeId: string) {
         // unwrapped one level. Tolerate either the array or the
         // `{ data, meta }` shape.
         const unwrap = (res: any): any[] => {
+          if (!res) return [];
           const inner = res?.data ?? res;
           if (Array.isArray(inner)) return inner;
           if (Array.isArray(inner?.data)) return inner.data;
@@ -192,10 +219,10 @@ export function useBulkAddInventory(isOpen: boolean, cafeId: string) {
         );
         setExistingGameIds(activeIds);
         setDeletedGameIds(trashIds);
-      } catch (err) {
-        if (isCanceled(err)) return;
-        console.error(err);
-        toast.error(NETWORK_FALLBACK_VI);
+      } finally {
+        if (inflightRef.current === controller) {
+          inflightRef.current = null;
+        }
         setLoading(false);
       }
     })();
