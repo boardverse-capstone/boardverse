@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import Image from "next/image";
 import { toast } from "sonner";
 import { apiClient } from "@/core/api/client";
 import {
@@ -9,7 +10,7 @@ import {
 } from "../hooks/useBulkAddInventory";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Trash2, Plus, Minus, Inbox } from "lucide-react";
+import { Search, Trash2, Plus, Minus, Inbox, ImageOff } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -34,6 +35,7 @@ const MAX_BOX_QUANTITY = 1000;
 interface CartItem {
   gameTemplateId: string;
   gameName: string;
+  gameThumbnailUrl: string | null;
   boxQuantity: number;
   status: "Available" | "Maintenance";
   componentPenalties: { gameComponentTemplateId: string; penaltyFee: number }[];
@@ -46,6 +48,47 @@ interface CardConfig {
 
 const NETWORK_FALLBACK_VI =
   "Không thể tải danh sách board game hệ thống. Vui lòng kiểm tra mạng và thử lại.";
+
+interface GameThumbnailProps {
+  src: string | null;
+  alt: string;
+  size: number;
+  className?: string;
+}
+
+/** Tiny thumbnail with a graceful fallback when the master-game API
+ *  returns a broken / 404 / blocked image URL. Renders Next/Image so
+ *  the loading is lazy and respects the configured remote patterns.
+ *  When the image fails to load — or no URL was provided — we swap to
+ *  a neutral pill with an `ImageOff` icon so the card still reads as
+ *  a product card instead of an empty box. */
+function GameThumbnail({ src, alt, size, className }: GameThumbnailProps) {
+  const [errored, setErrored] = useState(false);
+  const showImage = src && !errored;
+  return (
+    <div
+      className={`relative shrink-0 overflow-hidden rounded-md bg-neutral-100 ${className ?? ""}`}
+      style={{ width: size, height: size }}
+      aria-hidden={!showImage}
+    >
+      {showImage ? (
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          sizes={`${size}px`}
+          unoptimized
+          className="object-cover"
+          onError={() => setErrored(true)}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-neutral-400">
+          <ImageOff className="h-1/2 w-1/2" aria-hidden />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function AddGameDialog({
   isOpen,
@@ -144,6 +187,7 @@ export function AddGameDialog({
         {
           gameTemplateId: game.id,
           gameName: game.name,
+          gameThumbnailUrl: game.thumbnailUrl ?? null,
           boxQuantity: config.quantity,
           status: config.status,
           componentPenalties,
@@ -320,14 +364,22 @@ export function AddGameDialog({
                         key={game.id}
                         className="group bg-white border border-neutral-200/80 rounded-xl p-4 flex flex-col gap-3 h-full transition-all hover:border-neutral-300 hover:shadow-sm min-w-0"
                       >
-                        <div className="space-y-2 min-w-0">
-                          <h4 className="font-bold text-sm text-neutral-900 tracking-tight line-clamp-2 leading-snug">
-                            {game.name}
-                          </h4>
-                          <p className="text-xs text-neutral-500 line-clamp-2 leading-relaxed">
-                            {game.description?.trim() ||
-                              "Chưa có mô tả tóm tắt nội dung."}
-                          </p>
+                        <div className="flex gap-3 min-w-0">
+                          <GameThumbnail
+                            src={game.thumbnailUrl}
+                            alt={game.name}
+                            size={56}
+                            className="rounded-lg border border-neutral-200/60"
+                          />
+                          <div className="flex-1 space-y-1.5 min-w-0">
+                            <h4 className="font-bold text-sm text-neutral-900 tracking-tight line-clamp-2 leading-snug">
+                              {game.name}
+                            </h4>
+                            <p className="text-xs text-neutral-500 line-clamp-2 leading-relaxed">
+                              {game.description?.trim() ||
+                                "Chưa có mô tả tóm tắt nội dung."}
+                            </p>
+                          </div>
                         </div>
 
                         <div className="mt-auto border-t border-neutral-100 pt-3 space-y-2.5 shrink-0">
@@ -464,13 +516,21 @@ export function AddGameDialog({
                         type="button"
                         aria-label={`Bỏ ${item.gameName} khỏi danh sách`}
                         onClick={() => removeFromCart(item.gameTemplateId)}
-                        className="absolute top-2.5 right-2.5 h-6 w-6 p-0 text-neutral-400 hover:text-red-600 transition-colors"
+                        className="absolute top-2.5 right-2.5 h-6 w-6 p-0 text-neutral-400 hover:text-red-600 transition-colors z-10"
                       >
                         <Trash2 className="w-3.5 h-3.5" aria-hidden />
                       </Button>
 
-                      <div className="font-bold text-xs text-neutral-900 pr-7 line-clamp-2 leading-snug">
-                        {item.gameName}
+                      <div className="flex gap-2.5 min-w-0">
+                        <GameThumbnail
+                          src={item.gameThumbnailUrl}
+                          alt={item.gameName}
+                          size={40}
+                          className="rounded-md border border-neutral-200/60"
+                        />
+                        <div className="font-bold text-xs text-neutral-900 pr-7 line-clamp-2 leading-snug">
+                          {item.gameName}
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-2 border-t border-neutral-100/70 pt-2.5">

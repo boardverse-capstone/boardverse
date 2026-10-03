@@ -9,6 +9,7 @@ export interface MasterGameItem {
   id: string;
   name: string;
   description: string;
+  thumbnailUrl: string | null;
   components: any[];
 }
 
@@ -105,11 +106,24 @@ export function useBulkAddInventory(isOpen: boolean, cafeId: string) {
         // unwrapped one level. Walk through both shapes so the hook
         // keeps working if the backend switches between them.
         const inner = response?.data ?? response;
-        const list: MasterGameItem[] = Array.isArray(inner)
+        const rawList: any[] = Array.isArray(inner)
           ? inner
           : Array.isArray(inner?.data)
             ? inner.data
             : [];
+
+        // Normalize each row into our `MasterGameItem` shape. The
+        // backend uses `thumbnailUrl`; the older `imageUrl` / `coverUrl`
+        // / PascalCase variants are accepted too so we don't go blank
+        // when the API shape drifts.
+        const list: MasterGameItem[] = rawList.map((g: any) => ({
+          id: g.id,
+          name: g.name,
+          description: g.description ?? "",
+          thumbnailUrl:
+            g.thumbnailUrl ?? g.ThumbnailUrl ?? g.imageUrl ?? g.ImageUrl ?? null,
+          components: g.components ?? [],
+        }));
 
         // Loại bỏ hoàn toàn các game đã tồn tại hoạt động hoặc đã bị xóa mềm
         const filteredList = list
