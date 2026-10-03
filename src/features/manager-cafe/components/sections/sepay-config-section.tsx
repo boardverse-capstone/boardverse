@@ -15,7 +15,6 @@ import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -36,6 +35,15 @@ export interface SePayConfigSectionProps {
 }
 
 const BANK_CODE_HINT = "VCB / MB / TCB / ACB / ...";
+
+// Giá trị mặc định cố định cho các field kỹ thuật của SePay.
+// 3 field này bị ẩn khỏi UI (manager quán hiếm khi cần đổi), nhưng
+// vẫn được gửi lên BE để giữ payload đầy đủ theo schema SePay account.
+const SEPAY_DEFAULTS = {
+  environment: "Production" as const,
+  webhookAuthType: "HmacSha256" as const,
+  apiBaseUrl: "https://pgapi.sepay.vn/",
+};
 
 export function SePayConfigSection({ cafeId }: SePayConfigSectionProps) {
   const sepayQuery = useSePayConfig(cafeId);
@@ -162,18 +170,11 @@ function SePayEditDialog({
   // Các field nâng cao — đã được backend accept ở POST nhưng không
   // trả về trong SePayConfig read-model. Default khi edit = giá trị
   // trong JSON template (user có thể đổi trong Form hoặc JSON).
-  const [environment, setEnvironment] = useState<"Production" | "Sandbox">(
-    () => "Production",
-  );
+  // `environment`, `webhookAuthType`, `apiBaseUrl` đã được ẩn khỏi UI
+  // — luôn gửi giá trị mặc định từ SEPAY_DEFAULTS xuống BE.
   const [secretKey, setSecretKey] = useState<string>(() => "");
   const [webhookToken, setWebhookToken] = useState<string>(() => "");
-  const [webhookAuthType, setWebhookAuthType] = useState<
-    "None" | "Bearer" | "ApiKey" | "HmacSha256"
-  >(() => "HmacSha256");
   const [merchantId, setMerchantId] = useState<string>(() => "");
-  const [apiBaseUrl, setApiBaseUrl] = useState<string>(
-    () => "https://pgapi.sepay.vn/",
-  );
   // Ẩn mặc định nhóm "Cấu hình SePay" (Environment, API base URL,
   // Webhook auth type, Secret key, Webhook token, Merchant ID) — đây
   // là các field kỹ thuật, manager quán hiếm khi cần đụng. Khi bấm
@@ -188,12 +189,13 @@ function SePayEditDialog({
     bankCode: bankCode.trim().toUpperCase(),
     accountNumber: accountNumber.trim(),
     accountHolder: accountHolder.trim(),
-    environment,
+    // 3 field ẩn — luôn lấy từ SEPAY_DEFAULTS để payload đầy đủ.
+    environment: SEPAY_DEFAULTS.environment,
     secretKey: secretKey.trim(),
     webhookToken: webhookToken.trim(),
-    webhookAuthType,
+    webhookAuthType: SEPAY_DEFAULTS.webhookAuthType,
     merchantId: merchantId.trim() || undefined,
-    apiBaseUrl: apiBaseUrl.trim() || undefined,
+    apiBaseUrl: SEPAY_DEFAULTS.apiBaseUrl,
   });
 
   // Điều kiện cho phép submit.
@@ -317,26 +319,6 @@ function SePayEditDialog({
               {showAdvanced && (
                 <div id="sepay-advanced-config" className="space-y-3">
                   <Field>
-                    <FieldLabel htmlFor="sepay-environment" className="text-sub-label">
-                      Environment
-                    </FieldLabel>
-                    <select
-                      id="environment"
-                      value={environment}
-                      onChange={(e) =>
-                        setEnvironment(e.target.value as "Production" | "Sandbox")
-                      }
-                      className="w-full h-11 text-base border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-white px-3"
-                    >
-                      <option value="Production">Production</option>
-                      <option value="Sandbox">Sandbox</option>
-                    </select>
-                    <FieldDescription className="text-helper">
-                      Production dùng cho thanh toán thật, Sandbox để tích hợp.
-                    </FieldDescription>
-                  </Field>
-
-                  <Field>
                     <FieldLabel htmlFor="sepay-merchant" className="text-sub-label">
                       Merchant ID
                     </FieldLabel>
@@ -346,19 +328,6 @@ function SePayEditDialog({
                       onChange={(e) => setMerchantId(e.target.value)}
                       placeholder="SP-LIVE-XXXXX"
                       className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white font-mono text-sm"
-                    />
-                  </Field>
-
-                  <Field>
-                    <FieldLabel htmlFor="sepay-apibase" className="text-sub-label">
-                      API base URL
-                    </FieldLabel>
-                    <Input
-                      id="apiBaseUrl"
-                      value={apiBaseUrl}
-                      onChange={(e) => setApiBaseUrl(e.target.value)}
-                      placeholder="https://pgapi.sepay.vn/"
-                      className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white font-mono text-xs"
                     />
                   </Field>
 
@@ -396,33 +365,31 @@ function SePayEditDialog({
                     />
                   </Field>
 
-                  <Field>
-                    <FieldLabel htmlFor="sepay-webhookauth" className="text-sub-label">
-                      Webhook auth type
-                    </FieldLabel>
-                    <select
-                      id="webhookAuthType"
-                      value={webhookAuthType}
-                      onChange={(e) =>
-                        setWebhookAuthType(
-                          e.target.value as
-                            | "None"
-                            | "Bearer"
-                            | "ApiKey"
-                            | "HmacSha256",
-                        )
-                      }
-                      className="w-full h-11 text-base border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-white px-3"
-                    >
-                      <option value="None">None</option>
-                      <option value="Bearer">Bearer</option>
-                      <option value="ApiKey">ApiKey</option>
-                      <option value="HmacSha256">HmacSha256</option>
-                    </select>
-                    <FieldDescription className="text-helper">
-                      Cách SePay ký webhook callback về hệ thống của bạn.
-                    </FieldDescription>
-                  </Field>
+                  <div className="rounded-md border border-neutral-200 bg-white/60 px-3 py-2 text-xs text-neutral-600">
+                    <p className="font-medium text-neutral-700">
+                      Cấu hình cố định
+                    </p>
+                    <ul className="mt-1 space-y-0.5 tabular-nums">
+                      <li>
+                        <span className="text-neutral-500">Environment: </span>
+                        <span className="font-medium">
+                          {SEPAY_DEFAULTS.environment}
+                        </span>
+                      </li>
+                      <li>
+                        <span className="text-neutral-500">Webhook auth: </span>
+                        <span className="font-medium">
+                          {SEPAY_DEFAULTS.webhookAuthType}
+                        </span>
+                      </li>
+                      <li>
+                        <span className="text-neutral-500">API base URL: </span>
+                        <span className="font-mono break-all">
+                          {SEPAY_DEFAULTS.apiBaseUrl}
+                        </span>
+                      </li>
+                    </ul>
+                  </div>
                 </div>
               )}
             </div>
