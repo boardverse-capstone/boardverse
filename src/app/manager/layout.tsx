@@ -4,10 +4,7 @@ import type { ReactNode } from "react";
 import { Suspense } from "react";
 import {
   IconLayoutDashboard,
-  IconChartBar,
-  IconCalendar,
   IconReport,
-  IconCoffee,
   IconDeviceDesktop,
 } from "@tabler/icons-react";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
@@ -48,21 +45,6 @@ const MANAGER_NAV: NavItem[] = [
     title: "Báo cáo ca",
     url: ROUTES.MANAGER.REPORTS,
     icon: <IconReport />,
-  },
-  {
-    title: "Lịch biểu",
-    url: "/manager/schedule",
-    icon: <IconCalendar />,
-  },
-  {
-    title: "Thống kê",
-    url: "/manager/analytics",
-    icon: <IconChartBar />,
-  },
-  {
-    title: "Quản lý quán",
-    url: "/manager/cafe",
-    icon: <IconCoffee />,
   },
 ];
 

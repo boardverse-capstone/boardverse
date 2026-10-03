@@ -23,6 +23,11 @@ export interface OperationalProfileFormState {
   billingModel: BillingModel;
   basePrice: number | undefined;
   tieredBlockRate: number | undefined;
+  /** UI-facing field, user nhập số giờ (vd 0.25 = 15 phút, 1 = 60 phút).
+   *  Hook chuyển sang `tieredBlockMinutes` khi submit để giữ BE contract. */
+  tieredBlockHours: number | undefined;
+  /** Nội bộ: số phút của khung giờ, lưu lên BE. Được derive từ
+   *  `tieredBlockHours` khi set field; không cho user sửa trực tiếp. */
   tieredBlockMinutes: number | undefined;
   depositPercentage: number | undefined;
   /** Tên quán (cho sửa). */
@@ -52,6 +57,7 @@ export type FieldErrors = Record<string, string>;
 interface BillingCache {
   basePrice?: number;
   tieredBlockRate?: number;
+  tieredBlockHours?: number;
   tieredBlockMinutes?: number;
   depositPercentage?: number;
 }
@@ -69,6 +75,7 @@ const DEFAULT_FORM: OperationalProfileFormState = {
   billingModel: "ByHour",
   basePrice: 100_000,
   tieredBlockRate: 12_000,
+  tieredBlockHours: 2,
   tieredBlockMinutes: 120,
   depositPercentage: 0.15,
   cafeName: "",
@@ -99,6 +106,10 @@ function hydrateFromCafe(cafe: ManagerCafe | undefined): OperationalProfileFormS
     basePrice: p.basePrice,
     tieredBlockRate: p.tieredBlockRate,
     tieredBlockMinutes: p.tieredBlockMinutes,
+    tieredBlockHours:
+      p.tieredBlockMinutes !== undefined && p.tieredBlockMinutes !== null
+        ? p.tieredBlockMinutes / 60
+        : undefined,
     depositPercentage: p.depositPercentage,
     cafeName: p.cafeName ?? cafe.cafeName ?? "",
     address: p.address ?? cafe.address ?? "",
@@ -125,6 +136,7 @@ function isSameFormState(
     a.billingModel === b.billingModel &&
     a.basePrice === b.basePrice &&
     a.tieredBlockRate === b.tieredBlockRate &&
+    a.tieredBlockHours === b.tieredBlockHours &&
     a.tieredBlockMinutes === b.tieredBlockMinutes &&
     a.depositPercentage === b.depositPercentage &&
     a.cafeName === b.cafeName &&
@@ -205,26 +217,41 @@ export function validateOperationalProfile(
     const [h, m] = s.split(":").map(Number);
     return h * 60 + m;
   };
+  // Mỗi khung giờ mở cửa không được dài quá 24h (= 1440 phút).
+  // Lưu ý: input time chỉ trong 0-23:59, nên duration thực tế luôn
+  // < 1440. Check này là defensive để phát hiện edge case nếu format
+  // thay đổi hoặc BE trả về giờ 24:00 trong tương lai.
+  const MAX_SHIFT_MINUTES = 24 * 60;
   const errStore = out as Record<string, string>;
   if (
     !errStore["workingHours.weekdayStart"] &&
     !errStore["workingHours.weekdayEnd"] &&
     wh.weekdayStart &&
-    wh.weekdayEnd &&
-    toMinutes(wh.weekdayStart) >= toMinutes(wh.weekdayEnd)
+    wh.weekdayEnd
   ) {
-    errStore["workingHours.weekdayEnd"] =
-      "Giờ đóng phải sau giờ mở (ngày thường).";
+    const duration = toMinutes(wh.weekdayEnd) - toMinutes(wh.weekdayStart);
+    if (duration <= 0) {
+      errStore["workingHours.weekdayEnd"] =
+        "Giờ đóng phải sau giờ mở (ngày thường).";
+    } else if (duration > MAX_SHIFT_MINUTES) {
+      errStore["workingHours.weekdayEnd"] =
+        "Độ dài mỗi khung giờ tối đa 24 giờ (ngày thường).";
+    }
   }
   if (
     !errStore["workingHours.weekendStart"] &&
     !errStore["workingHours.weekendEnd"] &&
     wh.weekendStart &&
-    wh.weekendEnd &&
-    toMinutes(wh.weekendStart) >= toMinutes(wh.weekendEnd)
+    wh.weekendEnd
   ) {
-    errStore["workingHours.weekendEnd"] =
-      "Giờ đóng phải sau giờ mở (cuối tuần).";
+    const duration = toMinutes(wh.weekendEnd) - toMinutes(wh.weekendStart);
+    if (duration <= 0) {
+      errStore["workingHours.weekendEnd"] =
+        "Giờ đóng phải sau giờ mở (cuối tuần).";
+    } else if (duration > MAX_SHIFT_MINUTES) {
+      errStore["workingHours.weekendEnd"] =
+        "Độ dài mỗi khung giờ tối đa 24 giờ (cuối tuần).";
+    }
   }
 
   if (data.billingModel === "ByHour") {
@@ -246,9 +273,9 @@ export function validateOperationalProfile(
       !Number.isFinite(minutes) ||
       minutes < 1
     ) {
-      out.tieredBlockMinutes = "Độ dài khung giờ phải từ 1 phút trở lên.";
-    } else if (minutes > 480) {
-      out.tieredBlockMinutes = "Độ dài khung giờ tối đa 480 phút (8 giờ).";
+      out.tieredBlockMinutes = "Độ dài khung giờ phải từ 1 phút trở lên (tối thiểu 0.0167 giờ).";
+    } else if (minutes > 1440) {
+      out.tieredBlockMinutes = "Độ dài khung giờ tối đa 24 giờ (1440 phút).";
     }
   }
 
@@ -355,12 +382,14 @@ export function useOperationalProfile() {
       ByHour: {
         basePrice: next.basePrice,
         tieredBlockRate: next.tieredBlockRate,
+        tieredBlockHours: next.tieredBlockHours,
         tieredBlockMinutes: next.tieredBlockMinutes,
         depositPercentage: undefined,
       },
       PerDrink: {
         basePrice: undefined,
         tieredBlockRate: undefined,
+        tieredBlockHours: undefined,
         tieredBlockMinutes: undefined,
         depositPercentage: next.depositPercentage,
       },
@@ -398,6 +427,7 @@ export function useOperationalProfile() {
               [previousModel]: {
                 basePrice: prev.basePrice,
                 tieredBlockRate: prev.tieredBlockRate,
+                tieredBlockHours: prev.tieredBlockHours,
                 tieredBlockMinutes: prev.tieredBlockMinutes,
                 depositPercentage: prev.depositPercentage,
               },
@@ -409,6 +439,7 @@ export function useOperationalProfile() {
                 ...next,
                 basePrice: restored.basePrice,
                 tieredBlockRate: restored.tieredBlockRate,
+                tieredBlockHours: restored.tieredBlockHours,
                 tieredBlockMinutes: restored.tieredBlockMinutes,
                 depositPercentage: undefined,
               };
@@ -417,6 +448,7 @@ export function useOperationalProfile() {
               ...next,
               basePrice: undefined,
               tieredBlockRate: undefined,
+              tieredBlockHours: undefined,
               tieredBlockMinutes: undefined,
               depositPercentage: restored.depositPercentage,
             };
@@ -481,9 +513,30 @@ export function useOperationalProfile() {
       }
       if (target instanceof HTMLInputElement && target.type === "number") {
         const raw = target.value.trim();
+        const parsed = raw === "" ? undefined : Number(raw);
+        // tieredBlockHours: user nhập giờ → nội bộ cũng set phút để BE
+        // contract giữ nguyên. Nếu parsed là số hợp lệ và > 0, set cả 2.
+        if (name === "tieredBlockHours") {
+          setFormData((prev) => ({
+            ...prev,
+            tieredBlockHours: parsed,
+            tieredBlockMinutes:
+              parsed !== undefined && Number.isFinite(parsed) && parsed > 0
+                ? Math.round(parsed * 60)
+                : undefined,
+          }));
+          setErrors((prev) => {
+            const errKey = "tieredBlockMinutes";
+            if (!prev[errKey]) return prev;
+            const next = { ...prev };
+            delete next[errKey];
+            return next;
+          });
+          return;
+        }
         setField(
           name as keyof OperationalProfileFormState,
-          (raw === "" ? undefined : Number(raw)) as never,
+          parsed as never,
         );
         return;
       }

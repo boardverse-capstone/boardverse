@@ -18,6 +18,8 @@ export interface UploadCloudinaryError extends Error {
 interface UploadCloudinaryArgs {
   file: File;
   endpoint?: string;
+  /** Cloudinary folder hợp lệ — phải nằm trong whitelist của server route. */
+  folder?: string;
 }
 
 /**
@@ -27,9 +29,11 @@ interface UploadCloudinaryArgs {
 export async function uploadToCloudinary({
   file,
   endpoint = '/api/upload/cloudinary',
+  folder,
 }: UploadCloudinaryArgs): Promise<CloudinaryUploadResult> {
   const formData = new FormData();
   formData.append('file', file);
+  if (folder) formData.append('folder', folder);
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -65,11 +69,16 @@ export async function uploadToCloudinary({
   };
 }
 
+interface UseCloudinaryUploadArgs {
+  folder?: string;
+}
+
 /**
  * Hook tiện ích: gom state upload (progress boolean + error + result).
  * Caller tự quyết định khi nào gọi mutate().
  */
-export function useCloudinaryUpload() {
+export function useCloudinaryUpload(args: UseCloudinaryUploadArgs = {}) {
+  const { folder } = args;
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CloudinaryUploadResult | null>(null);
@@ -84,7 +93,7 @@ export function useCloudinaryUpload() {
     setUploading(true);
     setError(null);
     try {
-      const uploaded = await uploadToCloudinary({ file });
+      const uploaded = await uploadToCloudinary({ file, folder });
       setResult(uploaded);
       return uploaded;
     } catch (err) {

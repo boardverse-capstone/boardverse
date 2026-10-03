@@ -14,12 +14,15 @@ import {
   ShieldCheck,
   CheckCircle2,
   Lock,
+  Banknote,
+  Gift,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   backdropCloseHandler,
   useDismissOnBackdrop,
 } from "../lib/use-dismiss-on-backdrop";
+import { TournamentCoverUpload } from "./tournament-cover-upload";
 
 interface Props {
   isOpen: boolean;
@@ -55,6 +58,11 @@ export function TournamentCreateModal({
   const [minEloRequirement, setMinEloRequirement] = useState(0);
   const [maxEloRequirement, setMaxEloRequirement] = useState(5000);
   const [noShowKarmaPenalty, setNoShowKarmaPenalty] = useState(-30);
+
+  // 5. Phí tham gia, giải thưởng & ảnh bìa (mở rộng theo BE DTO)
+  const [entryFee, setEntryFee] = useState<string>(""); // rỗng = miễn phí
+  const [prize, setPrize] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
 
   // Toggle cấu hình nâng cao
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -111,6 +119,21 @@ export function TournamentCreateModal({
       Math.min(100, Number(minKarmaRequirement) || 0),
     );
 
+    // Phí tham gia: rỗng → miễn phí; cap 100.000.000đ (1 tỉ ký tự dễ nhập nhầm).
+    const entryFeeTrim = entryFee.trim();
+    const parsedEntryFee = entryFeeTrim ? Number(entryFeeTrim) : undefined;
+    if (
+      parsedEntryFee !== undefined &&
+      (!Number.isFinite(parsedEntryFee) || parsedEntryFee < 0)
+    ) {
+      toast.error("Phí tham gia không hợp lệ. Vui lòng nhập số từ 0đ trở lên.");
+      return;
+    }
+
+    // imageUrl: do <TournamentCoverUpload> set qua onUploaded; nếu rỗng
+    // thì BE dùng ảnh mặc định. URL đã được validate phía upload route.
+    const imageUrlTrim = imageUrl.trim();
+
     const payload: CreateTournamentDto = {
       title: title.trim(),
       description: description.trim() || undefined,
@@ -128,6 +151,9 @@ export function TournamentCreateModal({
       hasThirdPlaceMatch: true, // Khóa cứng Vòng chung kết
       winnerKarmaBonus: 50,
       finalistKarmaBonus: 20,
+      entryFee: parsedEntryFee,
+      prize: prize.trim() || undefined,
+      imageUrl: imageUrlTrim || undefined,
     };
 
     setIsSubmitting(true);
@@ -307,6 +333,75 @@ export function TournamentCreateModal({
                   Mỗi bàn 4 VĐV (theo luật Splendor). Hệ thống tự tính số bàn.
                 </p>
               </div>
+            </div>
+          </div>
+
+          {/* Nhóm 3: Phí tham gia, Giải thưởng & Ảnh bìa (mở rộng theo BE DTO) */}
+          <div className="flex flex-col gap-3 pt-2 border-t border-neutral-100">
+            <h4 className="font-extrabold text-neutral-900 flex items-center gap-1.5">
+              <Banknote className="w-3.5 h-3.5 text-emerald-600" /> Phí tham
+              gia, Giải thưởng & Ảnh bìa
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-neutral-700 block mb-1">
+                  Phí tham gia (VND)
+                </label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={0}
+                    step={1000}
+                    value={entryFee}
+                    onChange={(e) => setEntryFee(e.target.value)}
+                    placeholder="0 (miễn phí)"
+                    className="h-9 pr-10 font-mono font-bold"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-neutral-500 font-bold">
+                    đ
+                  </span>
+                </div>
+                <p className="mt-1 text-[10px] text-neutral-500 leading-snug">
+                  Để trống = miễn phí. Bước 1.000đ.
+                </p>
+              </div>
+
+              <div>
+                <label className="font-bold text-neutral-700 block mb-1">
+                  Giải thưởng
+                </label>
+                <div className="relative">
+                  <Gift
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500 pointer-events-none"
+                    aria-hidden
+                  />
+                  <Input
+                    value={prize}
+                    onChange={(e) => setPrize(e.target.value)}
+                    placeholder="VD: 1.000.000đ + Cúp lưu niệm"
+                    className="h-9 pl-9 font-medium"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="font-bold text-neutral-700 block mb-1">
+                Ảnh bìa
+              </label>
+              <TournamentCoverUpload
+                initialUrl={imageUrl || undefined}
+                onUploaded={(url) => setImageUrl(url)}
+                onCleared={() => setImageUrl("")}
+                disabled={isSubmitting}
+                data-testid="tournament-cover"
+              />
+              <p className="mt-1 text-[10px] text-neutral-500 leading-snug">
+                Ảnh sẽ hiển thị ở lobby & trang chi tiết. Để trống sẽ dùng
+                ảnh mặc định.
+              </p>
             </div>
           </div>
 

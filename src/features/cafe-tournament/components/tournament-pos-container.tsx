@@ -167,6 +167,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     handleCompleteTournament,
     handleCancelTournament,
     handleCheckInParticipant,
+    handleBulkCheckIn,
     handleNoShowParticipant,
     handleStartMatch,
     handleRecordMatchResult,
@@ -431,11 +432,12 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
 
   // Hủy bàn đấu
   const onCancelMatch = async (matchId: string, reason: string) => {
-    if (!activeTournament) return;
+    if (!activeTournament) return false;
     const ok = await handleCancelMatch(matchId, reason);
     if (ok) {
       await refreshMatches(activeTournament.id, activeTournament.currentRound);
     }
+    return ok;
   };
 
   // Loại VĐV khỏi giải đấu (Kick)
@@ -477,6 +479,31 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
       }
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  // Check-in hàng loạt: track các VĐV đang được xử lý để disable row
+  // tương ứng trong lúc chờ BE trả lời (giúp staff tránh click đúp).
+  const [bulkLoadingIds, setBulkLoadingIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+
+  const onBulkCheckIn = async (
+    participantIds: string[],
+  ): Promise<{ ok: number; failed: string[] }> => {
+    if (!activeTournament || participantIds.length === 0) {
+      return { ok: 0, failed: [] };
+    }
+    setBulkLoadingIds(new Set(participantIds));
+    try {
+      const result = await handleBulkCheckIn(
+        activeTournament.id,
+        participantIds,
+      );
+      await refreshParticipants(activeTournament.id);
+      return result;
+    } finally {
+      setBulkLoadingIds(new Set());
     }
   };
 
@@ -1033,6 +1060,8 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                       await handleKickParticipant(id, reason);
                     }}
                     actionLoadingId={actionLoadingId}
+                    bulkLoadingIds={bulkLoadingIds}
+                    onBulkCheckIn={onBulkCheckIn}
                     isTournamentCompleted={
                       (activeTournament.status as string) === "Completed"
                     }
@@ -1052,6 +1081,8 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                 await handleKickParticipant(id, reason);
               }}
               actionLoadingId={actionLoadingId}
+              bulkLoadingIds={bulkLoadingIds}
+              onBulkCheckIn={onBulkCheckIn}
               isTournamentCompleted={activeTournament.status === "Completed"}
               onRefresh={() => {
                 if (activeTournament) {
@@ -1076,6 +1107,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
         match={selectedMatch}
         onSaveResult={onSaveMatchResult}
         onUpdateResult={onUpdateMatchResult}
+        onCancelMatch={onCancelMatch}
       />
 
       <TournamentCreateModal
