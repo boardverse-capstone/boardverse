@@ -104,22 +104,36 @@ export function NearbyCafesPanel({
   };
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">Quán gần bạn</CardTitle>
+    <Card className="relative overflow-hidden rounded-xl border-2 border-violet-400 bg-gradient-to-br from-violet-50 via-white to-purple-50 shadow-[3px_3px_0_rgba(139,92,246,0.4)]">
+      {/* CRT scanlines + LED corners */}
+      <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_3px,rgba(255,255,255,0.04)_3px,rgba(255,255,255,0.04)_4px)]" />
+      <span className="pointer-events-none absolute right-3 top-3 size-2 animate-pulse rounded-full bg-violet-500 shadow-[0_0_8px_currentColor]" />
+      <span className="pointer-events-none absolute left-3 top-3 size-2 animate-pulse rounded-full bg-fuchsia-500 shadow-[0_0_8px_currentColor] [animation-delay:0.3s]" />
+
+      <CardHeader className="relative border-b-2 border-violet-300/60 bg-gradient-to-r from-violet-100 via-purple-100 to-fuchsia-100 pb-3">
+        <CardTitle className="flex items-center gap-2 font-mono text-sm font-extrabold uppercase tracking-widest text-violet-950">
+          <span className="text-yellow-400">►</span>
+          Quán gần bạn
+          <span className="ml-auto flex items-center gap-1 font-mono text-[10px] font-bold text-violet-700">
+            <span className="size-1.5 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_6px_currentColor]" />
+            LIVE
+          </span>
+        </CardTitle>
       </CardHeader>
 
-      <CardContent className="space-y-3">
+      <CardContent className="relative space-y-3 pt-4">
         <ProfileLocationSection onSaved={() => void handleLocationSaved()} />
 
-        <div className="space-y-2 rounded-xl border border-border/70 bg-muted/20 p-3">
+        <div className="space-y-2 rounded-xl border-2 border-violet-300 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-3 shadow-[2px_2px_0_rgba(139,92,246,0.3)]">
           <div className="space-y-1.5">
-            <Label className="text-xs">Game trong kho quán</Label>
+            <Label className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-violet-700">
+              <span className="mr-1 text-yellow-400">▸</span>Game trong kho quán
+            </Label>
             {gamesLoading ? (
-              <Skeleton className="h-11 w-full rounded-lg" />
+              <Skeleton className="h-11 w-full rounded-lg border-2 border-violet-200" />
             ) : gameOptions.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                Kho quán chưa có game để tìm gần đây.
+              <p className="font-mono text-xs font-bold uppercase tracking-wide text-violet-500">
+                ▸ Kho quán chưa có game để tìm gần đây.
               </p>
             ) : (
               <Popover open={gameListOpen} onOpenChange={setGameListOpen}>
@@ -127,12 +141,12 @@ export function NearbyCafesPanel({
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-auto w-full justify-between gap-3 px-2.5 py-2"
+                    className="h-auto w-full justify-between gap-3 rounded-lg border-2 border-violet-400 bg-white px-2.5 py-2 shadow-[2px_2px_0_rgba(139,92,246,0.35)] hover:bg-violet-50 hover:shadow-[3px_3px_0_rgba(139,92,246,0.55)]"
                   >
                     <span className="flex min-w-0 items-center gap-3">
                       {selectedGame ? (
                         <>
-                          <span className="relative size-9 shrink-0 overflow-hidden rounded-md bg-muted">
+                          <span className="relative size-9 shrink-0 overflow-hidden rounded-md border-2 border-violet-300 bg-muted shadow-[inset_0_-1px_0_rgba(0,0,0,0.1)]">
                             {selectedGame.imageUrl ? (
                               <Image
                                 src={selectedGame.imageUrl}
@@ -142,21 +156,28 @@ export function NearbyCafesPanel({
                                 sizes="36px"
                               />
                             ) : (
-                              <span className="flex size-full items-center justify-center text-[10px] text-muted-foreground">
+                              <span className="flex size-full items-center justify-center font-mono text-[10px] font-bold text-violet-400">
                                 N/A
                               </span>
                             )}
                           </span>
-                          <span className="truncate text-sm font-medium">{selectedGame.name}</span>
+                          <span className="truncate font-mono text-xs font-extrabold uppercase tracking-wide text-violet-950">
+                            ► {selectedGame.name}
+                          </span>
                         </>
                       ) : (
-                        <span className="text-sm text-muted-foreground">Chọn game…</span>
+                        <span className="font-mono text-xs font-bold uppercase tracking-widest text-violet-400">
+                          ▸ Chọn game…
+                        </span>
                       )}
                     </span>
-                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <ChevronDown className="h-4 w-4 shrink-0 text-violet-500" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-2">
+                <PopoverContent
+                  align="start"
+                  className="w-[var(--radix-popover-trigger-width)] border-2 border-violet-400 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-2 shadow-[3px_3px_0_rgba(139,92,246,0.45)]"
+                >
                   <div className="max-h-56 space-y-1 overflow-y-auto">
                     {gameOptions.map((game) => {
                       const isActive = selectedGameTemplateId === game.gameTemplateId;
@@ -169,13 +190,13 @@ export function NearbyCafesPanel({
                             setGameListOpen(false);
                           }}
                           className={cn(
-                            'flex w-full items-center gap-3 rounded-lg border px-2.5 py-2 text-left transition-colors',
+                            'flex w-full items-center gap-3 rounded-lg border-2 px-2.5 py-2 text-left transition-all',
                             isActive
-                              ? 'border-primary bg-primary/5'
-                              : 'border-transparent hover:bg-muted/60',
+                              ? 'border-yellow-400 bg-gradient-to-r from-yellow-100 to-amber-100 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1),0_0_8px_rgba(250,204,21,0.4)]'
+                              : 'border-transparent bg-white/60 hover:border-violet-300 hover:bg-violet-50',
                           )}
                         >
-                          <div className="relative size-11 shrink-0 overflow-hidden rounded-md bg-muted">
+                          <div className="relative size-11 shrink-0 overflow-hidden rounded-md border-2 border-violet-300 bg-muted shadow-[inset_0_-1px_0_rgba(0,0,0,0.1)]">
                             {game.imageUrl ? (
                               <Image
                                 src={game.imageUrl}
@@ -185,12 +206,17 @@ export function NearbyCafesPanel({
                                 sizes="44px"
                               />
                             ) : (
-                              <div className="flex size-full items-center justify-center text-[10px] text-muted-foreground">
+                              <div className="flex size-full items-center justify-center font-mono text-[10px] font-bold text-violet-400">
                                 N/A
                               </div>
                             )}
                           </div>
-                          <span className="truncate text-sm font-medium">{game.name}</span>
+                          <span className="truncate font-mono text-xs font-extrabold uppercase tracking-wide text-violet-950">
+                            {game.name}
+                          </span>
+                          {isActive && (
+                            <span className="ml-auto text-xs text-yellow-500">★</span>
+                          )}
                         </button>
                       );
                     })}
@@ -200,8 +226,8 @@ export function NearbyCafesPanel({
             )}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="nearby-radius-km" className="text-xs">
-              Bán kính (km, 0.1–50)
+            <Label htmlFor="nearby-radius-km" className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-violet-700">
+              <span className="mr-1 text-yellow-400">▸</span>Bán kính (km, 0.1–50)
             </Label>
             <Input
               id="nearby-radius-km"
@@ -214,108 +240,158 @@ export function NearbyCafesPanel({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSearch();
               }}
+              className="border-2 border-violet-300 bg-white font-mono text-xs font-bold focus-visible:border-violet-500 focus-visible:ring-violet-300"
             />
           </div>
-          <Button
+          <button
             type="button"
-            size="sm"
-            className="w-full sm:w-auto"
             disabled={!selectedGameTemplateId}
             onClick={handleSearch}
+            className="group inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md border-2 border-violet-700 bg-gradient-to-b from-violet-500 to-violet-700 px-4 font-mono text-xs font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.25),3px_3px_0_rgba(0,0,0,0.15)] transition-all hover:from-violet-400 hover:to-violet-600 disabled:cursor-not-allowed disabled:from-gray-400 disabled:to-gray-500 disabled:shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)] sm:w-auto"
           >
+            <span className="text-yellow-300 transition-transform group-hover:translate-x-0.5">►</span>
             Tìm quán gần
-          </Button>
+          </button>
         </div>
 
         {hasSearched && selectedGameName ? (
-          <p className="text-xs text-muted-foreground">Đang tìm quán gần có game: {selectedGameName}</p>
+          <p className="flex items-center gap-1.5 font-mono text-[10px] font-extrabold uppercase tracking-widest text-violet-700">
+            <span className="size-1.5 animate-pulse rounded-full bg-violet-500 shadow-[0_0_6px_currentColor]" />
+            Đang tìm: <span className="text-violet-950">► {selectedGameName}</span>
+          </p>
         ) : !hasSearched ? (
-          <p className="text-xs text-muted-foreground">
-            Chọn game từ kho quán rồi bấm tìm.
+          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-violet-500">
+            ▸ Chọn game từ kho quán rồi bấm tìm.
           </p>
         ) : null}
 
         {!hasSearched ? null : nearbyLoading ? (
           <div className="space-y-2">
             {[1, 2].map((item) => (
-              <Skeleton key={item} className="h-16 w-full rounded-lg" />
+              <Skeleton
+                key={item}
+                className="h-16 w-full rounded-lg border-2 border-violet-200"
+              />
             ))}
           </div>
         ) : nearbyError ? (
-          <div className="space-y-2 text-sm text-rose-600">
+          <div className="space-y-2 rounded-lg border-2 border-rose-400 bg-gradient-to-r from-rose-100 via-pink-50 to-fuchsia-100 p-3 font-mono text-xs font-bold text-rose-700 shadow-[2px_2px_0_rgba(244,63,94,0.4)]">
             <p>
+              <span className="mr-1">⚠</span>
               {(nearbyErrorObj as Error)?.message || 'Không thể tải quán gần bạn.'}{' '}
-              <button type="button" className="underline" onClick={() => void refetchNearby()}>
-                Thử lại
+              <button
+                type="button"
+                className="underline decoration-2 underline-offset-2"
+                onClick={() => void refetchNearby()}
+              >
+                ► Thử lại
               </button>
             </p>
           </div>
         ) : cafes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Không có quán nào trong bán kính tìm kiếm.
+          <p className="rounded-lg border-2 border-dashed border-violet-300 bg-violet-50/40 p-3 font-mono text-xs font-bold uppercase tracking-widest text-violet-500">
+            <span className="mr-1">▸</span>Không có quán nào trong bán kính tìm kiếm.
           </p>
         ) : (
-          cafes.map((cafe) => {
-            const isSelected = selectedCafeId === cafe.id;
+          <div className="space-y-2">
+            {cafes.map((cafe, idx) => {
+              const isSelected = selectedCafeId === cafe.id;
+              return (
+                <div
+                  key={cafe.id}
+                  className={cn(
+                    'group relative overflow-hidden rounded-xl border-2 p-3 transition-all',
+                    isSelected
+                      ? 'border-yellow-400 bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 shadow-[3px_3px_0_rgba(250,204,21,0.5),0_0_12px_rgba(250,204,21,0.3)]'
+                      : 'border-violet-300 bg-gradient-to-br from-white via-violet-50/40 to-purple-50/30 shadow-[2px_2px_0_rgba(139,92,246,0.25)] hover:border-violet-500 hover:shadow-[3px_3px_0_rgba(139,92,246,0.4)]',
+                  )}
+                >
+                  {/* LED indicator */}
+                  <span className="pointer-events-none absolute right-2 top-2 size-1.5 animate-pulse rounded-full bg-violet-500 opacity-0 shadow-[0_0_6px_currentColor] group-hover:opacity-100" />
 
-            return (
-              <div
-                key={cafe.id}
-                className={cn(
-                  'flex items-start gap-3 rounded-xl border p-3 transition-colors',
-                  isSelected ? 'border-primary bg-primary/5' : 'border-border/70 bg-muted/20',
-                )}
-              >
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-background">
-                  <Store className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="truncate font-medium">{cafe.name}</p>
-                    {cafe.distanceLabel && (
-                      <Badge variant="secondary" className="text-[10px]">
-                        {cafe.distanceLabel}
-                      </Badge>
-                    )}
-                    {cafe.selectedGameAvailabilityStatus === 'GameAvailable' && (
-                      <Badge className="bg-emerald-100 text-[10px] text-emerald-800 hover:bg-emerald-100">
-                        Có game
-                      </Badge>
+                  <div className="flex items-start gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border-2 border-violet-300 bg-gradient-to-br from-violet-200 via-purple-100 to-fuchsia-100 shadow-[inset_0_-2px_0_rgba(0,0,0,0.1)]">
+                      <Store className="h-4 w-4 text-violet-700" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate font-mono text-sm font-extrabold uppercase tracking-wide text-violet-950">
+                          <span className="mr-1 text-violet-400">#{String(idx + 1).padStart(2, '0')}</span>
+                          {cafe.name}
+                        </p>
+                        {cafe.distanceLabel && (
+                          <Badge
+                            variant="secondary"
+                            className="border-2 border-cyan-400 bg-cyan-100 font-mono text-[10px] font-extrabold uppercase tracking-widest text-cyan-800 shadow-[1px_1px_0_rgba(0,0,0,0.1)]"
+                          >
+                            ◉ {cafe.distanceLabel}
+                          </Badge>
+                        )}
+                        {cafe.selectedGameAvailabilityStatus === 'GameAvailable' && (
+                          <Badge className="border-2 border-emerald-400 bg-gradient-to-r from-emerald-400 to-emerald-500 font-mono text-[10px] font-extrabold uppercase tracking-widest text-white shadow-[1px_1px_0_rgba(0,0,0,0.15)] hover:from-emerald-400 hover:to-emerald-500">
+                            ✓ CÓ GAME
+                          </Badge>
+                        )}
+                      </div>
+                      {cafe.address && (
+                        <p className="mt-1 line-clamp-2 font-mono text-[11px] font-semibold tracking-wide text-violet-700">
+                          <span className="mr-1 text-violet-400">▸</span>
+                          {cafe.address}
+                        </p>
+                      )}
+                      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] font-bold uppercase tracking-wider text-violet-600">
+                        <span>
+                          <span className="text-violet-400">Bàn:</span>{' '}
+                          <span className="text-violet-900">
+                            {cafe.availableTableCount}/{cafe.totalTableCount}
+                          </span>
+                        </span>
+                        <span>
+                          <span className="text-violet-400">Box:</span>{' '}
+                          <span className="text-violet-900">
+                            {cafe.availableGameCount}/{cafe.totalGameBoxCount}
+                          </span>
+                        </span>
+                        {cafe.estimatedWaitMinutes != null && (
+                          <span>
+                            <span className="text-violet-400">Chờ:</span>{' '}
+                            <span className="text-amber-700">~{cafe.estimatedWaitMinutes}p</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {onSelectCafe ? (
+                      <button
+                        type="button"
+                        onClick={() => onSelectCafe(cafe)}
+                        className={cn(
+                          'inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-md border-2 px-3 font-mono text-[11px] font-extrabold uppercase tracking-widest shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),2px_2px_0_rgba(0,0,0,0.15)] transition-all',
+                          isSelected
+                            ? 'border-yellow-600 bg-gradient-to-b from-yellow-400 to-amber-500 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.3),2px_2px_0_rgba(0,0,0,0.2),0_0_8px_rgba(250,204,21,0.5)]'
+                            : 'border-violet-700 bg-gradient-to-b from-violet-500 to-violet-700 text-white hover:from-violet-400 hover:to-violet-600',
+                        )}
+                      >
+                        {isSelected ? '★ ĐANG CHỌN' : '► CHỌN'}
+                      </button>
+                    ) : (
+                      !compact && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          asChild
+                          className="h-8 shrink-0 border-2 border-violet-400 bg-white font-mono text-[11px] font-extrabold uppercase tracking-widest text-violet-700 shadow-[2px_2px_0_rgba(139,92,246,0.35)] hover:bg-violet-50"
+                        >
+                          <Link href={`/staff/inventory?cafeId=${cafe.id}`}>
+                            ► Xem kho
+                          </Link>
+                        </Button>
+                      )
                     )}
                   </div>
-                  {cafe.address && (
-                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                      {cafe.address}
-                    </p>
-                  )}
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Bàn trống {cafe.availableTableCount}/{cafe.totalTableCount}
-                    {` · Box game ${cafe.availableGameCount}/${cafe.totalGameBoxCount}`}
-                    {cafe.estimatedWaitMinutes != null
-                      ? ` · Chờ ~${cafe.estimatedWaitMinutes} phút`
-                      : ''}
-                  </p>
                 </div>
-                {onSelectCafe ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={isSelected ? 'default' : 'outline'}
-                    className="shrink-0"
-                    onClick={() => onSelectCafe(cafe)}
-                  >
-                    {isSelected ? 'Đang chọn' : 'Chọn'}
-                  </Button>
-                ) : (
-                  !compact && (
-                    <Button size="sm" variant="outline" asChild className="shrink-0">
-                      <Link href={`/staff/inventory?cafeId=${cafe.id}`}>Xem kho</Link>
-                    </Button>
-                  )
-                )}
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </CardContent>
     </Card>

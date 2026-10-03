@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { AlertTriangle } from 'lucide-react';
 import {
@@ -49,21 +49,21 @@ export function UnderstaffedAlertDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl md:max-w-3xl">
         <AlertDialogHeader className="text-start">
-          <AlertDialogMedia className="bg-rose-100 text-rose-600">
+          <AlertDialogMedia className="bg-orange-100 text-orange-600">
             <AlertTriangle className="h-8 w-8" />
           </AlertDialogMedia>
-          <AlertDialogTitle className="text-rose-700">
-            Không đủ số lượng người tối thiểu để chơi game {originalGameName}
+          <AlertDialogTitle className="text-orange-700">
+            KhÃ´ng Ä‘á»§ sá»‘ lÆ°á»£ng ngÆ°á»i tá»‘i thiá»ƒu Ä‘á»ƒ chÆ¡i game {originalGameName}
           </AlertDialogTitle>
           <AlertDialogDescription className="text-start">
-            Hiện có <strong>{presentCount}</strong> người có mặt, trong khi game yêu cầu tối thiểu{' '}
-            <strong>{minPlayers}</strong> người. Luồng mở phiên thông thường đã bị chặn. Vui lòng
-            chọn game thay thế phù hợp từ kho quán trước khi kích hoạt bàn.
+            Hiá»‡n cÃ³ <strong>{presentCount}</strong> ngÆ°á»i cÃ³ máº·t, trong khi game yÃªu cáº§u tá»‘i thiá»ƒu{' '}
+            <strong>{minPlayers}</strong> ngÆ°á»i. Luá»“ng má»Ÿ phiÃªn thÃ´ng thÆ°á»ng Ä‘Ã£ bá»‹ cháº·n. Vui lÃ²ng
+            chá»n game thay tháº¿ phÃ¹ há»£p tá»« kho quÃ¡n trÆ°á»›c khi kÃ­ch hoáº¡t bÃ n.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold">Game thay thế gợi ý</h3>
+          <h3 className="text-sm font-semibold">Game thay tháº¿ gá»£i Ã½</h3>
           <AlternativeGamesGrid
             games={games}
             isLoading={isLoadingGames}
@@ -74,7 +74,7 @@ export function UnderstaffedAlertDialog({
 
         <AlertDialogFooter className="gap-2 sm:gap-0">
           <AlertDialogCancel disabled={isConfirming} className="h-11 min-h-[44px] touch-manipulation md:h-12">
-            Hủy
+            Há»§y
           </AlertDialogCancel>
           <Button
             type="button"
@@ -86,10 +86,10 @@ export function UnderstaffedAlertDialog({
             {isConfirming ? (
               <>
                 <Spinner className="mr-2 h-4 w-4" />
-                Đang kích hoạt...
+                Äang kÃ­ch hoáº¡t...
               </>
             ) : (
-              'Xác nhận kích hoạt bàn'
+              'XÃ¡c nháº­n kÃ­ch hoáº¡t bÃ n'
             )}
           </Button>
         </AlertDialogFooter>

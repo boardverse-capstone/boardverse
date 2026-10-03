@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
@@ -164,7 +164,7 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
 
   const handleProcessAbsent = async () => {
     if (!booking || absentIds.length === 0) {
-      toast.info('Không có thành viên vắng mặt cần xử lý.');
+      toast.info('KhÃ´ng cÃ³ thÃ nh viÃªn váº¯ng máº·t cáº§n xá»­ lÃ½.');
       return;
     }
 
@@ -173,12 +173,12 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
       setAbsentProcessed(true);
       toast.success(
         result.depositForfeitedTotal > 0
-          ? `Đã xử lý ${result.processed} người vắng mặt — tịch thu ${formatCurrency(result.depositForfeitedTotal)}, trừ ${NO_SHOW_KARMA_PENALTY} Karma/người.`
-          : `Đã đánh dấu ${result.processed} người vắng (local). No-show/forfeit do player vote sau checkout.`,
+          ? `ÄÃ£ xá»­ lÃ½ ${result.processed} ngÆ°á»i váº¯ng máº·t â€” tá»‹ch thu ${formatCurrency(result.depositForfeitedTotal)}, trá»« ${NO_SHOW_KARMA_PENALTY} Karma/ngÆ°á»i.`
+          : `ÄÃ£ Ä‘Ã¡nh dáº¥u ${result.processed} ngÆ°á»i váº¯ng (local). No-show/forfeit do player vote sau checkout.`,
       );
       refetch();
     } catch {
-      toast.error('Không thể xử lý vắng mặt. Vui lòng thử lại.');
+      toast.error('KhÃ´ng thá»ƒ xá»­ lÃ½ váº¯ng máº·t. Vui lÃ²ng thá»­ láº¡i.');
     }
   };
 
@@ -188,15 +188,15 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
     const code = checkInCode.trim();
     const boxBarcode = barcode.trim();
     if (!code) {
-      toast.error('Vui lòng nhập / quét mã check-in (QR).');
+      toast.error('Vui lÃ²ng nháº­p / quÃ©t mÃ£ check-in (QR).');
       return;
     }
     if (!booking.tableId) {
-      toast.error('Booking chưa gắn bàn.');
+      toast.error('Booking chÆ°a gáº¯n bÃ n.');
       return;
     }
     if (!boxBarcode) {
-      toast.error('Vui lòng quét barcode hộp game.');
+      toast.error('Vui lÃ²ng quÃ©t barcode há»™p game.');
       return;
     }
 
@@ -212,10 +212,10 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
       setSessionActive(true);
       setAlertOpen(false);
       toast.success(
-        `Bàn ${booking.tableLabel} đã kích hoạt — chơi ${session.game.name} (${session.presentCount} người). Cọc Credit: ${formatCurrency(session.depositCreditTotal)}.`,
+        `BÃ n ${booking.tableLabel} Ä‘Ã£ kÃ­ch hoáº¡t â€” chÆ¡i ${session.game.name} (${session.presentCount} ngÆ°á»i). Cá»c Credit: ${formatCurrency(session.depositCreditTotal)}.`,
       );
     } catch (err) {
-      toast.error((err as Error)?.message || 'Không thể kích hoạt phiên chơi. Vui lòng thử lại.');
+      toast.error((err as Error)?.message || 'KhÃ´ng thá»ƒ kÃ­ch hoáº¡t phiÃªn chÆ¡i. Vui lÃ²ng thá»­ láº¡i.');
     }
   };
 
@@ -223,12 +223,12 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
     if (!booking || sessionActive) return;
 
     if (presentCount === 0) {
-      toast.error('Cần ít nhất 1 thành viên có mặt để check-in.');
+      toast.error('Cáº§n Ã­t nháº¥t 1 thÃ nh viÃªn cÃ³ máº·t Ä‘á»ƒ check-in.');
       return;
     }
 
     if (!barcode.trim()) {
-      toast.error('Vui lòng quét barcode hộp game trước khi check-in.');
+      toast.error('Vui lÃ²ng quÃ©t barcode há»™p game trÆ°á»›c khi check-in.');
       return;
     }
 
@@ -243,7 +243,7 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
 
   const handleConfirmSwap = () => {
     if (!selectedGame) {
-      toast.error('Vui lòng chọn game thay thế trước khi kích hoạt.');
+      toast.error('Vui lÃ²ng chá»n game thay tháº¿ trÆ°á»›c khi kÃ­ch hoáº¡t.');
       return;
     }
     void doActivate(toBookedGame(selectedGame));
@@ -260,9 +260,9 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
   if (isError || !booking) {
     return (
       <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-        Không tìm thấy đơn đặt bàn.{' '}
+        KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n Ä‘áº·t bÃ n.{' '}
         <Link href={ROUTES.STAFF.POS} className="text-primary underline">
-          Quay lại POS
+          Quay láº¡i POS
         </Link>
       </div>
     );
@@ -278,14 +278,14 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
         </Button>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            {sessionActive ? `Vận hành ${booking.tableLabel}` : `Check-in ${booking.tableLabel}`}
+            {sessionActive ? `Váº­n hÃ nh ${booking.tableLabel}` : `Check-in ${booking.tableLabel}`}
           </h1>
           <p className="text-sm text-muted-foreground flex items-center gap-1">
             <Clock className="h-3.5 w-3.5" />
             {formatTime(booking.scheduledAt)}
           </p>
         </div>
-        {sessionActive && <Badge className="ml-auto bg-green-600">Đang chơi</Badge>}
+        {sessionActive && <Badge className="ml-auto bg-orange-600">Äang chÆ¡i</Badge>}
       </div>
 
       {sessionActive ? (
@@ -294,7 +294,7 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
         <div className="grid gap-6 md:grid-cols-[1fr_340px] md:items-start">
           <Card>
             <CardHeader>
-              <CardTitle>Điểm danh thành viên</CardTitle>
+              <CardTitle>Äiá»ƒm danh thÃ nh viÃªn</CardTitle>
             </CardHeader>
             <CardContent>
               <AttendeeChecklist
@@ -309,7 +309,7 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-12 min-w-[180px] touch-manipulation border-rose-200 text-base text-rose-700 hover:bg-rose-50 md:h-14"
+                    className="h-12 min-w-[180px] touch-manipulation border-orange-200 text-base text-orange-700 hover:bg-orange-50 md:h-14"
                     disabled={markAbsent.isPending || absentProcessed}
                     onClick={() => void handleProcessAbsent()}
                   >
@@ -318,7 +318,7 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
                     ) : (
                       <UserX className="mr-2 h-4 w-4" />
                     )}
-                    Xử lý vắng mặt ({absentIds.length})
+                    Xá»­ lÃ½ váº¯ng máº·t ({absentIds.length})
                   </Button>
                 </div>
               )}
@@ -327,7 +327,7 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Game đã đặt</CardTitle>
+              <CardTitle>Game Ä‘Ã£ Ä‘áº·t</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-muted">
@@ -343,36 +343,36 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
               <div>
                 <h3 className="font-semibold">{booking.bookedGame.name}</h3>
                 <p className="text-sm text-muted-foreground">
-                  {booking.bookedGame.minPlayers}–{booking.bookedGame.maxPlayers} người
+                  {booking.bookedGame.minPlayers}â€“{booking.bookedGame.maxPlayers} ngÆ°á»i
                 </p>
               </div>
 
               <div className="space-y-3 rounded-lg border p-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">
-                    Mã check-in (QR)
+                    MÃ£ check-in (QR)
                   </label>
                   <Input
                     value={checkInCode}
                     readOnly
                     className="font-mono bg-muted/50 cursor-default"
                     autoComplete="off"
-                    title="Mã lấy từ booking — không chỉnh sửa"
+                    title="MÃ£ láº¥y tá»« booking â€” khÃ´ng chá»‰nh sá»­a"
                   />
                 </div>
                 <div className="space-y-1.5">
                   <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                     <ScanBarcode className="h-3.5 w-3.5" />
-                    Hộp vật lý {checkInGame.name ? `· ${checkInGame.name}` : ''} *
+                    Há»™p váº­t lÃ½ {checkInGame.name ? `Â· ${checkInGame.name}` : ''} *
                   </label>
                   <p className="text-[11px] text-muted-foreground">
-                    Game đã chọn ở trên — chọn hộp vật lý để giao. Thêm tựa khác sau khi mở phiên
+                    Game Ä‘Ã£ chá»n á»Ÿ trÃªn â€” chá»n há»™p váº­t lÃ½ Ä‘á»ƒ giao. ThÃªm tá»±a khÃ¡c sau khi má»Ÿ phiÃªn
                     (tab Game).
                   </p>
                   {boxesLoading ? (
                     <div className="flex h-9 items-center gap-2 text-xs text-muted-foreground">
                       <Spinner className="h-3.5 w-3.5" />
-                      Đang tải danh sách hộp…
+                      Äang táº£i danh sÃ¡ch há»™pâ€¦
                     </div>
                   ) : (
                     <select
@@ -383,13 +383,13 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
                     >
                       <option value="">
                         {availableBoxes.length === 0
-                          ? `Không còn hộp trong kho`
-                          : 'Chọn hộp vật lý'}
+                          ? `KhÃ´ng cÃ²n há»™p trong kho`
+                          : 'Chá»n há»™p váº­t lÃ½'}
                       </option>
                       {availableBoxes.map((box) => (
                         <option key={box.id || box.barcode} value={box.barcode}>
                           {box.barcode}
-                          {box.gameName ? ` · ${box.gameName}` : ''}
+                          {box.gameName ? ` Â· ${box.gameName}` : ''}
                           {box.status && String(box.status).toLowerCase() !== 'available'
                             ? ` (${box.status})`
                             : ''}
@@ -398,14 +398,14 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
                     </select>
                   )}
                   {boxesError ? (
-                    <p className="text-xs text-rose-600">Không tải được danh sách hộp. Thử F5.</p>
+                    <p className="text-xs text-orange-600">KhÃ´ng táº£i Ä‘Æ°á»£c danh sÃ¡ch há»™p. Thá»­ F5.</p>
                   ) : boxesFallback ? (
                     <p className="text-xs text-amber-700">
-                      Không tìm thấy hộp gắn tên “{checkInGame.name}” — đang hiện mọi hộp sẵn dùng.
+                      KhÃ´ng tÃ¬m tháº¥y há»™p gáº¯n tÃªn â€œ{checkInGame.name}â€ â€” Ä‘ang hiá»‡n má»i há»™p sáºµn dÃ¹ng.
                     </p>
                   ) : !boxesLoading && availableBoxes.length === 0 ? (
                     <p className="text-xs text-amber-700">
-                      Kho không còn hộp Available/Held. Kiểm tra tab Hộp game.
+                      Kho khÃ´ng cÃ²n há»™p Available/Held. Kiá»ƒm tra tab Há»™p game.
                     </p>
                   ) : null}
                 </div>
@@ -413,15 +413,15 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
 
               <div className="rounded-lg bg-muted/60 p-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Có mặt</span>
-                  <span className="font-medium">{presentCount} người</span>
+                  <span className="text-muted-foreground">CÃ³ máº·t</span>
+                  <span className="font-medium">{presentCount} ngÆ°á»i</span>
                 </div>
                 <div className="mt-1 flex justify-between">
-                  <span className="text-muted-foreground">Yêu cầu tối thiểu</span>
+                  <span className="text-muted-foreground">YÃªu cáº§u tá»‘i thiá»ƒu</span>
                   <span
-                    className={`font-medium ${needsAlternative ? 'text-rose-600' : 'text-green-600'}`}
+                    className={`font-medium ${needsAlternative ? 'text-orange-600' : 'text-orange-600'}`}
                   >
-                    {booking.bookedGame.minPlayers} người
+                    {booking.bookedGame.minPlayers} ngÆ°á»i
                   </span>
                 </div>
               </div>
@@ -443,7 +443,7 @@ export function PosCheckInPanel({ bookingId }: PosCheckInPanelProps) {
                 ) : (
                   <Play className="mr-2 h-4 w-4" />
                 )}
-                Xác nhận Check-in và Mở phiên
+                XÃ¡c nháº­n Check-in vÃ  Má»Ÿ phiÃªn
               </Button>
             </CardContent>
           </Card>

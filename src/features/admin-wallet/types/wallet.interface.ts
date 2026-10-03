@@ -30,6 +30,15 @@ export interface AdminWalletDetail extends AdminWallet {
   updatedAt: string | null;
 }
 
+/** WalletReconcileResultDto — GET /api/v1/admin/wallet/{userId}/reconcile */
+export interface WalletReconcileResult {
+  userId: string;
+  walletBalance: number;
+  ledgerSum: number;
+  difference: number;
+  isReconciled: boolean;
+}
+
 export interface AdminWalletListParams extends PaginationParams {
   statusFilter?: string;
   riskLevelFilter?: string;

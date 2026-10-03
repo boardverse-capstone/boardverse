@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -29,22 +29,23 @@ import type {
   ComponentChecklist,
   ComponentChecklistItem,
 } from '../types/pos-check-in.interface';
+import { NumberStepper } from '@/features/cafe-pos/components/number-stepper';
 
 interface SessionGamesPanelProps {
   cafeId: string;
   session: ActiveSessionDetail;
   presentCount?: number;
   onEnded?: () => void;
-  /** Parent giữ CHECKING khi đổi tab */
+  /** Parent giá»¯ CHECKING khi Ä‘á»•i tab */
   phaseLocked?: boolean;
   componentsDone?: boolean;
   onPhaseLocked?: () => void;
-  /** Server vẫn Active — bỏ CHECKING giả trên UI */
+  /** Server váº«n Active â€” bá» CHECKING giáº£ trÃªn UI */
   onPhaseReset?: () => void;
   onComponentsDone?: () => void;
-  /** Sau End mới — xóa trạng thái "đã kiểm kê" cũ */
+  /** Sau End má»›i â€” xÃ³a tráº¡ng thÃ¡i "Ä‘Ã£ kiá»ƒm kÃª" cÅ© */
   onComponentsReset?: () => void;
-  /** Sau kiểm kê xong — parent chuyển tab Thanh toán */
+  /** Sau kiá»ƒm kÃª xong â€” parent chuyá»ƒn tab Thanh toÃ¡n */
   onChecklistComplete?: () => void;
 }
 
@@ -90,7 +91,7 @@ function mergeAssignedBoxes(
     const existing = byBarcode.get(lower);
     byBarcode.set(lower, {
       barcode: key,
-      name: name || existing?.name || session.game.name || `Hộp (${key})`,
+      name: name || existing?.name || session.game.name || `Há»™p (${key})`,
     });
   };
 
@@ -153,7 +154,7 @@ export function SessionGamesPanel({
   const [checklist, setChecklist] = useState<ComponentChecklist | null>(null);
   const [checklistLoading, setChecklistLoading] = useState(false);
   const [actualByComponent, setActualByComponent] = useState<Record<string, number>>({});
-  /** Optimistic: sau End thành công, mở kiểm kê ngay dù query chưa refetch */
+  /** Optimistic: sau End thÃ nh cÃ´ng, má»Ÿ kiá»ƒm kÃª ngay dÃ¹ query chÆ°a refetch */
   const [forceChecking, setForceChecking] = useState(() => {
     if (phaseLocked) return true;
     if (typeof window === 'undefined' || !session.sessionId) return false;
@@ -206,7 +207,7 @@ export function SessionGamesPanel({
     if (sessionGameIdFromProps) setResolvedSessionGameId(sessionGameIdFromProps);
   }, [sessionGameIdFromProps]);
 
-  /** Khôi phục cờ CHECKING sau remount — không tự đánh dấu đã kiểm kê */
+  /** KhÃ´i phá»¥c cá» CHECKING sau remount â€” khÃ´ng tá»± Ä‘Ã¡nh dáº¥u Ä‘Ã£ kiá»ƒm kÃª */
   useEffect(() => {
     if (!session.sessionId || typeof window === 'undefined') return;
     try {
@@ -231,7 +232,7 @@ export function SessionGamesPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.status, session.sessionId]);
 
-  /** Đồng bộ status thật từ API — không giữ CHECKING giả khi server vẫn Active */
+  /** Äá»“ng bá»™ status tháº­t tá»« API â€” khÃ´ng giá»¯ CHECKING giáº£ khi server váº«n Active */
   useEffect(() => {
     if (!effectiveCafeId || !session.sessionId) return;
 
@@ -258,7 +259,7 @@ export function SessionGamesPanel({
             onComponentsDone?.();
           }
         } else if (s.status === 'Active') {
-          // GET thường còn Active sau End — giữ LS, không xóa (reload mới mất trạng thái)
+          // GET thÆ°á»ng cÃ²n Active sau End â€” giá»¯ LS, khÃ´ng xÃ³a (reload má»›i máº¥t tráº¡ng thÃ¡i)
           try {
             if (localStorage.getItem(`pos_unpaid_${session.sessionId}`) === 'true') {
               markSessionPaying();
@@ -312,7 +313,7 @@ export function SessionGamesPanel({
       })
       .catch((err: Error) => {
         if (!cancelled) {
-          toast.error(err.message || 'Không tải được checklist linh kiện.');
+          toast.error(err.message || 'KhÃ´ng táº£i Ä‘Æ°á»£c checklist linh kiá»‡n.');
         }
       })
       .finally(() => {
@@ -328,7 +329,7 @@ export function SessionGamesPanel({
     mergeAssignedBoxes(session, []),
   );
 
-  /** Hydrate từ API + localStorage — tránh mất hộp khi F5 */
+  /** Hydrate tá»« API + localStorage â€” trÃ¡nh máº¥t há»™p khi F5 */
   useEffect(() => {
     if (!session.sessionId) return;
     const stored = readStoredAssignedBoxes(session.sessionId);
@@ -371,7 +372,7 @@ export function SessionGamesPanel({
     });
   }, [boxes, assignedBoxes, session]);
 
-  /** Hiển thị: Tên hộp · barcode */
+  /** Hiá»ƒn thá»‹: TÃªn há»™p Â· barcode */
   const displayAssignedBoxes = useMemo(() => {
     const byBarcode = new Map(
       boxes.map((b) => [b.barcode.toLowerCase(), b] as const),
@@ -380,16 +381,16 @@ export function SessionGamesPanel({
       return [
         {
           barcode: session.game.inventoryId || '',
-          name: session.game.name || 'Hộp gốc',
+          name: session.game.name || 'Há»™p gá»‘c',
         },
       ];
     }
     return assignedBoxes.map((box) => {
       const meta = byBarcode.get(box.barcode.toLowerCase());
-      const rawName = meta?.gameName || box.name || session.game.name || 'Hộp';
+      const rawName = meta?.gameName || box.name || session.game.name || 'Há»™p';
       const name =
-        rawName.startsWith('Hộp (') && rawName.endsWith(')')
-          ? session.game.name || 'Hộp'
+        rawName.startsWith('Há»™p (') && rawName.endsWith(')')
+          ? session.game.name || 'Há»™p'
           : rawName;
       return { barcode: box.barcode, name };
     });
@@ -398,7 +399,7 @@ export function SessionGamesPanel({
   const handleAssign = async () => {
     const barcode = assignBarcode.trim();
     if (!barcode) {
-      toast.error('Chọn hộp game từ danh sách.');
+      toast.error('Chá»n há»™p game tá»« danh sÃ¡ch.');
       return;
     }
 
@@ -414,9 +415,9 @@ export function SessionGamesPanel({
           .filter(Boolean),
       ].filter(Boolean) as string[],
     );
-    // Swagger 400: "Game đã được gán" — tránh gọi API khi trùng tựa (hay gây 500 phía server)
+    // Swagger 400: "Game Ä‘Ã£ Ä‘Æ°á»£c gÃ¡n" â€” trÃ¡nh gá»i API khi trÃ¹ng tá»±a (hay gÃ¢y 500 phÃ­a server)
     if (boxMeta?.gameTemplateId && assignedTemplateIds.has(boxMeta.gameTemplateId)) {
-      toast.error('Tựa game này đã có trên phiên. Chọn hộp tựa khác (vd. Codenames).');
+      toast.error('Tá»±a game nÃ y Ä‘Ã£ cÃ³ trÃªn phiÃªn. Chá»n há»™p tá»±a khÃ¡c (vd. Codenames).');
       return;
     }
     if (
@@ -425,7 +426,7 @@ export function SessionGamesPanel({
         (b) => (b.name || '').trim().toLowerCase() === boxMeta.gameName!.trim().toLowerCase(),
       )
     ) {
-      toast.error('Tựa game này đã có trên phiên. Chọn hộp tựa khác (vd. Codenames).');
+      toast.error('Tá»±a game nÃ y Ä‘Ã£ cÃ³ trÃªn phiÃªn. Chá»n há»™p tá»±a khÃ¡c (vd. Codenames).');
       return;
     }
 
@@ -433,7 +434,7 @@ export function SessionGamesPanel({
       const live = await PosCheckInService.getPosBoxByBarcode(effectiveCafeId, barcode);
       const liveStatus = String(live.status || '').toLowerCase();
       if (liveStatus && liveStatus !== 'available' && liveStatus !== '0') {
-        toast.error(`Hộp ${barcode} không Available (đang ${live.status}).`);
+        toast.error(`Há»™p ${barcode} khÃ´ng Available (Ä‘ang ${live.status}).`);
         return;
       }
 
@@ -443,17 +444,17 @@ export function SessionGamesPanel({
         ...assignedBoxes,
         {
           barcode,
-          name: boxMeta?.gameName || live.gameName || session.game.name || `Hộp (${barcode})`,
+          name: boxMeta?.gameName || live.gameName || session.game.name || `Há»™p (${barcode})`,
         },
       ]);
       setAssignedBoxes(next);
       writeStoredAssignedBoxes(session.sessionId, next);
-      toast.success(`Đã gán hộp ${barcode} vào phiên.`);
+      toast.success(`ÄÃ£ gÃ¡n há»™p ${barcode} vÃ o phiÃªn.`);
     } catch (err) {
-      const msg = (err as Error)?.message || 'Không thể gán game.';
-      if (msg.includes('lỗi máy chủ không mong đợi') || /\/games['"]?\.?$/i.test(msg)) {
+      const msg = (err as Error)?.message || 'KhÃ´ng thá»ƒ gÃ¡n game.';
+      if (msg.includes('lá»—i mÃ¡y chá»§ khÃ´ng mong Ä‘á»£i') || /\/games['"]?\.?$/i.test(msg)) {
         toast.error(
-          'Không gán được hộp game. Thử hộp khác hoặc thử lại.',
+          'KhÃ´ng gÃ¡n Ä‘Æ°á»£c há»™p game. Thá»­ há»™p khÃ¡c hoáº·c thá»­ láº¡i.',
         );
         return;
       }
@@ -486,11 +487,11 @@ export function SessionGamesPanel({
 
   const submitCheck = async (markAllValid: boolean) => {
     if (!sessionGameId) {
-      toast.error('Thiếu thông tin game phiên — mở lại bàn từ sơ đồ.');
+      toast.error('Thiáº¿u thÃ´ng tin game phiÃªn â€” má»Ÿ láº¡i bÃ n tá»« sÆ¡ Ä‘á»“.');
       return;
     }
     if (!isAlreadyChecking) {
-      toast.error('Hãy nhận lại game trước, rồi mới kiểm kê.');
+      toast.error('HÃ£y nháº­n láº¡i game trÆ°á»›c, rá»“i má»›i kiá»ƒm kÃª.');
       return;
     }
 
@@ -503,7 +504,7 @@ export function SessionGamesPanel({
           }));
 
       if (!markAllValid && results.length === 0) {
-        toast.error('Checklist trống — bấm “Đủ hết” hoặc tải lại checklist.');
+        toast.error('Checklist trá»‘ng â€” báº¥m â€œÄá»§ háº¿tâ€ hoáº·c táº£i láº¡i checklist.');
         return;
       }
 
@@ -513,28 +514,28 @@ export function SessionGamesPanel({
         results,
       });
       persistCheckoutComponents(markAllValid);
-      toast.success(markAllValid ? 'Đã xác nhận đủ linh kiện.' : 'Đã ghi nhận kiểm kê chi tiết.');
+      toast.success(markAllValid ? 'ÄÃ£ xÃ¡c nháº­n Ä‘á»§ linh kiá»‡n.' : 'ÄÃ£ ghi nháº­n kiá»ƒm kÃª chi tiáº¿t.');
       markComponentsVerified();
     } catch (err) {
       const msg = (err as Error)?.message || '';
-      // Đã kiểm kê rồi (idempotent) — coi như xong, sang Thanh toán
-      if (/đã được kiểm tra|already.*check|ComponentCheckAlreadyDone/i.test(msg)) {
+      // ÄÃ£ kiá»ƒm kÃª rá»“i (idempotent) â€” coi nhÆ° xong, sang Thanh toÃ¡n
+      if (/Ä‘Ã£ Ä‘Æ°á»£c kiá»ƒm tra|already.*check|ComponentCheckAlreadyDone/i.test(msg)) {
         persistCheckoutComponents(true);
-        toast.success('Linh kiện đã được kiểm kê — chuyển tab Thanh toán.');
+        toast.success('Linh kiá»‡n Ä‘Ã£ Ä‘Æ°á»£c kiá»ƒm kÃª â€” chuyá»ƒn tab Thanh toÃ¡n.');
         markComponentsVerified();
         return;
       }
-      toast.error(msg || 'Không thể kiểm kê.');
+      toast.error(msg || 'KhÃ´ng thá»ƒ kiá»ƒm kÃª.');
     }
   };
 
   const handleLoss = async () => {
     if (!sessionGameId) {
-      toast.error('Thiếu thông tin game phiên.');
+      toast.error('Thiáº¿u thÃ´ng tin game phiÃªn.');
       return;
     }
     if (!lossComponentId.trim()) {
-      toast.error('Vui lòng chọn linh kiện bị thiếu.');
+      toast.error('Vui lÃ²ng chá»n linh kiá»‡n bá»‹ thiáº¿u.');
       return;
     }
     try {
@@ -549,15 +550,15 @@ export function SessionGamesPanel({
         notes: lossNote || undefined,
       });
       setLossNote('');
-      toast.success('Đã ghi nhận hao hụt linh kiện.');
+      toast.success('ÄÃ£ ghi nháº­n hao há»¥t linh kiá»‡n.');
     } catch (err) {
-      toast.error((err as Error)?.message || 'Không thể ghi nhận mất mát.');
+      toast.error((err as Error)?.message || 'KhÃ´ng thá»ƒ ghi nháº­n máº¥t mÃ¡t.');
     }
   };
 
   const handleEndGame = async () => {
     if (isAlreadyChecking) {
-      toast.success('Đã nhận lại game — tiếp tục kiểm kê linh kiện.');
+      toast.success('ÄÃ£ nháº­n láº¡i game â€” tiáº¿p tá»¥c kiá»ƒm kÃª linh kiá»‡n.');
       onEnded?.();
       return;
     }
@@ -567,7 +568,7 @@ export function SessionGamesPanel({
       opts?: { resetComponents?: boolean },
     ) => {
       lockCheckingPhase();
-      // Chu kỳ kiểm kê mới — không giữ "đã kiểm kê" từ lần trước
+      // Chu ká»³ kiá»ƒm kÃª má»›i â€” khÃ´ng giá»¯ "Ä‘Ã£ kiá»ƒm kÃª" tá»« láº§n trÆ°á»›c
       if (opts?.resetComponents !== false) {
         setComponentsVerified(false);
         onComponentsReset?.();
@@ -591,27 +592,27 @@ export function SessionGamesPanel({
       if (sgid) setResolvedSessionGameId(sgid);
     };
 
-    // UI stale Active trong khi server đã Checking/Unpaid — không gọi End nữa
+    // UI stale Active trong khi server Ä‘Ã£ Checking/Unpaid â€” khÃ´ng gá»i End ná»¯a
     if (isAlreadyChecking) {
-      toast.info('Đã nhận lại game rồi. Sang tab Thanh toán nếu đã kiểm kê xong.');
+      toast.info('ÄÃ£ nháº­n láº¡i game rá»“i. Sang tab Thanh toÃ¡n náº¿u Ä‘Ã£ kiá»ƒm kÃª xong.');
       return;
     }
 
     try {
       const result = await endGame.mutateAsync();
       await openChecking(result, { resetComponents: true });
-      toast.success('Đã nhận lại game.');
+      toast.success('ÄÃ£ nháº­n láº¡i game.');
       onEnded?.();
     } catch (err) {
       const msg = (err as Error)?.message || '';
-      // Server đã Checking rồi (End lần trước thành công) — mở kiểm kê, không báo lỗi
+      // Server Ä‘Ã£ Checking rá»“i (End láº§n trÆ°á»›c thÃ nh cÃ´ng) â€” má»Ÿ kiá»ƒm kÃª, khÃ´ng bÃ¡o lá»—i
       if (/checking/i.test(msg)) {
         await openChecking(undefined, { resetComponents: false });
-        toast.success('Đã nhận lại game — mở kiểm kê linh kiện.');
+        toast.success('ÄÃ£ nháº­n láº¡i game â€” má»Ÿ kiá»ƒm kÃª linh kiá»‡n.');
         onEnded?.();
         return;
       }
-      // Chốt hóa đơn đã chạy → UNPAID — đồng bộ UI (GET có thể vẫn Active)
+      // Chá»‘t hÃ³a Ä‘Æ¡n Ä‘Ã£ cháº¡y â†’ UNPAID â€” Ä‘á»“ng bá»™ UI (GET cÃ³ thá»ƒ váº«n Active)
       if (/unpaid/i.test(msg)) {
         markSessionPaying();
         lockCheckingPhase();
@@ -623,11 +624,11 @@ export function SessionGamesPanel({
         } catch {
           // ignore
         }
-        toast.success('Đã chốt hóa đơn. Sang tab Thanh toán để thu tiền.');
+        toast.success('ÄÃ£ chá»‘t hÃ³a Ä‘Æ¡n. Sang tab Thanh toÃ¡n Ä‘á»ƒ thu tiá»n.');
         onChecklistComplete?.();
         return;
       }
-      toast.error(msg || 'Không thể kết thúc game.');
+      toast.error(msg || 'KhÃ´ng thá»ƒ káº¿t thÃºc game.');
     }
   };
 
@@ -647,11 +648,11 @@ export function SessionGamesPanel({
           {isAlreadyChecking ? (
             <>
               <p className="flex items-center gap-2 text-sm font-medium">
-                <PackageCheck className="h-4 w-4 shrink-0 text-emerald-600" />
-                Hộp đã gán
+                <PackageCheck className="h-4 w-4 shrink-0 text-orange-600" />
+                Há»™p Ä‘Ã£ gÃ¡n
                 {displayAssignedBoxes.length > 0 ? (
                   <Badge variant="secondary" className="font-normal">
-                    {displayAssignedBoxes.length} hộp
+                    {displayAssignedBoxes.length} há»™p
                   </Badge>
                 ) : null}
               </p>
@@ -660,9 +661,9 @@ export function SessionGamesPanel({
                   {displayAssignedBoxes.map((box) => (
                     <div
                       key={box.barcode || box.name}
-                      className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 rounded-md border border-emerald-200 bg-emerald-50/60 p-2"
+                      className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 rounded-md border border-orange-200 bg-orange-50/60 p-2"
                     >
-                      <span className="font-semibold text-emerald-950">{box.name}</span>
+                      <span className="font-semibold text-orange-950">{box.name}</span>
                       {box.barcode ? (
                         <span className="font-mono text-[11px] text-muted-foreground">{box.barcode}</span>
                       ) : null}
@@ -670,7 +671,7 @@ export function SessionGamesPanel({
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">Không có hộp trên phiên.</p>
+                <p className="text-xs text-muted-foreground">KhÃ´ng cÃ³ há»™p trÃªn phiÃªn.</p>
               )}
             </>
           ) : (
@@ -682,11 +683,11 @@ export function SessionGamesPanel({
                 aria-expanded={assignOpen}
               >
                 <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
-                  <PackagePlus className="h-4 w-4 shrink-0 text-emerald-600" />
-                  Gán thêm hộp game
+                  <PackagePlus className="h-4 w-4 shrink-0 text-orange-600" />
+                  GÃ¡n thÃªm há»™p game
                   {displayAssignedBoxes.length > 0 ? (
                     <Badge variant="secondary" className="font-normal">
-                      {displayAssignedBoxes.length} hộp
+                      {displayAssignedBoxes.length} há»™p
                     </Badge>
                   ) : null}
                 </span>
@@ -714,11 +715,11 @@ export function SessionGamesPanel({
               {assignOpen ? (
                 <>
                   <div className="space-y-1">
-                    <Label htmlFor="assign-box-select">Hộp game *</Label>
+                    <Label htmlFor="assign-box-select">Há»™p game *</Label>
                     {boxesLoading ? (
                       <div className="flex h-9 items-center gap-2 text-xs text-muted-foreground">
                         <Spinner className="h-3.5 w-3.5" />
-                        Đang tải danh sách hộp…
+                        Äang táº£i danh sÃ¡ch há»™pâ€¦
                       </div>
                     ) : (
                       <select
@@ -728,10 +729,10 @@ export function SessionGamesPanel({
                         onChange={(e) => setAssignBarcode(e.target.value)}
                         disabled={busy || availableBoxes.length === 0}
                       >
-                        <option value="">Chọn hộp có sẵn</option>
+                        <option value="">Chá»n há»™p cÃ³ sáºµn</option>
                         {availableBoxes.map((box) => (
                           <option key={box.id || box.barcode} value={box.barcode}>
-                            {box.gameName ? `${box.gameName} · ` : ''}
+                            {box.gameName ? `${box.gameName} Â· ` : ''}
                             {box.barcode}
                           </option>
                         ))}
@@ -739,17 +740,17 @@ export function SessionGamesPanel({
                     )}
                     {!boxesLoading && availableBoxes.length === 0 ? (
                       <p className="text-xs text-muted-foreground">
-                        Không còn hộp Available thuộc tựa khác để gán.
+                        KhÃ´ng cÃ²n há»™p Available thuá»™c tá»±a khÃ¡c Ä‘á»ƒ gÃ¡n.
                       </p>
                     ) : (
                       <p className="text-xs text-muted-foreground">
-                        Chỉ gán thêm tựa game khác (Exception 6) — không chọn bản sao cùng tựa đang chơi.
+                        Chá»‰ gÃ¡n thÃªm tá»±a game khÃ¡c (Exception 6) â€” khÃ´ng chá»n báº£n sao cÃ¹ng tá»±a Ä‘ang chÆ¡i.
                       </p>
                     )}
                   </div>
                   <Button
                     type="button"
-                    className="w-full bg-emerald-600 text-white hover:bg-emerald-700"
+                    className="w-full bg-orange-600 text-white hover:bg-orange-700"
                     disabled={busy || boxesLoading || !assignBarcode.trim()}
                     onClick={() => void handleAssign()}
                   >
@@ -758,21 +759,21 @@ export function SessionGamesPanel({
                     ) : (
                       <PackagePlus className="mr-2 h-4 w-4" />
                     )}
-                    Gán hộp vào phiên
+                    GÃ¡n há»™p vÃ o phiÃªn
                   </Button>
 
-                  <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
-                    <p className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-emerald-900 uppercase">
-                      <PackageCheck className="h-4 w-4 text-emerald-600" />
-                      Hộp đã gán
+                  <div className="space-y-2 rounded-lg border border-orange-200 bg-orange-50/60 p-3">
+                    <p className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-orange-900 uppercase">
+                      <PackageCheck className="h-4 w-4 text-orange-600" />
+                      Há»™p Ä‘Ã£ gÃ¡n
                     </p>
                     <div className="space-y-1.5 text-xs">
                       {displayAssignedBoxes.map((box) => (
                         <div
                           key={box.barcode || box.name}
-                          className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 rounded-md border border-emerald-200 bg-white p-2"
+                          className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 rounded-md border border-orange-200 bg-white p-2"
                         >
-                          <span className="font-semibold text-emerald-950">{box.name}</span>
+                          <span className="font-semibold text-orange-950">{box.name}</span>
                           {box.barcode ? (
                             <span className="font-mono text-[11px] text-muted-foreground">
                               {box.barcode}
@@ -791,7 +792,7 @@ export function SessionGamesPanel({
         <Button
           type="button"
           className={`h-12 w-full text-white font-medium ${
-            isAlreadyChecking ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'
+            isAlreadyChecking ? 'bg-orange-600 hover:bg-orange-700' : 'bg-amber-600 hover:bg-amber-700'
           }`}
           disabled={busy}
           onClick={() => void handleEndGame()}
@@ -803,7 +804,7 @@ export function SessionGamesPanel({
           ) : (
             <Square className="mr-2 h-4 w-4" />
           )}
-          {isAlreadyChecking ? '✓ Đã nhận lại game' : 'Nhận lại game'}
+          {isAlreadyChecking ? 'âœ“ ÄÃ£ nháº­n láº¡i game' : 'Nháº­n láº¡i game'}
         </Button>
       </div>
 
@@ -813,18 +814,18 @@ export function SessionGamesPanel({
             <section className="space-y-3 rounded-lg border bg-background p-3.5 md:p-4">
               <p className="flex items-center gap-2 text-sm font-medium">
                 {componentsVerified ? (
-                  <PackageCheck className="h-4 w-4 text-emerald-600" />
+                  <PackageCheck className="h-4 w-4 text-orange-600" />
                 ) : (
-                  <ClipboardCheck className="h-4 w-4 text-emerald-600" />
+                  <ClipboardCheck className="h-4 w-4 text-orange-600" />
                 )}
-                Kiểm kê linh kiện
+                Kiá»ƒm kÃª linh kiá»‡n
               </p>
 
               {componentsVerified ? (
-                <div className="flex flex-col items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-8 text-center">
-                  <CheckCircle2 className="h-12 w-12 text-emerald-600" />
-                  <p className="text-sm font-semibold text-emerald-900">Đã kiểm tra đầy đủ linh kiện</p>
-                  <p className="text-xs text-emerald-800/80">Chuyển sang tab Thanh toán để tính tiền cho khách</p>
+                <div className="flex flex-col items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-8 text-center">
+                  <CheckCircle2 className="h-12 w-12 text-orange-600" />
+                  <p className="text-sm font-semibold text-orange-900">ÄÃ£ kiá»ƒm tra Ä‘áº§y Ä‘á»§ linh kiá»‡n</p>
+                  <p className="text-xs text-orange-800/80">Chuyá»ƒn sang tab Thanh toÃ¡n Ä‘á»ƒ tÃ­nh tiá»n cho khÃ¡ch</p>
                 </div>
               ) : (
                 <>
@@ -834,30 +835,36 @@ export function SessionGamesPanel({
                     </div>
                   ) : components.length === 0 ? (
                     <p className="text-xs text-muted-foreground">
-                      Template không có linh kiện — dùng &quot;Đủ hết&quot; để đóng kiểm kê.
+                      Template khÃ´ng cÃ³ linh kiá»‡n â€” dÃ¹ng &quot;Äá»§ háº¿t&quot; Ä‘á»ƒ Ä‘Ã³ng kiá»ƒm kÃª.
                     </p>
                   ) : (
                     <div className="max-h-56 space-y-2 overflow-auto">
                       {components.map((c) => (
                         <div
                           key={c.componentId}
-                          className="grid grid-cols-[1fr_72px] items-center gap-2 rounded-md border p-2 text-xs"
+                          className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-md border p-2 text-xs"
                         >
                           <div>
                             <p className="font-medium">{c.componentName}</p>
-                            <p className="text-muted-foreground">Kỳ vọng: {c.expectedQuantity}</p>
+                            <p className="text-muted-foreground">Ká»³ vá»ng: {c.expectedQuantity}</p>
                           </div>
-                          <Input
-                            type="number"
-                            min={0}
-                            className="h-8 text-xs"
+                          <NumberStepper
                             value={actualByComponent[c.componentId] ?? c.expectedQuantity}
-                            onChange={(e) =>
+                            onChange={(next) =>
                               setActualByComponent((prev) => ({
                                 ...prev,
-                                [c.componentId]: Math.max(0, Number(e.target.value) || 0),
+                                [c.componentId]: Math.max(0, next),
                               }))
                             }
+                            min={0}
+                            max={Math.max(
+                              c.expectedQuantity,
+                              actualByComponent[c.componentId] ?? 0,
+                            )}
+                            size="sm"
+                            ariaLabelDec={`Giáº£m ${c.componentName}`}
+                            ariaLabelInc={`TÄƒng ${c.componentName}`}
+                            className="w-fit"
                           />
                         </div>
                       ))}
@@ -867,12 +874,12 @@ export function SessionGamesPanel({
                   <div className="grid gap-2 sm:grid-cols-2">
                     <Button
                       type="button"
-                      className="w-full bg-emerald-600 text-white hover:bg-emerald-700"
+                      className="w-full bg-orange-600 text-white hover:bg-orange-700"
                       disabled={busy}
                       onClick={() => void submitCheck(true)}
                     >
                       {checkGames.isPending ? <Spinner className="mr-2 h-4 w-4" /> : null}
-                      Đủ hết
+                      Äá»§ háº¿t
                     </Button>
                     <Button
                       type="button"
@@ -881,7 +888,7 @@ export function SessionGamesPanel({
                       disabled={busy || components.length === 0}
                       onClick={() => void submitCheck(false)}
                     >
-                      Gửi kiểm kê chi tiết
+                      Gá»­i kiá»ƒm kÃª chi tiáº¿t
                     </Button>
                   </div>
                 </>
@@ -892,17 +899,17 @@ export function SessionGamesPanel({
               <section className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/40 p-3.5 md:p-4">
                 <p className="flex items-center gap-2 text-sm font-medium text-amber-900">
                   <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  Hao hụt (inventory-loss)
+                  Hao há»¥t (inventory-loss)
                 </p>
                 <div className="space-y-1.5">
-                  <Label htmlFor="loss-comp-select">Linh kiện</Label>
+                  <Label htmlFor="loss-comp-select">Linh kiá»‡n</Label>
                   <select
                     id="loss-comp-select"
                     className="flex h-9 w-full rounded-md border border-amber-300 bg-white px-3 py-1 text-xs"
                     value={lossComponentId}
                     onChange={(e) => setLossComponentId(e.target.value)}
                   >
-                    <option value="">-- Chọn --</option>
+                    <option value="">-- Chá»n --</option>
                     {components.map((comp) => (
                       <option key={comp.componentId} value={comp.componentId}>
                         {comp.componentName}
@@ -911,18 +918,21 @@ export function SessionGamesPanel({
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="loss-qty">Số lượng thiếu</Label>
-                  <Input
+                  <Label htmlFor="loss-qty">Sá»‘ lÆ°á»£ng thiáº¿u</Label>
+                  <NumberStepper
                     id="loss-qty"
-                    type="number"
+                    value={Math.max(1, Number(lossQty) || 1)}
+                    onChange={(next) => setLossQty(Math.max(1, next))}
                     min={1}
-                    value={lossQty}
-                    onChange={(e) => setLossQty(Math.max(1, Number(e.target.value) || 1))}
-                    className="bg-white text-xs"
+                    max={999}
+                    size="sm"
+                    ariaLabelDec="Giáº£m sá»‘ lÆ°á»£ng thiáº¿u"
+                    ariaLabelInc="TÄƒng sá»‘ lÆ°á»£ng thiáº¿u"
+                    className="w-fit"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="loss-note">Ghi chú</Label>
+                  <Label htmlFor="loss-note">Ghi chÃº</Label>
                   <Textarea
                     id="loss-note"
                     rows={2}
@@ -943,7 +953,7 @@ export function SessionGamesPanel({
                   ) : (
                     <AlertTriangle className="mr-2 h-4 w-4" />
                   )}
-                  Ghi nhận mất mát
+                  Ghi nháº­n máº¥t mÃ¡t
                 </Button>
               </section>
             ) : null}

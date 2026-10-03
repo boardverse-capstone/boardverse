@@ -2,7 +2,7 @@ import { PosFeatureContainer } from "@/features/cafe-pos/components/pos-feature-
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Web POS | Cafe Management System",
+  title: "Web POS | Hệ thống quản lý quán cafe",
   description: "Sơ đồ bàn, quét barcode hộp game và quản lý phiên chơi POS",
 };
 

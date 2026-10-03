@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 import type { Metadata } from 'next';
-import { Be_Vietnam_Pro, Geist, Geist_Mono } from 'next/font/google';
+import { Be_Vietnam_Pro, Geist, Geist_Mono, Noto_Serif } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/core/providers';
 
@@ -18,6 +18,24 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
+});
+
+// [FIX #fantasy-font] Load Noto Serif với subset `vietnamese` để hỗ trợ
+// đầy đủ các ký tự tiếng Việt có dấu (ă, ơ, ư, ạ, ầ, ể, ữ…). Tailwind
+// utility `font-serif` mặc định dùng `ui-serif, Georgia, Times New Roman` —
+// các font này trên Windows PowerShell/Chrome KHÔNG có glyph tiếng Việt
+// tổ hợp → render thành ô vuông (tofu). Dùng Noto_Serif (Google Fonts)
+// với subset `vietnamese` đảm bảo hiển thị đúng.
+//
+// [FIX #turbopack-single-entry] Next.js 16 + Turbopack yêu cầu
+// `next/font/google` chỉ truyền 1 entry duy nhất — KHÔNG được truyền
+// `weight` dạng mảng `['400', '500', '600', '700']` (sẽ throw
+// "next/font/google queries have exactly one entry"). Noto_Serif là
+// variable font trên Google Fonts → KHÔNG truyền `weight` để lấy toàn
+// bộ trọng lượng (100-900) trong 1 file duy nhất.
+const fantasySerif = Noto_Serif({
+  subsets: ['vietnamese', 'latin'],
+  variable: '--font-fantasy',
 });
 
 export const metadata: Metadata = {
@@ -41,6 +59,7 @@ export default function RootLayout({
         geistMono.variable,
         'font-sans',
         beVietnamPro.variable,
+        fantasySerif.variable,
       )}
     >
       <body className="min-h-full flex flex-col">

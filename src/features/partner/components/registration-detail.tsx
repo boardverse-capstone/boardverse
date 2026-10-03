@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -54,9 +55,9 @@ function DetailSkeleton() {
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="grid gap-1 sm:grid-cols-[200px_1fr]">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium break-all">{value}</span>
+    <div className="flex items-start justify-between gap-3">
+      <span className="shrink-0 text-sm text-muted-foreground">{label}</span>
+      <span className="text-right text-sm font-medium break-all">{value}</span>
     </div>
   );
 }
@@ -109,10 +110,10 @@ export function RegistrationDetail({
   }
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-3">
       {application.requiresCsSupport && (
         <Card className="border-orange-200 bg-orange-50">
-          <CardContent className="py-4 text-sm text-orange-800">
+          <CardContent className="py-3 text-sm text-orange-800">
             Đơn này cần hỗ trợ CS — vui lòng kiểm tra và xử lý.
           </CardContent>
         </Card>
@@ -120,7 +121,7 @@ export function RegistrationDetail({
 
       {application.activationBlockers.length > 0 && (
         <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="space-y-2 py-4">
+          <CardContent className="space-y-1 py-3">
             <p className="text-sm font-medium text-amber-900">
               Chưa thể kích hoạt quán
             </p>
@@ -134,19 +135,26 @@ export function RegistrationDetail({
       )}
 
       <Card className="overflow-hidden border-0 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-background shadow-sm">
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-3">
-            <CardTitle className="text-2xl">{application.cafeName}</CardTitle>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <span className="rounded-md bg-background/80 px-2 py-0.5 font-mono text-xs">
-                {application.id}
-              </span>
-              <PartnerStatusBadges
-                applicationStatus={application.applicationStatus}
-                operationalStatus={application.operationalStatus}
-              />
-              <span>Nộp: {formatApiDate(application.submittedAt)}</span>
-            </div>
+        <CardHeader className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <CardTitle className="text-lg text-foreground">{application.cafeName}</CardTitle>
+            <PartnerStatusBadges
+              applicationStatus={application.applicationStatus}
+              operationalStatus={application.operationalStatus}
+            />
+            <button
+              type="button"
+              title="Bấm để sao chép mã đơn"
+              className="rounded-md bg-background/80 px-2 py-0.5 font-mono text-xs hover:bg-background"
+              onClick={() => {
+                void navigator.clipboard.writeText(application.id).then(() => {
+                  toast.success("Đã sao chép mã đơn");
+                });
+              }}
+            >
+              {application.id}
+            </button>
+            <span>Nộp: {formatApiDate(application.submittedAt)}</span>
           </div>
 
           <ApplicationActionsPanel
@@ -159,7 +167,7 @@ export function RegistrationDetail({
         </CardHeader>
       </Card>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryChip label="Số bàn" value={application.numberOfTables} />
         <SummaryChip label="Số game" value={application.numberOfGamesOwned} />
         <SummaryChip
@@ -178,206 +186,208 @@ export function RegistrationDetail({
         />
       </div>
 
-      <Card className={SECTION_STYLES.basic}>
-        <CardHeader>
-          <CardTitle className="text-base">Thông tin cơ bản</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="grid gap-3">
-            <InfoRow label="Tên quán" value={application.cafeName} />
-            <InfoRow label="Địa chỉ" value={application.address} />
-            <InfoRow label="Số điện thoại" value={application.hotline} />
-            <InfoRow
-              label="Email đại diện"
-              value={application.representativeEmail}
-            />
-            <InfoRow
-              label="Giấy phép KD"
-              value={application.businessLicense || "—"}
-            />
-          </div>
-          {application.businessLicenseImageUrl ? (
-            <RegistrationImageGallery
-              title="Giấy phép kinh doanh"
-              images={[application.businessLicenseImageUrl]}
-              seed={`${application.id}-license`}
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Chưa có file giấy phép đính kèm.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className={SECTION_STYLES.infra}>
-        <CardHeader>
-          <CardTitle className="text-base">Năng lực hạ tầng</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <InfoRow
-              label="Số bàn công cộng"
-              value={application.numberOfTables}
-            />
-            <InfoRow
-              label="Phòng riêng"
-              value={application.numberOfPrivateRooms}
-            />
-            <InfoRow
-              label="Sơ đồ bàn"
-              value={
-                application.isTableLayoutConfigured
-                  ? "Đã cấu hình"
-                  : "Chưa cấu hình"
-              }
-            />
-            <InfoRow label="Số tên bàn" value={application.tableNames.length} />
-          </div>
-          {application.tableNames.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Danh sách bàn</p>
-              <div className="flex flex-wrap gap-2">
-                {application.tableNames.map((name) => (
-                  <Badge key={name} variant="outline">
-                    {name}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-          {application.spaceImageUrls.length > 0 ? (
-            <RegistrationImageGallery
-              title="Ảnh không gian quán"
-              images={application.spaceImageUrls}
-              seed={`${application.id}-space`}
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Chưa có ảnh không gian đính kèm.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className={SECTION_STYLES.catalog}>
-        <CardHeader>
-          <CardTitle className="text-base">Danh mục Board Game</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3">
-          <InfoRow
-            label="Tổng số game sở hữu"
-            value={application.numberOfGamesOwned}
-          />
-          <InfoRow
-            label="Game phổ biến"
-            value={application.popularGamesList || "—"}
-          />
-        </CardContent>
-      </Card>
-
-      <Card className={SECTION_STYLES.services}>
-        <CardHeader>
-          <CardTitle className="text-base">
-            Dịch vụ & Mô hình vận hành
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3">
-          <InfoRow
-            label="Có Game Master"
-            value={application.hasGameMaster ? "Có" : "Không"}
-          />
-          <InfoRow
-            label="Mô hình tính phí"
-            value={
-              application.billingModel === "BY_HOUR"
-                ? "Theo giờ chơi (BY_HOUR)"
-                : "Theo menu đồ uống (PER_DRINK)"
-            }
-          />
-        </CardContent>
-      </Card>
-
-      <Card className={SECTION_STYLES.audit}>
-        <CardHeader>
-          <CardTitle className="text-base">Thông tin xử lý</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3">
-          <InfoRow
-            label="Trạng thái duyệt"
-            value={APPLICATION_STATUS_LABELS[application.applicationStatus]}
-          />
-          <InfoRow
-            label="Trạng thái vận hành"
-            value={
-              application.operationalStatus
-                ? OPERATIONAL_STATUS_LABELS[application.operationalStatus]
-                : "—"
-            }
-          />
-          <InfoRow
-            label="Người nộp đơn"
-            value={application.submittedByUsername ?? "—"}
-          />
-          <InfoRow
-            label="Admin duyệt"
-            value={application.reviewedByAdminUsername ?? "—"}
-          />
-          <InfoRow
-            label="Thời gian nộp"
-            value={formatApiDate(application.submittedAt)}
-          />
-          <InfoRow
-            label="Thời gian xem xét"
-            value={formatApiDate(application.reviewedAt)}
-          />
-          <InfoRow
-            label="Thời gian duyệt"
-            value={formatApiDate(application.approvedAt)}
-          />
-          <InfoRow
-            label="Cập nhật hồ sơ vận hành"
-            value={formatApiDate(application.operationalProfileUpdatedAt)}
-          />
-          <InfoRow
-            label="Cập nhật gần nhất"
-            value={formatApiDate(application.updatedAt)}
-          />
-          <InfoRow
-            label="Mã quán đã tạo"
-            value={application.createdCafeId ?? "—"}
-          />
-          <InfoRow
-            label="Mã manager đã tạo"
-            value={application.createdManagerUserId ?? "—"}
-          />
-          {application.submittedByUserId && (
-            <InfoRow
-              label="Mã người nộp"
-              value={application.submittedByUserId}
-            />
-          )}
-          {application.reviewedByAdminId && (
-            <InfoRow
-              label="Mã admin duyệt"
-              value={application.reviewedByAdminId}
-            />
-          )}
-        </CardContent>
-      </Card>
-
-      {application.rejectionReason && (
-        <Card className={SECTION_STYLES.rejected}>
-          <CardHeader>
-            <CardTitle className="text-base text-rose-700">
-              Lý do từ chối
-            </CardTitle>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Card className={SECTION_STYLES.basic}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Thông tin cơ bản</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm">{application.rejectionReason}</p>
+          <CardContent className="grid gap-3">
+            <div className="grid gap-2">
+              <InfoRow label="Tên quán" value={application.cafeName} />
+              <InfoRow label="Địa chỉ" value={application.address} />
+              <InfoRow label="Số điện thoại" value={application.hotline} />
+              <InfoRow
+                label="Email đại diện"
+                value={application.representativeEmail}
+              />
+              <InfoRow
+                label="Giấy phép KD"
+                value={application.businessLicense || "—"}
+              />
+            </div>
+            {application.businessLicenseImageUrl ? (
+              <RegistrationImageGallery
+                title="Giấy phép kinh doanh"
+                images={[application.businessLicenseImageUrl]}
+                seed={`${application.id}-license`}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Chưa có file giấy phép đính kèm.
+              </p>
+            )}
           </CardContent>
         </Card>
-      )}
+
+        <Card className={SECTION_STYLES.infra}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Năng lực hạ tầng</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <InfoRow
+                label="Số bàn công cộng"
+                value={application.numberOfTables}
+              />
+              <InfoRow
+                label="Phòng riêng"
+                value={application.numberOfPrivateRooms}
+              />
+              <InfoRow
+                label="Sơ đồ bàn"
+                value={
+                  application.isTableLayoutConfigured
+                    ? "Đã cấu hình"
+                    : "Chưa cấu hình"
+                }
+              />
+              <InfoRow label="Số tên bàn" value={application.tableNames.length} />
+            </div>
+            {application.tableNames.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Danh sách bàn</p>
+                <div className="flex flex-wrap gap-2">
+                  {application.tableNames.map((name) => (
+                    <Badge key={name} variant="outline">
+                      {name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            {application.spaceImageUrls.length > 0 ? (
+              <RegistrationImageGallery
+                title="Ảnh không gian quán"
+                images={application.spaceImageUrls}
+                seed={`${application.id}-space`}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Chưa có ảnh không gian đính kèm.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className={SECTION_STYLES.catalog}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Danh mục Board Game</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-2">
+            <InfoRow
+              label="Tổng số game sở hữu"
+              value={application.numberOfGamesOwned}
+            />
+            <InfoRow
+              label="Game phổ biến"
+              value={application.popularGamesList || "—"}
+            />
+          </CardContent>
+        </Card>
+
+        <Card className={SECTION_STYLES.services}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">
+              Dịch vụ & Mô hình vận hành
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-2">
+            <InfoRow
+              label="Có Game Master"
+              value={application.hasGameMaster ? "Có" : "Không"}
+            />
+            <InfoRow
+              label="Mô hình tính phí"
+              value={
+                application.billingModel === "BY_HOUR"
+                  ? "Theo giờ chơi (BY_HOUR)"
+                  : "Theo menu đồ uống (PER_DRINK)"
+              }
+            />
+          </CardContent>
+        </Card>
+
+        <Card className={SECTION_STYLES.audit}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Thông tin xử lý</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-2 sm:grid-cols-2">
+            <InfoRow
+              label="Trạng thái duyệt"
+              value={APPLICATION_STATUS_LABELS[application.applicationStatus]}
+            />
+            <InfoRow
+              label="Trạng thái vận hành"
+              value={
+                application.operationalStatus
+                  ? OPERATIONAL_STATUS_LABELS[application.operationalStatus]
+                  : "—"
+              }
+            />
+            <InfoRow
+              label="Người nộp đơn"
+              value={application.submittedByUsername ?? "—"}
+            />
+            <InfoRow
+              label="Admin duyệt"
+              value={application.reviewedByAdminUsername ?? "—"}
+            />
+            <InfoRow
+              label="Thời gian nộp"
+              value={formatApiDate(application.submittedAt)}
+            />
+            <InfoRow
+              label="Thời gian xem xét"
+              value={formatApiDate(application.reviewedAt)}
+            />
+            <InfoRow
+              label="Thời gian duyệt"
+              value={formatApiDate(application.approvedAt)}
+            />
+            <InfoRow
+              label="Cập nhật hồ sơ vận hành"
+              value={formatApiDate(application.operationalProfileUpdatedAt)}
+            />
+            <InfoRow
+              label="Cập nhật gần nhất"
+              value={formatApiDate(application.updatedAt)}
+            />
+            <InfoRow
+              label="Mã quán đã tạo"
+              value={application.createdCafeId ?? "—"}
+            />
+            <InfoRow
+              label="Mã manager đã tạo"
+              value={application.createdManagerUserId ?? "—"}
+            />
+            {application.submittedByUserId && (
+              <InfoRow
+                label="Mã người nộp"
+                value={application.submittedByUserId}
+              />
+            )}
+            {application.reviewedByAdminId && (
+              <InfoRow
+                label="Mã admin duyệt"
+                value={application.reviewedByAdminId}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {application.rejectionReason && (
+          <Card className={SECTION_STYLES.rejected}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base text-rose-700">
+                Lý do từ chối
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm">{application.rejectionReason}</p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       <Separator />
     </div>

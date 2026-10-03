@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2, Scale, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,12 +29,14 @@ import {
   WALLET_RISK_LEVEL_LABELS,
 } from '@/core/constants/admin-wallet';
 import { useAdminWalletAdjustBalance } from '../hooks/useAdminWalletAdjustBalance';
+import { useAdminWalletReconcile } from '../hooks/useAdminWalletReconcile';
 import { useAdminWalletSetStatus } from '../hooks/useAdminWalletSetStatus';
 import type { AdminWalletDetail, WalletAccountStatus } from '../types/wallet.interface';
 import { formatWalletBalance, formatWalletDate } from '../utils/wallet.mapper';
 
 interface AdminWalletDetailPanelProps {
   wallet?: AdminWalletDetail;
+  userId?: string;
   isLoading?: boolean;
   isError?: boolean;
 }
@@ -82,11 +84,14 @@ function riskBadgeClass(level: string) {
 
 export function AdminWalletDetailPanel({
   wallet,
+  userId: userIdProp,
   isLoading,
   isError,
 }: AdminWalletDetailPanelProps) {
   const adjustBalanceMutation = useAdminWalletAdjustBalance();
+  const reconcileMutation = useAdminWalletReconcile();
   const setStatusMutation = useAdminWalletSetStatus();
+  const targetUserId = wallet?.userId || userIdProp || '';
   const [adjustDialogOpen, setAdjustDialogOpen] = useState(false);
   const [amountBvc, setAmountBvc] = useState('');
   const [isCredit, setIsCredit] = useState(true);
@@ -237,6 +242,73 @@ export function AdminWalletDetailPanel({
           />
           <InfoRow label="Tạo lúc" value={formatWalletDate(wallet.createdAt)} />
           <InfoRow label="Cập nhật" value={formatWalletDate(wallet.updatedAt)} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Scale className="h-5 w-5" />
+            Đối soát sổ cái
+          </CardTitle>
+          <CardDescription>
+            So sánh số dư ví với tổng sổ cái giao dịch để phát hiện lệch số.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button
+            type="button"
+            onClick={() => {
+              if (!targetUserId) return;
+              reconcileMutation.mutate(targetUserId);
+            }}
+            disabled={!targetUserId || reconcileMutation.isPending}
+          >
+            {reconcileMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Scale className="mr-2 h-4 w-4" />
+            )}
+            Chạy đối soát sổ cái
+          </Button>
+          {reconcileMutation.data ? (
+            <div
+              className={`rounded-lg border p-4 ${
+                reconcileMutation.data.isReconciled
+                  ? 'border-emerald-200 bg-emerald-50'
+                  : 'border-rose-200 bg-rose-50'
+              }`}
+            >
+              <div className="mb-3 flex items-center gap-2 font-medium">
+                {reconcileMutation.data.isReconciled ? (
+                  <CheckCircle2 className="h-5 w-5 text-emerald-700" />
+                ) : (
+                  <XCircle className="h-5 w-5 text-rose-700" />
+                )}
+                {reconcileMutation.data.isReconciled
+                  ? 'Sổ cái đã cân bằng'
+                  : 'Phát hiện chênh lệch sổ cái'}
+              </div>
+              <div className="space-y-2">
+                <InfoRow
+                  label="Số dư ví"
+                  value={formatWalletBalance(reconcileMutation.data.walletBalance)}
+                />
+                <InfoRow
+                  label="Tổng sổ cái"
+                  value={formatWalletBalance(reconcileMutation.data.ledgerSum)}
+                />
+                <InfoRow
+                  label="Chênh lệch"
+                  value={formatWalletBalance(reconcileMutation.data.difference)}
+                />
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Chưa chạy đối soát. Bấm nút phía trên để kiểm tra.
+            </p>
+          )}
         </CardContent>
       </Card>
 

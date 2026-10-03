@@ -5,7 +5,6 @@ import { BarChart3, Calendar, Coffee, TrendingUp } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ProfileCard } from '@/features/profile/components/profile-card';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 
 const STATS = [
@@ -45,12 +44,8 @@ export default function ManagerDashboardPage() {
         ))}
       </div>
 
-      {/* Profile + Session */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <h2 className="text-lg font-semibold">Thông tin tài khoản</h2>
-          <ProfileCard />
-        </div>
+      {/* Session */}
+      <div className="grid gap-6 md:grid-cols-1">
         <div className="flex flex-col gap-2">
           <h2 className="text-lg font-semibold">Thông tin phiên làm việc</h2>
           <Card>

@@ -1,0 +1,1621 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
+
+import { usePosDashboard } from "../hooks/usePosDashboard";
+import { useCafePosHub } from "../hooks/useCafePosHub";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { SyncTablesModal } from "./sync-tables-modal";
+import { CheckoutConfirmModal } from "./checkout-confirm-modal";
+import { PayConfirmModal } from "./checkout-pay-modal";
+import { ComponentChecklistModal } from "./component-checklist-modal";
+import { SessionDetailModal } from "./session-detail-modal";
+import { SessionInventoryModal } from "./session-inventory-modal";
+import { PosBoxesTab, filterBoxesAssignableForPos } from "./pos-boxes-tab";
+import { StartSessionModal } from "./start-session-modal";
+import {
+  ActiveSessionsTab,
+} from "./active-sessions-tab";
+import { EndSessionModal } from "./end-session-modal";
+import { BoxComponentHistoryModal } from "./box-component-history-modal";
+import { PendingBookingsPanel } from "./pending-bookings-panel";
+import { SettlementsTab } from "./settlements-tab";
+import {
+  LobbyMergeCreateDialog,
+  type LobbyOption,
+  type LobbyMergeMember,
+  type LobbySessionMeta,
+} from "@/features/lobby-merge";
+import {
+  LobbyMergePendingList,
+} from "@/features/lobby-merge/components/lobby-merge-pending-list";
+import { usePendingMergeRequests } from "@/features/lobby-merge/hooks/useMergeRequests";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
+import {
+  RefreshCw,
+  Play,
+  Users,
+  UsersRound,
+  Clock,
+  Settings,
+  Wifi,
+  WifiOff,
+  Loader2,
+  Table2,
+  Gamepad2,
+  Box,
+  Banknote,
+  Store,
+  UserCheck,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  formatPlayerRange,
+  mergePlayerRange,
+} from "../lib/player-range";
+import {
+  focusFrameOnPointerDown,
+  interactiveFrameAmberClass,
+  interactiveFrameClass,
+} from "../lib/interactive-frame";
+import {
+  arcadeCardClass,
+  hexChipClass,
+  statusOrbClass,
+} from "../lib/game-theme";
+import { cn } from "@/lib/utils";
+
+type PosTab = "reception" | "tables" | "sessions" | "boxes" | "settlements" | "merge";
+
+function parsePosTab(raw: string | null): PosTab {
+  if (
+    raw === "reception" ||
+    raw === "sessions" ||
+    raw === "boxes" ||
+    raw === "settlements" ||
+    raw === "merge"
+  ) {
+    return raw;
+  }
+  return "tables";
+}
+
+function isOpsTab(tab: PosTab): tab is Exclude<PosTab, "reception"> {
+  return tab !== "reception";
+}
+
+export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeTab = (() => {
+    const raw = searchParams.get("tab");
+    if (raw == null && props?.initialBookingCode) return "reception" as PosTab;
+    return parsePosTab(raw);
+  })();
+  const patchPosQuery = useCallback(
+    (patch: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(patch)) {
+        if (!value) params.delete(key);
+        else params.set(key, value);
+      }
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+  const setActiveTab = useCallback(
+    (tab: PosTab) => {
+      patchPosQuery({
+        tab: tab === "tables" ? null : tab,
+      });
+    },
+    [patchPosQuery],
+  );
+  const opsTab: Exclude<PosTab, "reception"> = isOpsTab(activeTab)
+    ? activeTab
+    : "tables";
+  const topArea = activeTab === "reception" ? "reception" : "ops";
+  const [endingSession, setEndingSession] = useState<any | null>(null);
+  const selectedDetailSessionId = searchParams.get("session");
+  const inventorySessionId = searchParams.get("inventory");
+  const setSelectedDetailSessionId = useCallback(
+    (sessionId: string | null) => {
+      patchPosQuery({ session: sessionId });
+    },
+    [patchPosQuery],
+  );
+  const setInventorySessionId = useCallback(
+    (sessionId: string | null) => {
+      patchPosQuery({ inventory: sessionId });
+    },
+    [patchPosQuery],
+  );
+  const [detailRefreshKey, setDetailRefreshKey] = useState(0);
+  const {
+    cafeId,
+    tables,
+    sessions,
+    boxes,
+    loading,
+    checklistData,
+    setChecklistData,
+    unpaidSessions = [],
+    handleFetchUnpaidSessions,
+    checkoutSession,
+    setCheckoutSession,
+    refreshData,
+    handleBookingCheckIn,
+    handleStartSession,
+    handleEndSession,
+    handleGetSessionDetail,
+    handleOpenChecklist,
+    handleComponentCheck,
+    handleCheckoutSession,
+    handlePaySession,
+    handlePauseSession,
+    handleResumePause,
+    handleResumeSession,
+    handleResetComponentCheck,
+    handleFetchPaidSessions,
+    handleSyncTables,
+    handleFetchBoxHistory,
+    handleAddGuest,
+    handleAttachSessionGame,
+    handleAddSessionMembers,
+    handleReportInventoryLoss,
+    handlePartialCheckout,
+    handleMergeSessionMember,
+    handleRefreshCheckoutPayment,
+    forceCompleteSession,
+    canConfigureTables,
+  } = usePosDashboard({
+    initialBookingCode: props?.initialBookingCode,
+    onRequestReturnTable: (session) => {
+      setSelectedDetailSessionId(null);
+      setEndingSession(session);
+    },
+  });
+
+  /**
+   * Chia tiền xong — BE đã xác nhận Paid qua response /payment-status.
+   * Gọi thẳng forceCompleteSession (bypass poll /pos/sessions/{id}).
+   */
+  const handleSplitBillPaid = useCallback(
+    async (sessionId: string) => {
+      await forceCompleteSession(sessionId);
+    },
+    [forceCompleteSession],
+  );
+
+  /** Hộp Available và chưa nằm trên phiên live (GET sessions.games). */
+  const assignableBoxes = useMemo(
+    () => filterBoxesAssignableForPos(boxes, sessions),
+    [boxes, sessions],
+  );
+
+  /**
+   * Set các bàn đang có phiên live (Active/Playing/Checking/Unpaid).
+   * Dùng cho header badge "Trống X/Y" — bàn InUse không có session vẫn là trống
+   * (chưa mở phiên), tránh đếm thiếu như chỉ lọc `status === "Available"`.
+   */
+  const busyTableIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const s of sessions) {
+      const st = String(s.status ?? s.Status ?? s.sessionStatus ?? "")
+        .toLowerCase()
+        .replace(/[_\s-]/g, "");
+      if (
+        st === "active" ||
+        st === "playing" ||
+        st === "checking" ||
+        st === "unpaid"
+      ) {
+        const sid = s.cafeTableId || s.tableId || s.CafeTableId;
+        if (sid) ids.add(String(sid));
+      }
+    }
+    return ids;
+  }, [sessions]);
+
+  /** Bàn trống = Available hoặc InUse nhưng chưa có phiên live. */
+  const availableTableCount = useMemo(
+    () =>
+      tables.filter((t) => {
+        const st = String(t.status ?? "").toLowerCase();
+        if (st === "available") return true;
+        if (st === "inuse") return !busyTableIds.has(String(t.id));
+        return false;
+      }).length,
+    [tables, busyTableIds],
+  );
+
+  /**
+   * Tra `sessionId → lobbyId` qua session detail (BE có sẵn).
+   * Cache để không gọi lại nhiều lần cho cùng 1 sessionId.
+   * Trả về lobbyId hoặc null nếu không tìm được.
+   *
+   * Lưu ý: POS session detail có thể KHÔNG trả lobbyId trực tiếp — tuỳ schema BE
+   * có thể trả `reservationId` / `lobbyId` / `tableSessionId` / ...
+   * Đoán tên field là sai → ta log full payload lần đầu để biết field nào có id.
+   *
+   * Chỉ cache những lần trả về lobbyId THẬT — miss thì KHÔNG cache, để lần sau
+   * staff retry (vd reload trang, đợi BE indexing) lại thử resolve được.
+   */
+  const lobbyIdCacheRef = useRef<Map<string, string>>(new Map());
+  const fetchSessionLobbyId = useCallback(
+    async (sessionId: string): Promise<string | null> => {
+      const id = String(sessionId ?? "").trim();
+      if (!id) return null;
+      const cached = lobbyIdCacheRef.current.get(id);
+      if (cached) return cached;
+      // Không cache miss → cho phép retry mỗi lần dialog mở.
+      if (!handleGetSessionDetail) return null;
+      const callStart = performance.now();
+      try {
+        const detail: any = await handleGetSessionDetail(id);
+        const callMs = Math.round(performance.now() - callStart);
+
+        // Log "Network-style" để bạn xem được request/response ngay trong Console
+        // (đỡ phải mở Network tab — nhiều khi Next dev HMR làm Network panel chỉ có SPA).
+        // eslint-disable-next-line no-console
+        console.info(
+          `[lobby-merge] GET /api/cafes/{cafeId}/pos/sessions/${id}  →  ${callMs}ms  ${detail ? "200 OK" : "(no data)"}`,
+          {
+            url: `/api/cafes/{cafeId}/pos/sessions/${id}`,
+            method: "GET",
+            durationMs: callMs,
+            ok: !!detail,
+            responseSize: detail ? JSON.stringify(detail).length : 0,
+            responseKeys: detail ? Object.keys(detail) : [],
+          },
+        );
+
+        // Log full payload cho MỖI LẦN resolve — để debug session nào không có lobbyId.
+        // (Log "lần đầu" là không đủ khi 1 session thiếu lobbyId & 1 session đủ.)
+        // eslint-disable-next-line no-console
+        console.info("[lobby-merge] session detail payload", {
+          sessionId: id,
+          hasLobbyId: !!(detail?.lobbyId || detail?.LobbyId),
+          keys: detail ? Object.keys(detail) : [],
+          lobbyId: detail?.lobbyId ?? detail?.LobbyId ?? null,
+          reservationId:
+            detail?.reservationId ?? detail?.ReservationId ?? null,
+          cafeTableId: detail?.cafeTableId ?? null,
+          tableName: detail?.tableName ?? null,
+          hostId: detail?.hostId ?? null,
+          status: detail?.status ?? null,
+          startedAt: detail?.startedAt ?? null,
+          sample: detail ?? null,
+        });
+
+        const lobbyId =
+          detail?.lobbyId ??
+          detail?.LobbyId ??
+          detail?.reservationId ??
+          detail?.ReservationId ??
+          detail?.lobby_id ??
+          detail?.reservation_id ??
+          detail?.activeLobbyId ??
+          detail?.ActiveLobbyId ??
+          null;
+        if (lobbyId) {
+          lobbyIdCacheRef.current.set(id, String(lobbyId));
+          return String(lobbyId);
+        }
+        // Miss: KHÔNG cache → retry được.
+        return null;
+      } catch (err) {
+        // Lỗi network cũng không cache → retry được.
+        // eslint-disable-next-line no-console
+        console.error("[lobby-merge] session detail fetch failed", err);
+        return null;
+      }
+    },
+    [handleGetSessionDetail],
+  );
+
+  /**
+   * [FIX #lobby-merge-game-filter] Fetch meta của session (game đang chơi + box
+   * InUse) để dialog merge lọc target theo game + phát hiện cross-game / box
+   * InUse (Gap 4 fix) sớm, tránh staff phải submit rồi mới biết BE chặn.
+   *
+   * Logic:
+   * - Gọi `handleGetSessionDetail` (BE trả `games[]` với `gameTemplateId`,
+   *   `gameName`; box gắn với session nằm ở `games[].cafeGameInventoryId`
+   *   + trạng thái có thể ở top-level `boxes[]` hoặc trong từng game).
+   * - `hasInUseBox = true` nếu CÓ ÍT NHẤT một box status = `InUse` trên bàn.
+   *   BE có thể đặt status ở nhiều chỗ → duyệt in game.box.status / game.status
+   *   / top-level `boxes[]` / `inventoryBox.status` tuỳ schema.
+   * - Fail im lặng → trả meta null → dialog vẫn hoạt động, chỉ thiếu filter.
+   */
+  const sessionMetaCacheRef = useRef<Map<string, LobbySessionMeta>>(new Map());
+  const fetchSessionMeta = useCallback(
+    async (sessionId: string): Promise<LobbySessionMeta> => {
+      const id = String(sessionId ?? "").trim();
+      if (!id) {
+        return { gameTemplateId: null, gameName: null, hasInUseBox: null };
+      }
+      const cached = sessionMetaCacheRef.current.get(id);
+      if (cached) return cached;
+      if (!handleGetSessionDetail) {
+        return { gameTemplateId: null, gameName: null, hasInUseBox: null };
+      }
+      try {
+        const detail: any = await handleGetSessionDetail(id);
+        const games: any[] = Array.isArray(detail?.games)
+          ? detail.games
+          : Array.isArray(detail?.Games)
+            ? detail.Games
+            : [];
+        // [FIX #first-game-wins] Mỗi session có thể gắn nhiều box game
+        // (BR: 1 bàn có thể chơi 2 game cùng lúc trong "combo"). Tuy nhiên,
+        // Gap 4 fix của BE chỉ quan tâm "CÒN box InUse nào không" — nếu box
+        // đầu tiên (primary) còn InUse → block cross-game. Lấy box đầu tiên
+        // để hiển thị game "chính" cho staff; hasInUseBox kiểm trên toàn bộ.
+        const firstGame = games[0] ?? null;
+        const gameTemplateId =
+          (firstGame?.gameTemplateId ??
+            firstGame?.GameTemplateId ??
+            null) as string | null;
+        const gameName =
+          (firstGame?.gameName ?? firstGame?.GameName ?? null) as string | null;
+
+        // hasInUseBox: duyệt games[] + top-level boxes[] (BE schema tuỳ version).
+        const IN_USE_RE = /InUse|In_Use|in_use|InUseBox/i;
+        let hasInUseBox: boolean | null = null;
+        for (const g of games) {
+          const status =
+            g?.status ?? g?.Status ?? g?.boxStatus ?? g?.BoxStatus ?? "";
+          if (IN_USE_RE.test(String(status))) {
+            hasInUseBox = true;
+            break;
+          }
+        }
+        if (hasInUseBox !== true) {
+          const topBoxes: any[] = Array.isArray(detail?.boxes)
+            ? detail.boxes
+            : Array.isArray(detail?.Boxes)
+              ? detail.Boxes
+              : [];
+          for (const b of topBoxes) {
+            const status =
+              b?.status ?? b?.Status ?? b?.inventoryBoxStatus ?? "";
+            if (IN_USE_RE.test(String(status))) {
+              hasInUseBox = true;
+              break;
+            }
+          }
+        }
+        if (hasInUseBox !== true && games.length > 0) {
+          hasInUseBox = false;
+        }
+        const meta: LobbySessionMeta = { gameTemplateId, gameName, hasInUseBox };
+        sessionMetaCacheRef.current.set(id, meta);
+        return meta;
+      } catch {
+        return { gameTemplateId: null, gameName: null, hasInUseBox: null };
+      }
+    },
+    [handleGetSessionDetail],
+  );
+
+  /**
+   * Lobby đang active tại quán — tạm coi mỗi session live là 1 "lobby" trong UI POS.
+   *
+   * POS endpoint `/api/cafes/{cafeId}/pos/sessions` không trả `lobbyId` (đó là field
+   * thuộc về reservation/lobby domain, không thuộc session). Để staff chọn được
+   * source/target trên UI, ta dùng `sessionId` làm key lobby giả — service sẽ
+   * map sang lobbyId thật khi gọi BE LobbyMergeController.
+   *
+   * Chỉ những session status live (Active/Playing/Checking/Unpaid) mới hiển thị.
+   */
+  const mergeLobbies = useMemo<LobbyOption[]>(() => {
+    const map = new Map<string, LobbyOption>();
+    // [FIX #seat-capacity] Map nhanh tableId → seatCount để tính availableSeats
+    // cho lobby (dùng validate "đủ ghế" khi tạo yêu cầu ghép). Tách riêng
+    // thay vì gọi .find() trong loop để O(N+M) thay vì O(N*M).
+    const seatCountByTableId = new Map<string, number>();
+    for (const t of tables) {
+      const id = String(t.id ?? t.Id ?? "").trim();
+      if (!id) continue;
+      const seats = Number(t.seatCount ?? t.SeatCount ?? NaN);
+      if (Number.isFinite(seats) && seats > 0) {
+        seatCountByTableId.set(id, seats);
+      }
+    }
+    for (const session of sessions) {
+      const sessionId = String(
+        session.id ?? session.Id ?? session.sessionId ?? "",
+      );
+      if (!sessionId) continue;
+      const status = String(
+        session.status ?? session.Status ?? "",
+      ).toLowerCase();
+      if (!["active", "playing", "checking", "unpaid"].includes(status)) {
+        continue;
+      }
+      if (map.has(sessionId)) continue;
+      // [FIX #active-member-count] Đếm member từ session sau detail merge
+      // (usePosDashboard đã merge detail vào session). BE có thể trả ở
+      // members/players/sessionMembers/participants — thử lần lượt.
+      const rawMembers =
+        (session as any).members ??
+        (session as any).Members ??
+        (session as any).players ??
+        (session as any).sessionMembers ??
+        (session as any).participants ??
+        [];
+      const memberCount = Array.isArray(rawMembers) ? rawMembers.length : 0;
+      const tableLabel =
+        session.tableName ||
+        session.TableName ||
+        session.tableLabel ||
+        session.TableLabel ||
+        (session as any).cafeTableName ||
+        "";
+      // [FIX #seat-capacity] Tính availableSeats = table.seatCount - members.length.
+      // Nếu session không map được table hoặc table thiếu seatCount → trả null
+      // (dialog sẽ fallback về cảnh báo "BE sẽ validate khi duyệt" thay vì block).
+      const sessionCafeTableId = String(
+        (session as any).cafeTableId ??
+          (session as any).tableId ??
+          (session as any).CafeTableId ??
+          "",
+      ).trim();
+      const seats = sessionCafeTableId
+        ? seatCountByTableId.get(sessionCafeTableId)
+        : undefined;
+      const availableSeats =
+        seats != null ? Math.max(0, seats - memberCount) : null;
+
+      // [FIX #lobby-merge-game-filter] Lấy gameTemplateId + gameName + hasInUseBox
+      // thẳng từ session.games[] nếu usePosDashboard đã merge detail vào (xem
+      // `handleGetSessionDetail` → setSessions → applyVerifiedFlags). Ưu tiên
+      // giá trị này → dialog merge không cần fetch lại qua `fetchSessionMeta`.
+      const sessionGames: any[] = Array.isArray((session as any).games)
+        ? (session as any).games
+        : Array.isArray((session as any).Games)
+          ? (session as any).Games
+          : [];
+      const firstGame = sessionGames[0] ?? null;
+      const gameTemplateId =
+        (firstGame?.gameTemplateId ??
+          firstGame?.GameTemplateId ??
+          null) as string | null;
+      const gameName =
+        (firstGame?.gameName ?? firstGame?.GameName ?? null) as string | null;
+      const IN_USE_RE = /InUse|In_Use|in_use/i;
+      let hasInUseBox: boolean | null = null;
+      if (sessionGames.length > 0) {
+        hasInUseBox = sessionGames.some((g) =>
+          IN_USE_RE.test(
+            String(g?.status ?? g?.Status ?? g?.boxStatus ?? g?.BoxStatus ?? ""),
+          ),
+        );
+      }
+
+      map.set(sessionId, {
+        id: sessionId,
+        name: `Phiên ${tableLabel ? `· ${tableLabel}` : sessionId.slice(0, 8)}`,
+        activeMemberCount: memberCount,
+        availableSeats,
+        seatCount: seats ?? null,
+        status: status,
+        gameTemplateId,
+        gameName,
+        hasInUseBox,
+      });
+    }
+    return Array.from(map.values());
+  }, [sessions, tables]);
+
+  /**
+   * Members theo sessionId — UI chỉ cần hiển thị để staff tick chọn.
+   * Member id = userId trong session (BE LobbyMergeController sẽ validate
+   * ngược lại thuộc về lobby đúng không).
+   */
+  const mergeMembers = useMemo<Record<string, LobbyMergeMember[]>>(() => {
+    const out: Record<string, LobbyMergeMember[]> = {};
+    for (const session of sessions) {
+      const sessionId = String(
+        session.id ?? session.Id ?? session.sessionId ?? "",
+      );
+      if (!sessionId) continue;
+      const status = String(
+        session.status ?? session.Status ?? "",
+      ).toLowerCase();
+      if (!["active", "playing", "checking", "unpaid"].includes(status)) {
+        continue;
+      }
+      // [FIX #members-field-name] BE trả member ở nhiều tên field khác nhau tuỳ
+      // endpoint. Thử lần lượt các key phổ biến. Khi chưa biết đúng key, dùng
+      // log debug ở usePosDashboard để xác nhận (xem console F12).
+      const membersRaw =
+        (session as any).members ??
+        (session as any).Members ??
+        (session as any).players ??
+        (session as any).Players ??
+        (session as any).sessionMembers ??
+        (session as any).SessionMembers ??
+        (session as any).participants ??
+        (session as any).Participants ??
+        (session as any).attendees ??
+        (session as any).Attendees ??
+        [];
+      const list: LobbyMergeMember[] = membersRaw.map((m: any, idx: number) => ({
+        id: String(
+          m?.userId ?? m?.UserId ?? m?.id ?? m?.Id ?? m?.playerId ?? idx,
+        ),
+        displayName: String(
+          m?.userName ??
+            m?.UserName ??
+            m?.displayName ??
+            m?.DisplayName ??
+            m?.fullName ??
+            m?.FullName ??
+            "Khách",
+        ),
+        isHost: Boolean(m?.isHost ?? m?.IsHost ?? m?.is_host),
+        // BE tách host khỏi `members[]` — nằm ở `hostId`/`hostName` riêng.
+        // Member đầu tiên KHÔNG auto là host.
+      }));
+
+      // [FIX #host-not-in-members] BE tách host ra khỏi `members[]` — host đứng
+      // ở `hostId`/`hostName` riêng (giống logic `readPresentCount` ở
+      // player-range.ts). Nếu `members[]` đã chứa host thì KHÔNG push thêm.
+      // So khớp theo `id` (đã được normalize thành string từ userId)
+      // hoặc theo `displayName` (đã được normalize thành string từ userName).
+      const normForMatch = (s: string) =>
+        s.normalize("NFKC").replace(/[\s\u200B-\u200F\uFEFF]/g, "").trim();
+      const hostId = normForMatch(
+        String((session as any).hostId ?? (session as any).HostId ?? ""),
+      );
+      const hostName = normForMatch(
+        String((session as any).hostName ?? (session as any).HostName ?? ""),
+      );
+      const hostAlreadyInList = list.some((m) => {
+        const uid = m.id
+          .normalize("NFKC")
+          .replace(/[\s\u200B-\u200F\uFEFF]/g, "")
+          .trim();
+        const name = m.displayName
+          .normalize("NFKC")
+          .replace(/[\s\u200B-\u200F\uFEFF]/g, "")
+          .trim()
+          .toLowerCase();
+        return (
+          (hostId.length > 0 && uid === hostId) ||
+          (hostName.length > 0 && name === hostName.toLowerCase())
+        );
+      });
+      const hasSeparateHost = hostId.length > 0 || hostName.length > 0;
+      if (hasSeparateHost && !hostAlreadyInList) {
+        list.unshift({
+          id: hostId || `host-${sessionId}`,
+          displayName: hostName || "Host",
+          isHost: true,
+        });
+      }
+
+      // [FIX #dedup-walkin-name-collision 2026-10-02] Bỏ Lớp 2 (dedup theo
+      // `displayName`) — không an toàn với walk-in guest: 2 user thật khác
+      // nhau có thể cùng tên hiển thị (vd 2 khách "hùng" cùng join 1 session,
+      // đều `userId = null`, đều walk-in) → code cũ merge thành 1, mất member.
+      //
+      // Bug đã quan sát (bàn 1, session 7e52a379-...): BE trả 4 members bao gồm
+      // 2 "hùng" (id: 3ba1d0d0-..., 402e02a6-...), 1 "hải", 1 "jack". Sau
+      // Lớp 2 dedup → chỉ còn 3 members (mất 1 hùng).
+      //
+      // Giờ chỉ dedup theo `id` exact. Nếu BE trùng id thật (do hub push lặp) →
+      // Lớp 1 vẫn bắt được. Nếu BE trả 2 member khác id nhưng cùng tên → giữ
+      // cả 2 (đúng nghiệp vụ, 2 user thật).
+      const dedupMap = new Map<string, LobbyMergeMember>();
+      const pickPreferred = (
+        current: LobbyMergeMember,
+        incoming: LobbyMergeMember,
+      ): LobbyMergeMember => {
+        if (incoming.isHost && !current.isHost) return incoming;
+        if (!incoming.isHost && current.isHost) return current;
+        return current;
+      };
+      for (let idx = 0; idx < list.length; idx++) {
+        const m = list[idx];
+        // [FIX #dedup-v3] Normalize id để bắt ký tự ẩn (BOM, zero-width,
+        // non-breaking space) mà BE có thể nhúng vào userId qua các lần push.
+        const rawId = m?.id ?? "";
+        const idKey =
+          rawId && String(rawId).trim().length > 0
+            ? String(rawId)
+                .normalize("NFKC")
+                .replace(/[\s\u200B-\u200F\uFEFF]/g, "")
+                .trim()
+            : `idx-${idx}`; // Walk-in chưa có id → fallback index chỉ để key
+                            // trong Map, KHÔNG dùng để identify cross-session.
+        const existing = dedupMap.get(idKey);
+        if (existing) {
+          dedupMap.set(idKey, pickPreferred(existing, m));
+          continue;
+        }
+        dedupMap.set(idKey, m);
+      }
+      const deduped = Array.from(dedupMap.values());
+      // [DEBUG] in ra để check dữ liệu thật từ BE (xem browser console F12)
+      if (deduped.length > 1) {
+        console.info(
+          `[lobby-merge] session ${sessionId}: ${list.length} raw → ${deduped.length} after dedup-by-id`,
+          list,
+        );
+      }
+      out[sessionId] = deduped;
+    }
+    return out;
+  }, [sessions]);
+
+  /**
+   * Map `memberId → danh sách lobbyId chứa member đó`. Một user có thể đồng thời
+   * ở nhiều lobby (host ở Bàn 02 đồng thời player ở Bàn 03) — dùng mảng thay vì
+   * string đơn để tránh ghi đè mất lobby.
+   */
+  const mergeMemberLobbyIds = useMemo<Record<string, string[]>>(() => {
+    const out: Record<string, string[]> = {};
+    const norm = (s: string) =>
+      s.normalize("NFKC").replace(/[\s\u200B-\u200F\uFEFF]/g, "").trim();
+    for (const [sessionId, list] of Object.entries(mergeMembers)) {
+      for (const m of list) {
+        const key = norm(m.id);
+        if (!out[key]) out[key] = [];
+        if (!out[key].includes(sessionId)) out[key].push(sessionId);
+      }
+    }
+    return out;
+  }, [mergeMembers]);
+
+  // [DEBUG lobby-merge] Expose data ra window để inspect nhanh trong console.
+  // Gõ `__lobbyMergeDebug` ở DevTools console sau khi mở tab POS Phiên.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (process.env.NODE_ENV === "production") return;
+    (window as any).__lobbyMergeDebug = {
+      sessions: sessions.map((s) => ({
+        id: s.id,
+        status: s.status,
+        members: (s as any).members,
+        players: (s as any).players,
+        sessionMembers: (s as any).sessionMembers,
+        participants: (s as any).participants,
+        attendees: (s as any).attendees,
+        hostId: (s as any).hostId,
+        hostName: (s as any).hostName,
+      })),
+      mergeMembers,
+      mergeLobbies,
+      mergeMemberLobbyIds,
+    };
+  }, [sessions, mergeMembers, mergeLobbies, mergeMemberLobbyIds]);
+
+  // [FIX #lobby-merge-inline] Dialog ghép lobby mở từ nút trong header
+  // tab "Phiên chơi" — staff tự chọn source + target trong dialog
+  // (vì nút không gắn với card phiên cụ thể nào).
+  const [lobbyMergeOpen, setLobbyMergeOpen] = useState(false);
+  const handleOpenLobbyMerge = useCallback(() => {
+    if (!cafeId) {
+      toast.error("Thiếu cafeId — không thể mở dialog ghép lobby.");
+      return;
+    }
+    if (mergeLobbies.length < 2) {
+      toast.error("Cần ít nhất 2 lobby đang hoạt động để tạo yêu cầu ghép.");
+      return;
+    }
+    setLobbyMergeOpen(true);
+  }, [cafeId, mergeLobbies.length]);
+
+  // [FIX #lobby-merge-header-merged] Badge "Đang chờ (N)" hiển thị cùng hàng
+  // với tab "Phiên chơi" trong TabsList → state pendingOpen + hook count
+  // phải nằm ở parent (không phải trong ActiveSessionsTab) để render inline
+  // với TabsTrigger. Realtime hook tự invalidate khi BE push.
+  const [pendingOpen, setPendingOpen] = useState(false);
+  const { data: pendingRequests = [] } = usePendingMergeRequests(
+    cafeId ?? undefined,
+    { refetchInterval: 15_000, pauseWhenHidden: true },
+  );
+  const pendingCount = pendingRequests.length;
+
+  const { connected: hubConnected } = useCafePosHub({
+    enabled: Boolean(cafeId),
+    cafeId,
+    onRefresh: refreshData,
+  });
+
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [startTable, setStartTable] = useState<{
+    id: string;
+    name: string;
+    minPlayers?: number | null;
+    maxPlayers?: number | null;
+  } | null>(null);
+  const [startSessionPrefill, setStartSessionPrefill] = useState<{
+    guestCount: number;
+    guestNames: string[];
+    guestPhones: string[];
+  } | null>(null);
+
+  const [historyModalState, setHistoryModalState] = useState<{
+    isOpen: boolean;
+    data: any;
+    targetSession: any;
+  }>({
+    isOpen: false,
+    data: null,
+    targetSession: null,
+  });
+
+  const handleInitiatePaymentFlow = async (session: any) => {
+    let detailedSession = session;
+    if (handleGetSessionDetail) {
+      const detailRes = await handleGetSessionDetail(session.id);
+      if (detailRes) {
+        detailedSession = { ...session, ...detailRes };
+      }
+    }
+
+    const games: any[] =
+      detailedSession.games || detailedSession.Games || [];
+
+    const normCheck = (game: any) =>
+      String(game?.checkStatus ?? game?.CheckStatus ?? "")
+        .toLowerCase()
+        .replace(/[_\s-]/g, "");
+
+    // Ưu tiên hộp đang MissingComponents trong phiên (không lấy games[0] mặc định)
+    const missingGames = games.filter(
+      (game) => normCheck(game) === "missingcomponents",
+    );
+
+    if (missingGames.length === 0 || !handleFetchBoxHistory) {
+      setCheckoutSession(detailedSession);
+      return;
+    }
+
+    const histories = await Promise.all(
+      missingGames.map(async (game) => {
+        const boxId =
+          game.cafeInventoryBoxId ||
+          game.CafeInventoryBoxId ||
+          game.boxId ||
+          game.BoxId;
+        if (!boxId) return null;
+        const historyRes = await handleFetchBoxHistory(
+          boxId,
+          detailedSession.id,
+        );
+        return (
+          historyRes || {
+            boxId,
+            gameName: game.gameName || game.name || "Hộp game",
+            barcode: game.boxBarcode || game.barcode || "—",
+            totalIncidents: 0,
+            incidents: [],
+          }
+        );
+      }),
+    );
+
+    const validHistories = histories.filter(Boolean) as any[];
+    if (validHistories.length === 0) {
+      setCheckoutSession(detailedSession);
+      return;
+    }
+
+    const mergedIncidents = validHistories.flatMap(
+      (h) => h.incidents || [],
+    );
+    const merged = {
+      boxId: validHistories[0].boxId,
+      gameName: missingGames
+        .map((g) => g.gameName || g.name)
+        .filter(Boolean)
+        .join(", "),
+      barcode: missingGames
+        .map((g) => g.boxBarcode || g.barcode)
+        .filter(Boolean)
+        .join(" · "),
+      totalIncidents:
+        mergedIncidents.length ||
+        validHistories.reduce(
+          (sum, h) => sum + Number(h.totalIncidents || 0),
+          0,
+        ),
+      incidents: mergedIncidents,
+    };
+
+    setHistoryModalState({
+      isOpen: true,
+      data: merged,
+      targetSession: detailedSession,
+    });
+  };
+
+  const handleProceedFromHistoryToPay = () => {
+    const targetSession = historyModalState.targetSession;
+    setHistoryModalState({ isOpen: false, data: null, targetSession: null });
+    if (targetSession) {
+      setCheckoutSession(targetSession);
+    }
+  };
+
+  // LUỒNG TỰ ĐỘNG: CHỐT KIỂM KÊ LINH KIỆN -> MỞ MODAL CHECKOUT CONFIRM
+  const handleChecklistSubmitOnly = async (payload: any) => {
+    const checkResult = await handleComponentCheck(payload);
+    if (checkResult) {
+      setDetailRefreshKey((key) => key + 1);
+    }
+    return Boolean(checkResult);
+  };
+
+  return (
+    <div className="min-w-0 space-y-4 font-sans text-neutral-900 antialiased">
+      <Card
+        className={cn(
+          "gap-0 border-orange-200/60 bg-gradient-to-br from-white via-orange-50/40 to-amber-50/30 py-0 shadow-md",
+          arcadeCardClass,
+          interactiveFrameClass,
+        )}
+        tabIndex={0}
+        onPointerDown={focusFrameOnPointerDown}
+      >
+        <CardContent className="relative flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h1 className="text-lg font-extrabold tracking-tight text-neutral-950 sm:text-xl">
+              <span className="bg-gradient-to-r from-orange-700 via-amber-700 to-orange-700 bg-clip-text text-transparent drop-shadow-sm">
+                Quầy POS
+              </span>
+              <span className="ml-1 font-mono text-xs font-normal text-neutral-500">
+                / ARCADE MODE
+              </span>
+            </h1>
+            <Badge
+              variant="outline"
+              role="status"
+              className={
+                hubConnected
+                  ? cn(
+                      "gap-1.5 border-orange-300 bg-orange-50 font-semibold text-orange-800 shadow-[0_0_8px_rgba(249,115,22,0.3)]",
+                    )
+                  : "border-neutral-200 bg-neutral-50 font-semibold text-neutral-700"
+              }
+            >
+              <span
+                className={cn(
+                  statusOrbClass,
+                  hubConnected ? "bg-orange-500" : "bg-neutral-400",
+                )}
+              />
+              {hubConnected ? "TRỰC TIẾP" : "NGOẠI TUYẾN"}
+            </Badge>
+            <Badge
+              variant="outline"
+              className="gap-1.5 border-orange-300 bg-orange-50 font-semibold text-orange-800 shadow-[inset_0_-2px_0_rgba(0,0,0,0.06)]"
+            >
+              <span className={cn(statusOrbClass, "bg-orange-500")} />
+              Trống {availableTableCount}/{tables.length}
+            </Badge>
+            <Badge
+              variant="outline"
+              className="gap-1.5 border-amber-300 bg-amber-50 font-semibold text-amber-900 shadow-[inset_0_-2px_0_rgba(0,0,0,0.06)]"
+            >
+              <span className={cn(statusOrbClass, "bg-amber-500")} />
+              Đang chơi {sessions.length}
+            </Badge>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={refreshData}
+              className="h-9 gap-2 border-2 font-bold uppercase tracking-wider shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] transition-all hover:translate-y-[-1px]"
+              aria-label="Làm mới toàn bộ dữ liệu POS"
+            >
+              <RefreshCw className="size-4" />
+              Làm mới
+            </Button>
+            {canConfigureTables && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsSyncModalOpen(true)}
+                className="h-9 gap-2 border-2 font-bold uppercase tracking-wider shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] transition-all hover:translate-y-[-1px]"
+              >
+                <Settings className="size-4" />
+                Cài đặt bàn
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="min-w-0 space-y-3">
+        <Tabs
+          value={topArea}
+          onValueChange={(value) => {
+            if (value === "reception") setActiveTab("reception");
+            else if (!isOpsTab(activeTab)) setActiveTab("tables");
+          }}
+          className="min-w-0 gap-3"
+        >
+          <div className="flex max-w-full justify-start overflow-x-auto pb-1">
+            <TabsList
+              aria-label="Khu vực chính POS"
+              className="inline-flex h-auto min-h-11 flex-wrap items-center justify-center gap-1 self-center rounded-md border-2 border-orange-300/60 bg-gradient-to-r from-orange-100 via-amber-100 to-orange-100 p-1 shadow-[2px_2px_0_rgba(0,0,0,0.08)]"
+            >
+              <TabsTrigger
+                value="ops"
+                className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-orange-500 data-active:bg-gradient-to-r data-active:from-orange-600 data-active:to-amber-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
+              >
+                <Store className="size-3.5 shrink-0 -translate-y-[0.5px]" aria-hidden="true" />
+                <span className="-translate-y-[0.5px]">Quầy vận hành</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="reception"
+                className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-orange-500 data-active:bg-gradient-to-r data-active:from-orange-600 data-active:to-amber-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
+              >
+                <UserCheck className="size-3.5 shrink-0 -translate-y-[0.5px]" aria-hidden="true" />
+                <span className="-translate-y-[0.5px]">Đặt chỗ & Vãng lai</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        </Tabs>
+
+        {topArea === "reception" ? (
+          <section aria-label="Tiếp nhận khách">
+            <PendingBookingsPanel
+              cafeId={cafeId}
+              tables={tables}
+              sessions={sessions}
+              boxes={assignableBoxes}
+              layout="sidebar"
+              initialBookingCode={props?.initialBookingCode}
+              onOpenTables={() => setActiveTab("tables")}
+              onRequestStartSession={({ guestName, guestPhone, seats }) => {
+                const freeTable = tables.find((t) => {
+                  const st = String(t.status ?? "")
+                    .toLowerCase()
+                    .replace(/[_\s-]/g, "");
+                  if (st !== "available") return false;
+                  const busy = sessions.some((s) => {
+                    const sid = s.cafeTableId || s.tableId || s.CafeTableId;
+                    if (sid !== t.id) return false;
+                    const sessionStatus = String(
+                      s.status ?? s.Status ?? s.sessionStatus ?? "",
+                    )
+                      .toLowerCase()
+                      .replace(/[_\s-]/g, "");
+                    return (
+                      sessionStatus === "active" ||
+                      sessionStatus === "playing" ||
+                      sessionStatus === "checking" ||
+                      sessionStatus === "unpaid"
+                    );
+                  });
+                  return !busy;
+                });
+                if (!freeTable?.id) {
+                  toast.message(
+                    "Đã giữ chỗ walk-in. Hiện không còn bàn trống — chọn bàn trên sơ đồ khi sẵn sàng.",
+                  );
+                  setActiveTab("tables");
+                  return;
+                }
+                const range = mergePlayerRange(freeTable);
+                const count = Math.max(1, seats);
+                setStartSessionPrefill({
+                  guestCount: count,
+                  guestNames: Array.from({ length: count }, (_, i) =>
+                    i === 0 ? guestName : "",
+                  ),
+                  guestPhones: Array.from({ length: count }, (_, i) =>
+                    i === 0 ? guestPhone : "",
+                  ),
+                });
+                setStartTable({
+                  id: freeTable.id,
+                  name: freeTable.name,
+                  minPlayers: range.min ?? 1,
+                  maxPlayers: range.max,
+                });
+                setActiveTab("tables");
+              }}
+              onConfirmCheckIn={(code, tableId, barcode) =>
+                handleBookingCheckIn(code, tableId, barcode)
+              }
+            />
+          </section>
+        ) : (
+          <section aria-label="Sơ đồ và vận hành" className="min-w-0">
+            <Tabs
+              value={opsTab}
+              onValueChange={(value) => setActiveTab(value as PosTab)}
+              className="gap-3"
+            >
+              <div className="flex max-w-full items-center gap-3 pb-1">
+                {/* Cột trái: TabsList cuộn ngang khi màn hẹp. */}
+                <div className="min-w-0 flex-1 overflow-x-auto">
+                <TabsList
+                  aria-label="Khu vực vận hành POS"
+                  className="inline-flex h-auto min-h-11 flex-wrap items-center justify-center gap-1 self-center rounded-md border-2 border-orange-300/60 bg-gradient-to-r from-orange-100 via-amber-100 to-orange-100 p-1 shadow-[2px_2px_0_rgba(0,0,0,0.08)]"
+                >
+                  <TabsTrigger
+                    value="tables"
+                    className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-orange-500 data-active:bg-gradient-to-r data-active:from-orange-600 data-active:to-amber-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
+                  >
+                    <Table2 className="size-3.5 shrink-0 -translate-y-[0.5px]" aria-hidden="true" />
+                    <span className="-translate-y-[0.5px]">Sơ đồ bàn ({tables.length})</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="sessions"
+                    className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-amber-500 data-active:bg-gradient-to-r data-active:from-amber-500 data-active:to-orange-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
+                  >
+                    <Gamepad2 className="size-3.5 shrink-0 -translate-y-[0.5px]" aria-hidden="true" />
+                    <span className="-translate-y-[0.5px]">Phiên chơi ({sessions.length})</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="boxes"
+                    className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-orange-500 data-active:bg-gradient-to-r data-active:from-orange-600 data-active:to-amber-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
+                  >
+                    <Box className="size-3.5 shrink-0 -translate-y-[0.5px]" aria-hidden="true" />
+                    <span className="-translate-y-[0.5px]">Kho hộp ({boxes.length})</span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="settlements"
+                    className="inline-flex h-9 items-center justify-center gap-1.5 self-center whitespace-nowrap border-2 border-transparent bg-transparent px-3 align-middle font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-neutral-700 data-active:border-orange-500 data-active:bg-gradient-to-r data-active:from-orange-600 data-active:to-amber-600 data-active:text-white data-active:shadow-[0_2px_0_rgba(0,0,0,0.1)]"
+                  >
+                    <Banknote className="size-3.5 shrink-0 -translate-y-[0.5px]" aria-hidden="true" />
+                    <span className="-translate-y-[0.5px]">Giải ngân</span>
+                  </TabsTrigger>
+                </TabsList>
+                </div>
+
+                {/* [FIX #lobby-merge-header-merged] Cột phải NGOÀI khung 4 TabsTrigger
+                    (vùng khoanh đỏ bên phải header). Chỉ render khi tab sessions
+                    active → staff không thấy nút thừa khi đang ở tab khác.
+                    `shrink-0` để cụm nút không bị ép xuống dòng khi màn hẹp. */}
+                {opsTab === "sessions" ? (
+                  <div className="flex shrink-0 items-center gap-2 self-center">
+                    {cafeId ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setPendingOpen(true)}
+                        className={cn(
+                          "inline-flex h-9 items-center gap-1.5 self-center whitespace-nowrap border-2 px-2.5 font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)]",
+                          pendingCount > 0
+                            ? "border-amber-500 bg-amber-100 text-amber-900 hover:bg-amber-200"
+                            : "border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50",
+                        )}
+                        aria-label={
+                          pendingCount > 0
+                            ? `Có ${pendingCount} yêu cầu ghép lobby đang chờ duyệt`
+                            : "Không có yêu cầu ghép lobby đang chờ"
+                        }
+                      >
+                        <span>Đang chờ ({pendingCount})</span>
+                      </Button>
+                    ) : null}
+                    {mergeLobbies.length >= 2 ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handleOpenLobbyMerge}
+                        className="inline-flex h-9 items-center gap-1.5 self-center whitespace-nowrap border-2 border-violet-400 bg-violet-100 px-2.5 font-mono text-[13px] font-bold uppercase leading-[1] tracking-normal text-violet-800 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] hover:bg-violet-200"
+                      >
+                        <span>Ghép lobby</span>
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+
+              {loading ? (
+                <Card className="border-2 border-orange-300/60 bg-gradient-to-br from-orange-50/40 via-white to-amber-50/40 shadow-[2px_2px_0_rgba(0,0,0,0.08)]">
+                  <CardContent
+                    className="flex flex-col items-center justify-center gap-3 py-16"
+                    aria-live="polite"
+                  >
+                    <Loader2 className="size-8 animate-spin text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.5)]" />
+                    <p className="font-mono text-xs font-bold uppercase tracking-widest text-orange-700">
+                      ▸ Đang tải dữ liệu POS…
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <TabsContent value="tables">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {tables.map((table) => {
+                  const tableStatus = String(table.status ?? "");
+                  const unavailableWithoutSession = [
+                    "Reserved",
+                    "Cleaning",
+                    "Maintenance",
+                    "EventInProgress",
+                  ].includes(tableStatus);
+                  const session = sessions.find((s) => {
+                    const sid =
+                      s.cafeTableId || s.tableId || s.CafeTableId;
+                    const sName =
+                      s.tableName || s.TableName || s.tableLabel || "";
+                    // Fallback: nếu cafeTableId không khớp, thử match theo tên bàn
+                    const nameMatch =
+                      sid !== table.id && table.name
+                        ? sName.toLowerCase().trim() ===
+                          table.name.toLowerCase().trim()
+                        : false;
+                    if (sid !== table.id && !nameMatch) return false;
+                    const st = String(
+                      s.status ?? s.Status ?? s.sessionStatus ?? "",
+                    )
+                      .toLowerCase()
+                      .replace(/[_\s-]/g, "");
+                    return (
+                      st === "active" ||
+                      st === "playing" ||
+                      st === "checking" ||
+                      st === "unpaid"
+                    );
+                  });
+                  const isAvail = !session && !unavailableWithoutSession;
+                  const playerRange = mergePlayerRange(
+                    session?.games?.[0],
+                    session?.game,
+                    session,
+                    table,
+                  );
+                  const displayRange = {
+                    min: playerRange.min ?? (playerRange.max != null ? 1 : null),
+                    max: playerRange.max,
+                  };
+                  const playerRangeLabel = formatPlayerRange(displayRange);
+                  // Bàn có session live → click bất kỳ đâu đều mở chi tiết phiên
+                  // Bàn trống → click bất kỳ đâu đều mở modal bắt đầu phiên
+                  const openDetailOrStart = () => {
+                    if (session) {
+                      setActiveTab("sessions");
+                      setSelectedDetailSessionId(session.id);
+                    } else {
+                      setStartSessionPrefill(null);
+                      setStartTable({
+                        id: table.id,
+                        name: table.name,
+                        minPlayers: displayRange.min,
+                        maxPlayers: displayRange.max,
+                      });
+                    }
+                  };
+                  const cardProps: {
+                    role: string;
+                    tabIndex: number;
+                    onPointerDown: typeof focusFrameOnPointerDown;
+                    onClick?: () => void;
+                    onKeyDown?: (event: React.KeyboardEvent) => void;
+                  } = session
+                    ? {
+                        // Có phiên live → click toàn card mở chi tiết
+                        role: "button",
+                        tabIndex: 0,
+                        onPointerDown: focusFrameOnPointerDown,
+                        onClick: openDetailOrStart,
+                        onKeyDown: (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openDetailOrStart();
+                          }
+                        },
+                      }
+                    : {
+                        // Bàn trống → click toàn card mở modal bắt đầu phiên
+                        role: "button",
+                        tabIndex: 0,
+                        onPointerDown: focusFrameOnPointerDown,
+                        onClick: openDetailOrStart,
+                        onKeyDown: (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openDetailOrStart();
+                          }
+                        },
+                      };
+                  return (
+                    <Card
+                      key={table.id}
+                      size="sm"
+                      {...cardProps}
+                      className={cn(
+                        "cursor-pointer border-2 transition-all hover:translate-y-[-2px] hover:shadow-[3px_3px_0_rgba(0,0,0,0.1)]",
+                        isAvail
+                          ? cn(
+                              "border-orange-300 bg-orange-50/30 shadow-[2px_2px_0_rgba(249,115,22,0.25)]",
+                              interactiveFrameClass,
+                            )
+                          : cn(
+                              "border-amber-300 bg-amber-50/50 shadow-[2px_2px_0_rgba(245,158,11,0.25)]",
+                              interactiveFrameAmberClass,
+                            ),
+                      )}
+                    >
+                      <CardHeader className="relative border-b-2 border-current/10">
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="font-mono text-lg font-extrabold tracking-tight text-neutral-950">
+                            {table.name}
+                          </CardTitle>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "gap-1 border-2 px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase tracking-widest shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)]",
+                              isAvail
+                                ? "border-orange-400 bg-orange-100 text-orange-800"
+                                : "border-amber-400 bg-amber-100 text-amber-900",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "inline-block size-1.5 rounded-full",
+                                isAvail
+                                  ? "bg-orange-500 shadow-[0_0_6px_currentColor]"
+                                  : "bg-amber-500 shadow-[0_0_6px_currentColor]",
+                              )}
+                            />
+                            {isAvail ? "SẴN SÀNG" : "ĐANG BẬN"}
+                          </Badge>
+                        </div>
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-neutral-500">
+                          SLOT #{String(table.sortOrder).padStart(2, "0")}
+                        </span>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <p className="flex items-center gap-2 text-sm font-bold text-neutral-800">
+                          <Users className="size-4 text-neutral-700" />
+                          <span className="font-mono tabular-nums">
+                            {playerRangeLabel || "—"}
+                          </span>
+                        </p>
+                        {!isAvail && session && (
+                          <p className="flex items-center gap-2 text-sm font-bold text-amber-900">
+                            <Clock className="size-4 animate-spin [animation-duration:8s]" />
+                            Session live
+                          </p>
+                        )}
+                      </CardContent>
+                      <CardFooter className="mt-auto border-t-2 border-current/10">
+                        {isAvail ? (
+                          <Button
+                            type="button"
+                            onClick={(event) => {
+                              // Ngăn bubble để tránh click card bắn thêm lần nữa
+                              event.stopPropagation();
+                              setStartSessionPrefill(null);
+                              setStartTable({
+                                id: table.id,
+                                name: table.name,
+                                minPlayers: displayRange.min,
+                                maxPlayers: displayRange.max,
+                              });
+                            }}
+                            className="min-h-11 w-full gap-2 border-2 border-orange-700 bg-gradient-to-b from-orange-500 to-orange-600 font-bold uppercase tracking-wider text-white shadow-[inset_0_-3px_0_rgba(0,0,0,0.2),0_2px_0_rgba(0,0,0,0.15)] transition-all hover:translate-y-[-1px] hover:from-orange-500 hover:to-orange-500"
+                          >
+                            <Play className="size-4" />
+                            ► BẮT ĐẦU PHIÊN
+                          </Button>
+                        ) : session ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setActiveTab("sessions");
+                              setSelectedDetailSessionId(session.id);
+                            }}
+                            className="min-h-11 w-full gap-2 border-2 border-amber-400 bg-white font-bold uppercase tracking-wider text-amber-800 shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] transition-all hover:translate-y-[-1px]"
+                            aria-label={`Mở chi tiết phiên tại ${table.name}`}
+                          >
+                            ► MỞ CHI TIẾT
+                          </Button>
+                        ) : (
+                          <div className="flex min-h-11 w-full items-center font-mono text-xs font-bold uppercase tracking-wider text-amber-800">
+                            ⚠ BÀN BẬN
+                          </div>
+                        )}
+                      </CardFooter>
+                    </Card>
+                  );
+                })}
+              </div>
+            </TabsContent>
+            <TabsContent value="sessions">
+              <ActiveSessionsTab
+                sessions={sessions}
+                cafeId={cafeId || null}
+                // [FIX #auto-refresh-ppl] Sau khi duyệt ghép lobby → refresh POS data
+                // (sessions + tables), số lượng ppl của bàn cập nhật ngay.
+                onLobbyMerged={refreshData}
+                onEndSession={(sessionId: string) => {
+                  const targetSes = sessions.find((s) => s.id === sessionId);
+                  if (targetSes) setEndingSession(targetSes);
+                }}
+                onViewDetail={(sessionId: string) =>
+                  setSelectedDetailSessionId(sessionId)
+                }
+                onOpenInventory={(session) => {
+                  const id = session?.id || session?.sessionId;
+                  if (!id) {
+                    toast.error("Không tìm thấy phiên để kiểm kê.");
+                    return;
+                  }
+                  setInventorySessionId(id);
+                }}
+                onInitiatePaymentFlow={handleInitiatePaymentFlow}
+                onResumeSession={(sessionId) => {
+                  void handleResumeSession(sessionId);
+                }}
+                onPauseSession={(sessionId) => {
+                  void handlePauseSession(sessionId);
+                }}
+                onResumePause={(sessionId) => {
+                  void handleResumePause(sessionId);
+                }}
+              />
+            </TabsContent>
+            <TabsContent value="boxes">
+              <PosBoxesTab boxes={boxes} cafeId={cafeId} />
+            </TabsContent>
+            <TabsContent value="settlements">
+              <SettlementsTab
+                cafeId={cafeId}
+                onFetchPaidSessions={handleFetchPaidSessions}
+              />
+            </TabsContent>
+          </>
+        )}
+            </Tabs>
+          </section>
+        )}
+      </div>
+
+      {canConfigureTables && (
+        <SyncTablesModal
+          isOpen={isSyncModalOpen}
+          onClose={() => setIsSyncModalOpen(false)}
+          currentTables={tables}
+          onSave={handleSyncTables}
+        />
+      )}
+
+      <ComponentChecklistModal
+        isOpen={!!checklistData}
+        onClose={() => setChecklistData(null)}
+        sessionGameData={checklistData}
+        onSubmitCheck={handleChecklistSubmitOnly}
+      />
+
+      <SessionInventoryModal
+        isOpen={!!inventorySessionId}
+        session={
+          sessions.find(
+            (s) => (s.id || s.sessionId) === inventorySessionId,
+          ) || null
+        }
+        onClose={() => setInventorySessionId(null)}
+        onOpenChecklist={(sessionGameId) => {
+          void handleOpenChecklist(sessionGameId, inventorySessionId);
+        }}
+        onResetComponentCheck={handleResetComponentCheck}
+      />
+
+      <BoxComponentHistoryModal
+        isOpen={historyModalState.isOpen}
+        onClose={() =>
+          setHistoryModalState({
+            isOpen: false,
+            data: null,
+            targetSession: null,
+          })
+        }
+        historyData={historyModalState.data}
+        onConfirmProceed={
+          historyModalState.targetSession
+            ? handleProceedFromHistoryToPay
+            : undefined
+        }
+      />
+
+      <PayConfirmModal
+        key={checkoutSession?.id || "checkout-modal"}
+        isOpen={!!checkoutSession}
+        onClose={() => setCheckoutSession(null)}
+        session={checkoutSession}
+        cafeId={cafeId}
+        onCheckout={handleCheckoutSession}
+        onPay={handlePaySession}
+        onRefreshPayment={handleRefreshCheckoutPayment}
+        onSplitBillPaid={handleSplitBillPaid}
+      />
+
+      <SessionDetailModal
+        isOpen={!!selectedDetailSessionId}
+        onClose={() => setSelectedDetailSessionId(null)}
+        sessionId={selectedDetailSessionId}
+        cafeId={cafeId}
+        onFetchDetail={handleGetSessionDetail}
+        onReturnTable={(sessionId) => {
+          const targetSes = sessions.find((s) => s.id === sessionId);
+          if (targetSes) setEndingSession(targetSes);
+        }}
+        onAddGuest={handleAddGuest}
+        boxes={assignableBoxes}
+        tables={tables}
+        detailRefreshKey={detailRefreshKey}
+        playingUserIds={[
+          ...new Set(
+            sessions.flatMap((session) => {
+              const status = String(session.status ?? session.Status ?? "")
+                .toLowerCase()
+                .replace(/[_\s-]/g, "");
+              if (status === "paid" || status === "completed") return [];
+              const ids: string[] = [];
+              const hostId = session.hostId || session.HostId;
+              if (hostId) ids.push(String(hostId));
+              for (const member of session.members || session.Members || []) {
+                const uid = member.userId || member.UserId;
+                if (uid) ids.push(String(uid));
+              }
+              return ids;
+            }),
+          ),
+        ]}
+        otherSessions={sessions
+          .filter((session) => {
+            const id = String(session.id || session.sessionId || "");
+            const status = String(session.status ?? session.Status ?? "")
+              .toLowerCase()
+              .replace(/[_\s-]/g, "");
+            return (
+              Boolean(id) &&
+              id !== String(selectedDetailSessionId || "") &&
+              status !== "paid" &&
+              status !== "completed" &&
+              status !== "closed"
+            );
+          })
+          .map((session) => ({
+            id: String(session.id || session.sessionId),
+            tableName:
+              session.tableName ||
+              session.TableName ||
+              session.tableLabel ||
+              session.TableLabel ||
+              session.cafeTableName ||
+              session.CafeTableName,
+            status: session.status || session.Status,
+            memberUserIds: (session.members || session.Members || [])
+              .map((member: { userId?: string; UserId?: string }) =>
+                String(member.userId || member.UserId || ""),
+              )
+              .filter(Boolean),
+          }))}
+        onAttachGame={handleAttachSessionGame}
+        onAddMembers={handleAddSessionMembers}
+        onReportInventoryLoss={handleReportInventoryLoss}
+        onPartialCheckout={handlePartialCheckout}
+        onMergeMember={handleMergeSessionMember}
+      />
+
+      <StartSessionModal
+        isOpen={!!startTable}
+        onClose={() => {
+          setStartTable(null);
+          setStartSessionPrefill(null);
+        }}
+        selectedTable={startTable}
+        cafeId={cafeId}
+        boxes={assignableBoxes}
+        prefill={startSessionPrefill}
+        onStart={handleStartSession}
+      />
+
+      <EndSessionModal
+        isOpen={!!endingSession}
+        onClose={() => setEndingSession(null)}
+        session={endingSession}
+        onConfirmEnd={handleEndSession}
+      />
+
+      {/* [FIX #lobby-merge-inline] Dialog ghép lobby mở từ nút ở header
+          tab "Phiên chơi". Staff tự chọn source + target trong dialog. */}
+      {cafeId && lobbyMergeOpen ? (
+        <LobbyMergeCreateDialog
+          cafeId={cafeId}
+          isOpen={lobbyMergeOpen}
+          onClose={() => setLobbyMergeOpen(false)}
+          lobbies={mergeLobbies}
+          // Gộp tất cả member của mọi lobby — dialog tự filter theo source staff chọn.
+          members={
+            mergeMembers ? Object.values(mergeMembers).flat() : []
+          }
+          memberLobbyIds={mergeMemberLobbyIds}
+          resolveLobbyId={fetchSessionLobbyId}
+          // [FIX #lobby-merge-game-filter] Fetch game + box InUse của session
+          // để dialog lọc target theo game + cảnh báo cross-game / Gap 4.
+          fetchSessionMeta={fetchSessionMeta}
+          // [FIX #lobby-merge-view-target] Mở chi tiết phiên của lobby đích
+          // mà KHÔNG đóng dialog ghép — staff vẫn trong flow merge, tắt modal
+          // detail là quay lại ngay dialog ghép với selection giữ nguyên.
+          // mergeLobbies[].id === sessionId nên truyền trực tiếp.
+          onViewTargetDetail={(sessionId) => {
+            setSelectedDetailSessionId(sessionId);
+          }}
+          // Báo cho dialog biết modal detail đang mở → tắt chế độ modal
+          // của merge dialog (tránh Radix `inert` chặn thao tác trên detail)
+          // + chặn click-outside/ESC đóng nhầm merge dialog.
+          isTargetDetailOpen={Boolean(selectedDetailSessionId)}
+          onSuccess={() => {
+            setLobbyMergeOpen(false);
+            toast.success("Đã gửi yêu cầu ghép lobby.");
+          }}
+        />
+      ) : null}
+
+      {/* [FIX #lobby-merge-header-merged] Dialog hiển thị danh sách yêu cầu
+          ghép lobby đang chờ duyệt. Mở từ badge "Đang chờ (N)" cùng hàng
+          với tab "Phiên chơi". Realtime hook bên trong LobbyMergePendingList
+          tự invalidate khi BE push. */}
+      <Dialog open={pendingOpen} onOpenChange={setPendingOpen}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 font-mono uppercase tracking-wider">
+              <UsersRound className="size-4" aria-hidden="true" />
+              Yêu cầu ghép lobby đang chờ
+            </DialogTitle>
+            <DialogDescription>
+              Duyệt hoặc từ chối trước khi yêu cầu hết hạn. Thay đổi cập nhật realtime.
+            </DialogDescription>
+          </DialogHeader>
+          <LobbyMergePendingList
+            cafeId={cafeId ?? null}
+            mergeLobbies={mergeLobbies.map((l) => ({ id: l.id, name: l.name }))}
+            resolveLobbyId={fetchSessionLobbyId}
+            // [FIX #auto-refresh-ppl] Approve succeed → trigger fetchAllData ở parent.
+            onApproved={refreshData}
+            onChanged={() => {
+              // Sau duyệt/từ chối → tự đóng dialog để staff thấy badge số đã giảm.
+              setPendingOpen(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

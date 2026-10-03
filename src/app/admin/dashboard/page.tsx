@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ProfileCard } from '@/features/profile/components/profile-card';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useAdminReportsOverview } from '@/features/admin-reports/hooks/useAdminReportsOverview';
 
@@ -87,13 +86,8 @@ export default function AdminDashboardPage() {
         </Card>
       ) : null}
 
-      {/* Profile section */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <h2 className="text-lg font-semibold">Thông tin tài khoản</h2>
-          <ProfileCard />
-        </div>
-
+      {/* Session section */}
+      <div className="grid gap-6 md:grid-cols-1">
         <div className="flex flex-col gap-2">
           <h2 className="text-lg font-semibold">Thông tin phiên làm việc</h2>
           <Card>

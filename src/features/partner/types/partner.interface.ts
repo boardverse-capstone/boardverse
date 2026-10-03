@@ -534,7 +534,6 @@ export interface OperationalProfileResponse {
 }
 
 /** Body of PUT /api/cafe-partner/me/operational-profile. */
-export interface OperationalProfileUpdate
-  extends OperationalProfileResponse {}
+export type OperationalProfileUpdate = OperationalProfileResponse;
 
 

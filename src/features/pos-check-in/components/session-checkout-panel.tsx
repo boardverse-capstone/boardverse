@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import QRCode from 'react-qr-code';
@@ -26,12 +26,12 @@ function formatCurrency(amount: number) {
 function formatDuration(minutes: number) {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
-  if (hours === 0) return `${mins} phút`;
-  return `${hours} giờ ${mins} phút`;
+  if (hours === 0) return `${mins} phÃºt`;
+  return `${hours} giá» ${mins} phÃºt`;
 }
 
 function isEstimatedBill(bill: SessionBill) {
-  return bill.lineItems.some((item) => /estimated|ước tính tạm/i.test(item.id + item.label));
+  return bill.lineItems.some((item) => /estimated|Æ°á»›c tÃ­nh táº¡m/i.test(item.id + item.label));
 }
 
 function billStorageKey(sessionId: string) {
@@ -98,7 +98,7 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
   const [isCalculating, setIsCalculating] = useState(false);
   const [isCreatingQr, setIsCreatingQr] = useState(false);
   const [isCashConfirm, setIsCashConfirm] = useState(false);
-  /** Thời điểm đóng băng đếm giờ khi chốt hóa đơn (nếu server chưa có endedAt) */
+  /** Thá»i Ä‘iá»ƒm Ä‘Ã³ng bÄƒng Ä‘áº¿m giá» khi chá»‘t hÃ³a Ä‘Æ¡n (náº¿u server chÆ°a cÃ³ endedAt) */
   const [billFrozenAt, setBillFrozenAt] = useState<string | null>(null);
   const hydrateAttempted = useRef<string | null>(null);
 
@@ -116,7 +116,7 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
     return undefined;
   }, [session?.endedAt, session?.startedAt, session?.status, bill, billFrozenAt]);
 
-  /** Restore hóa đơn sau F5 — bill chỉ sống trong state nên mất nếu không persist */
+  /** Restore hÃ³a Ä‘Æ¡n sau F5 â€” bill chá»‰ sá»‘ng trong state nÃªn máº¥t náº¿u khÃ´ng persist */
   useEffect(() => {
     if (!session?.sessionId) return;
     const sessionId = session.sessionId;
@@ -137,7 +137,7 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
       return;
     }
 
-    // Server đã UNPAID — tải lại hóa đơn im lặng
+    // Server Ä‘Ã£ UNPAID â€” táº£i láº¡i hÃ³a Ä‘Æ¡n im láº·ng
     if (session.status !== 'Paying' && session.status !== 'Completed') return;
 
     hydrateAttempted.current = sessionId;
@@ -182,22 +182,22 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
 
   const handleCalculateBill = async () => {
     if (!session?.sessionId) {
-      toast.error('Thiếu sessionId — mở lại bàn từ sơ đồ.');
+      toast.error('Thiáº¿u sessionId â€” má»Ÿ láº¡i bÃ n tá»« sÆ¡ Ä‘á»“.');
       return;
     }
     const cafeId = effectiveCafeId || cafe?.id || '';
     if (!cafeId) {
-      toast.error('Thiếu mã quán.');
+      toast.error('Thiáº¿u mÃ£ quÃ¡n.');
       return;
     }
-    // Đã có hóa đơn / UNPAID thì không bắt kiểm kê lại
+    // ÄÃ£ cÃ³ hÃ³a Ä‘Æ¡n / UNPAID thÃ¬ khÃ´ng báº¯t kiá»ƒm kÃª láº¡i
     if (
       session.status !== 'Paying' &&
       session.status !== 'Completed' &&
       !isComponentsChecked(session.sessionId)
     ) {
       toast.error(
-        'Chưa kiểm kê linh kiện. Sang tab Game → Nhận lại game → Đủ hết, rồi mới chốt hóa đơn.',
+        'ChÆ°a kiá»ƒm kÃª linh kiá»‡n. Sang tab Game â†’ Nháº­n láº¡i game â†’ Äá»§ háº¿t, rá»“i má»›i chá»‘t hÃ³a Ä‘Æ¡n.',
       );
       return;
     }
@@ -205,7 +205,7 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
     try {
       const result = await PosCheckInService.calculateBill(session.sessionId, cafeId);
       if (!result.totalDue || result.totalDue <= 0) {
-        toast.error('Hóa đơn 0đ. Hãy nhận lại game, kiểm kê rồi chốt hóa đơn lại.');
+        toast.error('HÃ³a Ä‘Æ¡n 0Ä‘. HÃ£y nháº­n láº¡i game, kiá»ƒm kÃª rá»“i chá»‘t hÃ³a Ä‘Æ¡n láº¡i.');
         return;
       }
       const frozenAt = new Date().toISOString();
@@ -214,9 +214,9 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
       writeStoredBill(session.sessionId, result, frozenAt);
       setPaymentCode(null);
       await refetch();
-      toast.success('Đã chốt hóa đơn. Tiếp theo tạo QR hoặc thu tiền mặt.');
+      toast.success('ÄÃ£ chá»‘t hÃ³a Ä‘Æ¡n. Tiáº¿p theo táº¡o QR hoáº·c thu tiá»n máº·t.');
     } catch (err) {
-      toast.error((err as Error)?.message || 'Không thể tính / chốt hóa đơn.');
+      toast.error((err as Error)?.message || 'KhÃ´ng thá»ƒ tÃ­nh / chá»‘t hÃ³a Ä‘Æ¡n.');
     } finally {
       setIsCalculating(false);
     }
@@ -226,12 +226,12 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
     if (!session?.sessionId || !bill) return;
     const amount = Math.round(Number(bill.totalDue));
     if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error('Hóa đơn phải > 0đ. Hãy chốt hóa đơn lại.');
+      toast.error('HÃ³a Ä‘Æ¡n pháº£i > 0Ä‘. HÃ£y chá»‘t hÃ³a Ä‘Æ¡n láº¡i.');
       return;
     }
     const cafeId = effectiveCafeId || cafe?.id || '';
     if (!cafeId) {
-      toast.error('Thiếu mã quán.');
+      toast.error('Thiáº¿u mÃ£ quÃ¡n.');
       return;
     }
     setIsCreatingQr(true);
@@ -239,11 +239,11 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
       const code = await PosCheckInService.createSessionPayment(cafeId, session.sessionId, {
         totalAmount: amount,
         depositAppliedAmount: 0,
-        notes: `POS VietQR · ${amount} VND`,
+        notes: `POS VietQR Â· ${amount} VND`,
       });
 
       setPaymentCode(code);
-      // Đồng bộ Tổng thanh toán theo totalAmount BE trả về (không giữ ước tính FE)
+      // Äá»“ng bá»™ Tá»•ng thanh toÃ¡n theo totalAmount BE tráº£ vá» (khÃ´ng giá»¯ Æ°á»›c tÃ­nh FE)
       const serverAmount = Math.round(Number(code.amount));
       if (Number.isFinite(serverAmount) && serverAmount > 0) {
         const synced: SessionBill = {
@@ -253,7 +253,7 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
           lineItems: [
             {
               id: 'session-total',
-              label: 'Tổng hóa đơn (theo server)',
+              label: 'Tá»•ng hÃ³a Ä‘Æ¡n (theo server)',
               quantity: 1,
               unitPrice: serverAmount,
               amount: serverAmount,
@@ -264,9 +264,9 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
         setBill(synced);
         writeStoredBill(session.sessionId, synced, synced.calculatedAt);
       }
-      toast.success('Đã tạo mã thanh toán VietQR / SePay.');
+      toast.success('ÄÃ£ táº¡o mÃ£ thanh toÃ¡n VietQR / SePay.');
     } catch (err) {
-      toast.error((err as Error)?.message || 'Không thể tạo mã thanh toán.');
+      toast.error((err as Error)?.message || 'KhÃ´ng thá»ƒ táº¡o mÃ£ thanh toÃ¡n.');
     } finally {
       setIsCreatingQr(false);
     }
@@ -274,12 +274,12 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
 
   const handleCashConfirm = async () => {
     if (!session?.sessionId || !bill) {
-      toast.error('Vui lòng chốt hóa đơn trước.');
+      toast.error('Vui lÃ²ng chá»‘t hÃ³a Ä‘Æ¡n trÆ°á»›c.');
       return;
     }
     const cafeId = effectiveCafeId || cafe?.id || '';
     if (!cafeId) {
-      toast.error('Thiếu mã quán.');
+      toast.error('Thiáº¿u mÃ£ quÃ¡n.');
       return;
     }
 
@@ -287,7 +287,7 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
     try {
       let payBill = bill;
 
-      // Cố lấy số server; lỗi chốt/ước tính không chặn nếu đã có totalDue > 0
+      // Cá»‘ láº¥y sá»‘ server; lá»—i chá»‘t/Æ°á»›c tÃ­nh khÃ´ng cháº·n náº¿u Ä‘Ã£ cÃ³ totalDue > 0
       if (isEstimatedBill(payBill) || session.status === 'Active' || session.status === 'Checking') {
         try {
           const freshBill = await PosCheckInService.calculateBill(session.sessionId, cafeId);
@@ -298,7 +298,7 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
             await refetch();
           }
         } catch {
-          // giữ payBill hiện tại
+          // giá»¯ payBill hiá»‡n táº¡i
         }
       }
 
@@ -310,10 +310,10 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
         );
         const amount = serverAmt > 0 ? serverAmt : Math.round(Number(payBill.totalDue));
         if (!Number.isFinite(amount) || amount <= 0) {
-          toast.error('Hóa đơn phải > 0đ. Hãy chốt hóa đơn lại.');
+          toast.error('HÃ³a Ä‘Æ¡n pháº£i > 0Ä‘. HÃ£y chá»‘t hÃ³a Ä‘Æ¡n láº¡i.');
           return;
         }
-        // Bỏ nhãn ước tính — không chặn thu tiền mặt vì banner vàng
+        // Bá» nhÃ£n Æ°á»›c tÃ­nh â€” khÃ´ng cháº·n thu tiá»n máº·t vÃ¬ banner vÃ ng
         payBill = {
           ...payBill,
           totalDue: amount,
@@ -321,7 +321,7 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
           lineItems: [
             {
               id: 'session-total',
-              label: 'Tổng hóa đơn phiên chơi',
+              label: 'Tá»•ng hÃ³a Ä‘Æ¡n phiÃªn chÆ¡i',
               quantity: 1,
               unitPrice: amount,
               amount,
@@ -334,7 +334,7 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
 
       const payAmount = Math.round(Number(payBill.totalDue));
       if (!Number.isFinite(payAmount) || payAmount <= 0) {
-        toast.error('Hóa đơn phải > 0đ. Hãy chốt hóa đơn lại.');
+        toast.error('HÃ³a Ä‘Æ¡n pháº£i > 0Ä‘. HÃ£y chá»‘t hÃ³a Ä‘Æ¡n láº¡i.');
         return;
       }
 
@@ -342,13 +342,13 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
         sessionId: session.sessionId,
         amount: payAmount,
         cafeId,
-        notes: 'Staff xác nhận thu tiền mặt tại POS',
+        notes: 'Staff xÃ¡c nháº­n thu tiá»n máº·t táº¡i POS',
       });
       markLocalPaid();
-      toast.success('Đã xác nhận thanh toán tiền mặt.');
+      toast.success('ÄÃ£ xÃ¡c nháº­n thanh toÃ¡n tiá»n máº·t.');
       onCompleted?.();
     } catch (err) {
-      toast.error((err as Error)?.message || 'Không thể xác nhận tiền mặt.');
+      toast.error((err as Error)?.message || 'KhÃ´ng thá»ƒ xÃ¡c nháº­n tiá»n máº·t.');
     } finally {
       setIsCashConfirm(false);
     }
@@ -358,11 +358,11 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
     if (!session) return;
     try {
       if (!paymentCode && !bill) {
-        toast.error('Vui lòng chốt hóa đơn và tạo mã thanh toán trước.');
+        toast.error('Vui lÃ²ng chá»‘t hÃ³a Ä‘Æ¡n vÃ  táº¡o mÃ£ thanh toÃ¡n trÆ°á»›c.');
         return;
       }
       if (bill && isEstimatedBill(bill)) {
-        toast.error('Hóa đơn chưa chốt xong. Bấm Chốt hóa đơn lại, rồi mới thanh toán.');
+        toast.error('HÃ³a Ä‘Æ¡n chÆ°a chá»‘t xong. Báº¥m Chá»‘t hÃ³a Ä‘Æ¡n láº¡i, rá»“i má»›i thanh toÃ¡n.');
         return;
       }
       const result = await completeSession.mutateAsync({
@@ -373,11 +373,11 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
       setBill(result.bill);
       setPaymentCode(result.paymentCode);
       toast.success(
-        `${session.tableLabel || 'Bàn'} đã thanh toán · Bàn trở về trạng thái trống.`,
+        `${session.tableLabel || 'BÃ n'} Ä‘Ã£ thanh toÃ¡n Â· BÃ n trá»Ÿ vá» tráº¡ng thÃ¡i trá»‘ng.`,
       );
       onCompleted?.();
     } catch (err) {
-      toast.error((err as Error)?.message || 'Không thể hoàn tất thanh toán.');
+      toast.error((err as Error)?.message || 'KhÃ´ng thá»ƒ hoÃ n táº¥t thanh toÃ¡n.');
     }
   };
 
@@ -391,8 +391,8 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
 
   if (isError || !session) {
     return (
-      <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-        Không tìm thấy phiên chơi đang hoạt động.
+      <p className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-700">
+        KhÃ´ng tÃ¬m tháº¥y phiÃªn chÆ¡i Ä‘ang hoáº¡t Ä‘á»™ng.
       </p>
     );
   }
@@ -405,41 +405,41 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
     session.status === 'Completed' ||
     isComponentsChecked(session.sessionId);
 
-  /** Ưu tiên totalAmount BE (từ QR / session-payment), không dùng ước tính FE */
+  /** Æ¯u tiÃªn totalAmount BE (tá»« QR / session-payment), khÃ´ng dÃ¹ng Æ°á»›c tÃ­nh FE */
   const displayTotal =
     paymentCode?.amount && Number(paymentCode.amount) > 0
       ? Math.round(Number(paymentCode.amount))
       : Math.round(Number(bill?.totalDue ?? 0));
 
   return (
-    <div className="space-y-4 rounded-xl border border-emerald-200/80 bg-emerald-50/30 p-3 sm:p-4 md:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200/60 pb-3">
+    <div className="space-y-4 rounded-xl border border-orange-200/80 bg-orange-50/30 p-3 sm:p-4 md:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-orange-200/60 pb-3">
         <div>
-          <p className="flex items-center gap-2 text-sm font-semibold text-emerald-950 md:text-base">
-            <Receipt className="h-4 w-4 shrink-0 text-emerald-600" />
-            Thanh toán phiên chơi
+          <p className="flex items-center gap-2 text-sm font-semibold text-orange-950 md:text-base">
+            <Receipt className="h-4 w-4 shrink-0 text-orange-600" />
+            Thanh toÃ¡n phiÃªn chÆ¡i
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {session.game.name} · {session.presentCount} người
+            {session.game.name} Â· {session.presentCount} ngÆ°á»i
           </p>
         </div>
         <Badge
           variant="secondary"
-          className="bg-emerald-100/80 text-emerald-900 border border-emerald-200 text-xs"
+          className="bg-orange-100/80 text-orange-900 border border-orange-200 text-xs"
         >
-          {session.billingModel === 'BY_HOUR' ? 'Theo giờ' : 'Theo đồ uống'}
+          {session.billingModel === 'BY_HOUR' ? 'Theo giá»' : 'Theo Ä‘á»“ uá»‘ng'}
         </Badge>
       </div>
 
       <div className="flex items-center justify-between rounded-lg bg-background p-3 text-sm border shadow-sm">
         <span className="flex items-center gap-1.5 text-muted-foreground text-xs sm:text-sm">
-          <Timer className="h-4 w-4 text-emerald-600" />
-          Thời gian đã chơi
+          <Timer className="h-4 w-4 text-orange-600" />
+          Thá»i gian Ä‘Ã£ chÆ¡i
         </span>
         <SessionTimer
           startedAt={session.startedAt}
           endedAt={timerEndedAt}
-          className="font-mono text-base font-bold text-emerald-900"
+          className="font-mono text-base font-bold text-orange-900"
         />
       </div>
 
@@ -447,8 +447,8 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
         <div className="space-y-2">
           {!componentsChecked ? (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-              Chưa kiểm kê linh kiện — sang tab Game, nhận lại game và bấm <strong>Đủ hết</strong>, rồi
-              mới chốt hóa đơn.
+              ChÆ°a kiá»ƒm kÃª linh kiá»‡n â€” sang tab Game, nháº­n láº¡i game vÃ  báº¥m <strong>Äá»§ háº¿t</strong>, rá»“i
+              má»›i chá»‘t hÃ³a Ä‘Æ¡n.
             </p>
           ) : null}
           <Button
@@ -463,20 +463,20 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
             ) : (
               <Calculator className="mr-2 h-4 w-4" />
             )}
-            Chốt hóa đơn
+            Chá»‘t hÃ³a Ä‘Æ¡n
           </Button>
         </div>
       ) : (
         <div className="space-y-4">
           {isEstimatedBill(bill) ? (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-              Số tiền chưa khớp với hệ thống. Bấm <strong>Chốt hóa đơn</strong> lại trước khi tạo QR
-              hoặc thu tiền mặt.
+              Sá»‘ tiá»n chÆ°a khá»›p vá»›i há»‡ thá»‘ng. Báº¥m <strong>Chá»‘t hÃ³a Ä‘Æ¡n</strong> láº¡i trÆ°á»›c khi táº¡o QR
+              hoáº·c thu tiá»n máº·t.
             </p>
           ) : null}
           <div className="space-y-3 rounded-lg border bg-background p-3 sm:p-4 shadow-sm">
             <div className="flex items-center justify-between border-b pb-2 text-sm font-semibold">
-              <span>Chi tiết hóa đơn</span>
+              <span>Chi tiáº¿t hÃ³a Ä‘Æ¡n</span>
               <Badge variant="outline" className="font-normal text-xs">
                 {formatDuration(bill.durationMinutes)}
               </Badge>
@@ -489,16 +489,16 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
                 </div>
               ))}
               {bill.depositCreditTotal > 0 && (
-                <div className="flex justify-between items-center text-emerald-700 font-medium">
-                  <span>Credit đã cọc trước</span>
+                <div className="flex justify-between items-center text-orange-700 font-medium">
+                  <span>Credit Ä‘Ã£ cá»c trÆ°á»›c</span>
                   <span>-{formatCurrency(bill.depositCreditTotal)}</span>
                 </div>
               )}
             </div>
             <Separator />
-            <div className="flex items-center justify-between rounded-lg bg-emerald-50 p-2.5 border border-emerald-200 text-emerald-900">
-              <span className="text-sm font-bold">Tổng thanh toán</span>
-              <span className="text-base sm:text-lg font-extrabold text-emerald-700">
+            <div className="flex items-center justify-between rounded-lg bg-orange-50 p-2.5 border border-orange-200 text-orange-900">
+              <span className="text-sm font-bold">Tá»•ng thanh toÃ¡n</span>
+              <span className="text-base sm:text-lg font-extrabold text-orange-700">
                 {formatCurrency(displayTotal)}
               </span>
             </div>
@@ -507,7 +507,7 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
               <div className="grid gap-2 mt-2 sm:grid-cols-2">
                 <Button
                   type="button"
-                  className="h-11 w-full text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white sm:col-span-2"
+                  className="h-11 w-full text-sm font-medium bg-orange-600 hover:bg-orange-700 text-white sm:col-span-2"
                   disabled={isPending}
                   onClick={() => void handleCashConfirm()}
                 >
@@ -516,7 +516,7 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
                   ) : (
                     <Banknote className="mr-2 h-4 w-4" />
                   )}
-                  Thu tiền mặt · {formatCurrency(displayTotal)}
+                  Thu tiá»n máº·t Â· {formatCurrency(displayTotal)}
                 </Button>
                 <Button
                   type="button"
@@ -530,7 +530,7 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
                   ) : (
                     <Receipt className="mr-2 h-4 w-4" />
                   )}
-                  Tạo mã VietQR / SePay
+                  Táº¡o mÃ£ VietQR / SePay
                 </Button>
               </div>
             )}
@@ -538,7 +538,7 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
             {paymentCode && (
               <Button
                 type="button"
-                className="h-11 w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium mt-2"
+                className="h-11 w-full bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium mt-2"
                 disabled={isPending}
                 onClick={() => void handleCompleteSession()}
               >
@@ -547,23 +547,23 @@ export function SessionCheckoutPanel({ bookingId, onCompleted }: SessionCheckout
                 ) : (
                   <CheckCircle2 className="mr-2 h-4 w-4" />
                 )}
-                Xác nhận đã thanh toán
+                XÃ¡c nháº­n Ä‘Ã£ thanh toÃ¡n
               </Button>
             )}
           </div>
 
           {paymentCode ? (
-            <div className="flex flex-col items-center gap-3 rounded-lg border border-emerald-300/70 bg-white p-4 text-center shadow-sm">
-              <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 text-xs">
-                Mã giao dịch:{' '}
+            <div className="flex flex-col items-center gap-3 rounded-lg border border-orange-300/70 bg-white p-4 text-center shadow-sm">
+              <Badge variant="secondary" className="bg-orange-100 text-orange-800 text-xs">
+                MÃ£ giao dá»‹ch:{' '}
                 <span className="font-mono font-bold ml-1">{paymentCode.code}</span>
               </Badge>
               <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-border">
                 <QRCode value={paymentCode.qrPayload || paymentCode.code} size={180} className="h-auto max-w-full" />
               </div>
               <p className="text-xs text-muted-foreground">
-                Quét mã VietQR / SePay để chuyển khoản{' '}
-                <span className="font-bold text-emerald-700">
+                QuÃ©t mÃ£ VietQR / SePay Ä‘á»ƒ chuyá»ƒn khoáº£n{' '}
+                <span className="font-bold text-orange-700">
                   {formatCurrency(displayTotal)}
                 </span>
               </p>

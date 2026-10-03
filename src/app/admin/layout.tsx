@@ -20,6 +20,7 @@ import {
   IconReceiptRefund,
   IconActivity,
   IconFlag,
+  IconCashBanknote,
 } from '@tabler/icons-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { RoleGuard } from '@/features/auth/components/role-guard';
@@ -63,6 +64,11 @@ const ADMIN_NAV: NavItem[] = [
     title: 'Ví BVC',
     url: ROUTES.ADMIN.WALLETS,
     icon: <IconWallet />,
+  },
+  {
+    title: 'Giải ngân',
+    url: ROUTES.ADMIN.SETTLEMENTS,
+    icon: <IconCashBanknote />,
   },
   {
     title: 'Hoàn BVC',

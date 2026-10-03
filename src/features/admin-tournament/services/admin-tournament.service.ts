@@ -116,27 +116,24 @@ export const AdminTournamentService = {
     return normalizeTournamentParticipantsResponse(raw);
   },
 
-  /**
-   * Check-in không có trên Admin controller (Swagger live).
-   * Dùng POS endpoint: POST /api/v1/pos/tournaments/{id}/participants/{participantId}/check-in
-   */
+  /** POST /api/v1/admin/tournaments/{id}/participants/{participantId}/check-in */
   checkInParticipant: async (
     tournamentId: string,
     participantId: string,
   ): Promise<void> => {
     await apiClient.post(
-      `/api/v1/pos/tournaments/${tournamentId}/participants/${participantId}/check-in`,
+      `${BASE}/${tournamentId}/participants/${participantId}/check-in`,
     );
   },
 
-  /** POST /api/v1/admin/tournaments/{id}/open-registration */
+  /** POST /api/v1/admin/tournaments/{id}/registration/open */
   openRegistration: async (id: string): Promise<void> => {
-    await apiClient.post(`${BASE}/${id}/open-registration`);
+    await apiClient.post(`${BASE}/${id}/registration/open`);
   },
 
-  /** POST /api/v1/admin/tournaments/{id}/close-registration */
+  /** POST /api/v1/admin/tournaments/{id}/registration/close */
   closeRegistration: async (id: string): Promise<void> => {
-    await apiClient.post(`${BASE}/${id}/close-registration`);
+    await apiClient.post(`${BASE}/${id}/registration/close`);
   },
 
   /** POST /api/v1/admin/tournaments/{id}/start */

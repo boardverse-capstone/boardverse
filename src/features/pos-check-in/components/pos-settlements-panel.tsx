@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Banknote } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -36,10 +36,10 @@ export function PosSettlementsPanel({ cafeId }: PosSettlementsPanelProps) {
 
   if (isError) {
     return (
-      <p className="text-sm text-rose-600">
-        Không tải được settlements.{' '}
+      <p className="text-sm text-orange-600">
+        KhÃ´ng táº£i Ä‘Æ°á»£c settlements.{' '}
         <button type="button" className="underline" onClick={() => void refetch()}>
-          Thử lại
+          Thá»­ láº¡i
         </button>
       </p>
     );
@@ -49,7 +49,7 @@ export function PosSettlementsPanel({ cafeId }: PosSettlementsPanelProps) {
     return (
       <Card className="border-dashed">
         <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          Không có giải ngân đang chờ.
+          KhÃ´ng cÃ³ giáº£i ngÃ¢n Ä‘ang chá».
         </CardContent>
       </Card>
     );

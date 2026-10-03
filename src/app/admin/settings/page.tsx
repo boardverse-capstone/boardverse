@@ -2,6 +2,7 @@ import { MasterSettingsPortal } from '@/features/master-settings/components/mast
 import { PageHeader } from '@/components/common/page-header';
 import { SystemConfigLookupPanel } from '@/features/admin-config/components/system-config-lookup-panel';
 import { BypassTimeWindowPanel } from '@/features/admin-config/components/bypass-time-window-panel';
+import { DemoLoosenLobbyPanel } from '@/features/admin-config/components/demo-loosen-lobby-panel';
 
 export default function AdminSettingsPage() {
   return (
@@ -11,6 +12,7 @@ export default function AdminSettingsPage() {
         description="Cấu hình tham số Elo, Karma, matchmaking và biểu phí."
       />
       <BypassTimeWindowPanel />
+      <DemoLoosenLobbyPanel />
       <SystemConfigLookupPanel />
       <MasterSettingsPortal />
     </div>

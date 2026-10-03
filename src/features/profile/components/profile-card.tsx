@@ -81,8 +81,9 @@ export function ProfileCard() {
 
   return (
     <Card className="w-full">
-      <CardHeader className="space-y-4 pb-4">
-        <div className="flex items-start gap-4">
+      <CardHeader className="space-y-4 pb-4 md:space-y-0">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex min-w-0 items-start gap-4">
           <div className="relative shrink-0">
             <Avatar className="h-16 w-16">
               <AvatarImage src={profile?.avatarUrl ?? undefined} alt={displayName} />
@@ -124,49 +125,53 @@ export function ProfileCard() {
               </div>
             )}
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setChangePasswordOpen(true)}
-          >
-            <KeyRound className="mr-2 h-4 w-4" />
-            Đổi mật khẩu
-          </Button>
-          {profile?.hasProfile && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setUpdateOpen(true)}
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                Chỉnh sửa
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setProgressOpen(true)}
-              >
-                <BarChart3 className="mr-2 h-4 w-4" />
-                Tiến trình
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="text-destructive hover:text-destructive"
-                onClick={() => setDeleteOpen(true)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Vô hiệu hóa hồ sơ
-              </Button>
-            </>
-          )}
+          </div>
+          <div className="flex flex-wrap gap-2 md:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0 whitespace-nowrap"
+              onClick={() => setChangePasswordOpen(true)}
+            >
+              <KeyRound className="mr-2 h-4 w-4" />
+              Đổi mật khẩu
+            </Button>
+            {profile?.hasProfile && (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 whitespace-nowrap"
+                  onClick={() => setUpdateOpen(true)}
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Chỉnh sửa
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 whitespace-nowrap"
+                  onClick={() => setProgressOpen(true)}
+                >
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  Tiến trình
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 whitespace-nowrap text-destructive hover:text-destructive"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Vô hiệu hóa hồ sơ
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </CardHeader>
 
@@ -181,7 +186,7 @@ export function ProfileCard() {
           <ProfileCreateForm defaultGamerTag={user?.username ?? profile.username} />
         </CardContent>
       ) : profile && profile.hasProfile ? (
-        <CardContent className="grid gap-3">
+        <CardContent className="grid gap-3 md:grid-cols-2">
           <InfoLine
             icon={Phone}
             label="Số điện thoại"
@@ -198,7 +203,7 @@ export function ProfileCard() {
             <InfoLine icon={Gamepad2} label="Giới thiệu" value={profile.bio} />
           )}
 
-          <ProfileLocationSection />
+          <ProfileLocationSection className="space-y-3 rounded-lg border bg-muted/20 p-3 md:col-span-2" />
 
           <InfoLine icon={Sparkles} label="Karma" value={profile.karmaPoints.toLocaleString('vi-VN')} />
 

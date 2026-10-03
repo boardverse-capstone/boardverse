@@ -83,17 +83,42 @@ export async function subscribePosHubEvent(
 export async function joinPosUserNotifications(userId: string): Promise<void> {
   if (!userId) return;
   const conn = await getPosHubConnection();
-  await conn.invoke('JoinUserNotifications', userId);
+  try {
+    await conn.invoke('JoinUserNotifications', userId);
+  } catch {
+    // legacy method — ignore if hub only supports JoinCafe
+  }
+}
+
+/** Docs: JoinCafe(cafeId) */
+export async function joinPosCafe(cafeId: string): Promise<void> {
+  if (!cafeId) return;
+  const conn = await getPosHubConnection();
+  await conn.invoke('JoinCafe', cafeId);
+}
+
+export async function leavePosCafe(cafeId: string): Promise<void> {
+  if (!cafeId || !connection) return;
+  if (connection.state !== HubConnectionState.Connected) return;
+  await connection.invoke('LeaveCafe', cafeId);
 }
 
 export async function joinPosSession(sessionId: string): Promise<void> {
   if (!sessionId) return;
   const conn = await getPosHubConnection();
-  await conn.invoke('JoinSession', sessionId);
+  try {
+    await conn.invoke('SubscribeSession', sessionId);
+  } catch {
+    await conn.invoke('JoinSession', sessionId);
+  }
 }
 
 export async function leavePosSession(sessionId: string): Promise<void> {
   if (!sessionId || !connection) return;
   if (connection.state !== HubConnectionState.Connected) return;
-  await connection.invoke('LeaveSession', sessionId);
+  try {
+    await connection.invoke('UnsubscribeSession', sessionId);
+  } catch {
+    await connection.invoke('LeaveSession', sessionId);
+  }
 }

@@ -5,6 +5,10 @@ import { AddWalkInDto } from "../types/tournament.types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { X, UserPlus } from "lucide-react";
+import {
+  backdropCloseHandler,
+  useDismissOnBackdrop,
+} from "../lib/use-dismiss-on-backdrop";
 
 interface Props {
   isOpen: boolean;
@@ -16,6 +20,16 @@ export function TournamentWalkInModal({ isOpen, onClose, onSubmit }: Props) {
   const [displayName, setDisplayName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Click ra ngoài backdrop hoặc nhấn Escape để đóng
+  useDismissOnBackdrop(
+    isOpen,
+    () => {
+      if (isSubmitting) return;
+      onClose();
+    },
+    { busy: isSubmitting },
+  );
 
   if (!isOpen) return null;
 
@@ -40,8 +54,20 @@ export function TournamentWalkInModal({ isOpen, onClose, onSubmit }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white border rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+    <div
+      className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+      onClick={backdropCloseHandler(
+        () => {
+          if (isSubmitting) return;
+          onClose();
+        },
+        isSubmitting,
+      )}
+    >
+      <div
+        className="bg-white border rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="flex items-center justify-between border-b pb-3">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">

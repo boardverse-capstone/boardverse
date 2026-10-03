@@ -2,7 +2,6 @@
 
 import { Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { PageHeader } from '@/components/common/page-header';
 import { InventoryDetailView } from '@/features/staff-cafe/components/inventory-detail-view';
 import { useSelectedCafeId } from '@/features/staff-cafe/hooks/useSelectedCafeId';
 import { useStaffWorkingCafe } from '@/features/staff-cafe/hooks/useStaffCafe';
@@ -29,7 +28,6 @@ function InventoryDetailContent() {
 export default function StaffInventoryDetailPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Chi tiết kho game" description="Thông tin hộp game, linh kiện và mức phạt." />
       <Suspense fallback={<div className="text-sm text-muted-foreground">Đang tải...</div>}>
         <InventoryDetailContent />
       </Suspense>

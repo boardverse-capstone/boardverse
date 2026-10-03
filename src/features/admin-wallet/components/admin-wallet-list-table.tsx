@@ -25,7 +25,7 @@ import { ROUTES } from '@/core/constants/routes';
 import { PartnerDataTable } from '@/features/partner/components/partner-data-table';
 import { useAdminWallets } from '../hooks/useAdminWallets';
 import type { AdminWallet } from '../types/wallet.interface';
-import { formatWalletBalance, formatWalletDate } from '../utils/wallet.mapper';
+import { formatWalletBalance } from '../utils/wallet.mapper';
 
 const DEFAULT_LIMIT = 20;
 
@@ -89,24 +89,6 @@ const columns: ColumnDef<AdminWallet>[] = [
     ),
   },
   {
-    accessorKey: 'heldBalance',
-    header: 'Đang giữ',
-    cell: ({ row }) => (
-      <span className="tabular-nums text-muted-foreground">
-        {formatWalletBalance(row.original.heldBalance)}
-      </span>
-    ),
-  },
-  {
-    accessorKey: 'totalActiveDeposit',
-    header: 'Deposit active',
-    cell: ({ row }) => (
-      <span className="tabular-nums">
-        {formatWalletBalance(row.original.totalActiveDeposit)}
-      </span>
-    ),
-  },
-  {
     accessorKey: 'riskLevel',
     header: 'Rủi ro',
     cell: ({ row }) => (
@@ -135,15 +117,6 @@ const columns: ColumnDef<AdminWallet>[] = [
           </Badge>
         )}
       </div>
-    ),
-  },
-  {
-    accessorKey: 'createdAt',
-    header: 'Tạo lúc',
-    cell: ({ row }) => (
-      <span className="text-sm text-muted-foreground">
-        {formatWalletDate(row.original.createdAt)}
-      </span>
     ),
   },
   {

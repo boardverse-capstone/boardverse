@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Image from 'next/image';
 import { Users } from 'lucide-react';
@@ -24,15 +24,15 @@ export function AlternativeGamesGrid({
     return (
       <div className="flex items-center justify-center py-10">
         <Spinner className="h-6 w-6" />
-        <span className="ml-2 text-sm text-muted-foreground">Đang quét kho game...</span>
+        <span className="ml-2 text-sm text-muted-foreground">Äang quÃ©t kho game...</span>
       </div>
     );
   }
 
   if (games.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-rose-200 bg-rose-50/50 px-4 py-8 text-center text-sm text-rose-700">
-        Không tìm thấy game thay thế phù hợp với số người hiện tại trong kho quán.
+      <div className="rounded-lg border border-dashed border-orange-200 bg-orange-50/50 px-4 py-8 text-center text-sm text-orange-700">
+        KhÃ´ng tÃ¬m tháº¥y game thay tháº¿ phÃ¹ há»£p vá»›i sá»‘ ngÆ°á»i hiá»‡n táº¡i trong kho quÃ¡n.
       </div>
     );
   }
@@ -67,10 +67,10 @@ export function AlternativeGamesGrid({
                 <h4 className="truncate font-semibold">{game.name}</h4>
                 <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
                   <Users className="h-3.5 w-3.5" />
-                  {game.minPlayers}–{game.maxPlayers} người
+                  {game.minPlayers}â€“{game.maxPlayers} ngÆ°á»i
                 </p>
                 <Badge variant="outline" className="mt-1 text-[10px]">
-                  Còn {game.boxQuantity} hộp
+                  CÃ²n {game.boxQuantity} há»™p
                 </Badge>
               </div>
 
@@ -81,7 +81,7 @@ export function AlternativeGamesGrid({
                 className="h-11 w-full touch-manipulation text-sm md:h-12"
                 onClick={() => onSelect(game)}
               >
-                {isSelected ? 'Đã chọn' : 'Đổi sang game này'}
+                {isSelected ? 'ÄÃ£ chá»n' : 'Äá»•i sang game nÃ y'}
               </Button>
             </div>
           </article>

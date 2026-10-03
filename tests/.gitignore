@@ -1,0 +1,6 @@
+node_modules/
+results/*.json
+results/*.txt
+.DS_Store
+*.log
+.env.local

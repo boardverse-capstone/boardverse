@@ -17,6 +17,10 @@ import {
   Lock,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  backdropCloseHandler,
+  useDismissOnBackdrop,
+} from "../lib/use-dismiss-on-backdrop";
 
 interface Props {
   isOpen: boolean;
@@ -56,6 +60,16 @@ export function TournamentCreateModal({
   // Toggle cấu hình nâng cao
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Click ra ngoài backdrop hoặc nhấn Escape để đóng
+  useDismissOnBackdrop(
+    isOpen,
+    () => {
+      if (isSubmitting) return;
+      onClose();
+    },
+    { busy: isSubmitting },
+  );
 
   if (!isOpen) return null;
 
@@ -129,8 +143,20 @@ export function TournamentCreateModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-neutral-200 rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[90vh] flex flex-col">
+    <div
+      className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+      onClick={backdropCloseHandler(
+        () => {
+          if (isSubmitting) return;
+          onClose();
+        },
+        isSubmitting,
+      )}
+    >
+      <div
+        className="bg-white border border-neutral-200 rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[90vh] flex flex-col"
+        onClick={(event) => event.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b pb-3 shrink-0">
           <div className="flex items-center gap-2.5">

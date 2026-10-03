@@ -18,6 +18,10 @@ import {
   ToggleLeft,
   ToggleRight,
 } from "lucide-react";
+import {
+  backdropCloseHandler,
+  useDismissOnBackdrop,
+} from "../lib/use-dismiss-on-backdrop";
 
 interface Props {
   isOpen: boolean;
@@ -208,6 +212,16 @@ export function TournamentPairingStudioModal({
       isMounted = false;
     };
   }, [isOpen, tournamentId, roundNumber, refreshPreview]);
+
+  // Click ra ngoài backdrop hoặc nhấn Escape để đóng
+  useDismissOnBackdrop(
+    isOpen,
+    () => {
+      if (isProcessing || loading) return;
+      onClose();
+    },
+    { busy: isProcessing || loading },
+  );
 
   if (!isOpen) return null;
 
@@ -408,8 +422,20 @@ export function TournamentPairingStudioModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-      <div className="bg-white border border-neutral-200 rounded-3xl max-w-5xl w-full p-6 space-y-4 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[92vh] flex flex-col">
+    <div
+      className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+      onClick={backdropCloseHandler(
+        () => {
+          if (isProcessing || loading) return;
+          onClose();
+        },
+        isProcessing || loading,
+      )}
+    >
+      <div
+        className="bg-white border border-neutral-200 rounded-3xl max-w-5xl w-full p-6 space-y-4 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[92vh] flex flex-col"
+        onClick={(event) => event.stopPropagation()}
+      >
         {/* Header Modal */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3.5 shrink-0">
           <div className="flex items-center gap-3">

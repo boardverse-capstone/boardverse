@@ -252,3 +252,119 @@ export interface RawNearbyCafesResponse {
   EmptyResultMessage?: string | null;
   alternativeSuggestions?: unknown[];
 }
+
+// ==================== Cafe Reservations & Lobbies ====================
+
+export interface CafeReservation {
+  reservationId: string;
+  hostId: string;
+  hostUserName: string;
+  cafeId: string;
+  cafeName: string;
+  gameTemplateId: string;
+  gameName: string;
+  playDate: string;
+  timeSlot: string;
+  preferredStartTime: string;
+  minPlayers: number;
+  maxPlayers: number;
+  currentPlayers: number;
+  status: string;
+  depositAmountBvc: number;
+  createdAt: string;
+}
+
+export interface CafeLobby {
+  lobbyId: string;
+  hostId: string;
+  hostUserName: string;
+  cafeId: string;
+  cafeName: string;
+  gameTemplateId: string;
+  gameName: string;
+  playDate: string;
+  timeSlot: string;
+  minPlayers: number;
+  maxPlayers: number;
+  currentPlayers: number;
+  status: string;
+  isPrivate: boolean;
+  recruitmentDeadline: string | null;
+  createdAt: string;
+}
+
+export interface RawCafeReservation {
+  reservationId?: string;
+  ReservationId?: string;
+  hostId?: string;
+  HostId?: string;
+  hostUserName?: string;
+  HostUserName?: string;
+  hostDisplayName?: string;
+  HostDisplayName?: string;
+  cafeId?: string;
+  CafeId?: string;
+  cafeName?: string;
+  CafeName?: string;
+  gameTemplateId?: string;
+  GameTemplateId?: string;
+  gameName?: string;
+  GameName?: string;
+  playDate?: string;
+  PlayDate?: string;
+  timeSlot?: string;
+  TimeSlot?: string;
+  preferredStartTime?: string;
+  PreferredStartTime?: string;
+  minPlayers?: number;
+  MinPlayers?: number;
+  maxPlayers?: number;
+  MaxPlayers?: number;
+  currentPlayers?: number;
+  CurrentPlayers?: number;
+  status?: string;
+  Status?: string;
+  depositAmountBvc?: number;
+  DepositAmountBvc?: number;
+  depositAmount?: number;
+  DepositAmount?: number;
+  createdAt?: string;
+  CreatedAt?: string;
+}
+
+export interface RawCafeLobby {
+  lobbyId?: string;
+  LobbyId?: string;
+  hostId?: string;
+  HostId?: string;
+  hostUserName?: string;
+  HostUserName?: string;
+  hostDisplayName?: string;
+  HostDisplayName?: string;
+  cafeId?: string;
+  CafeId?: string;
+  cafeName?: string;
+  CafeName?: string;
+  gameTemplateId?: string;
+  GameTemplateId?: string;
+  gameName?: string;
+  GameName?: string;
+  playDate?: string;
+  PlayDate?: string;
+  timeSlot?: string;
+  TimeSlot?: string;
+  minPlayers?: number;
+  MinPlayers?: number;
+  maxPlayers?: number;
+  MaxPlayers?: number;
+  currentPlayers?: number;
+  CurrentPlayers?: number;
+  status?: string;
+  Status?: string;
+  isPrivate?: boolean;
+  IsPrivate?: boolean;
+  recruitmentDeadline?: string | null;
+  RecruitmentDeadline?: string | null;
+  createdAt?: string;
+  CreatedAt?: string;
+}

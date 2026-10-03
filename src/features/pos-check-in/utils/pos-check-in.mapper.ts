@@ -821,54 +821,77 @@ export function mapApiPosGameBox(raw: unknown): PosGameBox {
   const nestedGame = asRecord(
     r.game ?? r.Game ?? r.gameTemplate ?? r.GameTemplate ?? r.template ?? r.Template,
   );
+  // Một số BE trả template lồng trong game (game.gameTemplate.*) — mở rộng bắt thêm
+  const nestedGameTemplate = asRecord(
+    nestedGame.gameTemplate ??
+      nestedGame.GameTemplate ??
+      nestedGame.template ??
+      nestedGame.Template ??
+      {},
+  );
+  const candidateImageSources: Array<Record<string, unknown>> = [
+    r,
+    nestedGame,
+    nestedGameTemplate,
+  ];
+  let imageUrl: string | null = null;
+  const imageKeys = [
+    "imageUrl",
+    "ImageUrl",
+    "thumbnailUrl",
+    "ThumbnailUrl",
+    "coverUrl",
+    "CoverUrl",
+    "gameImageUrl",
+    "GameImageUrl",
+    "picture",
+    "Picture",
+    "photo",
+    "Photo",
+  ];
+  for (const source of candidateImageSources) {
+    for (const key of imageKeys) {
+      const value = source[key];
+      if (typeof value === "string" && value.trim().length > 0) {
+        imageUrl = value.trim();
+        break;
+      }
+    }
+    if (imageUrl) break;
+  }
   return {
     id: str(
       r,
-      'id',
-      'Id',
-      'cafeInventoryBoxId',
-      'CafeInventoryBoxId',
-      'boxId',
-      'BoxId',
+      "id",
+      "Id",
+      "cafeInventoryBoxId",
+      "CafeInventoryBoxId",
+      "boxId",
+      "BoxId",
     ),
-    barcode: str(r, 'barcode', 'Barcode', 'boxBarcode', 'BoxBarcode'),
-    status: str(r, 'status', 'Status', 'boxStatus', 'BoxStatus') || 'Available',
+    barcode: str(r, "barcode", "Barcode", "boxBarcode", "BoxBarcode"),
+    status: str(r, "status", "Status", "boxStatus", "BoxStatus") || "Available",
     gameTemplateId:
-      str(r, 'gameTemplateId', 'GameTemplateId', 'templateId', 'TemplateId') || null,
-    gameName: str(r, 'gameName', 'GameName', 'name', 'Name', 'title', 'Title') || null,
+      str(r, "gameTemplateId", "GameTemplateId", "templateId", "TemplateId") ||
+      str(nestedGame, "gameTemplateId", "GameTemplateId", "id", "Id") ||
+      null,
+    gameName:
+      str(r, "gameName", "GameName", "name", "Name", "title", "Title") ||
+      str(nestedGame, "gameName", "GameName", "name", "Name") ||
+      str(nestedGameTemplate, "name", "Name", "title", "Title") ||
+      null,
     inventoryId:
       str(
         r,
-        'cafeGameInventoryId',
-        'CafeGameInventoryId',
-        'inventoryId',
-        'InventoryId',
-        'cafeInventoryId',
-        'CafeInventoryId',
+        "cafeGameInventoryId",
+        "CafeGameInventoryId",
+        "inventoryId",
+        "InventoryId",
+        "cafeInventoryId",
+        "CafeInventoryId",
       ) || null,
-    cafeId: str(r, 'cafeId', 'CafeId') || null,
-    imageUrl:
-      str(
-        r,
-        'imageUrl',
-        'ImageUrl',
-        'thumbnailUrl',
-        'ThumbnailUrl',
-        'coverUrl',
-        'CoverUrl',
-        'gameImageUrl',
-        'GameImageUrl',
-      ) ||
-      str(
-        nestedGame,
-        'imageUrl',
-        'ImageUrl',
-        'thumbnailUrl',
-        'ThumbnailUrl',
-        'coverUrl',
-        'CoverUrl',
-      ) ||
-      null,
+    cafeId: str(r, "cafeId", "CafeId") || null,
+    imageUrl,
   };
 }
 
