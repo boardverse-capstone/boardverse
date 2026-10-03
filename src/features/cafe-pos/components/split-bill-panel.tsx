@@ -341,15 +341,34 @@ export function SplitBillPanel({
         setQrListAndNotify([]);
         toast.success(`Đã thu tiền mặt ${results.length} khách.`);
       }
+      /**
+       * CASH — BE atomic flip đồng bộ ngay (`PaidCash` + `paidAt` set
+       * ngay từ DB transaction). TIN tưởng `results` trả về từ
+       * `payMembers`: nếu ≥1 member đã được confirm thành công (có
+       * `memberId` + `status = PaidCash` thật), coi như phiên đã được
+       * thu đủ phần CASH. KHÔNG cần đợi `loadStatus()` vì nhiều khi
+       * BE trả `payment-status` chậm / cache khiến `paidAt` rỗng →
+       * FE tưởng chưa thanh toán → không fire `onAllPaid` → session
+       * vẫn nằm trong phiên chơi dù staff đã thu xong tiền mặt.
+       */
+      if (
+        paymentMethod === "CASH" &&
+        results.length > 0 &&
+        results.every((r) => r?.memberId && isMemberStatusPaid(r.status)) &&
+        !notifiedAllPaid.current
+      ) {
+        notifiedAllPaid.current = true;
+        onAllPaidRef.current?.();
+      }
       const next = await loadStatus();
       /**
-       * KHÔNG auto-fire onAllPaid ngay sau khi tạo QR — chờ polling
-       * `/payment-status` xác nhận đã có paidAt thật (CASH có ngay, QR
-       * chỉ có sau webhook). Việc check "đã thu đủ" được thực hiện trong
-       * `loadStatus` (line 161-178) dựa trên totalPaid >= totalAmount
-       * hoặc paidAt thật của từng member.
+       * QR — KHÔNG auto-fire onAllPaid ngay sau khi tạo QR — chờ polling
+       * `/payment-status` xác nhận đã có paidAt thật (QR chỉ có sau
+       * webhook SePay). Việc check "đã thu đủ" được thực hiện trong
+       * `loadStatus` dựa trên totalPaid >= totalAmount hoặc paidAt
+       * thật của từng member.
        */
-      if (paymentMethod === "CASH" && next) {
+      if (paymentMethod === "QR_CODE" && next) {
         const allMarkedPaid =
           next.members.length > 0 &&
           next.members.every((m) =>
