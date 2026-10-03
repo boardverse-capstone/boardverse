@@ -118,7 +118,7 @@ export function CancelReasonDialog({
           <AlertDialogMedia className="bg-destructive/10 text-destructive">
             <XCircle aria-hidden="true" />
           </AlertDialogMedia>
-          <div className="space-y-1.5">
+          <div className="flex flex-col gap-1.5">
             <AlertDialogTitle>
               {copy.title}
               {subjectName && (
@@ -132,7 +132,7 @@ export function CancelReasonDialog({
           </div>
         </AlertDialogHeader>
 
-        <div className="space-y-1.5">
+        <div className="flex flex-col gap-1.5">
           <label
             htmlFor="cancel-reason"
             className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"

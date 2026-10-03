@@ -4,13 +4,11 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { apiClient } from "@/core/api/client";
 import { toast } from "sonner";
-import { RoundPairingPreviewResponse } from "../types/tournament.types";
 import { Button } from "@/components/ui/button";
 import {
   X,
   Swords,
   RefreshCw,
-  RotateCcw,
   Users,
   GripVertical,
   MoveRight,
@@ -28,7 +26,6 @@ interface Props {
   onClose: () => void;
   tournamentId: string;
   roundNumber?: number;
-  onPairingSaved?: () => void;
 }
 
 interface StudioPlayer {
@@ -49,15 +46,12 @@ export function TournamentPairingStudioModal({
   onClose,
   tournamentId,
   roundNumber = 1,
-  onPairingSaved,
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Pairing Mode: "Auto" hoặc "Manual"
   const [isManualMode, setIsManualMode] = useState(false);
-  const [previewData, setPreviewData] =
-    useState<RoundPairingPreviewResponse | null>(null);
   const [tables, setTables] = useState<StudioTable[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
 
@@ -167,7 +161,6 @@ export function TournamentPairingStudioModal({
       const pairingData = pairingRes?.data || pairingRes || {};
       const participantList = partRes?.data || partRes || [];
 
-      setPreviewData(pairingData);
       setParticipants(participantList);
 
       // Cập nhật trạng thái mode hiện tại từ Backend
@@ -290,7 +283,6 @@ export function TournamentPairingStudioModal({
       );
 
       if (resData?.pairings) {
-        setPreviewData(resData);
         setIsManualMode(true);
         const updated = parseTablesWithParticipants(
           resData.pairings,
@@ -309,53 +301,6 @@ export function TournamentPairingStudioModal({
       setSelectedPlayer(null);
       setDraggedItem(null);
       setDragOverTableIndex(null);
-    }
-  };
-
-  // 4. POST /pairings: Manager lưu toàn bộ Manual Pairings ghi đè Auto Swiss
-  const handleSaveManualPairings = async () => {
-    try {
-      setIsProcessing(true);
-      const payload = {
-        roundNumber,
-        pairings: tables.map((t) => ({
-          matchNumber: t.matchNumber,
-          playerIds: t.players.map((p) => p.userId),
-        })),
-      };
-
-      await apiClient.post(
-        `/api/v1/pos/tournaments/${tournamentId}/pairings`,
-        payload,
-      );
-
-      toast.success(`Đã lưu bảng ghép cặp thủ công Vòng #${roundNumber}!`);
-      if (onPairingSaved) onPairingSaved();
-      onClose();
-    } catch (err: unknown) {
-      const error = err as { message?: string };
-      toast.error(error?.message || "Lỗi lưu bảng cặp.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  // 5. DELETE /pairings/{roundNumber}: Xóa Manual Pairings, khôi phục Auto Swiss
-  const handleResetToAuto = async () => {
-    try {
-      setIsProcessing(true);
-      await apiClient.delete(
-        `/api/v1/pos/tournaments/${tournamentId}/pairings/${roundNumber}`,
-      );
-      toast.success("Đã xóa bảng ghép cặp thủ công. Khôi phục về Auto Swiss!");
-      setIsManualMode(false);
-      await refreshPreview();
-      if (onPairingSaved) onPairingSaved();
-    } catch (err: unknown) {
-      const error = err as { message?: string };
-      toast.error(error?.message || "Lỗi khôi phục bảng cặp tự động.");
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -423,7 +368,7 @@ export function TournamentPairingStudioModal({
 
   return (
     <div
-      className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 max-[480px]:p-2 max-[480px]:pb-[max(0.5rem,env(safe-area-inset-bottom))] max-[480px]:pt-[max(0.5rem,env(safe-area-inset-top))]"
       onClick={backdropCloseHandler(
         () => {
           if (isProcessing || loading) return;
@@ -433,7 +378,7 @@ export function TournamentPairingStudioModal({
       )}
     >
       <div
-        className="bg-white border border-neutral-200 rounded-3xl max-w-5xl w-full p-6 space-y-4 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[92vh] flex flex-col"
+        className="bg-white border border-neutral-200 rounded-3xl max-w-5xl w-full p-6 flex flex-col gap-4 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[92vh]"
         onClick={(event) => event.stopPropagation()}
       >
         {/* Header Modal */}
@@ -545,7 +490,7 @@ export function TournamentPairingStudioModal({
         </div>
 
         {/* Lưới Bàn Đấu (Arena Drag & Drop Canvas) */}
-        <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto flex flex-col gap-4 pr-1 scrollbar-thin">
           {loading ? (
             <div className="text-center py-20 text-xs text-neutral-400 font-bold">
               Đang tính toán ma trận ghép cặp và nạp dữ liệu bàn đấu...
@@ -564,7 +509,7 @@ export function TournamentPairingStudioModal({
                     key={table.matchNumber}
                     onDragOver={(e) => handleDragOverTable(e, tIdx)}
                     onDragLeave={() => setDragOverTableIndex(null)}
-                    className={`rounded-3xl border p-4 space-y-3 transition-all ${
+                    className={`rounded-3xl border p-4 flex flex-col gap-3 transition-all ${
                       isDragOver
                         ? "bg-amber-50/90 border-amber-500 ring-2 ring-amber-400/30 scale-[1.01]"
                         : "bg-neutral-50/70 border-neutral-200/90 shadow-2xs"
@@ -590,7 +535,7 @@ export function TournamentPairingStudioModal({
                     </div>
 
                     {/* Danh sách 4 VĐV trong bàn */}
-                    <div className="space-y-2">
+                    <div className="flex flex-col gap-2">
                       {table.players.map((p, pIdx) => {
                         const isSelected =
                           selectedPlayer?.tableIndex === tIdx &&
@@ -652,44 +597,17 @@ export function TournamentPairingStudioModal({
           )}
         </div>
 
-        {/* Footer Actions: Quyết định Lưu Manual hay Khôi Phục Auto */}
-        <div className="pt-3 border-t border-neutral-100 flex flex-wrap items-center justify-between gap-3 shrink-0">
-          {/* <div>
-            {isManualMode && (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={isProcessing || loading}
-                onClick={() => void handleResetToAuto()}
-                className="h-9 text-xs font-bold rounded-xl border-rose-200 text-rose-700 hover:bg-rose-50 flex items-center gap-1.5"
-                title="Xóa cấu hình thủ công và quay lại thuật toán Auto Swiss ban đầu"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-rose-600" />
-                Khôi Phục Auto Swiss (Delete Manual)
-              </Button>
-            )}
-          </div> */}
-
-          <div className="pt-3 border-t border-neutral-100 flex items-center justify-end gap-2 shrink-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="h-9 px-4 text-xs font-bold rounded-xl"
-            >
-              Đóng
-            </Button>
-
-            {/* <Button
-              type="button"
-              disabled={isProcessing || loading}
-              onClick={() => void handleSaveManualPairings()}
-              className="h-9 px-5 bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5"
-            >
-              <Save className="w-3.5 h-3.5" />
-              {isProcessing ? "Đang lưu..." : "Xác Nhận & Lưu Bảng Cặp"}
-            </Button> */}
-          </div>
+        {/* Footer Actions: chỉ cho phép đóng modal — Save/Reset Auto đã bị gỡ
+            bỏ vì các handler tương ứng đã chết (xem bước distill trước). */}
+        <div className="pt-3 border-t border-neutral-100 flex items-center justify-end gap-2 shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            className="h-9 px-4 text-xs font-bold rounded-xl"
+          >
+            Đóng
+          </Button>
         </div>
       </div>
     </div>

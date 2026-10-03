@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   TournamentMatch,
   RecordMatchResultDto,
@@ -73,7 +73,13 @@ function MatchResultModalContent({
   onUpdateResult?: (dto: UpdateMatchResultDto) => Promise<boolean>;
 }) {
   const isEditMode = match.status === "Completed";
-  const playersList: any[] = (match as any).players || [];
+  // Stable identity so the useMemo below can use it as a dependency without
+  // re-running on every render (parent re-renders wouldn't change it).
+  const matchPlayers = (match as any).players;
+  const playersList = useMemo<any[]>(
+    () => matchPlayers || [],
+    [matchPlayers],
+  );
 
   // Mặc định tất cả người chơi bắt đầu ở 15 điểm Prestige và 10 thẻ mua
   const [playerScores, setPlayerScores] = useState<
@@ -140,8 +146,9 @@ function MatchResultModalContent({
     });
   };
 
-  // Tìm người chiến thắng: Điểm cao hơn -> Nếu hòa xét mua ít thẻ hơn
-  const getSortedPlayers = () => {
+  // Tìm người chiến thắng: Điểm cao hơn -> Nếu hòa xét mua ít thẻ hơn.
+  // Memoized: re-sorts only when roster or scores change, not on every render.
+  const sortedPlayers = useMemo(() => {
     return [...playersList].sort((a, b) => {
       const pAId = a.userId || a.id;
       const pBId = b.userId || b.id;
@@ -150,21 +157,17 @@ function MatchResultModalContent({
       const cardsA = playerScores[pAId]?.cardsBought ?? 0;
       const cardsB = playerScores[pBId]?.cardsBought ?? 0;
 
-      if (scoreB !== scoreA) {
-        return scoreB - scoreA;
-      }
+      if (scoreB !== scoreA) return scoreB - scoreA;
       return cardsA - cardsB;
     });
-  };
-
-  const sortedPlayers = getSortedPlayers();
+  }, [playersList, playerScores]);
   const winnerUserId = sortedPlayers[0]?.userId || sortedPlayers[0]?.id;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!winnerUserId) {
-      toast.error("Không tìm thấy người chơi hợp lệ.");
+      toast.error("Chưa có tuyển thủ nào trong bàn đấu này. Vui lòng kiểm tra lại danh sách VĐV.");
       return;
     }
 
@@ -222,11 +225,11 @@ function MatchResultModalContent({
 
   return (
     <div
-      className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 max-[480px]:p-2 max-[480px]:pb-[max(0.5rem,env(safe-area-inset-bottom))] max-[480px]:pt-[max(0.5rem,env(safe-area-inset-top))]"
       onClick={backdropCloseHandler(onClose)}
     >
       <div
-        className="bg-white border border-neutral-200 rounded-3xl max-w-xl w-full p-6 space-y-4 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[92vh] flex flex-col"
+        className="bg-white border border-neutral-200 rounded-3xl max-w-xl w-full p-6 flex flex-col gap-4 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[92vh]"
         onClick={(event) => event.stopPropagation()}
       >
         {/* Header Modal */}
@@ -252,8 +255,8 @@ function MatchResultModalContent({
                 </span>
               </div>
               <p className="text-xs text-neutral-500 font-medium">
-                Mặc định <strong>15 điểm</strong> & <strong>10 thẻ</strong> •
-                Bấm <strong>[-]</strong> / <strong>[+]</strong> để tùy chỉnh
+                Mặc định <strong>15 điểm Prestige</strong> & <strong>10 thẻ</strong> mỗi VĐV.
+                Dùng nút <strong>−</strong> và <strong>+</strong> để điều chỉnh.
               </p>
             </div>
           </div>
@@ -281,9 +284,9 @@ function MatchResultModalContent({
         {/* Form nhập điểm 4 VĐV */}
         <form
           onSubmit={handleSubmit}
-          className="space-y-3 overflow-y-auto pr-1 flex-1 scrollbar-thin"
+          className="flex flex-1 flex-col overflow-y-auto pr-1 scrollbar-thin"
         >
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3">
             {playersList.map((player: any) => {
               const pId = player.userId || player.id;
               const current = playerScores[pId] || {
@@ -295,18 +298,18 @@ function MatchResultModalContent({
               return (
                 <div
                   key={pId}
-                  className={`p-3.5 rounded-2xl border transition-all ${
+                  className={`flex flex-col gap-3 p-3.5 rounded-2xl border transition-all ${
                     isWinner
                       ? "bg-amber-50/70 border-amber-300 ring-2 ring-amber-400/30"
                       : "bg-neutral-50/70 border-neutral-200/90"
                   }`}
                 >
                   {/* Tên VĐV & Badge Winner */}
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 truncate">
                       {isWinner ? (
                         <span className="px-2 py-0.5 rounded-lg bg-amber-500 text-white font-black text-[10px] flex items-center gap-1 shadow-2xs">
-                          <Trophy className="w-3 h-3" /> HẠNG 1 (WINNER)
+                          <Trophy className="w-3 h-3" /> HẠNG NHẤT
                         </span>
                       ) : (
                         <Award className="w-4 h-4 text-neutral-400 shrink-0" />
@@ -316,15 +319,15 @@ function MatchResultModalContent({
                       </span>
                     </div>
 
-                    <span className="text-[11px] font-mono text-neutral-400 font-bold">
+                    <span className="shrink-0 text-[11px] font-mono text-neutral-400 font-bold">
                       Elo: {player.currentElo || 1200}
                     </span>
                   </div>
 
                   {/* Bộ điều khiển Điểm & Thẻ */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {/* CỘT 1: ĐIỂM PRESTIGE (Mặc định 15đ) */}
-                    <div className="bg-white p-2.5 rounded-xl border border-neutral-200/80 space-y-1.5 shadow-2xs">
+                    <div className="flex flex-col gap-1 bg-white p-2 rounded-xl border border-neutral-200/80 shadow-2xs">
                       <div className="flex items-center justify-between text-[11px] font-bold text-neutral-600">
                         <span className="flex items-center gap-1">
                           <Sparkles className="w-3 h-3 text-amber-500" /> Điểm
@@ -341,7 +344,7 @@ function MatchResultModalContent({
                           <button
                             type="button"
                             onClick={() => adjustScore(pId, -5)}
-                            className="w-7 h-8 bg-neutral-100 hover:bg-neutral-200 rounded-lg font-bold text-[10px] text-neutral-700 active:scale-95 transition-transform"
+                            className="w-7 h-8 bg-rose-100/70 hover:bg-rose-200 text-rose-700 rounded-lg font-bold text-[10px] active:scale-95 transition-transform"
                             title="Giảm 5 điểm"
                           >
                             -5
@@ -349,7 +352,7 @@ function MatchResultModalContent({
                           <button
                             type="button"
                             onClick={() => adjustScore(pId, -1)}
-                            className="w-8 h-8 bg-neutral-100 hover:bg-rose-50 hover:text-rose-700 rounded-lg flex items-center justify-center font-black text-neutral-800 active:scale-95 transition-transform"
+                            className="w-8 h-8 bg-rose-100/70 hover:bg-rose-200 text-rose-700 rounded-lg flex items-center justify-center font-black active:scale-95 transition-transform"
                             title="Giảm 1 điểm"
                           >
                             <Minus className="w-3.5 h-3.5" />
@@ -369,14 +372,14 @@ function MatchResultModalContent({
                               [pId]: { ...prev[pId], prestigeScore: val },
                             }));
                           }}
-                          className="w-14 h-8 text-center font-mono font-black text-base text-neutral-950 bg-neutral-50 rounded-lg border border-neutral-200"
+                          className="w-14 h-8 text-center font-mono font-black text-base text-amber-900 bg-amber-50 rounded-lg border border-amber-200 focus:border-amber-500 focus:ring-1 focus:ring-amber-400/40 focus:outline-none"
                         />
 
                         {/* Nút tăng +1 */}
                         <button
                           type="button"
                           onClick={() => adjustScore(pId, +1)}
-                          className="w-8 h-8 bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg flex items-center justify-center font-black text-neutral-800 active:scale-95 transition-transform"
+                          className="w-8 h-8 bg-emerald-100/70 hover:bg-emerald-200 text-emerald-700 rounded-lg flex items-center justify-center font-black active:scale-95 transition-transform"
                           title="Tăng 1 điểm"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -385,7 +388,7 @@ function MatchResultModalContent({
                     </div>
 
                     {/* CỘT 2: SỐ THẺ ĐÃ MUA (Mặc định 10 thẻ) */}
-                    <div className="bg-white p-2.5 rounded-xl border border-neutral-200/80 space-y-1.5 shadow-2xs">
+                    <div className="flex flex-col gap-1 bg-white p-2 rounded-xl border border-neutral-200/80 shadow-2xs">
                       <div className="flex items-center justify-between text-[11px] font-bold text-neutral-600">
                         <span className="flex items-center gap-1">
                           <Layers className="w-3 h-3 text-blue-500" /> Thẻ Đã
@@ -401,7 +404,7 @@ function MatchResultModalContent({
                         <button
                           type="button"
                           onClick={() => adjustCards(pId, -1)}
-                          className="w-8 h-8 bg-neutral-100 hover:bg-rose-50 hover:text-rose-700 rounded-lg flex items-center justify-center font-black text-neutral-800 active:scale-95 transition-transform"
+                          className="w-8 h-8 bg-rose-100/70 hover:bg-rose-200 text-rose-700 rounded-lg flex items-center justify-center font-black active:scale-95 transition-transform"
                           title="Giảm 1 thẻ"
                         >
                           <Minus className="w-3.5 h-3.5" />
@@ -420,7 +423,7 @@ function MatchResultModalContent({
                               [pId]: { ...prev[pId], cardsBought: val },
                             }));
                           }}
-                          className="w-14 h-8 text-center font-mono font-black text-base text-neutral-950 bg-neutral-50 rounded-lg border border-neutral-200"
+                          className="w-14 h-8 text-center font-mono font-black text-base text-blue-900 bg-blue-50 rounded-lg border border-blue-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-400/40 focus:outline-none"
                         />
 
                         {/* Nút tăng +1 và +5 */}
@@ -428,15 +431,15 @@ function MatchResultModalContent({
                           <button
                             type="button"
                             onClick={() => adjustCards(pId, +1)}
-className="w-8 h-8 bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg flex items-center justify-center font-black text-neutral-800 active:scale-95 transition-transform"
-                          title="Tăng 1 thẻ"
+                            className="w-8 h-8 bg-emerald-100/70 hover:bg-emerald-200 text-emerald-700 rounded-lg flex items-center justify-center font-black active:scale-95 transition-transform"
+                            title="Tăng 1 thẻ"
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"
                             onClick={() => adjustCards(pId, +5)}
-                            className="w-7 h-8 bg-neutral-100 hover:bg-neutral-200 rounded-lg font-bold text-[10px] text-neutral-700 active:scale-95 transition-transform"
+                            className="w-7 h-8 bg-emerald-100/70 hover:bg-emerald-200 text-emerald-700 rounded-lg font-bold text-[10px] active:scale-95 transition-transform"
                             title="Tăng 5 thẻ"
                           >
                             +5
@@ -496,8 +499,8 @@ className="w-8 h-8 bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-700 rou
               {isSubmitting
                 ? "Đang lưu..."
                 : isEditMode
-                  ? "Cập Nhật Kết Quả "
-                  : "Xác Nhận Kết Quả "}
+                  ? "Cập nhật kết quả"
+                  : "Xác nhận kết quả"}
             </Button>
           </div>
         </form>

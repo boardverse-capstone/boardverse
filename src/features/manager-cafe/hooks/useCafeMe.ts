@@ -124,14 +124,13 @@ export function useReopenCafe() {
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- * SePay config — GET/PUT /api/cafes/{id}/sepay-config
+ * SePay config — GET /api/sepay-accounts/my-cafe
  * ────────────────────────────────────────────────────────────────────── */
 
 export function useSePayConfig(cafeId: string | undefined) {
   return useQuery({
     queryKey: [MANAGER_CAFE_QUERY_KEYS.sepayConfig(cafeId ?? "_")],
-    queryFn: () =>
-      cafeId ? ManagerCafeService.getSePayConfig(cafeId) : Promise.resolve(null),
+    queryFn: () => ManagerCafeService.getSePayConfig(),
     enabled: !!cafeId,
     staleTime: 60_000,
   });

@@ -504,7 +504,7 @@ export function PosWorkspace() {
               handleSelectActiveSession({
                 status: 'Active',
                 cafeId: cafe?.id || '',
-                billingModel: 'BY_HOUR',
+                billingModel: 'ByHour',
                 ...session,
               } as unknown as CafeSessionDetail);
             }}

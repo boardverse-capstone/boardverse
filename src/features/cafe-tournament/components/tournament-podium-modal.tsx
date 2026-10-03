@@ -93,29 +93,29 @@ export function TournamentPodiumModal({
 
   return (
     <div
-      className="fixed inset-0 bg-neutral-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-neutral-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 max-[480px]:p-2 max-[480px]:pb-[max(0.5rem,env(safe-area-inset-bottom))] max-[480px]:pt-[max(0.5rem,env(safe-area-inset-top))]"
       onClick={backdropCloseHandler(onClose)}
     >
       <div
-        className="bg-white border border-neutral-200 rounded-3xl max-w-4xl w-full p-6 space-y-6 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[92vh] flex flex-col"
+        className="bg-white border border-neutral-200 rounded-3xl max-w-4xl w-full p-6 flex flex-col gap-6 shadow-2xl animate-in fade-in-50 zoom-in-95 max-h-[92vh]"
         onClick={(event) => event.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b pb-4 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-xs">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-xs shrink-0">
               <Trophy className="w-6 h-6" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-black text-lg text-neutral-950">
-                  Bảng Vinh Danh • Top Tuyển Thủ Xuất Sắc
+                  Bảng vinh danh
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
                   Hoàn thành
                 </span>
               </div>
-              <p className="text-xs text-neutral-500 font-medium">
+              <p className="text-xs text-neutral-500 font-medium truncate">
                 {tournamentTitle}
               </p>
             </div>
@@ -131,9 +131,9 @@ export function TournamentPodiumModal({
         </div>
 
         {/* Podium Area */}
-        <div className="flex-1 overflow-y-auto space-y-4 pr-1 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto flex flex-col gap-4 pr-1 scrollbar-thin">
           {rankedGroups.length === 0 ? (
-            <div className="text-center py-16 border border-dashed rounded-3xl text-neutral-400 text-xs font-medium space-y-2">
+            <div className="flex flex-col items-center gap-2 text-center py-16 border border-dashed rounded-3xl text-neutral-400 text-xs font-medium">
               <Sparkles className="w-8 h-8 mx-auto text-neutral-300" />
               <p>
                 Chưa có tuyển thủ nào tích lũy điểm Swiss dương trong giải đấu
@@ -147,7 +147,7 @@ export function TournamentPodiumModal({
               return (
                 <div
                   key={group.rank}
-                  className={`p-4 rounded-3xl border ${visuals.cardBg} space-y-3 shadow-2xs`}
+                  className={`p-4 rounded-3xl border ${visuals.cardBg} flex flex-col gap-3 shadow-2xs`}
                 >
                   {/* Tier Title */}
                   <div className="flex items-center justify-between border-b border-black/5 pb-2">

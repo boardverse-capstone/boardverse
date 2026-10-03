@@ -55,7 +55,7 @@ export function TournamentWalkInModal({ isOpen, onClose, onSubmit }: Props) {
 
   return (
     <div
-      className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-neutral-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 max-[480px]:p-2 max-[480px]:pb-[max(0.5rem,env(safe-area-inset-bottom))] max-[480px]:pt-[max(0.5rem,env(safe-area-inset-top))]"
       onClick={backdropCloseHandler(
         () => {
           if (isSubmitting) return;
@@ -65,7 +65,7 @@ export function TournamentWalkInModal({ isOpen, onClose, onSubmit }: Props) {
       )}
     >
       <div
-        className="bg-white border rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl"
+        className="bg-white border rounded-3xl max-w-sm w-full p-6 flex flex-col gap-4 shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b pb-3">
@@ -85,10 +85,10 @@ export function TournamentWalkInModal({ isOpen, onClose, onSubmit }: Props) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3 text-xs">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3 text-xs">
           <div>
             <label className="font-bold text-neutral-700 block mb-1">
-              Tên khách chơi *
+              Tên khách vãng lai *
             </label>
             <Input
               required
@@ -126,7 +126,7 @@ export function TournamentWalkInModal({ isOpen, onClose, onSubmit }: Props) {
               disabled={isSubmitting}
               className="h-9 px-5 bg-neutral-950 hover:bg-neutral-800 text-white font-bold rounded-xl"
             >
-              {isSubmitting ? "Đang thêm..." : "Đăng Ký"}
+              {isSubmitting ? "Đang thêm..." : "Thêm VĐV"}
             </Button>
           </div>
         </form>

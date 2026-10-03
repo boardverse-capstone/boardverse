@@ -237,7 +237,7 @@ export function TournamentRowList({
   return (
     <section
       aria-label="Danh sách giải đấu"
-      className="space-y-2"
+      className="flex flex-col gap-2"
     >
       {/* Toolbar: tiêu đề + refresh */}
       <header className="flex items-center justify-between px-1">
@@ -441,12 +441,16 @@ function TournamentRow({
         }
       }}
       className={cn(
-        // Base
-        "group relative flex h-16 w-full items-stretch overflow-hidden rounded-xl border border-border bg-card text-left transition-colors duration-150",
+        // Base — taller row (h-20) gives the 5 data columns + 3 controls
+        // breathing room. Touch targets inside stay at h-9 minimum.
+        "group relative flex min-h-20 w-full items-stretch overflow-hidden rounded-xl border border-border bg-card text-left transition-colors duration-150",
         // Hover (non-active, non-cancelled) — chỉ đổi màu, KHÔNG lift
         !isCancelled &&
           !isActive &&
-          "hover:border-primary/40 hover:bg-muted/40",
+          // Hover only on devices that can hover (mouse/trackpad). On touch
+          // the row is a tap target — the active state below already
+          // provides the "selected" feedback.
+          "[@media(hover\:hover)]:hover:border-primary/40 [@media(hover\:hover)]:hover:bg-muted/40",
         // Focus — 3px halo theo design system
         "focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
         // Active state — inset left bar (theo design system)
@@ -493,7 +497,7 @@ function TournamentRow({
       </div>
 
       {/* ② Participants (hidden below md) */}
-      <div className="hidden w-[14%] min-w-[160px] flex-col justify-center gap-1 border-l border-border px-4 md:flex">
+      <div className="hidden w-[160px] shrink-0 flex-col justify-center gap-1 border-l border-border px-4 md:flex">
         <div className="flex items-baseline gap-1.5">
           <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
             {t.registeredCount ?? 0}
@@ -512,8 +516,9 @@ function TournamentRow({
         />
       </div>
 
-      {/* ③ Schedule */}
-      <div className="hidden w-[20%] min-w-[180px] flex-col justify-center border-l border-border px-4 lg:flex">
+      {/* ③ Schedule — visible từ md (768) thay vì lg (1024) để tablet 10"
+          vẫn thấy được thời hạn đăng ký / bắt đầu. */}
+      <div className="hidden w-[200px] shrink-0 flex-col justify-center border-l border-border px-4 md:flex">
         <div className="flex items-center gap-1.5">
           {countdown ? (
             <countdown.icon
@@ -546,13 +551,15 @@ function TournamentRow({
         </div>
         <span className="text-[10px] font-medium text-muted-foreground">
           {t.status === "OnGoing"
-            ? `Bắt đầu lúc ${formatDateTimeVi(t.startedAt)}`
-            : `Hạn ĐK ${formatDateTimeVi(t.registrationDeadline)}`}
+            ? `Giải bắt đầu lúc ${formatDateTimeVi(t.startedAt)}`
+            : t.status === "Completed"
+              ? `Kết thúc lúc ${formatDateTimeVi(t.startedAt)}`
+              : `Hạn đăng ký: ${formatDateTimeVi(t.registrationDeadline)}`}
         </span>
       </div>
 
       {/* ④ Fee */}
-      <div className="hidden w-[10%] min-w-[90px] items-center justify-center border-l border-border px-3 xl:flex">
+      <div className="hidden w-[100px] shrink-0 items-center justify-center border-l border-border px-3 xl:flex">
         {fee ? (
           <span
             className={cn(
@@ -570,7 +577,7 @@ function TournamentRow({
       </div>
 
       {/* ⑤ Current Round — nhấn mạnh cuối bên phải */}
-      <div className="flex w-[14%] min-w-[120px] items-center justify-center gap-2 border-l border-border px-4">
+      <div className="flex w-[140px] shrink-0 items-center justify-center gap-2 border-l border-border px-4">
         <div className="flex flex-col items-end gap-1">
           <div className="flex items-baseline gap-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -776,8 +783,8 @@ function TournamentRow({
 
 function EmptyState() {
   return (
-    <div className="flex h-[160px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-6 text-center">
-      <Trophy className="size-7 text-muted-foreground/50" />
+    <div className="flex min-h-[140px] flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-border bg-muted/20 px-6 py-6 text-center">
+      <Trophy className="size-6 text-muted-foreground/50" />
       <p className="text-sm font-medium text-foreground">
         Chưa có giải đấu nào
       </p>
@@ -792,16 +799,39 @@ function EmptyState() {
 function RowSkeleton() {
   return (
     <li aria-hidden="true">
-      <div className="flex h-16 animate-pulse items-center gap-4 rounded-xl border border-border bg-card px-4">
-        <div className="h-5 w-20 rounded-full bg-muted" />
-        <div className="flex-1 space-y-1.5">
-          <div className="h-3.5 w-40 rounded bg-muted" />
-          <div className="h-2.5 w-24 rounded bg-muted" />
+      <div className="flex min-h-20 animate-pulse items-stretch rounded-xl border border-border bg-card">
+        <div className="flex flex-1 items-center gap-3 px-4">
+          <div className="h-5 w-20 shrink-0 rounded-full bg-muted" />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="h-3.5 w-40 rounded bg-muted" />
+            <div className="h-2.5 w-24 rounded bg-muted" />
+          </div>
         </div>
-        <div className="hidden h-6 w-24 rounded bg-muted md:block" />
-        <div className="hidden h-6 w-20 rounded bg-muted lg:block" />
-        <div className="h-8 w-14 rounded-lg bg-muted" />
-        <div className="h-8 w-8 rounded-lg bg-muted" />
+        <div className="hidden w-[160px] shrink-0 border-l border-border px-4 md:block">
+          <div className="space-y-1.5">
+            <div className="h-3 w-20 rounded bg-muted" />
+            <div className="h-1 w-full rounded bg-muted" />
+          </div>
+        </div>
+        <div className="hidden w-[200px] shrink-0 border-l border-border px-4 md:block">
+          <div className="space-y-1.5">
+            <div className="h-3 w-24 rounded bg-muted" />
+            <div className="h-2 w-16 rounded bg-muted" />
+          </div>
+        </div>
+        <div className="hidden w-[100px] shrink-0 border-l border-border px-3 xl:block">
+          <div className="h-5 w-14 rounded-full bg-muted" />
+        </div>
+        <div className="hidden w-[140px] shrink-0 items-center justify-center border-l border-border md:flex">
+          <div className="space-y-1">
+            <div className="h-3 w-12 rounded bg-muted" />
+            <div className="h-0.5 w-16 rounded bg-muted" />
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5 border-l border-border bg-muted/10 px-3">
+          <div className="h-9 w-20 rounded-md bg-muted" />
+          <div className="size-9 rounded-md bg-muted" />
+        </div>
       </div>
     </li>
   );

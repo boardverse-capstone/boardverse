@@ -35,17 +35,6 @@ export interface SePayConfigSectionProps {
 
 const BANK_CODE_HINT = "VCB / MB / TCB / ACB / ...";
 
-/** Default values cho các field backend yêu cầu khi tạo account.
- *  Manager chỉ cần nhập 3 field bank info; phần còn lại backend
- *  dùng default / cho phép null. */
-const CREATE_DEFAULTS = {
-  environment: "Production",
-  secretKey: "",
-  webhookToken: "",
-  merchantId: "",
-  apiBaseUrl: "",
-} as const;
-
 export function SePayConfigSection({ cafeId }: SePayConfigSectionProps) {
   const sepayQuery = useSePayConfig(cafeId);
   const updateMutation = useUpdateSePayConfig(cafeId);
@@ -160,6 +149,7 @@ function SePayEditDialog({
   createMutation: ReturnType<typeof useCreateSePayAccount>;
   updateMutation: ReturnType<typeof useUpdateSePayConfig>;
 }) {
+  // ─── Form mode state ──────────────────────────────────────
   const [bankCode, setBankCode] = useState(() => config?.bankCode ?? "");
   const [accountNumber, setAccountNumber] = useState(
     () => config?.accountNumber ?? "",
@@ -167,9 +157,39 @@ function SePayEditDialog({
   const [accountHolder, setAccountHolder] = useState(
     () => config?.accountHolder ?? "",
   );
+  // Các field nâng cao — đã được backend accept ở POST nhưng không
+  // trả về trong SePayConfig read-model. Default khi edit = giá trị
+  // trong JSON template (user có thể đổi trong Form hoặc JSON).
+  const [environment, setEnvironment] = useState<"Production" | "Sandbox">(
+    () => "Production",
+  );
+  const [secretKey, setSecretKey] = useState<string>(() => "");
+  const [webhookToken, setWebhookToken] = useState<string>(() => "");
+  const [webhookAuthType, setWebhookAuthType] = useState<
+    "None" | "Bearer" | "ApiKey" | "HmacSha256"
+  >(() => "HmacSha256");
+  const [merchantId, setMerchantId] = useState<string>(() => "");
+  const [apiBaseUrl, setApiBaseUrl] = useState<string>(
+    () => "https://pgapi.sepay.vn/",
+  );
 
   const mutation = isCreateMode ? createMutation : updateMutation;
   const isSubmitting = mutation.isPending;
+
+  // Quyết định submit dùng Form data hay JSON data.
+  const buildPayloadFromForm = () => ({
+    bankCode: bankCode.trim().toUpperCase(),
+    accountNumber: accountNumber.trim(),
+    accountHolder: accountHolder.trim(),
+    environment,
+    secretKey: secretKey.trim(),
+    webhookToken: webhookToken.trim(),
+    webhookAuthType,
+    merchantId: merchantId.trim() || undefined,
+    apiBaseUrl: apiBaseUrl.trim() || undefined,
+  });
+
+  // Điều kiện cho phép submit.
   const canSubmit =
     bankCode.trim().length > 0 &&
     accountNumber.trim().length >= 6 &&
@@ -177,44 +197,27 @@ function SePayEditDialog({
     !isSubmitting;
 
   function handleSubmit() {
+    if (!canSubmit) return;
     if (isCreateMode) {
-      createMutation.mutate(
-        {
-          bankCode: bankCode.trim().toUpperCase(),
-          accountNumber: accountNumber.trim(),
-          accountHolder: accountHolder.trim(),
-          environment: CREATE_DEFAULTS.environment,
-          secretKey: CREATE_DEFAULTS.secretKey,
-          webhookToken: CREATE_DEFAULTS.webhookToken,
-          webhookAuthType: undefined,
-          merchantId: CREATE_DEFAULTS.merchantId || undefined,
-          apiBaseUrl: CREATE_DEFAULTS.apiBaseUrl || undefined,
-        },
-        {
-          onSuccess: () => {
-            onOpenChange(false);
-          },
-        },
-      );
+      createMutation.mutate(buildPayloadFromForm() as never, {
+        onSuccess: () => onOpenChange(false),
+      });
       return;
     }
+    // Update mode: chỉ gửi 3 field chính (giữ behavior cũ).
     updateMutation.mutate(
       {
         bankCode: bankCode.trim().toUpperCase(),
         accountNumber: accountNumber.trim(),
         accountHolder: accountHolder.trim() || null,
       },
-      {
-        onSuccess: () => {
-          onOpenChange(false);
-        },
-      },
+      { onSuccess: () => onOpenChange(false) },
     );
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-white border border-neutral-200 rounded-xl p-5 max-w-md mx-auto text-neutral-900">
+      <DialogContent className="bg-white border border-neutral-200 rounded-xl p-5 max-w-lg mx-auto text-neutral-900 max-h-[90vh] overflow-y-auto">
         <DialogHeader className="space-y-1.5">
           <DialogTitle className="text-base font-bold tracking-tight">
             {isCreateMode ? "Thiết lập SePay" : "Cấu hình SePay"}
@@ -227,55 +230,176 @@ function SePayEditDialog({
         </DialogHeader>
 
         <div className="space-y-3">
-          <Field>
-            <FieldLabel htmlFor="sepay-bank" className="text-sub-label">
-              Mã ngân hàng
-            </FieldLabel>
-            <Input
-              id="sepay-bank"
-              value={bankCode}
-              onChange={(e) => setBankCode(e.target.value)}
-              placeholder={BANK_CODE_HINT}
-              maxLength={16}
-              className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white uppercase"
-            />
-            <FieldDescription className="text-helper">
-              Tra cứu tại trang SePay nếu không biết mã.
-            </FieldDescription>
-          </Field>
+          {/* Nhóm 1: Thông tin ngân hàng */}
+            <div className="space-y-3 rounded-lg border border-neutral-100 bg-neutral-50/30 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                Thông tin ngân hàng
+              </p>
+              <Field>
+                <FieldLabel htmlFor="sepay-bank" className="text-sub-label">
+                  Mã ngân hàng
+                </FieldLabel>
+                <Input
+                  id="sepay-bank"
+                  value={bankCode}
+                  onChange={(e) => setBankCode(e.target.value)}
+                  placeholder={BANK_CODE_HINT}
+                  maxLength={16}
+                  className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white uppercase"
+                />
+                <FieldDescription className="text-helper">
+                  Tra cứu tại trang SePay nếu không biết mã.
+                </FieldDescription>
+              </Field>
 
-          <Field>
-            <FieldLabel htmlFor="sepay-account" className="text-sub-label">
-              Số tài khoản
-            </FieldLabel>
-            <Input
-              id="sepay-account"
-              value={accountNumber}
-              onChange={(e) => setAccountNumber(e.target.value)}
-              placeholder="0123456789"
-              inputMode="numeric"
-              className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white tabular-nums"
-            />
-          </Field>
+              <Field>
+                <FieldLabel htmlFor="sepay-account" className="text-sub-label">
+                  Số tài khoản
+                </FieldLabel>
+                <Input
+                  id="accountNumber"
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value)}
+                  placeholder="0123456789"
+                  inputMode="numeric"
+                  className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white tabular-nums"
+                />
+              </Field>
 
-          <Field>
-            <FieldLabel htmlFor="sepay-holder" className="text-sub-label">
-              Chủ tài khoản{isCreateMode ? "" : " (tuỳ chọn)"}
-            </FieldLabel>
-            <Input
-              id="sepay-holder"
-              value={accountHolder}
-              onChange={(e) => setAccountHolder(e.target.value)}
-              placeholder="NGUYEN VAN A"
-              className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white"
-            />
-            <FieldDescription className="text-helper">
-              {isCreateMode
-                ? "Bắt buộc khi tạo SePay account — dùng để verify giao dịch."
-                : "Giúp verify giao dịch khi đối soát."}
-            </FieldDescription>
-          </Field>
-        </div>
+              <Field>
+                <FieldLabel htmlFor="sepay-holder" className="text-sub-label">
+                  Chủ tài khoản{isCreateMode ? "" : " (tuỳ chọn)"}
+                </FieldLabel>
+                <Input
+                  id="accountHolder"
+                  value={accountHolder}
+                  onChange={(e) => setAccountHolder(e.target.value)}
+                  placeholder="NGUYEN VAN A"
+                  className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white"
+                />
+                <FieldDescription className="text-helper">
+                  {isCreateMode
+                    ? "Bắt buộc khi tạo SePay account — dùng để verify giao dịch."
+                    : "Giúp verify giao dịch khi đối soát."}
+                </FieldDescription>
+              </Field>
+            </div>
+
+            {/* Nhóm 2: Cấu hình SePay */}
+            <div className="space-y-3 rounded-lg border border-neutral-100 bg-neutral-50/30 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                Cấu hình SePay
+              </p>
+
+              <Field>
+                <FieldLabel htmlFor="sepay-environment" className="text-sub-label">
+                  Environment
+                </FieldLabel>
+                <select
+                  id="environment"
+                  value={environment}
+                  onChange={(e) =>
+                    setEnvironment(e.target.value as "Production" | "Sandbox")
+                  }
+                  className="w-full h-11 text-base border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-white px-3"
+                >
+                  <option value="Production">Production</option>
+                  <option value="Sandbox">Sandbox</option>
+                </select>
+                <FieldDescription className="text-helper">
+                  Production dùng cho thanh toán thật, Sandbox để tích hợp.
+                </FieldDescription>
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="sepay-merchant" className="text-sub-label">
+                  Merchant ID
+                </FieldLabel>
+                <Input
+                  id="merchantId"
+                  value={merchantId}
+                  onChange={(e) => setMerchantId(e.target.value)}
+                  placeholder="SP-LIVE-XXXXX"
+                  className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white font-mono text-sm"
+                />
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="sepay-apibase" className="text-sub-label">
+                  API base URL
+                </FieldLabel>
+                <Input
+                  id="apiBaseUrl"
+                  value={apiBaseUrl}
+                  onChange={(e) => setApiBaseUrl(e.target.value)}
+                  placeholder="https://pgapi.sepay.vn/"
+                  className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white font-mono text-xs"
+                />
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="sepay-secret" className="text-sub-label">
+                  Secret key
+                </FieldLabel>
+                <Input
+                  id="secretKey"
+                  type="password"
+                  value={secretKey}
+                  onChange={(e) => setSecretKey(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="off"
+                  className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white font-mono text-sm"
+                />
+                <FieldDescription className="text-helper">
+                  Để trống nếu không dùng. Field này không đọc từ server sau
+                  khi lưu.
+                </FieldDescription>
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="sepay-webhook" className="text-sub-label">
+                  Webhook token
+                </FieldLabel>
+                <Input
+                  id="webhookToken"
+                  type="password"
+                  value={webhookToken}
+                  onChange={(e) => setWebhookToken(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="off"
+                  className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white font-mono text-sm"
+                />
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="sepay-webhookauth" className="text-sub-label">
+                  Webhook auth type
+                </FieldLabel>
+                <select
+                  id="webhookAuthType"
+                  value={webhookAuthType}
+                  onChange={(e) =>
+                    setWebhookAuthType(
+                      e.target.value as
+                        | "None"
+                        | "Bearer"
+                        | "ApiKey"
+                        | "HmacSha256",
+                    )
+                  }
+                  className="w-full h-11 text-base border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-white px-3"
+                >
+                  <option value="None">None</option>
+                  <option value="Bearer">Bearer</option>
+                  <option value="ApiKey">ApiKey</option>
+                  <option value="HmacSha256">HmacSha256</option>
+                </select>
+                <FieldDescription className="text-helper">
+                  Cách SePay ký webhook callback về hệ thống của bạn.
+                </FieldDescription>
+              </Field>
+            </div>
+          </div>
 
         <DialogFooter className="pt-3 sm:flex-row sm:justify-end gap-2">
           <Button
