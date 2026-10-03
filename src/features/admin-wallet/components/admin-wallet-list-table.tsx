@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -72,7 +72,7 @@ const columns: ColumnDef<AdminWallet>[] = [
     ),
     cell: ({ row }) => (
       <div className="min-w-[180px]">
-        <div className="font-medium">{row.original.userEmail || '—'}</div>
+        <div className="font-medium">{row.original.userEmail || 'Chưa có thông tin'}</div>
         <div className="font-mono text-[11px] text-muted-foreground">
           {row.original.userId.slice(0, 8)}…
         </div>

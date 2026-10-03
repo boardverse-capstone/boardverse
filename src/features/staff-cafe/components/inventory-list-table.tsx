@@ -41,10 +41,10 @@ export function createInventoryColumns(cafeId: string): ColumnDef<InventoryListI
             )}
           </div>
           <div className="min-w-0">
-            <div className="truncate font-mono text-xs font-extrabold uppercase tracking-wide text-orange-950">
+            <div className="truncate text-xs font-extrabold uppercase tracking-wide text-orange-950">
               ► {row.original.name}
             </div>
-            <div className="truncate font-mono text-[10px] font-bold uppercase tracking-widest text-orange-500">
+            <div className="truncate text-[10px] font-bold uppercase tracking-wider text-orange-500">
               {row.original.minPlayers > 0
                 ? `${row.original.minPlayers}–${row.original.maxPlayers} người`
                 : null}
@@ -84,7 +84,7 @@ export function createInventoryColumns(cafeId: string): ColumnDef<InventoryListI
       id: 'components',
       header: 'Linh kiện',
       cell: ({ row }) => (
-        <span className="inline-flex items-center gap-1 rounded-md border-2 border-orange-300 bg-orange-50 px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase tracking-widest text-orange-800 shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]">
+        <span className="inline-flex items-center gap-1 rounded-md border-2 border-orange-300 bg-orange-50 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-orange-800 shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]">
           <span className="size-1.5 animate-pulse rounded-full bg-orange-500 shadow-[0_0_4px_currentColor]" />
           {row.original.componentPenalties.length} mục
         </span>

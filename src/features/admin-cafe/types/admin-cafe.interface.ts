@@ -17,6 +17,12 @@ export interface AdminCafe {
   managerName: string;
   operationalStatus: CafeOperationalStatusValue | string;
   depositRefundPolicy: string;
+  totalSeats: number;
+  numberOfTables: number;
+  numberOfGamesOwned: number;
+  staffCount: number;
+  depositPercentage: number | null;
+  hasSePayConfigured: boolean;
   createdAt: string;
   isActive: boolean;
 }
@@ -26,14 +32,7 @@ export interface AdminCafeDetail extends AdminCafe {
   managerEmail: string | null;
   operationalStatusReason: string | null;
   operationalStatusChangedAt: string | null;
-  weekdayOpen: string | null;
-  weekdayClose: string | null;
-  weekendOpen: string | null;
-  weekendClose: string | null;
-  numberOfTables: number | null;
   numberOfPrivateRooms: number | null;
-  totalSeats: number | null;
-  numberOfGamesOwned: number | null;
   popularGamesList: string | null;
   hasGameMaster: boolean;
   billingModel: string | null;
@@ -41,9 +40,7 @@ export interface AdminCafeDetail extends AdminCafe {
   tieredBlockRate: number | null;
   tieredBlockMinutes: number | null;
   isPricingLocked: boolean;
-  depositPercentage: number | null;
   defaultHoldDurationMinutes: number | null;
-  hasSePayConfigured: boolean;
   updatedAt: string | null;
 }
 
@@ -117,18 +114,10 @@ export interface RawAdminCafe {
   PartnerOperationalStatusReason?: string | null;
   partnerOperationalStatusChangedAt?: string | null;
   PartnerOperationalStatusChangedAt?: string | null;
-  weekdayOpen?: string | null;
-  WeekdayOpen?: string | null;
-  weekdayClose?: string | null;
-  WeekdayClose?: string | null;
-  weekendOpen?: string | null;
-  WeekendOpen?: string | null;
-  weekendClose?: string | null;
-  WeekendClose?: string | null;
-  numberOfTables?: number | null;
-  NumberOfTables?: number | null;
   numberOfPrivateRooms?: number | null;
   NumberOfPrivateRooms?: number | null;
+  numberOfTables?: number | null;
+  NumberOfTables?: number | null;
   totalSeats?: number | null;
   TotalSeats?: number | null;
   numberOfGamesOwned?: number | null;
@@ -157,6 +146,8 @@ export interface RawAdminCafe {
   DefaultHoldDurationMinutes?: number | null;
   hasSePayConfigured?: boolean;
   HasSePayConfigured?: boolean;
+  staffCount?: number;
+  StaffCount?: number;
   createdAt?: string;
   CreatedAt?: string;
   updatedAt?: string | null;
@@ -169,14 +160,26 @@ export interface RawAdminCafeListResponse {
   data?: RawAdminCafe[];
   page?: number;
   Page?: number;
+  pageNumber?: number;
+  PageNumber?: number;
   pageSize?: number;
   PageSize?: number;
+  limit?: number;
+  Limit?: number;
   totalCount?: number;
   TotalCount?: number;
   totalItems?: number;
   TotalItems?: number;
   totalPages?: number;
   TotalPages?: number;
+  hasPrevious?: boolean;
+  HasPrevious?: boolean;
+  hasPreviousPage?: boolean;
+  HasPreviousPage?: boolean;
+  hasNext?: boolean;
+  HasNext?: boolean;
+  hasNextPage?: boolean;
+  HasNextPage?: boolean;
 }
 
 export interface RawUpdateOperationalStatusResponse extends RawAdminCafe {

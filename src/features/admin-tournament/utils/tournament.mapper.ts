@@ -1,4 +1,4 @@
-import type { PaginatedResponse } from '@/shared/types/pagination.interface';
+﻿import type { PaginatedResponse } from '@/shared/types/pagination.interface';
 import type {
   AdminTournament,
   AdminTournamentDetail,
@@ -72,9 +72,9 @@ export function mapApiAdminTournament(raw: RawAdminTournament): AdminTournament 
   return {
     id: pickString(raw.id, raw.Id),
     cafeId: pickString(raw.cafeId, raw.CafeId),
-    cafeName: pickString(raw.cafeName, raw.CafeName) || '—',
+    cafeName: pickString(raw.cafeName, raw.CafeName) || 'Chưa có thông tin',
     gameTemplateId: pickString(raw.gameTemplateId, raw.GameTemplateId),
-    gameName: pickString(raw.gameName, raw.GameName) || '—',
+    gameName: pickString(raw.gameName, raw.GameName) || 'Chưa có thông tin',
     name: pickString(raw.name, raw.Name, raw.title, raw.Title),
     description: pickNullableString(raw.description, raw.Description),
     status: (pickString(raw.status, raw.Status) || 'Draft') as TournamentStatus,
@@ -178,7 +178,7 @@ export function normalizeTournamentParticipantsResponse(
 }
 
 export function formatTournamentDate(value?: string | null): string {
-  if (!value) return '—';
+  if (!value) return 'Chưa có thông tin';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('vi-VN');
 }

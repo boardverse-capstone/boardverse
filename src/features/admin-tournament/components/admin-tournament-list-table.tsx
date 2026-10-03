@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -115,7 +115,7 @@ export function AdminTournamentListTable() {
           <div>
             <div className="text-sm">{row.original.cafeName}</div>
             <div className="font-mono text-[11px] text-muted-foreground">
-              {row.original.cafeId ? `${row.original.cafeId.slice(0, 8)}…` : '—'}
+              {row.original.cafeId ? `${row.original.cafeId.slice(0, 8)}…` : 'Chưa có thông tin'}
             </div>
           </div>
         ),

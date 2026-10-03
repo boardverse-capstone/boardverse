@@ -407,21 +407,21 @@ export function CheckoutConfirmModal({
                   </span>
                 </div>
 
-                {Number(invoiceData?.depositAppliedAmount || 0) > 0 && (
-                  <div className="flex justify-between items-center text-orange-600">
-                    <span className="flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      Tiền cọc cấn trừ (BR-09):
-                    </span>
-                    <span className="font-mono font-bold">
-                      -
-                      {Number(invoiceData.depositAppliedAmount).toLocaleString(
-                        "vi-VN",
-                      )}
-                      đ
-                    </span>
-                  </div>
-                )}
+                <div className="flex justify-between items-center text-orange-600">
+                  <span className="flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Tiền cọc cấn trừ (BR-09 / BR-22):
+                  </span>
+                  <span className="font-mono font-bold">
+                    -
+                    {Number(
+                      invoiceData?.depositAppliedAmount ??
+                        invoiceData?.DepositAppliedAmount ??
+                        0,
+                    ).toLocaleString("vi-VN")}
+                    đ
+                  </span>
+                </div>
 
                 {/* SỬA DÒNG NÀY: TỔNG ĐƠN CHỜ THU = SUBTOTAL + PENALTY - DEPOSIT */}
                 <div className="pt-2 border-t border-neutral-200 flex justify-between items-center text-sm font-extrabold text-neutral-950">

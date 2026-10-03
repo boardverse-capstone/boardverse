@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -112,7 +112,7 @@ export function AdminCafeListTable() {
         accessorKey: 'phoneNumber',
         header: 'SĐT',
         cell: ({ row }) => (
-          <span className="tabular-nums">{row.original.phoneNumber || '—'}</span>
+          <span className="tabular-nums">{row.original.phoneNumber || 'Chưa có thông tin'}</span>
         ),
       },
       {
@@ -120,9 +120,9 @@ export function AdminCafeListTable() {
         header: 'Manager',
         cell: ({ row }) => (
           <div>
-            <div className="text-sm">{row.original.managerName || '—'}</div>
+            <div className="text-sm">{row.original.managerName || 'Chưa có thông tin'}</div>
             <div className="font-mono text-[11px] text-muted-foreground">
-              {row.original.managerId ? `${row.original.managerId.slice(0, 8)}…` : '—'}
+              {row.original.managerId ? `${row.original.managerId.slice(0, 8)}…` : 'Chưa có thông tin'}
             </div>
           </div>
         ),

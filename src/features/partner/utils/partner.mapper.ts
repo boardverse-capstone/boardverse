@@ -1,4 +1,4 @@
-import type {
+﻿import type {
 
   PaginatedResponse,
 
@@ -696,7 +696,7 @@ export function toPartnerActionTarget(application: PartnerApplication) {
 
 export function formatApiDate(value?: string | null): string {
 
-  if (!value) return '—';
+  if (!value) return 'Chưa có thông tin';
 
   const date = new Date(value);
 

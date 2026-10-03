@@ -1,4 +1,4 @@
-import type { PaginatedResponse } from '@/shared/types/pagination.interface';
+﻿import type { PaginatedResponse } from '@/shared/types/pagination.interface';
 import type {
   AdminWallet,
   AdminWalletDetail,
@@ -106,7 +106,7 @@ export function formatWalletBalance(value: number | null | undefined): string {
   // [FIX #reconcile-nan] BE có thể trả null hoặc thiếu field → FE đang hiển thị
   // "NaN". Guard ngay tại đây để mọi caller (đối soát, chi tiết ví, ...) đều an toàn.
   if (typeof value !== 'number' || Number.isNaN(value) || !Number.isFinite(value)) {
-    return '—';
+    return 'Chưa có thông tin';
   }
   return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value);
 }
@@ -138,7 +138,7 @@ export function mapApiWalletReconcile(
 }
 
 export function formatWalletDate(value?: string | null): string {
-  if (!value) return '—';
+  if (!value) return 'Chưa có thông tin';
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('vi-VN');
 }

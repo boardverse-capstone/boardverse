@@ -7,7 +7,6 @@ import {
   IconLayoutDashboard,
   IconUsers,
   IconSettings,
-  IconShield,
   IconAlertTriangle,
   IconHistory,
   IconBuildingStore,
@@ -20,7 +19,6 @@ import {
   IconReceiptRefund,
   IconActivity,
   IconFlag,
-  IconCashBanknote,
 } from '@tabler/icons-react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { RoleGuard } from '@/features/auth/components/role-guard';
@@ -66,11 +64,6 @@ const ADMIN_NAV: NavItem[] = [
     icon: <IconWallet />,
   },
   {
-    title: 'Giải ngân',
-    url: ROUTES.ADMIN.SETTLEMENTS,
-    icon: <IconCashBanknote />,
-  },
-  {
     title: 'Hoàn BVC',
     url: ROUTES.ADMIN.REFUND_REQUESTS,
     icon: <IconReceiptRefund />,
@@ -109,11 +102,6 @@ const ADMIN_NAV: NavItem[] = [
     title: 'Báo cáo bạn bè',
     url: ROUTES.ADMIN.FRIEND_REPORTS,
     icon: <IconFlag />,
-  },
-  {
-    title: 'Bảo mật',
-    url: ROUTES.ADMIN.SECURITY,
-    icon: <IconShield />,
   },
   {
     title: 'Cài đặt hệ thống',

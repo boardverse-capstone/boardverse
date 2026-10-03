@@ -1,4 +1,4 @@
-import type { PaginationMeta } from '@/shared/types/pagination.interface';
+﻿import type { PaginationMeta } from '@/shared/types/pagination.interface';
 import type {
   AdminReportsOverview,
   CafePerformanceItem,
@@ -95,12 +95,12 @@ export function mapLobbyFailureItem(raw: unknown): LobbyFailureItem {
   const source = isRecord(raw) ? raw : {};
   return {
     lobbyId: pickString(source.lobbyId, source.id),
-    lobbyName: pickString(source.lobbyName, source.title) || '—',
+    lobbyName: pickString(source.lobbyName, source.title) || 'Chưa có thông tin',
     cafeId: pickString(source.cafeId),
-    cafeName: pickString(source.cafeName, source.gameTemplateName) || '—',
+    cafeName: pickString(source.cafeName, source.gameTemplateName) || 'Chưa có thông tin',
     hostId: pickString(source.hostId),
-    hostUsername: pickString(source.hostUsername) || '—',
-    failureType: pickString(source.failureType, source.status) || '—',
+    hostUsername: pickString(source.hostUsername) || 'Chưa có thông tin',
+    failureType: pickString(source.failureType, source.status) || 'Chưa có thông tin',
     playDate: pickString(source.playDate),
     timeSlot: pickString(source.timeSlot),
     maxPlayers: pickNumber(source.maxPlayers),
@@ -167,12 +167,12 @@ export function mapDepositReportItem(raw: unknown): DepositReportItem {
     bookingId: pickString(source.bookingId),
     lobbyId: pickString(source.lobbyId),
     userId: pickString(source.userId),
-    username: pickString(source.username) || '—',
+    username: pickString(source.username) || 'Chưa có thông tin',
     cafeId: pickString(source.cafeId),
-    cafeName: pickString(source.cafeName) || '—',
+    cafeName: pickString(source.cafeName) || 'Chưa có thông tin',
     amountBvc: pickNumber(source.amountBvc),
     amountVnd: pickNumber(source.amountVnd, source.amount),
-    status: pickString(source.status) || '—',
+    status: pickString(source.status) || 'Chưa có thông tin',
     createdAt: pickString(source.createdAt),
     paidAt: pickNullableString(source.paidAt),
     refundedAt: pickNullableString(source.refundedAt),
@@ -251,12 +251,12 @@ export function mapCafePerformanceItem(raw: unknown): CafePerformanceItem {
   const source = isRecord(raw) ? raw : {};
   return {
     cafeId: pickString(source.cafeId, source.id),
-    cafeName: pickString(source.cafeName, source.name) || '—',
-    address: pickString(source.address) || '—',
-    managerName: pickString(source.managerName) || '—',
+    cafeName: pickString(source.cafeName, source.name) || 'Chưa có thông tin',
+    address: pickString(source.address) || 'Chưa có thông tin',
+    managerName: pickString(source.managerName) || 'Chưa có thông tin',
     operationalStatus:
       pickString(source.operationalStatus, source.status) ||
-      (source.activeCafe === true ? 'ACTIVE' : source.activeCafe === false ? 'INACTIVE' : '—'),
+      (source.activeCafe === true ? 'ACTIVE' : source.activeCafe === false ? 'INACTIVE' : 'Chưa có thông tin'),
     totalRevenue: pickNumber(source.totalRevenue, source.totalRevenueVnd),
     totalSessions: pickNumber(source.totalSessions, source.totalBookings, source.completedBookings),
     totalMembers: pickNumber(source.totalMembers),

@@ -243,15 +243,15 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
             placeholder="Tìm theo tên trò chơi hoặc mã vạch..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-9 w-full rounded-md border-2 border-amber-300 bg-white pl-9 font-mono text-xs focus-visible:border-amber-500 focus-visible:ring-amber-300"
+            className="h-9 w-full rounded-md border-2 border-amber-300 bg-white pl-9 text-xs focus-visible:border-amber-500 focus-visible:ring-amber-300"
           />
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span className={cn(hexChipClass, "bg-amber-600 text-white shadow-sm")}>
-            ► {groupedGames.length} GAMES
+            ► {groupedGames.length} TỰA GAME
           </span>
           <span className={cn(hexChipClass, "bg-amber-600 text-white shadow-sm")}>
-            ► {boxes.length} BOXES
+            ► {boxes.length} HỘP
           </span>
         </div>
       </div>
@@ -318,7 +318,7 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
                   <div className="min-w-0 space-y-1">
                     <h4
                       className={cn(
-                        "truncate font-mono text-sm font-extrabold uppercase tracking-wider",
+                        "truncate text-sm font-extrabold uppercase tracking-wide",
                         pal.text,
                       )}
                     >
@@ -327,7 +327,7 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
                     <div className="flex items-center gap-2">
                       <span
                         className={cn(
-                          "inline-flex items-center gap-1 rounded-md border-2 px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase tracking-widest shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]",
+                          "inline-flex items-center gap-1 rounded-md border-2 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]",
                           hasAvailable
                             ? pal.chipText
                             : "border-orange-500 bg-gradient-to-b from-orange-400 to-orange-600 text-white",
@@ -343,7 +343,7 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
                         {group.availableBoxes.length}/{group.totalBoxes} TRỐNG
                       </span>
                       {!hasAvailable && (
-                        <span className="inline-flex items-center gap-1 rounded-md border-2 border-orange-400 bg-gradient-to-r from-orange-100 to-orange-100 px-2 py-0.5 font-mono text-[10px] font-extrabold uppercase tracking-widest text-orange-700 shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]">
+                        <span className="inline-flex items-center gap-1 rounded-md border-2 border-orange-400 bg-gradient-to-r from-orange-100 to-orange-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-orange-700 shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]">
                           ⚠ Hết hàng
                         </span>
                       )}
@@ -361,7 +361,7 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
                         handleCopyBarcode(firstAvailableBox.barcode, e)
                       }
                       className={cn(
-                        "flex h-8 shrink-0 items-center gap-1.5 rounded-md border-2 px-3 font-mono text-[11px] font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_2px_0_rgba(0,0,0,0.1)]",
+                        "flex h-8 shrink-0 items-center gap-1.5 rounded-md border-2 px-3 text-[11px] font-extrabold uppercase tracking-wider text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_2px_0_rgba(0,0,0,0.1)]",
                         pal.chipText,
                       )}
                     >
@@ -436,7 +436,7 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
                 <div>
                   <h3
                     className={cn(
-                      "font-mono text-base font-extrabold uppercase tracking-tight",
+                      "text-base font-extrabold uppercase tracking-tight",
                       modalPal.text,
                     )}
                   >
@@ -444,11 +444,11 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
                   </h3>
                   <p
                     className={cn(
-                      "font-mono text-[11px] font-bold uppercase tracking-widest",
+                      "text-[11px] font-bold uppercase tracking-widest",
                       modalPal.sub,
                     )}
                   >
-                    {selectedGame.totalBoxes} HỘP VẬT LÝ TRONG KHO
+                    {selectedGame.totalBoxes} hộp vật lý trong kho
                   </p>
                 </div>
               </div>
@@ -514,7 +514,7 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
                         <div className="flex flex-wrap items-center gap-2">
                           <span
                             className={cn(
-                              "font-mono text-xs font-extrabold uppercase tracking-wider truncate",
+                              "text-xs font-extrabold uppercase tracking-wide truncate",
                               isAvail ? modalPal.text : "text-amber-950",
                             )}
                           >
@@ -522,7 +522,7 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
                           </span>
                           <span
                             className={cn(
-                              "rounded-md border-2 px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase tracking-widest shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]",
+                              "rounded-md border-2 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]",
                               isAvail
                                 ? modalPal.chipText
                                 : "border-amber-500 bg-gradient-to-b from-amber-400 to-amber-600 text-white",
@@ -531,7 +531,7 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
                             {isAvail ? "Sẵn sàng" : "Đang dùng"}
                           </span>
                         </div>
-                        <div className={cn("flex items-center gap-1 text-[11px] font-mono font-bold uppercase tracking-widest", isAvail ? modalPal.sub : "text-amber-800")}>
+                        <div className={cn("flex items-center gap-1 text-[11px] font-bold", isAvail ? modalPal.sub : "text-amber-800")}>
                           <Barcode className={cn("w-3 h-3", isAvail ? modalPal.ledOrb : "text-amber-500")} />
                           <span className="truncate">{box.barcode}</span>
                         </div>
@@ -543,7 +543,7 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
                       size="sm"
                       onClick={() => handleCopyBarcode(box.barcode)}
                       className={cn(
-                        "relative h-8 rounded-md border-2 px-3 font-mono text-[11px] font-extrabold uppercase tracking-widest shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]",
+                        "relative h-8 rounded-md border-2 px-3 text-[11px] font-extrabold uppercase tracking-wider shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]",
                         isAvail
                           ? modalPal.chipText
                           : "border-amber-600 bg-gradient-to-b from-amber-400 to-amber-600 text-white",
@@ -572,7 +572,7 @@ export function PosBoxesTab({ boxes, cafeId }: PosBoxesTabProps) {
                 type="button"
                 onClick={() => setSelectedGame(null)}
                 className={cn(
-                  "h-9 rounded-lg border-2 px-4 font-mono text-xs font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]",
+                  "h-9 rounded-lg border-2 px-4 text-xs font-extrabold uppercase tracking-wider text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2)]",
                   modalPal.chipText,
                 )}
               >

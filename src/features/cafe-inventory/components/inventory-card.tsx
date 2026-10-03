@@ -41,7 +41,7 @@ export function InventoryCard({
         </p>
         <div className="flex items-center">
           <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-neutral-900 text-white text-[10px] font-bold uppercase tracking-wider shadow-xs">
-            Sá»‘ lÆ°á»£ng: {game.boxQuantity} há»™p
+            Số lượng: {game.boxQuantity} hộp
           </span>
         </div>
       </div>
@@ -53,13 +53,13 @@ export function InventoryCard({
               onClick={() => onEdit(game.id)}
               className="h-8 bg-white text-neutral-800 hover:bg-neutral-50 font-semibold text-xs uppercase border border-neutral-200 rounded-lg px-3.5 transition-colors shadow-sm"
             >
-              Sá»­a há»“ sÆ¡
+              Sửa hồ sơ
             </Button>
             <Button
               onClick={() => onDelete(game.id)}
               className="h-8 bg-white text-orange-600 hover:bg-orange-50/60 font-semibold text-xs uppercase border border-orange-200 rounded-lg px-3.5 transition-colors"
             >
-              XÃ³a táº¡m
+              Xóa tạm
             </Button>
           </>
         ) : (
@@ -67,7 +67,7 @@ export function InventoryCard({
             onClick={() => onRestore(game.id)}
             className="h-8 bg-neutral-950 text-white hover:bg-neutral-800 font-semibold text-xs uppercase rounded-lg px-4 border border-neutral-950 shadow-sm transition-colors"
           >
-            â†º KhÃ´i phá»¥c kho
+            ↪ Khôi phục kho
           </Button>
         )}
       </div>

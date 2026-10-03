@@ -28,11 +28,9 @@ export const ROUTES = {
     TOURNAMENTS: '/admin/tournaments',
     TOURNAMENT_DETAIL: (id: string) => `/admin/tournaments/${id}`,
     REPORTS: '/admin/reports',
-    SETTLEMENTS: '/admin/settlements',
     OPERATIONS: '/admin/operations',
     SEPAY_ACCOUNTS: '/admin/sepay-accounts',
     SETTINGS: '/admin/settings',
-    SECURITY: '/admin/security',
   },
   MANAGER: {
     POS: '/manager/pos',

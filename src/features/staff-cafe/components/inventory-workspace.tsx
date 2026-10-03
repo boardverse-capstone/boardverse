@@ -97,13 +97,13 @@ export function InventoryWorkspace() {
           <span className="pointer-events-none absolute -right-1 -bottom-1 size-2 animate-pulse rounded-full bg-amber-300 shadow-[0_0_6px_currentColor] [animation-delay:0.3s]" />
           <TabsTrigger
             value="titles"
-            className="relative inline-flex h-9 items-center justify-center gap-1.5 rounded-md font-mono text-xs font-extrabold uppercase tracking-widest text-white/70 transition-all hover:bg-white/10 hover:text-white data-[state=active]:border-2 data-[state=active]:border-amber-300 data-[state=active]:bg-gradient-to-b data-[state=active]:from-orange-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_rgba(0,0,0,0.3),0_0_10px_rgba(250,204,21,0.5)]"
+            className="relative inline-flex h-9 items-center justify-center gap-1.5 rounded-md text-xs font-extrabold uppercase tracking-wider text-white/70 transition-all hover:bg-white/10 hover:text-white data-[state=active]:border-2 data-[state=active]:border-amber-300 data-[state=active]:bg-gradient-to-b data-[state=active]:from-orange-500 data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_rgba(0,0,0,0.3),0_0_10px_rgba(250,204,21,0.5)]"
           >
             ► Tựa Game
           </TabsTrigger>
           <TabsTrigger
             value="boxes"
-            className="relative inline-flex h-9 items-center justify-center gap-1.5 rounded-md font-mono text-xs font-extrabold uppercase tracking-widest text-white/70 transition-all hover:bg-white/10 hover:text-white data-[state=active]:border-2 data-[state=active]:border-amber-300 data-[state=active]:bg-gradient-to-b data-[state=active]:from-amber-500 data-[state=active]:to-amber-600 data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_rgba(0,0,0,0.3),0_0_10px_rgba(250,204,21,0.5)]"
+            className="relative inline-flex h-9 items-center justify-center gap-1.5 rounded-md text-xs font-extrabold uppercase tracking-wider text-white/70 transition-all hover:bg-white/10 hover:text-white data-[state=active]:border-2 data-[state=active]:border-amber-300 data-[state=active]:bg-gradient-to-b data-[state=active]:from-amber-500 data-[state=active]:to-amber-600 data-[state=active]:text-white data-[state=active]:shadow-[inset_0_-2px_0_rgba(0,0,0,0.3),0_0_10px_rgba(250,204,21,0.5)]"
           >
             ► Hộp Vật Lý
           </TabsTrigger>
@@ -114,11 +114,11 @@ export function InventoryWorkspace() {
             <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent_0,transparent_3px,rgba(255,255,255,0.05)_3px,rgba(255,255,255,0.05)_4px)]" />
             <span className="pointer-events-none absolute right-2 top-2 size-1.5 animate-pulse rounded-full bg-orange-500 shadow-[0_0_6px_currentColor]" />
             <Input
-              placeholder="▸ Tìm theo tên game hoặc barcode..."
+              placeholder="▸ Tìm theo tên game hoặc mã vạch..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="min-w-0 flex-1 border-2 border-orange-300 bg-white font-mono text-xs font-bold focus-visible:border-orange-500 focus-visible:ring-orange-300 md:max-w-sm"
+              className="min-w-0 flex-1 border-2 border-orange-300 bg-white text-xs font-bold focus-visible:border-orange-500 focus-visible:ring-orange-300 md:max-w-sm"
             />
             <Select
               value={status}
@@ -127,12 +127,12 @@ export function InventoryWorkspace() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-full border-2 border-orange-300 bg-white font-mono text-xs font-bold md:w-[180px]">
+              <SelectTrigger className="w-full border-2 border-orange-300 bg-white text-xs font-bold md:w-[180px]">
                 <SelectValue placeholder="Trạng thái" />
               </SelectTrigger>
               <SelectContent>
                 {INVENTORY_STATUS_FILTERS.map((item) => (
-                  <SelectItem key={item.value} value={item.value} className="font-mono text-xs font-bold">
+                  <SelectItem key={item.value} value={item.value} className="text-xs font-bold">
                     {item.label}
                   </SelectItem>
                 ))}
@@ -140,7 +140,7 @@ export function InventoryWorkspace() {
             </Select>
             <button
               type="button"
-              className="group inline-flex h-9 items-center justify-center gap-1.5 rounded-md border-2 border-orange-700 bg-gradient-to-b from-orange-500 to-orange-600 px-4 font-mono text-xs font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_2px_0_rgba(0,0,0,0.15)] hover:from-orange-500 hover:to-orange-500"
+              className="group inline-flex h-9 items-center justify-center gap-1.5 rounded-md border-2 border-orange-700 bg-gradient-to-b from-orange-500 to-orange-600 px-4 text-xs font-extrabold uppercase tracking-wider text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_2px_0_rgba(0,0,0,0.15)] hover:from-orange-500 hover:to-orange-500"
               onClick={handleSearch}
             >
               <span className="text-amber-300">►</span> Tìm Kiếm
@@ -148,7 +148,7 @@ export function InventoryWorkspace() {
           </div>
 
           {isError ? (
-            <div className="rounded-lg border-2 border-amber-400 bg-gradient-to-r from-amber-100 via-amber-50 to-amber-100 p-4 font-mono text-xs font-bold text-amber-700 shadow-[2px_2px_0_rgba(245,158,11,0.4)]">
+            <div className="rounded-lg border-2 border-amber-400 bg-gradient-to-r from-amber-100 via-amber-50 to-amber-100 p-4 text-xs font-bold text-amber-700 shadow-[2px_2px_0_rgba(245,158,11,0.4)]">
               <span className="mr-2">⚠</span> Không thể tải kho game.{' '}
               <button type="button" className="underline" onClick={() => refetch()}>
                 Thử lại
