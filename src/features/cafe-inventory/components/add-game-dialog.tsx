@@ -23,6 +23,13 @@ interface AddGameDialogProps {
   isOpen: boolean;
   onClose: () => void;
   cafeId: string;
+  /**
+   * Trạng thái vận hành hiện tại của quán. Khi `DATA_BLANK` (chưa kích
+   * hoạt) thêm vào header hint: "Bạn có thể nhập kho trước khi kích hoạt
+   * quán — game sẽ hiển thị cho khách ngay khi quán được ACTIVE." cho user
+   * yên tâm flow hoạt động bình thường.
+   */
+  cafeStatus?: string | null;
   onSuccess: () => void;
 }
 
@@ -94,6 +101,7 @@ export function AddGameDialog({
   isOpen,
   onClose,
   cafeId,
+  cafeStatus,
   onSuccess,
 }: AddGameDialogProps) {
   // Local UI state — the Sheet remounts on close so these reset
@@ -347,6 +355,16 @@ export function AddGameDialog({
           <SheetDescription className="text-xs font-medium text-neutral-500">
             Tìm kiếm board game hệ thống, thêm vào danh sách và thiết lập trạng
             thái, số lượng trực tiếp tại vùng Summary.
+            {cafeStatus === "DATA_BLANK" ? (
+              <>
+                {" "}
+                <span className="text-amber-700">
+                  Bạn có thể nhập kho ngay cả khi quán đang ở trạng thái
+                  "Bản nháp" — game sẽ hiển thị cho khách ngay khi bạn kích
+                  hoạt quán.
+                </span>
+              </>
+            ) : null}
           </SheetDescription>
         </SheetHeader>
 
