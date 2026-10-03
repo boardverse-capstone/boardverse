@@ -169,7 +169,15 @@ export function AddGameDialog({
   };
 
   const addToCart = (game: MasterGameItem) => {
-    const config = cardConfigs[game.id] || { status: "Available", quantity: 1 };
+    // Status on the card is intentionally NOT carried over into the
+    // cart row: the user-facing intent of "Chọn game" is to add the
+    // game in its default, ready-to-rent state. If the manager wants
+    // a row in maintenance they can flip the pill inside the cart
+    // summary on the right. Reading `cardConfigs[game.id]?.status`
+    // here would silently propagate a stale toggle — exactly what the
+    // report "ấn + thì status tự chuyển sang Bảo trì" was about.
+    const quantity =
+      cardConfigs[game.id]?.quantity ?? 1;
     setCart((prev) => {
       if (prev.some((item) => item.gameTemplateId === game.id)) return prev;
       if (prev.length >= MAX_CART_ITEMS) {
@@ -188,8 +196,8 @@ export function AddGameDialog({
           gameTemplateId: game.id,
           gameName: game.name,
           gameThumbnailUrl: game.thumbnailUrl ?? null,
-          boxQuantity: config.quantity,
-          status: config.status,
+          boxQuantity: quantity,
+          status: "Available",
           componentPenalties,
         },
       ];
