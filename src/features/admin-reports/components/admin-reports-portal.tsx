@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -97,7 +97,7 @@ function formatMoney(value: number) {
 }
 
 function formatDateTime(value: string | null | undefined) {
-  if (!value) return '—';
+  if (!value) return 'Chưa có thông tin';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString('vi-VN');
@@ -553,7 +553,7 @@ function LobbyFailuresTab() {
         header: 'Lobby',
         cell: ({ row }) => (
           <div>
-            <div className="font-medium">{row.original.lobbyName || '—'}</div>
+            <div className="font-medium">{row.original.lobbyName || 'Chưa có thông tin'}</div>
             <div className="font-mono text-[11px] text-muted-foreground">
               {row.original.lobbyId?.slice(0, 8)}…
             </div>
@@ -563,7 +563,7 @@ function LobbyFailuresTab() {
       {
         accessorKey: 'cafeName',
         header: 'Game / Cafe',
-        cell: ({ row }) => row.original.cafeName || '—',
+        cell: ({ row }) => row.original.cafeName || 'Chưa có thông tin',
       },
       { accessorKey: 'hostUsername', header: 'Host' },
       {
@@ -770,7 +770,7 @@ function DepositsTab() {
         header: 'Người dùng',
         cell: ({ row }) => (
           <div>
-            <div className="font-medium">{row.original.username || '—'}</div>
+            <div className="font-medium">{row.original.username || 'Chưa có thông tin'}</div>
             <div className="font-mono text-[11px] text-muted-foreground">
               {row.original.userId?.slice(0, 8)}…
             </div>
@@ -990,8 +990,8 @@ function CafePerformanceTab() {
         header: 'Cafe',
         cell: ({ row }) => (
           <div>
-            <div className="font-medium">{row.original.cafeName || '—'}</div>
-            <div className="text-xs text-muted-foreground">{row.original.address || '—'}</div>
+            <div className="font-medium">{row.original.cafeName || 'Chưa có thông tin'}</div>
+            <div className="text-xs text-muted-foreground">{row.original.address || 'Chưa có thông tin'}</div>
           </div>
         ),
       },

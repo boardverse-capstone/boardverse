@@ -9,7 +9,7 @@ interface InventoryStatusBadgeProps {
   className?: string;
 }
 
-// LED mÃ u theo status Ä‘á»ƒ arcade style
+// LED màu theo status để arcade style
 const STATUS_LED: Record<string, string> = {
   AVAILABLE: 'bg-orange-500',
   Available: 'bg-orange-500',
@@ -36,7 +36,7 @@ export function InventoryStatusBadge({ status, className }: InventoryStatusBadge
     <Badge
       variant="outline"
       className={cn(
-        'relative inline-flex items-center gap-1.5 border-2 font-mono text-[10px] font-extrabold uppercase tracking-widest shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]',
+        'relative inline-flex items-center gap-1.5 border-2 text-[10px] font-extrabold uppercase tracking-wider shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)]',
         colorClass,
         className,
       )}

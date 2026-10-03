@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import Image from "next/image";
 import { toast } from "sonner";
 import { apiClient } from "@/core/api/client";
 import {
@@ -9,7 +10,7 @@ import {
 } from "../hooks/useBulkAddInventory";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Trash2, Plus, Minus, Inbox } from "lucide-react";
+import { Search, Trash2, Plus, Minus, Inbox, ImageOff } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -34,6 +35,7 @@ const MAX_BOX_QUANTITY = 1000;
 interface CartItem {
   gameTemplateId: string;
   gameName: string;
+  gameThumbnailUrl: string | null;
   boxQuantity: number;
   status: "Available" | "Maintenance";
   componentPenalties: { gameComponentTemplateId: string; penaltyFee: number }[];
@@ -46,6 +48,47 @@ interface CardConfig {
 
 const NETWORK_FALLBACK_VI =
   "Không thể tải danh sách board game hệ thống. Vui lòng kiểm tra mạng và thử lại.";
+
+interface GameThumbnailProps {
+  src: string | null;
+  alt: string;
+  size: number;
+  className?: string;
+}
+
+/** Tiny thumbnail with a graceful fallback when the master-game API
+ *  returns a broken / 404 / blocked image URL. Renders Next/Image so
+ *  the loading is lazy and respects the configured remote patterns.
+ *  When the image fails to load — or no URL was provided — we swap to
+ *  a neutral pill with an `ImageOff` icon so the card still reads as
+ *  a product card instead of an empty box. */
+function GameThumbnail({ src, alt, size, className }: GameThumbnailProps) {
+  const [errored, setErrored] = useState(false);
+  const showImage = src && !errored;
+  return (
+    <div
+      className={`relative shrink-0 overflow-hidden rounded-md bg-neutral-100 ${className ?? ""}`}
+      style={{ width: size, height: size }}
+      aria-hidden={!showImage}
+    >
+      {showImage ? (
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          sizes={`${size}px`}
+          unoptimized
+          className="object-cover"
+          onError={() => setErrored(true)}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-neutral-400">
+          <ImageOff className="h-1/2 w-1/2" aria-hidden />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function AddGameDialog({
   isOpen,
@@ -68,19 +111,32 @@ export function AddGameDialog({
     cafeId,
   );
 
+  // Keep a stable handle to `refreshFor` so the debounce effect below
+  // doesn't list it as a dependency — the hook returns a stable
+  // callback already, but storing it in a ref is a belt-and-braces
+  // guard that keeps the dep list down to `[isOpen, searchTerm]`.
+  const refreshForRef = useRef(refreshFor);
+  useEffect(() => {
+    refreshForRef.current = refreshFor;
+  }, [refreshFor]);
+
   // Debounced refresh — keeps the search input snappy while still
-  // triggering a fresh fetch once typing settles.
+  // triggering a fresh fetch once typing settles. The early `return`
+  // on the first render where `searchTerm` is empty AND the hook
+  // already kicked off the initial prime fetch is important: without
+  // it the dialog would fire one extra `/board-games` on mount and
+  // race with the prime call.
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!isOpen) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      refreshFor(searchTerm);
+      refreshForRef.current(searchTerm);
     }, 350);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [isOpen, searchTerm, refreshFor]);
+  }, [isOpen, searchTerm]);
 
   // Card config defaults are read on-demand with a getter-style helper
   // (see `getCardConfig`) so we don't need a "seed new configs as
@@ -113,7 +169,20 @@ export function AddGameDialog({
   };
 
   const addToCart = (game: MasterGameItem) => {
-    const config = cardConfigs[game.id] || { status: "Available", quantity: 1 };
+    // Status on the card is intentionally NOT carried over into the
+    // cart row: the user-facing intent of "Chọn game" is to add the
+    // game in its default, ready-to-rent state. If the manager wants
+    // a row in maintenance they can flip the pill inside the cart
+    // summary on the right. Reading `cardConfigs[game.id]?.status`
+    // here would silently propagate a stale toggle — exactly what the
+    // report "ấn + thì status tự chuyển sang Bảo trì" was about.
+    //
+    // We also snap the left-hand card pill back to "Sẵn sàng" after
+    // a successful add so the two sides never disagree about the
+    // current intent. Quantity is preserved (the manager may want to
+    // re-add the same game with the same box count later).
+    const quantity =
+      cardConfigs[game.id]?.quantity ?? 1;
     setCart((prev) => {
       if (prev.some((item) => item.gameTemplateId === game.id)) return prev;
       if (prev.length >= MAX_CART_ITEMS) {
@@ -131,11 +200,24 @@ export function AddGameDialog({
         {
           gameTemplateId: game.id,
           gameName: game.name,
-          boxQuantity: config.quantity,
-          status: config.status,
+          gameThumbnailUrl: game.thumbnailUrl ?? null,
+          boxQuantity: quantity,
+          status: "Available",
           componentPenalties,
         },
       ];
+    });
+    setCardConfigs((prev) => {
+      const current = prev[game.id] ?? { status: "Available", quantity };
+      // No-op when the card is already at default — avoids a needless
+      // re-render of the (now-disabled) "Chọn game" button row.
+      if (current.status === "Available" && current.quantity === quantity) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [game.id]: { status: "Available", quantity },
+      };
     });
   };
 
@@ -202,6 +284,23 @@ export function AddGameDialog({
           : typeof rejected.reason === "string"
             ? rejected.reason
             : NETWORK_FALLBACK_VI;
+      // Log the full rejection so we can diagnose failures that the
+      // toast can't surface (status code, upstream message, payload).
+      // Without this, "thêm game không thành công" is a black box —
+      // the user reports the symptom but we can't tell whether it's a
+      // 401, a 403 on cafe ownership, a 422 from the validator, or a
+      // network timeout.
+      console.error("[add-game-dialog] all cart rows failed", {
+        cafeId,
+        cart: cart.map((c) => ({
+          gameTemplateId: c.gameTemplateId,
+          gameName: c.gameName,
+          boxQuantity: c.boxQuantity,
+          status: c.status,
+          penaltyCount: c.componentPenalties.length,
+        })),
+        rejection: rejected.reason,
+      });
       toast.error(reason);
     } else {
       const succeededIds = new Set(
@@ -296,7 +395,7 @@ export function AddGameDialog({
                   </p>
                 </div>
               ) : (
-                <ul className="grid grid-cols-1 xl:grid-cols-2 gap-4 pb-6 list-none p-0">
+                <ul className="grid grid-cols-1 xl:grid-cols-2 gap-4 pb-6 list-none p-0 auto-rows-fr">
                   {masterGames.map((game) => {
                     const isAddedInCart = cart.some(
                       (c) => c.gameTemplateId === game.id,
@@ -305,20 +404,28 @@ export function AddGameDialog({
                     return (
                       <li
                         key={game.id}
-                        className="bg-white border border-neutral-200/80 rounded-xl p-4 flex flex-col justify-between gap-3 min-h-[130px] h-auto transition-all hover:border-neutral-300 min-w-0"
+                        className="group bg-white border border-neutral-200/80 rounded-xl p-4 flex flex-col gap-3 h-full transition-all hover:border-neutral-300 hover:shadow-sm min-w-0"
                       >
-                        <div className="space-y-1.5 min-w-0">
-                          <h4 className="font-bold text-sm text-neutral-900 tracking-tight max-w-full break-words [overflow-wrap:anywhere]">
-                            {game.name}
-                          </h4>
-                          <p className="text-xs text-neutral-400 line-clamp-2 leading-normal break-words [overflow-wrap:anywhere]">
-                            {game.description?.trim() ||
-                              "Chưa có mô tả tóm tắt nội dung."}
-                          </p>
+                        <div className="flex gap-3 min-w-0">
+                          <GameThumbnail
+                            src={game.thumbnailUrl}
+                            alt={game.name}
+                            size={56}
+                            className="rounded-lg border border-neutral-200/60"
+                          />
+                          <div className="flex-1 space-y-1.5 min-w-0">
+                            <h4 className="font-bold text-sm text-neutral-900 tracking-tight line-clamp-2 leading-snug">
+                              {game.name}
+                            </h4>
+                            <p className="text-xs text-neutral-500 line-clamp-2 leading-relaxed">
+                              {game.description?.trim() ||
+                                "Chưa có mô tả tóm tắt nội dung."}
+                            </p>
+                          </div>
                         </div>
 
-                        <div className="flex items-center justify-between gap-2 border-t border-neutral-100 pt-2.5 mt-auto shrink-0">
-                          <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="mt-auto border-t border-neutral-100 pt-3 space-y-2.5 shrink-0">
+                          <div className="flex items-center gap-2 min-w-0">
                             <button
                               type="button"
                               aria-label={
@@ -328,10 +435,10 @@ export function AddGameDialog({
                               }
                               aria-pressed={config.status !== "Available"}
                               onClick={() => toggleCardStatus(game.id)}
-                              className={`h-6 px-2 text-[9px] font-bold uppercase rounded-md border transition-colors ${
+                              className={`h-7 px-2.5 text-[10px] font-bold uppercase tracking-wide rounded-md border transition-colors shrink-0 ${
                                 config.status === "Available"
-                                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                                  : "bg-amber-50 border-amber-200 text-amber-800"
+                                  ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                                  : "bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100"
                               }`}
                             >
                               {config.status === "Available"
@@ -342,7 +449,7 @@ export function AddGameDialog({
                             <div
                               role="group"
                               aria-label={`Số hộp cho ${game.name}`}
-                              className="flex items-center border border-neutral-200 rounded-md bg-white h-6 px-0.5 shadow-2xs"
+                              className="flex items-center border border-neutral-200 rounded-md bg-white h-7 px-0.5 shadow-xs ml-auto"
                             >
                               <Button
                                 type="button"
@@ -351,9 +458,9 @@ export function AddGameDialog({
                                 onClick={() =>
                                   updateCardQuantity(game.id, config.quantity - 1)
                                 }
-                                className="p-1 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
+                                className="h-6 w-7 p-0 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
                               >
-                                <Minus className="w-2.5 h-2.5" aria-hidden />
+                                <Minus className="w-3 h-3" aria-hidden />
                               </Button>
 
                               <Input
@@ -374,7 +481,7 @@ export function AddGameDialog({
                                   if (Number.isNaN(parsed)) return;
                                   updateCardQuantity(game.id, parsed);
                                 }}
-                                className="w-10 h-full text-center text-xs font-mono font-bold text-neutral-800 focus:outline-none bg-transparent tabular-nums"
+                                className="w-12 h-6 text-center text-sm font-mono font-bold text-neutral-800 focus:outline-none bg-transparent tabular-nums border-0 focus-visible:ring-0 px-1"
                               />
 
                               <Button
@@ -384,9 +491,9 @@ export function AddGameDialog({
                                 onClick={() =>
                                   updateCardQuantity(game.id, config.quantity + 1)
                                 }
-                                className="p-1 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
+                                className="h-6 w-7 p-0 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
                               >
-                                <Plus className="w-2.5 h-2.5" aria-hidden />
+                                <Plus className="w-3 h-3" aria-hidden />
                               </Button>
                             </div>
                           </div>
@@ -402,9 +509,9 @@ export function AddGameDialog({
                                   : `Thêm ${game.name} vào danh sách nhập`
                             }
                             onClick={() => addToCart(game)}
-                            className="h-7 px-3.5 bg-neutral-950 text-white hover:bg-neutral-800 text-[11px] font-semibold rounded-md disabled:bg-neutral-100 disabled:text-neutral-400 shrink-0 shadow-xs transition-colors"
+                            className="w-full h-8 bg-neutral-950 text-white hover:bg-neutral-800 text-[11px] font-bold uppercase tracking-wider rounded-md disabled:bg-neutral-100 disabled:text-neutral-400 shadow-xs transition-colors"
                           >
-                            {isAddedInCart ? "Đã Chọn" : "Chọn Game"}
+                            {isAddedInCart ? "Đã chọn" : "Chọn game"}
                           </Button>
                         </div>
                       </li>
@@ -445,22 +552,30 @@ export function AddGameDialog({
                   cart.map((item) => (
                     <li
                       key={item.gameTemplateId}
-                      className="border border-neutral-200/80 rounded-xl p-3 space-y-3 bg-neutral-50/50 relative transition-colors hover:border-neutral-300 min-w-0"
+                      className="border border-neutral-200/80 rounded-xl p-3 space-y-2.5 bg-neutral-50/50 relative transition-colors hover:border-neutral-300 min-w-0"
                     >
                       <Button
                         type="button"
                         aria-label={`Bỏ ${item.gameName} khỏi danh sách`}
                         onClick={() => removeFromCart(item.gameTemplateId)}
-                        className="absolute top-2.5 right-2.5 text-neutral-400 hover:text-red-600 transition-colors"
+                        className="absolute top-2.5 right-2.5 h-6 w-6 p-0 text-neutral-400 hover:text-red-600 transition-colors z-10"
                       >
                         <Trash2 className="w-3.5 h-3.5" aria-hidden />
                       </Button>
 
-                      <div className="font-bold text-xs text-neutral-900 pr-6 break-words [overflow-wrap:anywhere]">
-                        {item.gameName}
+                      <div className="flex gap-2.5 min-w-0">
+                        <GameThumbnail
+                          src={item.gameThumbnailUrl}
+                          alt={item.gameName}
+                          size={40}
+                          className="rounded-md border border-neutral-200/60"
+                        />
+                        <div className="font-bold text-xs text-neutral-900 pr-7 line-clamp-2 leading-snug">
+                          {item.gameName}
+                        </div>
                       </div>
 
-                      <div className="flex items-center justify-between gap-2 border-t border-neutral-100/70 pt-2">
+                      <div className="flex items-center gap-2 border-t border-neutral-100/70 pt-2.5">
                         <button
                           type="button"
                           aria-label={
@@ -477,10 +592,10 @@ export function AddGameDialog({
                                 : "Available",
                             )
                           }
-                          className={`h-6 px-2 text-[9px] font-bold uppercase rounded-md border transition-colors ${
+                          className={`h-7 px-2.5 text-[10px] font-bold uppercase tracking-wide rounded-md border transition-colors shrink-0 ${
                             item.status === "Available"
-                              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                              : "bg-amber-50 border-amber-200 text-amber-800"
+                              ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                              : "bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100"
                           }`}
                         >
                           {item.status === "Available" ? "Sẵn sàng" : "Bảo trì"}
@@ -489,7 +604,7 @@ export function AddGameDialog({
                         <div
                           role="group"
                           aria-label={`Số hộp cho ${item.gameName}`}
-                          className="flex items-center border border-neutral-200 rounded-md bg-white h-6 px-0.5 shadow-2xs"
+                          className="flex items-center border border-neutral-200 rounded-md bg-white h-7 px-0.5 shadow-xs ml-auto"
                         >
                           <Button
                             type="button"
@@ -501,9 +616,9 @@ export function AddGameDialog({
                                 item.boxQuantity - 1,
                               )
                             }
-                            className="p-1 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
+                            className="h-6 w-7 p-0 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
                           >
-                            <Minus className="w-2.5 h-2.5" aria-hidden />
+                            <Minus className="w-3 h-3" aria-hidden />
                           </Button>
 
                           <Input
@@ -524,7 +639,7 @@ export function AddGameDialog({
                               if (Number.isNaN(parsed)) return;
                               updateCartItemQuantity(item.gameTemplateId, parsed);
                             }}
-                            className="w-10 h-full text-center text-xs font-mono font-bold text-neutral-800 focus:outline-none bg-transparent tabular-nums"
+                            className="w-12 h-6 text-center text-sm font-mono font-bold text-neutral-800 focus:outline-none bg-transparent tabular-nums border-0 focus-visible:ring-0 px-1"
                           />
 
                           <Button
@@ -537,9 +652,9 @@ export function AddGameDialog({
                                 item.boxQuantity + 1,
                               )
                             }
-                            className="p-1 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
+                            className="h-6 w-7 p-0 text-neutral-400 hover:text-neutral-900 transition-colors disabled:opacity-30"
                           >
-                            <Plus className="w-2.5 h-2.5" aria-hidden />
+                            <Plus className="w-3 h-3" aria-hidden />
                           </Button>
                         </div>
                       </div>

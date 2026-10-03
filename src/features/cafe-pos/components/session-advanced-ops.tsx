@@ -4,12 +4,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Barcode,
-  Boxes,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Layers,
-  Package,
   Search,
   Split,
   UserPlus,
@@ -20,25 +18,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { PosCheckInService } from "@/features/pos-check-in/services/pos-check-in.service";
-import type { ComponentChecklistItem } from "@/features/pos-check-in/types/pos-check-in.interface";
 import type { PosBoxItem } from "./pos-boxes-tab";
 import { isBoxStatusAvailable } from "./pos-boxes-tab";
-import { NumberStepper } from "./number-stepper";
 import { GameCoverThumb } from "./game-cover-thumb";
 import { useGameCoverLookup } from "@/features/pos-check-in/hooks/useGameCoverLookup";
 import { cn } from "@/lib/utils";
 import { readPlayerRange } from "../lib/player-range";
-
-type InventoryLossPayload = {
-  sessionGameId: string;
-  missingComponents: Array<{
-    componentTemplateId: string;
-    missingQuantity: number;
-  }>;
-  notes?: string;
-};
 
 type CustomerUser = {
   id: string;
@@ -87,7 +73,6 @@ type SessionAdvancedOpsProps = {
   busy?: boolean;
   onAttachGame: (barcode: string) => Promise<boolean>;
   onAddMembers: (userIds: string[]) => Promise<boolean>;
-  onReportInventoryLoss: (payload: InventoryLossPayload) => Promise<boolean>;
   onPartialCheckout: (
     memberUserIds: string[],
     applyDeposit?: boolean,
@@ -122,10 +107,6 @@ function readMemberName(member: any) {
       member?.username ??
       readMemberId(member),
   );
-}
-
-function readGameId(game: any) {
-  return String(game?.sessionGameId ?? game?.id ?? "");
 }
 
 function memberLeaveLabel(member: any) {
@@ -275,7 +256,6 @@ export function SessionAdvancedOps({
   busy = false,
   onAttachGame,
   onAddMembers,
-  onReportInventoryLoss,
   onPartialCheckout,
   onMergeMember,
   onRefreshDetail,
@@ -304,14 +284,6 @@ export function SessionAdvancedOps({
   const [selectedUsers, setSelectedUsers] = useState<CustomerUser[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchTried, setSearchTried] = useState(false);
-  const [lossGameId, setLossGameId] = useState("");
-  const [lossComponents, setLossComponents] = useState<ComponentChecklistItem[]>(
-    [],
-  );
-  const [loadingLossComponents, setLoadingLossComponents] = useState(false);
-  const [componentTemplateId, setComponentTemplateId] = useState("");
-  const [missingQuantity, setMissingQuantity] = useState("1");
-  const [lossNotes, setLossNotes] = useState("");
   const [partialMemberIds, setPartialMemberIds] = useState<Set<string>>(
     new Set(),
   );
@@ -320,7 +292,6 @@ export function SessionAdvancedOps({
   const [targetSessionId, setTargetSessionId] = useState("");
   const [opsOpen, setOpsOpen] = useState(false);
 
-  const games = detail?.games ?? detail?.Games ?? [];
   const members = useMemo(() => {
     const raw = (detail?.members ?? detail?.Members ?? []).filter((member: any) => {
       const id = readMemberId(member);
@@ -486,29 +457,6 @@ export function SessionAdvancedOps({
     status === "paid" ||
     status === "completed";
 
-  useEffect(() => {
-    if (!cafeId || !lossGameId) {
-      setLossComponents([]);
-      return;
-    }
-    let cancelled = false;
-    setLoadingLossComponents(true);
-    void PosCheckInService.getComponentChecklist(cafeId, lossGameId)
-      .then((checklist) => {
-        if (cancelled) return;
-        setLossComponents(checklist.components || []);
-      })
-      .catch(() => {
-        if (!cancelled) setLossComponents([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingLossComponents(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [cafeId, lossGameId]);
-
   const runAction = async (
     action: string,
     callback: () => Promise<boolean>,
@@ -610,7 +558,7 @@ export function SessionAdvancedOps({
           )}
           {!opsOpen ? (
             <p className="mt-0.5 text-[11px] text-white/85">
-              Bấm để mở gán hộp, thêm người chơi, hao hụt, thanh toán một phần…
+              Bấm để mở gán hộp, thêm người chơi, thanh toán một phần…
             </p>
           ) : null}
         </div>
@@ -879,111 +827,6 @@ export function SessionAdvancedOps({
             {pendingAction === "members"
               ? "Đang thêm..."
               : `Thêm ${selectedUsers.length || ""} người chơi`}
-          </Button>
-        </Section>
-
-        <Section
-          icon={<Boxes className="size-4" />}
-          title="Ghi nhận hao hụt"
-          tone="amber"
-        >
-          <select
-            value={lossGameId}
-            onChange={(event) => {
-              setLossGameId(event.target.value);
-              setComponentTemplateId("");
-            }}
-            disabled={disabled}
-            className="h-8 w-full rounded-md border border-amber-300 bg-white px-2 text-xs text-amber-950 focus:border-amber-500 focus:outline-hidden disabled:opacity-50"
-          >
-            <option value="">Chọn hộp game trong phiên</option>
-            {games.map((game: any) => {
-              const id = readGameId(game);
-              return (
-                <option key={id} value={id}>
-                  {game.gameName || game.name || game.boxBarcode || id}
-                </option>
-              );
-            })}
-          </select>
-          {loadingLossComponents ? (
-            <p className="text-[11px] text-neutral-500">Đang tải linh kiện...</p>
-          ) : null}
-          {lossComponents.length > 0 ? (
-            <select
-              value={componentTemplateId}
-              onChange={(event) => setComponentTemplateId(event.target.value)}
-              disabled={disabled}
-              className="h-8 w-full rounded-md border border-amber-300 bg-white px-2 text-xs text-amber-950 focus:border-amber-500 focus:outline-hidden disabled:opacity-50"
-            >
-              <option value="">Chọn linh kiện từ checklist</option>
-              {lossComponents.map((item) => (
-                <option key={item.componentId} value={item.componentId}>
-                  {item.componentName} (kỳ vọng {item.expectedQuantity})
-                </option>
-              ))}
-            </select>
-          ) : (
-            <Input
-              value={componentTemplateId}
-              onChange={(event) => setComponentTemplateId(event.target.value)}
-              placeholder="Component template ID (nếu không tải được checklist)"
-              disabled={disabled}
-              className="h-8 border-amber-200 text-xs focus-visible:border-amber-400 focus-visible:ring-amber-200"
-            />
-          )}
-          <NumberStepper
-            value={Math.max(1, Number(missingQuantity) || 1)}
-            onChange={(next) => setMissingQuantity(String(next))}
-            min={1}
-            max={999}
-            size="sm"
-            disabled={disabled}
-            ariaLabelDec="Giảm số lượng thiếu"
-            ariaLabelInc="Tăng số lượng thiếu"
-            className="w-fit"
-          />
-          <Textarea
-            value={lossNotes}
-            onChange={(event) => setLossNotes(event.target.value)}
-            placeholder="Ghi chú hao hụt (không bắt buộc)"
-            disabled={disabled}
-            className="min-h-16 border-neutral-200 text-xs"
-          />
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={disabled}
-            onClick={() => {
-              const quantity = Number(missingQuantity);
-              if (!lossGameId || !componentTemplateId.trim() || quantity < 1) {
-                toast.error("Chọn game, linh kiện và số lượng hợp lệ.");
-                return;
-              }
-              void runAction(
-                "loss",
-                () =>
-                  onReportInventoryLoss({
-                    sessionGameId: lossGameId,
-                    missingComponents: [
-                      {
-                        componentTemplateId: componentTemplateId.trim(),
-                        missingQuantity: quantity,
-                      },
-                    ],
-                    notes: lossNotes.trim() || undefined,
-                  }),
-                () => {
-                  setComponentTemplateId("");
-                  setMissingQuantity("1");
-                  setLossNotes("");
-                },
-              );
-            }}
-            className="h-8 w-full bg-gradient-to-r from-amber-500 to-orange-600 text-xs font-bold text-white shadow-sm hover:from-amber-600 hover:to-orange-700"
-          >
-            {pendingAction === "loss" ? "Đang ghi nhận..." : "Ghi nhận hao hụt"}
           </Button>
         </Section>
 

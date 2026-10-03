@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "react-qr-code";
-import { CalendarClock, RefreshCw, QrCode, DoorOpen, Search, AlertTriangle, ShieldCheck, MoreHorizontal, Table2, XCircle, Maximize2, X } from "lucide-react";
+import { CalendarClock, RefreshCw, QrCode, DoorOpen, Search, AlertTriangle, ShieldCheck, MoreHorizontal, Table2, XCircle, Maximize2, X, Users, Check, Circle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -559,6 +559,24 @@ export function PendingBookingsPanel({
   const [checkInToken, setCheckInToken] = useState<PosCheckInTokenDto | null>(
     null,
   );
+  const [lobbyMembers, setLobbyMembers] = useState<
+    Array<{
+      id?: string;
+      userId?: string;
+      displayName?: string;
+      avatarUrl?: string | null;
+      isHost?: boolean;
+      // Trường trạng thái đã quét QR — thử nhiều key để tương thích BE
+      isCheckedIn?: boolean;
+      checkedInAt?: string | null;
+      joinedAt?: string | null;
+    }>
+  >([]);
+  const [scannedUserIds, setScannedUserIds] = useState<Set<string>>(new Set());
+  const [loadingLobbyMembers, setLoadingLobbyMembers] = useState(false);
+  const [lobbyMembersLastLoadedAt, setLobbyMembersLastLoadedAt] = useState<
+    string | null
+  >(null);
   const appliedInitialCode = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const todayIso = todayIsoDate();
@@ -749,6 +767,117 @@ export function PendingBookingsPanel({
       setCheckedBox(null);
     }
   }, [availableBoxes, barcode]);
+
+  /**
+   * Lấy danh sách thành viên lobby + trạng thái đã quét QR.
+   * Gọi khi mở dialog check-in và khi staff bấm nút "Reload".
+   * Trường trạng thái có thể là 1 trong: `isCheckedIn`, `checkedIn`,
+   * `hasScanned`, `attendanceStatus === "CheckedIn"`, hoặc có `checkedInAt`
+   * khác null. Tự fallback theo từng key để tương thích nhiều version BE.
+   */
+  const loadLobbyMembers = useCallback(async (): Promise<void> => {
+    const raw =
+      preview?.raw && typeof preview.raw === "object"
+        ? (preview.raw as Record<string, unknown>)
+        : null;
+    const lobbyId =
+      preview?.lobbyId ||
+      (raw?.lobbyId != null ? String(raw.lobbyId) : "") ||
+      (raw?.LobbyId != null ? String(raw.LobbyId) : "") ||
+      "";
+    if (!lobbyId) {
+      setLobbyMembers([]);
+      setScannedUserIds(new Set());
+      return;
+    }
+    setLoadingLobbyMembers(true);
+    try {
+      const res: unknown = await apiClient.get(
+        `/api/v1/lobbies/${encodeURIComponent(lobbyId)}`,
+      );
+      const data =
+        (res && typeof res === "object" && "data" in res
+          ? (res as { data: unknown }).data
+          : res) as Record<string, unknown> | null;
+      const membersRaw = Array.isArray(data?.members)
+        ? (data?.members as unknown[])
+        : Array.isArray((data as { Members?: unknown[] }).Members)
+          ? ((data as { Members: unknown[] }).Members as unknown[])
+          : [];
+      const normalized = membersRaw.map((m) => {
+        const r = (m ?? {}) as Record<string, unknown>;
+        const userId = String(
+          r.userId ?? r.UserId ?? r.id ?? r.Id ?? "",
+        );
+        const displayName = String(
+          r.displayName ??
+            r.DisplayName ??
+            r.name ??
+            r.Name ??
+            "Khách",
+        );
+        return {
+          id: r.id != null ? String(r.id) : userId,
+          userId,
+          displayName,
+          avatarUrl:
+            (r.avatarUrl as string | null | undefined) ??
+            (r.AvatarUrl as string | null | undefined) ??
+            null,
+          isHost: Boolean(r.isHost ?? r.IsHost),
+          // Thử nhiều key trạng thái đã quét QR
+          isCheckedIn: Boolean(
+            r.isCheckedIn ??
+              r.IsCheckedIn ??
+              r.checkedIn ??
+              r.CheckedIn ??
+              r.hasScanned ??
+              r.HasScanned ??
+              r.isAttended ??
+              r.IsAttended,
+          ),
+          checkedInAt:
+            (r.checkedInAt as string | undefined) ??
+            (r.CheckedInAt as string | undefined) ??
+            (r.scannedAt as string | undefined) ??
+            (r.ScannedAt as string | undefined) ??
+            null,
+          joinedAt:
+            (r.joinedAt as string | undefined) ??
+            (r.JoinedAt as string | undefined) ??
+            (r.createdAt as string | undefined) ??
+            null,
+        };
+      });
+      setLobbyMembers(normalized);
+      setScannedUserIds(
+        new Set(
+          normalized
+            .filter(
+              (m) =>
+                m.isCheckedIn ||
+                (m.checkedInAt != null && m.checkedInAt !== ""),
+            )
+            .map((m) => m.userId)
+            .filter(Boolean),
+        ),
+      );
+      setLobbyMembersLastLoadedAt(new Date().toLocaleTimeString("vi-VN"));
+    } catch (err) {
+      // Không block dialog — chỉ log + giữ state cũ.
+      console.warn("[pending-bookings] loadLobbyMembers failed", err);
+    } finally {
+      setLoadingLobbyMembers(false);
+    }
+  }, [preview?.lobbyId, preview?.raw]);
+
+  // Khi mở dialog check-in → tự động tải danh sách members + trạng thái
+  // quét QR lần đầu. Staff có thể bấm nút Reload để cập nhật thủ công.
+  useEffect(() => {
+    if (preview) {
+      void loadLobbyMembers();
+    }
+  }, [preview, loadLobbyMembers]);
 
   const createWalkIn = async (window: WalkInWindowDto) => {
     const maxSeats = Math.max(1, Number(window.availableSeats) || 1);
@@ -1037,6 +1166,9 @@ export function PendingBookingsPanel({
     setBarcode("");
     setTableId("");
     setTableDropdownOpen(false);
+    setLobbyMembers([]);
+    setScannedUserIds(new Set());
+    setLobbyMembersLastLoadedAt(null);
     window.requestAnimationFrame(() => searchInputRef.current?.focus());
   };
 
@@ -2012,6 +2144,107 @@ export function PendingBookingsPanel({
                         <p className="rounded-lg border border-dashed border-neutral-200 py-2.5 text-center text-xs font-medium text-neutral-700">
                           Chưa kiểm tra hộp.
                         </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Users className="size-4 text-emerald-700" />
+                          <p className="text-sm font-bold text-emerald-950">
+                            Khách đã quét QR
+                          </p>
+                          <Badge
+                            variant="outline"
+                            className="border-emerald-300 bg-white font-mono text-[10px] font-extrabold uppercase tracking-widest text-emerald-800"
+                          >
+                            {scannedUserIds.size}/{lobbyMembers.length} đã quét
+                          </Badge>
+                          {lobbyMembersLastLoadedAt ? (
+                            <span className="font-mono text-[10px] font-medium text-emerald-700/80">
+                              Cập nhật {lobbyMembersLastLoadedAt}
+                            </span>
+                          ) : null}
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void loadLobbyMembers()}
+                          disabled={loadingLobbyMembers}
+                          className="h-8 gap-1.5 border-2 border-emerald-300 bg-white font-mono text-[11px] font-bold uppercase tracking-wider text-emerald-800 shadow-[inset_0_-2px_0_rgba(0,0,0,0.06)] hover:bg-emerald-100"
+                          aria-label="Tải lại danh sách khách đã quét QR"
+                          title="Tải lại danh sách khách đã quét QR"
+                        >
+                          <RefreshCw
+                            className={`size-3.5 ${loadingLobbyMembers ? "animate-spin" : ""}`}
+                          />
+                          {loadingLobbyMembers ? "Đang tải..." : "Reload"}
+                        </Button>
+                      </div>
+
+                      {lobbyMembers.length === 0 ? (
+                        <p className="rounded-lg border border-dashed border-emerald-200 py-2.5 text-center text-xs font-medium text-emerald-900/80">
+                          {preview?.lobbyId
+                            ? loadingLobbyMembers
+                              ? "Đang tải danh sách khách…"
+                              : "Chưa có thành viên trong lobby hoặc không tải được. Bấm Reload."
+                            : "Đơn này chưa gắn lobby — không có danh sách khách để kiểm tra."}
+                        </p>
+                      ) : (
+                        <ul className="grid gap-1.5 sm:grid-cols-2">
+                          {lobbyMembers.map((m) => {
+                            const scanned =
+                              (!!m.userId && scannedUserIds.has(m.userId)) ||
+                              m.isCheckedIn === true;
+                            return (
+                              <li
+                                key={m.userId || m.id || m.displayName}
+                                className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-sm transition-colors ${
+                                  scanned
+                                    ? "border-emerald-300 bg-white"
+                                    : "border-neutral-200 bg-white/70"
+                                }`}
+                              >
+                                {scanned ? (
+                                  <Check className="size-4 shrink-0 text-emerald-600" />
+                                ) : (
+                                  <Circle className="size-4 shrink-0 text-neutral-400" />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <p
+                                    className={`truncate font-medium ${
+                                      scanned
+                                        ? "text-emerald-950"
+                                        : "text-neutral-700"
+                                    }`}
+                                  >
+                                    {m.displayName}
+                                    {m.isHost ? (
+                                      <span className="ml-1.5 rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 font-mono text-[9px] font-extrabold uppercase tracking-widest text-amber-800">
+                                        Host
+                                      </span>
+                                    ) : null}
+                                  </p>
+                                  {m.checkedInAt ? (
+                                    <p className="font-mono text-[10px] text-emerald-700/80">
+                                      Quét lúc {formatTime(m.checkedInAt ?? undefined)}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <span
+                                  className={`shrink-0 font-mono text-[10px] font-bold uppercase tracking-widest ${
+                                    scanned ? "text-emerald-700" : "text-neutral-500"
+                                  }`}
+                                >
+                                  {scanned ? "Đã quét" : "Chưa quét"}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
                       )}
                     </div>
                   </div>

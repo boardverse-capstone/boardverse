@@ -15,7 +15,6 @@ import { useAdminCafeDetail } from '../hooks/useAdminCafeDetail';
 import {
   formatCafeCoordinate,
   formatCafeDate,
-  formatCafeHours,
   formatCafeMoney,
   formatCafePercent,
   formatCafeYesNo,
@@ -42,7 +41,7 @@ function Field({
         {label}
       </p>
       <div className="mt-0.5 text-sm leading-snug text-foreground break-words">
-        {value ?? '—'}
+        {value ?? 'Chưa có thông tin'}
       </div>
     </div>
   );
@@ -92,7 +91,7 @@ export function CafeDetailDialog({ open, onOpenChange, cafeId }: CafeDetailDialo
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
                   <Field
                     label="Tên quán"
-                    value={<span className="font-semibold">{data.name}</span>}
+                    value={<span className="font-semibold">{data.name || 'Chưa có thông tin'}</span>}
                     className="col-span-2"
                   />
                   <Field
@@ -100,13 +99,13 @@ export function CafeDetailDialog({ open, onOpenChange, cafeId }: CafeDetailDialo
                     value={<span className="font-mono text-[11px]">{data.id}</span>}
                     className="col-span-2"
                   />
-                  <Field label="Địa chỉ" value={data.address || '—'} className="col-span-2" />
-                  <Field label="SĐT" value={data.phoneNumber || '—'} />
+                  <Field label="Địa chỉ" value={data.address || 'Chưa có thông tin'} className="col-span-2" />
+                  <Field label="SĐT" value={data.phoneNumber || 'Chưa có thông tin'} />
                   <Field
                     label="Tọa độ"
                     value={`${formatCafeCoordinate(data.latitude)}, ${formatCafeCoordinate(data.longitude)}`}
                   />
-                  <Field label="Mô tả" value={data.description ?? '—'} className="col-span-2" />
+                  <Field label="Mô tả" value={data.description ?? 'Chưa có thông tin'} className="col-span-2" />
                   <Field
                     label="Đang hoạt động"
                     value={
@@ -123,7 +122,7 @@ export function CafeDetailDialog({ open, onOpenChange, cafeId }: CafeDetailDialo
                       />
                     }
                   />
-                  <Field label="Lý do status" value={data.operationalStatusReason ?? '—'} />
+                  <Field label="Lý do status" value={data.operationalStatusReason ?? 'Chưa có thông tin'} />
                   <Field
                     label="Đổi status lúc"
                     value={formatCafeDate(data.operationalStatusChangedAt)}
@@ -133,11 +132,11 @@ export function CafeDetailDialog({ open, onOpenChange, cafeId }: CafeDetailDialo
 
               <Panel title="Quản lý quán">
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
-                  <Field label="Tên" value={data.managerName || '—'} />
-                  <Field label="Email" value={data.managerEmail ?? '—'} />
+                  <Field label="Tên" value={data.managerName || 'Chưa có thông tin'} />
+                  <Field label="Email" value={data.managerEmail ?? 'Chưa có thông tin'} />
                   <Field
                     label="Manager ID"
-                    value={<span className="font-mono text-[11px]">{data.managerId || '—'}</span>}
+                    value={<span className="font-mono text-[11px]">{data.managerId || 'Chưa có thông tin'}</span>}
                     className="col-span-2"
                   />
                 </div>
@@ -147,51 +146,31 @@ export function CafeDetailDialog({ open, onOpenChange, cafeId }: CafeDetailDialo
             {/* Cột phải */}
             <div className="space-y-3 lg:col-span-7">
               <div className="grid gap-3 sm:grid-cols-2">
-                <Panel title="Giờ mở cửa">
-                  <div className="grid grid-cols-1 gap-y-2.5">
-                    <Field
-                      label="T2–T6"
-                      value={formatCafeHours(data.weekdayOpen, data.weekdayClose)}
-                    />
-                    <Field
-                      label="T7–CN"
-                      value={formatCafeHours(data.weekendOpen, data.weekendClose)}
-                    />
+                <Panel title="Quy mô quán">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
+                    <Field label="Số bàn" value={data.numberOfTables ?? 'Chưa có thông tin'} />
+                    <Field label="Số game" value={data.numberOfGamesOwned ?? 'Chưa có thông tin'} />
+                    <Field label="Tổng ghế" value={data.totalSeats ?? 'Chưa có thông tin'} />
+                    <Field label="Số nhân viên" value={data.staffCount ?? 'Chưa có thông tin'} />
                   </div>
                 </Panel>
 
-                <Panel title="Quy mô quán">
+                <Panel title="Giá & thanh toán">
                   <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
-                    <Field label="Số bàn" value={data.numberOfTables ?? '—'} />
-                    <Field label="Phòng riêng" value={data.numberOfPrivateRooms ?? '—'} />
-                    <Field label="Tổng ghế" value={data.totalSeats ?? '—'} />
-                    <Field label="Số game" value={data.numberOfGamesOwned ?? '—'} />
+                    <Field label="Mô hình tính phí" value={data.billingModel ?? 'Chưa có thông tin'} />
+                    <Field label="Giá cơ bản" value={formatCafeMoney(data.basePrice)} />
+                    <Field label="Giá block" value={formatCafeMoney(data.tieredBlockRate)} />
+                    <Field label="Phút / block" value={data.tieredBlockMinutes ?? 'Chưa có thông tin'} />
+                    <Field label="% cọc" value={formatCafePercent(data.depositPercentage)} />
+                    <Field label="SePay" value={formatCafeYesNo(data.hasSePayConfigured)} />
                     <Field
-                      label="Game phổ biến"
-                      value={data.popularGamesList || '—'}
+                      label="Chính sách hoàn cọc"
+                      value={data.depositRefundPolicy || 'Chưa có thông tin'}
                       className="col-span-2"
-                    />
-                    <Field
-                      label="Có host hỗ trợ"
-                      value={formatCafeYesNo(data.hasGameMaster)}
                     />
                   </div>
                 </Panel>
               </div>
-
-              <Panel title="Giá & thanh toán">
-                <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-3 lg:grid-cols-4">
-                  <Field label="Mô hình tính phí" value={data.billingModel ?? '—'} />
-                  <Field label="Giá cơ bản" value={formatCafeMoney(data.basePrice)} />
-                  <Field label="Giá block" value={formatCafeMoney(data.tieredBlockRate)} />
-                  <Field label="Phút / block" value={data.tieredBlockMinutes ?? '—'} />
-                  <Field label="Khóa giá" value={formatCafeYesNo(data.isPricingLocked)} />
-                  <Field label="% cọc" value={formatCafePercent(data.depositPercentage)} />
-                  <Field label="Giữ chỗ (phút)" value={data.defaultHoldDurationMinutes ?? '—'} />
-                  <Field label="Chính sách hoàn cọc" value={data.depositRefundPolicy || '—'} />
-                  <Field label="SePay" value={formatCafeYesNo(data.hasSePayConfigured)} />
-                </div>
-              </Panel>
 
               <Panel title="Thời gian">
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">

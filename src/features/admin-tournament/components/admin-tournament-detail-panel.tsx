@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -176,7 +176,7 @@ export function AdminTournamentDetailPanel({
         cell: ({ row }) => (
           <div>
             <div className="font-medium">
-              {row.original.displayName || row.original.username || '—'}
+              {row.original.displayName || row.original.username || 'Chưa có thông tin'}
             </div>
             <div className="text-xs text-muted-foreground">@{row.original.username}</div>
           </div>
@@ -195,7 +195,7 @@ export function AdminTournamentDetailPanel({
       {
         accessorKey: 'gamerTier',
         header: 'Tier',
-        cell: ({ row }) => row.original.gamerTier || '—',
+        cell: ({ row }) => row.original.gamerTier || 'Chưa có thông tin',
       },
       {
         accessorKey: 'status',
@@ -381,7 +381,7 @@ export function AdminTournamentDetailPanel({
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          <InfoRow label="Mô tả" value={tournament.description?.trim() || '—'} />
+          <InfoRow label="Mô tả" value={tournament.description?.trim() || 'Chưa có thông tin'} />
           <InfoRow
             label="Người chơi"
             value={`${tournament.currentParticipants}/${tournament.maxParticipants}`}

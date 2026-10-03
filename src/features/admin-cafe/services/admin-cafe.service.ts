@@ -1,4 +1,4 @@
-import apiClient from '@/core/api/client';
+﻿import apiClient from '@/core/api/client';
 import type { PaginatedResponse } from '@/shared/types/pagination.interface';
 import type {
   AdminCafe,
@@ -55,7 +55,7 @@ export const AdminCafeService = {
             latitude: detail.latitude || cafe.latitude,
             longitude: detail.longitude || cafe.longitude,
             managerName:
-              cafe.managerName && cafe.managerName !== '—'
+              cafe.managerName && cafe.managerName !== 'Chưa có thông tin'
                 ? cafe.managerName
                 : detail.managerName || cafe.managerName,
           };
