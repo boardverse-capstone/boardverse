@@ -13,25 +13,39 @@ import {
 
 /**
  * Phát hiện lỗi "không đủ VĐV" từ backend khi gọi POST /start.
- * Backend .NET trả message thường có dạng:
- *  - "Số lượng người tham gia không đủ..."
+ * Backend .NET trả status 409 Conflict với message đặc trưng:
+ *  - "Không thể bắt đầu giải: cần tối thiểu 16 người đã check-in,
+ *    hiện tại mới có 6."
+ *  - "Số lượng người tham gia không đủ (tối thiểu X)."
  *  - "Minimum participants not reached"
- *  - "Không đủ tuyển thủ..."
- *  - "Not enough participants"
  * Match theo keyword (lowercase, có thể tiếng Việt/Anh) để quyết định có
  * đề xuất fallback `/start-with-options` hay không. Tránh match quá rộng
  * (chỉ chứa từ "participant") để không false-positive với lỗi khác.
  */
 export function isMinParticipantsError(message: string): boolean {
   const m = message.toLowerCase();
-  return (
-    m.includes("không đủ") ||
-    m.includes("not enough") ||
-    m.includes("minimum participants") ||
-    m.includes("số lượng") ||
-    m.includes("minparticipants") ||
-    (m.includes("participant") && (m.includes("min") || m.includes("minimum")))
-  );
+  // Keyword đặc trưng của lỗi MinParticipants từ BE .NET
+  const directHints = [
+    "không đủ", // "Số lượng... không đủ"
+    "tối thiểu", // "cần tối thiểu 16 người"
+    "số lượng", // "Số lượng người tham gia..."
+    "minparticipants", // camelCase của field
+    "minimum participants",
+    "not enough",
+    "need at least",
+  ];
+  if (directHints.some((h) => m.includes(h))) return true;
+
+  // Fallback: tổ hợp "không thể bắt đầu" + "người" (BE câu mở đầu thường gặp)
+  // kèm "hiện tại"/"đã check-in" — đủ đặc trưng để match message thật.
+  if (
+    m.includes("không thể bắt đầu") &&
+    (m.includes("hiện tại") || m.includes("đã check-in"))
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 export function useTournamentPos(cafeId: string | null) {
