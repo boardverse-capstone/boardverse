@@ -5,6 +5,13 @@ import { CreateTournamentDto } from "../types/tournament.types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   X,
   Trophy,
   Sparkles,
@@ -313,19 +320,25 @@ export function TournamentCreateModal({
                 <label className="font-bold text-neutral-700 block mb-1">
                   Tối đa (Max)
                 </label>
-                <select
-                  value={maxParticipants}
-                  onChange={(e) => setMaxParticipants(Number(e.target.value))}
-                  className="w-full h-9 px-3 rounded-xl border bg-white font-mono font-bold text-neutral-800 outline-none"
-                  aria-describedby="max-participants-hint"
+                <Select
+                  value={String(maxParticipants)}
+                  onValueChange={(v) => setMaxParticipants(Number(v))}
                 >
-                  <option value={4}>4 VĐV (1 bàn)</option>
-                  <option value={8}>8 VĐV (2 bàn)</option>
-                  <option value={12}>12 VĐV (3 bàn)</option>
-                  <option value={16}>16 VĐV (4 bàn)</option>
-                  <option value={20}>20 VĐV (5 bàn)</option>
-                  <option value={32}>32 VĐV (8 bàn)</option>
-                </select>
+                  <SelectTrigger
+                    className="w-full h-9 px-3 rounded-xl border bg-white font-mono font-bold text-neutral-800"
+                    aria-describedby="max-participants-hint"
+                  >
+                    <SelectValue placeholder="Chọn số VĐV tối đa" />
+                  </SelectTrigger>
+                  <SelectContent position="popper" sideOffset={4}>
+                    <SelectItem value="4">4 VĐV (1 bàn)</SelectItem>
+                    <SelectItem value="8">8 VĐV (2 bàn)</SelectItem>
+                    <SelectItem value="12">12 VĐV (3 bàn)</SelectItem>
+                    <SelectItem value="16">16 VĐV (4 bàn)</SelectItem>
+                    <SelectItem value="20">20 VĐV (5 bàn)</SelectItem>
+                    <SelectItem value="32">32 VĐV (8 bàn)</SelectItem>
+                  </SelectContent>
+                </Select>
                 <p
                   id="max-participants-hint"
                   className="mt-1 text-[10px] text-neutral-500 leading-snug"
