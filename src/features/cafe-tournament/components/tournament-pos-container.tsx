@@ -38,6 +38,7 @@ import {
   Lock,
   LayoutGrid,
   Users,
+  RotateCcw,
 } from "lucide-react";
 
 const primaryActionClass =
@@ -162,6 +163,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     handleCreateTournament,
     handleOpenRegistration,
     handleCloseRegistration,
+    handleReopenRegistration,
     handleStartTournament,
     handleAdvanceRound,
     handleCompleteTournament,
@@ -682,6 +684,19 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                       className={cn(secondaryActionClass, "gap-1.5")}
                     >
                       <Swords className="h-3.5 w-3.5" /> Xếp bảng cặp R1
+                    </Button>
+                    <Button
+                      onClick={() =>
+                        handleReopenRegistration(activeTournament.id)
+                      }
+                      variant="outline"
+                      className={cn(
+                        secondaryActionClass,
+                        "gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50",
+                      )}
+                      title="Mở lại form đăng ký (sau khi đã đóng) để tuyển thêm VĐV"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" /> Mở lại đăng ký
                     </Button>
                   </>
                 )}

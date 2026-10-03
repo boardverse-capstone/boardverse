@@ -115,6 +115,26 @@ export function useTournamentPos(cafeId: string | null) {
     }
   };
 
+  // 5c. POST /{tournamentId}/reopen-registration[cite: 1]
+  // Dùng khi manager lỡ tay close form và muốn mở lại để tuyển thêm VĐV
+  // (BE phân biệt open vs reopen: open chỉ áp dụng cho trạng thái
+  // RegistrationClosed → RegistrationOpen với auto-extend; reopen dùng
+  // khi muốn override sau khi auto-extend không đủ).
+  const handleReopenRegistration = async (tournamentId: string) => {
+    try {
+      await apiClient.post(
+        `/api/v1/pos/tournaments/${tournamentId}/reopen-registration`,
+        {},
+      );
+      toast.success(`Đã mở lại đăng ký cho ${titleOf(tournamentId)}.`);
+      await fetchTournaments();
+      return true;
+    } catch (err: any) {
+      toast.error(err?.message || "Lỗi mở lại đăng ký.");
+      return false;
+    }
+  };
+
   // 6. POST /{tournamentId}/start (Build Round 1)[cite: 1]
   const handleStartTournament = async (tournamentId: string) => {
     try {
@@ -307,6 +327,7 @@ const handleUpdateMatchResult = async (dto: UpdateMatchResultDto): Promise<boole
     handleUpdateTournament,
     handleOpenRegistration,
     handleCloseRegistration,
+    handleReopenRegistration,
     handleStartTournament,
     handleAdvanceRound,
     handleCompleteTournament,
