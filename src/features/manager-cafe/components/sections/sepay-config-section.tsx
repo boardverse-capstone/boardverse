@@ -4,6 +4,8 @@ import { useState } from "react";
 import {
   Banknote,
   Building2,
+  ChevronDown,
+  ChevronRight,
   Edit3,
   Loader2,
   Wallet,
@@ -172,6 +174,11 @@ function SePayEditDialog({
   const [apiBaseUrl, setApiBaseUrl] = useState<string>(
     () => "https://pgapi.sepay.vn/",
   );
+  // Ẩn mặc định nhóm "Cấu hình SePay" (Environment, API base URL,
+  // Webhook auth type, Secret key, Webhook token, Merchant ID) — đây
+  // là các field kỹ thuật, manager quán hiếm khi cần đụng. Khi bấm
+  // "Hiển thị cấu hình nâng cao" mới bung ra.
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const mutation = isCreateMode ? createMutation : updateMutation;
   const isSubmitting = mutation.isPending;
@@ -222,11 +229,11 @@ function SePayEditDialog({
           <DialogTitle className="text-base font-bold tracking-tight">
             {isCreateMode ? "Thiết lập SePay" : "Cấu hình SePay"}
           </DialogTitle>
-          <DialogDescription className="text-helper">
+          {/* <DialogDescription className="text-helper">
             {isCreateMode
               ? "POST /api/sepay-accounts/my-cafe"
               : "PUT /api/cafes/{id}/sepay-config"}
-          </DialogDescription>
+          </DialogDescription> */}
         </DialogHeader>
 
         <div className="space-y-3">
@@ -285,119 +292,139 @@ function SePayEditDialog({
               </Field>
             </div>
 
-            {/* Nhóm 2: Cấu hình SePay */}
+            {/* Nhóm 2: Cấu hình SePay (ẩn mặc định, bấm toggle để bung) */}
             <div className="space-y-3 rounded-lg border border-neutral-100 bg-neutral-50/30 p-3">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                Cấu hình SePay
-              </p>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced((v) => !v)}
+                aria-expanded={showAdvanced}
+                aria-controls="sepay-advanced-config"
+                className="w-full flex items-center justify-between gap-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+              >
+                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                  Cấu hình SePay
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-neutral-500">
+                  {showAdvanced ? "Ẩn cấu hình nâng cao" : "Hiển thị cấu hình nâng cao"}
+                  {showAdvanced ? (
+                    <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                  )}
+                </span>
+              </button>
 
-              <Field>
-                <FieldLabel htmlFor="sepay-environment" className="text-sub-label">
-                  Environment
-                </FieldLabel>
-                <select
-                  id="environment"
-                  value={environment}
-                  onChange={(e) =>
-                    setEnvironment(e.target.value as "Production" | "Sandbox")
-                  }
-                  className="w-full h-11 text-base border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-white px-3"
-                >
-                  <option value="Production">Production</option>
-                  <option value="Sandbox">Sandbox</option>
-                </select>
-                <FieldDescription className="text-helper">
-                  Production dùng cho thanh toán thật, Sandbox để tích hợp.
-                </FieldDescription>
-              </Field>
+              {showAdvanced && (
+                <div id="sepay-advanced-config" className="space-y-3">
+                  <Field>
+                    <FieldLabel htmlFor="sepay-environment" className="text-sub-label">
+                      Environment
+                    </FieldLabel>
+                    <select
+                      id="environment"
+                      value={environment}
+                      onChange={(e) =>
+                        setEnvironment(e.target.value as "Production" | "Sandbox")
+                      }
+                      className="w-full h-11 text-base border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-white px-3"
+                    >
+                      <option value="Production">Production</option>
+                      <option value="Sandbox">Sandbox</option>
+                    </select>
+                    <FieldDescription className="text-helper">
+                      Production dùng cho thanh toán thật, Sandbox để tích hợp.
+                    </FieldDescription>
+                  </Field>
 
-              <Field>
-                <FieldLabel htmlFor="sepay-merchant" className="text-sub-label">
-                  Merchant ID
-                </FieldLabel>
-                <Input
-                  id="merchantId"
-                  value={merchantId}
-                  onChange={(e) => setMerchantId(e.target.value)}
-                  placeholder="SP-LIVE-XXXXX"
-                  className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white font-mono text-sm"
-                />
-              </Field>
+                  <Field>
+                    <FieldLabel htmlFor="sepay-merchant" className="text-sub-label">
+                      Merchant ID
+                    </FieldLabel>
+                    <Input
+                      id="merchantId"
+                      value={merchantId}
+                      onChange={(e) => setMerchantId(e.target.value)}
+                      placeholder="SP-LIVE-XXXXX"
+                      className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white font-mono text-sm"
+                    />
+                  </Field>
 
-              <Field>
-                <FieldLabel htmlFor="sepay-apibase" className="text-sub-label">
-                  API base URL
-                </FieldLabel>
-                <Input
-                  id="apiBaseUrl"
-                  value={apiBaseUrl}
-                  onChange={(e) => setApiBaseUrl(e.target.value)}
-                  placeholder="https://pgapi.sepay.vn/"
-                  className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white font-mono text-xs"
-                />
-              </Field>
+                  <Field>
+                    <FieldLabel htmlFor="sepay-apibase" className="text-sub-label">
+                      API base URL
+                    </FieldLabel>
+                    <Input
+                      id="apiBaseUrl"
+                      value={apiBaseUrl}
+                      onChange={(e) => setApiBaseUrl(e.target.value)}
+                      placeholder="https://pgapi.sepay.vn/"
+                      className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white font-mono text-xs"
+                    />
+                  </Field>
 
-              <Field>
-                <FieldLabel htmlFor="sepay-secret" className="text-sub-label">
-                  Secret key
-                </FieldLabel>
-                <Input
-                  id="secretKey"
-                  type="password"
-                  value={secretKey}
-                  onChange={(e) => setSecretKey(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete="off"
-                  className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white font-mono text-sm"
-                />
-                <FieldDescription className="text-helper">
-                  Để trống nếu không dùng. Field này không đọc từ server sau
-                  khi lưu.
-                </FieldDescription>
-              </Field>
+                  <Field>
+                    <FieldLabel htmlFor="sepay-secret" className="text-sub-label">
+                      Secret key
+                    </FieldLabel>
+                    <Input
+                      id="secretKey"
+                      type="password"
+                      value={secretKey}
+                      onChange={(e) => setSecretKey(e.target.value)}
+                      placeholder="••••••••"
+                      autoComplete="off"
+                      className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white font-mono text-sm"
+                    />
+                    <FieldDescription className="text-helper">
+                      Để trống nếu không dùng. Field này không đọc từ server sau
+                      khi lưu.
+                    </FieldDescription>
+                  </Field>
 
-              <Field>
-                <FieldLabel htmlFor="sepay-webhook" className="text-sub-label">
-                  Webhook token
-                </FieldLabel>
-                <Input
-                  id="webhookToken"
-                  type="password"
-                  value={webhookToken}
-                  onChange={(e) => setWebhookToken(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete="off"
-                  className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white font-mono text-sm"
-                />
-              </Field>
+                  <Field>
+                    <FieldLabel htmlFor="sepay-webhook" className="text-sub-label">
+                      Webhook token
+                    </FieldLabel>
+                    <Input
+                      id="webhookToken"
+                      type="password"
+                      value={webhookToken}
+                      onChange={(e) => setWebhookToken(e.target.value)}
+                      placeholder="••••••••"
+                      autoComplete="off"
+                      className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white font-mono text-sm"
+                    />
+                  </Field>
 
-              <Field>
-                <FieldLabel htmlFor="sepay-webhookauth" className="text-sub-label">
-                  Webhook auth type
-                </FieldLabel>
-                <select
-                  id="webhookAuthType"
-                  value={webhookAuthType}
-                  onChange={(e) =>
-                    setWebhookAuthType(
-                      e.target.value as
-                        | "None"
-                        | "Bearer"
-                        | "ApiKey"
-                        | "HmacSha256",
-                    )
-                  }
-                  className="w-full h-11 text-base border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-white px-3"
-                >
-                  <option value="None">None</option>
-                  <option value="Bearer">Bearer</option>
-                  <option value="ApiKey">ApiKey</option>
-                  <option value="HmacSha256">HmacSha256</option>
-                </select>
-                <FieldDescription className="text-helper">
-                  Cách SePay ký webhook callback về hệ thống của bạn.
-                </FieldDescription>
-              </Field>
+                  <Field>
+                    <FieldLabel htmlFor="sepay-webhookauth" className="text-sub-label">
+                      Webhook auth type
+                    </FieldLabel>
+                    <select
+                      id="webhookAuthType"
+                      value={webhookAuthType}
+                      onChange={(e) =>
+                        setWebhookAuthType(
+                          e.target.value as
+                            | "None"
+                            | "Bearer"
+                            | "ApiKey"
+                            | "HmacSha256",
+                        )
+                      }
+                      className="w-full h-11 text-base border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-white px-3"
+                    >
+                      <option value="None">None</option>
+                      <option value="Bearer">Bearer</option>
+                      <option value="ApiKey">ApiKey</option>
+                      <option value="HmacSha256">HmacSha256</option>
+                    </select>
+                    <FieldDescription className="text-helper">
+                      Cách SePay ký webhook callback về hệ thống của bạn.
+                    </FieldDescription>
+                  </Field>
+                </div>
+              )}
             </div>
           </div>
 
