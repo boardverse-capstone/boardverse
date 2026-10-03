@@ -1,17 +1,12 @@
-import PartnerOperationalProfileForm from "@/features/partner/components/partner-operational-profile-form";
+import { OperationalProfileShell } from "@/features/manager-cafe/components/operational-profile-shell";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Cấu Hình Hồ Sơ Vận Hành - Boardverse Manager",
+  title: "Hồ sơ vận hành - Boardverse Manager",
   description:
-    "Hoàn thiện thông tin số bàn, số phòng và danh sách board game để kích hoạt không gian hoạt động của quán.",
+    "Theo dõi trạng thái, giờ mở cửa, thanh toán và thông tin cơ sở. Cập nhật số phòng riêng và cấu hình thanh toán tại đây.",
 };
 
 export default function ManagerOperationalProfilePage() {
-  return (
-    <div className="container mx-auto py-6 px-4">
-      {/* Gọi component form giai đoạn 2 đã xây dựng */}
-      <PartnerOperationalProfileForm />
-    </div>
-  );
+  return <OperationalProfileShell />;
 }

@@ -1,0 +1,400 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-03T04:25:00Z",
+  "title": "Design System: BoardVerse",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Cinnabar Scarlet",
+        "canonical": "oklch(0.505 0.213 27.518)",
+        "approximateHex": "#C10007",
+        "tonalRamp": [
+          "#1F0500",
+          "#3F0900",
+          "#5F0D00",
+          "#801100",
+          "#A01500",
+          "#C10007",
+          "#D43330",
+          "#E7665F",
+          "#F4998F",
+          "#FBC9BF"
+        ],
+        "purpose": "Primary CTAs, active nav item, brand surfaces."
+      },
+      "primary-foreground": {
+        "role": "on-primary",
+        "displayName": "Warm White",
+        "canonical": "oklch(0.971 0.013 17.38)",
+        "approximateHex": "#FEF2F2",
+        "purpose": "Text on primary fills."
+      },
+      "destructive": {
+        "role": "destructive",
+        "displayName": "Signal Red",
+        "canonical": "oklch(0.577 0.245 27.325)",
+        "approximateHex": "#E7000B",
+        "purpose": "Destructive actions, error states, alert banners."
+      },
+      "background": {
+        "role": "page",
+        "displayName": "Pure White",
+        "canonical": "oklch(1 0 0)",
+        "approximateHex": "#FFFFFF",
+        "purpose": "Default page background (light mode)."
+      },
+      "foreground": {
+        "role": "text",
+        "displayName": "Ink",
+        "canonical": "oklch(0.153 0.006 107.1)",
+        "approximateHex": "#0C0C09",
+        "purpose": "Primary text color."
+      },
+      "muted": {
+        "role": "surface-muted",
+        "displayName": "Warm Paper",
+        "canonical": "oklch(0.966 0.005 106.5)",
+        "approximateHex": "#F4F4F0",
+        "purpose": "Muted background for tab strips, hover states, sections."
+      },
+      "muted-foreground": {
+        "role": "text-secondary",
+        "displayName": "Stone",
+        "canonical": "oklch(0.58 0.031 107.3)",
+        "approximateHex": "#7C7C67",
+        "purpose": "Secondary text, helper text, descriptions."
+      },
+      "border": {
+        "role": "border",
+        "displayName": "Hairline",
+        "canonical": "oklch(0.93 0.007 106.5)",
+        "approximateHex": "#E8E8E3",
+        "purpose": "Default 1px border on inputs, cards, dividers."
+      },
+      "ring": {
+        "role": "focus",
+        "displayName": "Focus Halo",
+        "canonical": "oklch(0.737 0.021 106.9)",
+        "approximateHex": "#ABAB9C",
+        "purpose": "Focus ring color; 1px border + 3px halo at 50% opacity."
+      },
+      "label-foreground": {
+        "role": "form-sublabel",
+        "displayName": "Form Sub-label",
+        "canonical": "oklch(0.439 0 0)",
+        "approximateHex": "#707070",
+        "purpose": "Sub-section labels above grouped fields (text-sub-label utility)."
+      },
+      "helper-foreground": {
+        "role": "form-helper",
+        "displayName": "Form Helper",
+        "canonical": "oklch(0.556 0 0)",
+        "approximateHex": "#8E8E8E",
+        "purpose": "Helper text under inputs and unit suffixes inside numeric fields (text-helper, text-unit-suffix utilities)."
+      },
+      "section-foreground": {
+        "role": "form-section-header",
+        "displayName": "Form Section Header",
+        "canonical": "oklch(0.269 0 0)",
+        "approximateHex": "#444444",
+        "purpose": "Roman-numeral section titles inside forms (text-section-header utility)."
+      },
+      "warm-cream": {
+        "role": "decorative",
+        "displayName": "Cream Paper",
+        "canonical": "#F4EFE8",
+        "purpose": "Decorative surface for the login aside and partner-landing hero only. NOT a back-office background."
+      },
+      "warm-cream-deep": {
+        "role": "decorative",
+        "displayName": "Cream Deep",
+        "canonical": "#E8DFCF",
+        "purpose": "Decorative frame for the Board-game.png asset on the login aside."
+      },
+      "ink": {
+        "role": "decorative",
+        "displayName": "Ink",
+        "canonical": "#171717",
+        "purpose": "Pure ink for the partner-landing marketing surface and the painted-black submit button."
+      }
+    },
+    "typographyMeta": {
+      "sans": {
+        "displayName": "Be Vietnam Pro",
+        "purpose": "The only typeface. Body, headings, labels, buttons, navigation. Loaded via next/font/google with the 'vietnamese' and 'latin' subsets; weights 100-900."
+      },
+      "mono": {
+        "displayName": "Geist Mono",
+        "purpose": "Times, dates, and numeric codes. Used sparingly — only for tabular data and the operational profile's working-hours block."
+      },
+      "heading": {
+        "displayName": "Heading (alias of sans)",
+        "purpose": "Same family as sans; no separate display face. Heading hierarchy is carried by size and weight, not by typeface."
+      },
+      "text-sub-label": {
+        "displayName": "Sub-section Label",
+        "cssClass": "text-sub-label",
+        "size": "11px",
+        "weight": 600,
+        "case": "uppercase",
+        "letterSpacing": "0.05em",
+        "colorToken": "label-foreground",
+        "purpose": "Small-caps sub-labels above grouped fields inside forms. Replaces ad-hoc class strings of the form 'text-[11px] font-semibold text-neutral-600 uppercase tracking-wide'."
+      },
+      "text-section-header": {
+        "displayName": "Section Header",
+        "cssClass": "text-section-header",
+        "size": "12px",
+        "weight": 700,
+        "case": "uppercase",
+        "letterSpacing": "0.05em",
+        "colorToken": "section-foreground",
+        "purpose": "Roman-numeral section titles inside forms (I. / II. / III. / IV.). Replaces 'text-xs font-bold text-neutral-800 uppercase tracking-wider'."
+      },
+      "text-helper": {
+        "displayName": "Helper Text",
+        "cssClass": "text-helper",
+        "size": "12px",
+        "weight": 400,
+        "lineHeight": 1.4,
+        "colorToken": "helper-foreground",
+        "purpose": "Helper text under inputs, inline info notes, AlertDialog descriptions. Replaces 'text-xs text-neutral-500 leading-snug'."
+      },
+      "text-unit-suffix": {
+        "displayName": "Unit Suffix",
+        "cssClass": "text-unit-suffix",
+        "size": "12px",
+        "weight": 400,
+        "lineHeight": 1,
+        "colorToken": "helper-foreground",
+        "nonInteractive": true,
+        "purpose": "Right-aligned suffix inside numeric inputs (đ, phút, %). pointer-events: none keeps the suffix from intercepting clicks while the input remains focusable; user-select: none keeps the suffix out of copy-paste."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card-ambient",
+        "value": "0 1px 2px rgba(0,0,0,0.05)",
+        "purpose": "The only shadow on Cards. Near-imperceptible at 1× display; visible when several cards stack."
+      },
+      {
+        "name": "card-ambient-stacked",
+        "value": "0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03)",
+        "purpose": "The more elaborate form ambient used in the partner operational profile and POS feature containers."
+      },
+      {
+        "name": "modal-lift",
+        "value": "0 8px 24px rgba(0,0,0,0.06)",
+        "purpose": "The AlertDialog and partner-registration image lightbox lift. The only place a real shadow earns its keep."
+      },
+      {
+        "name": "active-nav-inset",
+        "value": "inset 3px 0 0 0 var(--primary)",
+        "purpose": "The 3px scarlet inset on the left edge of the active sidebar menu item. Depth comes from color, not shadow."
+      },
+      {
+        "name": "avatar-ring",
+        "value": "0 0 0 2px var(--background)",
+        "purpose": "A 2px ring in the page background color, used to separate stacked avatar images in a group."
+      }
+    ],
+    "motion": [
+      {
+        "name": "color-box-shadow-transition",
+        "value": "transition-[color,box-shadow] outline-none",
+        "purpose": "Default transition for inputs and buttons (color + box-shadow). The cheapest state change the system uses."
+      },
+      {
+        "name": "all-transition",
+        "value": "transition-all",
+        "purpose": "Generic transition for the partner-landing marketing surface (reveal animations, hover states)."
+      },
+      {
+        "name": "reveal-ease",
+        "value": "opacity 0.5s ease, transform 0.5s ease",
+        "purpose": "IntersectionObserver-driven reveal animation on the partner landing. opacity 0→1 and translateY(16px)→0 over 500ms with ease."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" },
+      { "name": "2xl", "value": "1536px" }
+    ],
+    "containerMaxWidth": {
+      "partner-landing": "max-w-7xl (1280px)",
+      "form-card": "max-w-sm to max-w-2xl, depending on the form",
+      "alert-dialog": "max-w-xs (288px) by default, sm:max-w-lg"
+    },
+    "z-index-scale": [
+      { "name": "base", "value": "auto/0" },
+      { "name": "sticky", "value": "z-10" },
+      { "name": "sidebar", "value": "z-10 (fixed inset-y-0)" },
+      { "name": "sheet", "value": "z-50" },
+      { "name": "modal-overlay", "value": "z-50" },
+      { "name": "modal-content", "value": "z-50" },
+      { "name": "toast", "value": "z-50" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The brand button. Scarlet fill, warm-white text, 36px tall, 8px radius. Used for the most important action on any surface.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Lưu hồ sơ vận hành</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid transparent; background: oklch(0.505 0.213 27.518); color: oklch(0.971 0.013 17.38); font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-size: 14px; font-weight: 500; line-height: 1; cursor: pointer; transition: background 150ms ease, transform 80ms ease; outline: none; white-space: nowrap; box-shadow: 0 0 0 0 transparent; } .ds-btn-primary:hover { background: oklch(0.505 0.213 27.518 / 0.8); } .ds-btn-primary:focus-visible { border-color: oklch(0.737 0.021 106.9); box-shadow: 0 0 0 3px oklch(0.737 0.021 106.9 / 0.5); } .ds-btn-primary:active { transform: translateY(1px); } .ds-btn-primary:disabled { opacity: 0.5; pointer-events: none; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary action. White background, 1px hairline border, near-black text. The partner-registration form's 'Quay lại' button uses this idiom.",
+      "html": "<button class=\"ds-btn-outline\" type=\"button\">Hủy</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid oklch(0.93 0.007 106.5); background: oklch(1 0 0); color: oklch(0.153 0.006 107.1); font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-size: 14px; font-weight: 500; line-height: 1; cursor: pointer; transition: background 150ms ease; outline: none; white-space: nowrap; box-shadow: 0 1px 2px rgba(0,0,0,0.05); } .ds-btn-outline:hover { background: oklch(0.966 0.005 106.5); } .ds-btn-outline:focus-visible { border-color: oklch(0.737 0.021 106.9); box-shadow: 0 0 0 3px oklch(0.737 0.021 106.9 / 0.5), 0 1px 2px rgba(0,0,0,0.05); } .ds-btn-outline:disabled { opacity: 0.5; pointer-events: none; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Tertiary action. Transparent at rest, warm-paper background on hover. Used in the sidebar trigger and the breadcrumb separators.",
+      "html": "<button class=\"ds-btn-ghost\" type=\"button\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/></svg><span class=\"ds-sr-only\">Toggle Sidebar</span></button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: oklch(0.153 0.006 107.1); font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-size: 14px; font-weight: 500; line-height: 1; cursor: pointer; transition: background 150ms ease; outline: none; white-space: nowrap; } .ds-btn-ghost:hover { background: oklch(0.966 0.005 106.5); } .ds-btn-ghost:focus-visible { border-color: oklch(0.737 0.021 106.9); box-shadow: 0 0 0 3px oklch(0.737 0.021 106.9 / 0.5); } .ds-btn-ghost:disabled { opacity: 0.5; pointer-events: none; } .ds-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Destructive action. Soft-tint background, destructive-red text. The AlertDialog 'Từ chối' and the inventory 'Xóa' use this.",
+      "html": "<button class=\"ds-btn-destructive\" type=\"button\">Xóa</button>",
+      "css": ".ds-btn-destructive { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid transparent; background: oklch(0.577 0.245 27.325 / 0.10); color: oklch(0.577 0.245 27.325); font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-size: 14px; font-weight: 500; line-height: 1; cursor: pointer; transition: background 150ms ease; outline: none; white-space: nowrap; } .ds-btn-destructive:hover { background: oklch(0.577 0.245 27.325 / 0.20); } .ds-btn-destructive:focus-visible { border-color: oklch(0.577 0.245 27.325 / 0.40); box-shadow: 0 0 0 3px oklch(0.577 0.245 27.325 / 0.20); } .ds-btn-destructive:disabled { opacity: 0.5; pointer-events: none; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "The default text input. 36px tall, 8px radius, 1px hairline border, transparent background. The strongest affordance in the system is the 3px focus halo.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Tên đăng nhập hoặc email\" aria-label=\"Tên đăng nhập hoặc email\" />",
+      "css": ".ds-input { display: block; width: 100%; height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid oklch(0.93 0.007 106.5); background: transparent; color: oklch(0.153 0.006 107.1); font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-size: 16px; line-height: 1.5; transition: color 150ms ease, box-shadow 150ms ease; outline: none; } @media (min-width: 768px) { .ds-input { font-size: 14px; } } .ds-input::placeholder { color: oklch(0.58 0.031 107.3); } .ds-input:focus-visible { border-color: oklch(0.737 0.021 106.9); box-shadow: 0 0 0 3px oklch(0.737 0.021 106.9 / 0.5); } .ds-input:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; } .ds-input[aria-invalid='true'] { border-color: oklch(0.577 0.245 27.325); box-shadow: 0 0 0 3px oklch(0.577 0.245 27.325 / 0.20); }"
+    },
+    {
+      "name": "Card (shadcn)",
+      "kind": "card",
+      "refersTo": "card-default",
+      "description": "The default surface. 14px outer radius, 1px ring in foreground/10, ambient 1px shadow. The form panel, the POS feature container, and the partner data table all use this.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-header\"><h3 class=\"ds-card-title\">Hồ sơ vận hành</h3><p class=\"ds-card-description\">Cấu hình mô hình tính phí và giờ hoạt động.</p></div><div class=\"ds-card-content\">…</div></div>",
+      "css": ".ds-card { display: flex; flex-direction: column; gap: 24px; overflow: hidden; border-radius: 14px; background: oklch(1 0 0); color: oklch(0.153 0.006 107.1); padding: 24px; font-size: 14px; line-height: 1.5; box-shadow: 0 1px 2px rgba(0,0,0,0.05); box-shadow: inset 0 0 0 1px oklch(0.153 0.006 107.1 / 0.10); } .ds-card-header { display: grid; gap: 4px; padding: 0 24px; } .ds-card-title { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-size: 16px; font-weight: 500; line-height: 1.4; color: oklch(0.153 0.006 107.1); } .ds-card-description { font-size: 14px; color: oklch(0.58 0.031 107.3); } .ds-card-content { padding: 0 24px; }"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge-default",
+      "description": "Pill-shaped status and role marker. 20px tall, full radius. The 'Trực tuyến' presence pill and the role chips on the login aside both use this idiom.",
+      "html": "<span class=\"ds-badge ds-badge-default\">Trực tuyến</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: 9999px; border: 1px solid transparent; font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-size: 12px; font-weight: 500; line-height: 1; white-space: nowrap; } .ds-badge-default { background: oklch(0.505 0.213 27.518); color: oklch(0.971 0.013 17.38); } .ds-badge-secondary { background: oklch(0.967 0.001 286.375); color: oklch(0.21 0.006 285.885); } .ds-badge-destructive { background: oklch(0.577 0.245 27.325 / 0.10); color: oklch(0.577 0.245 27.325); } .ds-badge-outline { border-color: oklch(0.93 0.007 106.5); color: oklch(0.153 0.006 107.1); }"
+    },
+    {
+      "name": "Sidebar Menu Item (Active)",
+      "kind": "nav",
+      "refersTo": "nav-active",
+      "description": "The active sidebar route gets a 3px scarlet inset on the left edge, a soft 8% scarlet background fill, and medium-weight text. The unselected state is transparent with sidebar-foreground/70 text.",
+      "html": "<button class=\"ds-nav-item ds-nav-item-active\" type=\"button\"><span class=\"ds-nav-icon ds-nav-icon-active\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/></svg></span><span class=\"ds-nav-label\">Dashboard</span></button>",
+      "css": ".ds-nav-item { display: flex; width: 100%; align-items: center; gap: 8px; overflow: hidden; padding: 8px; border-radius: 8px; font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-size: 14px; line-height: 1.4; color: oklch(0.2 0.012 107.1); transition: background 150ms ease, color 150ms ease; cursor: pointer; outline: none; border: 0; background: transparent; } .ds-nav-item:hover { background: oklch(0.962 0.006 106.5); color: oklch(0.25 0.014 107.4); } .ds-nav-item-active { background: oklch(0.505 0.213 27.518 / 0.08); color: oklch(0.505 0.213 27.518); font-weight: 500; box-shadow: inset 3px 0 0 0 oklch(0.505 0.213 27.518); } .ds-nav-item:focus-visible { box-shadow: 0 0 0 2px oklch(0.737 0.021 106.9); } .ds-nav-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; background: oklch(0.962 0.006 106.5 / 0.7); color: oklch(0.2 0.012 107.1 / 0.7); } .ds-nav-icon-active { background: oklch(0.505 0.213 27.518); color: oklch(0.971 0.013 17.38); box-shadow: 0 1px 2px rgba(0,0,0,0.05); } .ds-nav-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }"
+    },
+    {
+      "name": "Field (Label + Input + Helper)",
+      "kind": "custom",
+      "refersTo": "field",
+      "description": "The form field primitive. Sub-label in 11px small-caps, input below, helper text in muted-foreground, error text in destructive. The 1.5 gap between label and input is the most consistent vertical rhythm in the system.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"numberOfPrivateRooms\">Số phòng riêng (Private Rooms)</label><input class=\"ds-input\" id=\"numberOfPrivateRooms\" type=\"number\" min=\"0\" max=\"500\" /><p class=\"ds-field-description\">Phòng kín dành cho nhóm khách đặt riêng, không tính vào khu vực chung.</p></div>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; width: 100%; } .ds-field-label { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-size: 11px; font-weight: 600; line-height: 1.3; color: oklch(0.58 0.031 107.3); text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; } .ds-field-description { font-size: 12px; line-height: 1.4; color: oklch(0.58 0.031 107.3); } .ds-field[data-invalid='true'] { color: oklch(0.577 0.245 27.325); } .ds-field-error { font-size: 12px; line-height: 1.4; color: oklch(0.577 0.245 27.325); }"
+    },
+    {
+      "name": "AlertDialog",
+      "kind": "custom",
+      "refersTo": "alert-dialog",
+      "description": "Modal confirmation. 12px outer radius, soft 8px 24px shadow, 10% black + 4px backdrop-blur scrim. Default max-width 288px; sm:max-width 512px when the dialog carries a media slot.",
+      "html": "<div class=\"ds-alert-dialog-overlay\"><div class=\"ds-alert-dialog-content\" role=\"alertdialog\"><div class=\"ds-alert-dialog-header\"><h2 class=\"ds-alert-dialog-title\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><line x1=\"12\" y1=\"8\" x2=\"12\" y2=\"12\"/><line x1=\"12\" y1=\"16\" x2=\"12.01\" y2=\"16\"/></svg>Đã lưu hồ sơ vận hành</h2><p class=\"ds-alert-dialog-description\">Mọi thay đổi vừa được áp dụng cho cơ sở của bạn.</p></div><div class=\"ds-alert-dialog-footer\"><button class=\"ds-btn-primary\" type=\"button\">Đóng</button></div></div></div>",
+      "css": ".ds-alert-dialog-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.10); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); } .ds-alert-dialog-content { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 50; display: grid; gap: 24px; width: 100%; max-width: 288px; padding: 20px; border-radius: 12px; background: oklch(1 0 0); color: oklch(0.153 0.006 107.1); box-shadow: 0 8px 24px rgba(0,0,0,0.06); } .ds-alert-dialog-header { display: grid; gap: 6px; } .ds-alert-dialog-title { display: flex; align-items: center; gap: 8px; font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-size: 16px; font-weight: 700; line-height: 1.3; color: oklch(0.153 0.006 107.1); } .ds-alert-dialog-description { font-size: 12px; font-weight: 500; line-height: 1.5; color: oklch(0.58 0.031 107.3); } .ds-alert-dialog-footer { display: flex; gap: 8px; padding-top: 12px; justify-content: flex-end; }"
+    },
+    {
+      "name": "State-Conditional Submit Row (3 states)",
+      "kind": "custom",
+      "refersTo": "submit-row-stateful",
+      "description": "A form's submit row whose primary action adapts to server state. Three branches: standard save (status = ACTIVE/INACTIVE/BANNED/SUSPENDED), activation eligible (status = DATA_BLANK + canActivate = true → opens dialog), activation blocked (status = DATA_BLANK + canActivate = false → disabled CTA + inline blocker list). Both buttons are h-11 (44px). On mobile, flex-col-reverse stacks primary above reset.",
+      "html": "<form class=\"ds-submit-row-form\"><div class=\"ds-submit-row\"><button class=\"ds-btn-ghost\" type=\"button\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\"><path d=\"M3 12a9 9 0 1 0 3-6.7L3 8\"/><path d=\"M3 3v5h5\"/></svg>Đặt lại mặc định</button><button class=\"ds-submit-row-primary\" type=\"button\" disabled aria-busy=\"false\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\"><path d=\"M12 3l1.9 5.9L20 11l-6.1 2.1L12 19l-1.9-5.9L4 11l6.1-2.1L12 3z\"/></svg><span>Kích hoạt quán</span></button></div><div class=\"ds-submit-row-blockers\" role=\"status\" aria-live=\"polite\"><p class=\"ds-submit-row-blockers-label\">Cần hoàn tất trước khi kích hoạt</p><ul class=\"ds-submit-row-blockers-list\"><li class=\"ds-submit-row-blocker\"><span class=\"ds-submit-row-blocker-dot\" aria-hidden></span><span>Hoàn tất thông tin thanh toán (cách tính phí và giá theo giờ)</span></li><li class=\"ds-submit-row-blocker\"><span class=\"ds-submit-row-blocker-dot\" aria-hidden></span><span>Tải lên ít nhất một hình ảnh không gian cơ sở</span></li></ul></div></form>",
+      "css": ".ds-submit-row-form { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; } .ds-submit-row { display: flex; flex-direction: column-reverse; gap: 12px; align-items: stretch; } @media (min-width: 640px) { .ds-submit-row { flex-direction: row; align-items: center; justify-content: space-between; } } .ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: oklch(0.58 0.031 107.3); font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-size: 12px; font-weight: 500; cursor: pointer; transition: color 150ms ease, background 150ms ease; } .ds-btn-ghost:hover { color: oklch(0.153 0.006 107.1); background: oklch(0.966 0.005 106.5); } .ds-btn-ghost:focus-visible { border-color: oklch(0.737 0.021 106.9); box-shadow: 0 0 0 3px oklch(0.737 0.021 106.9 / 0.5); } .ds-btn-ghost:disabled { opacity: 0.5; pointer-events: none; } .ds-submit-row-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; min-width: 180px; padding: 0 20px; border-radius: 8px; border: 1px solid transparent; background: oklch(0.153 0.006 107.1); color: oklch(0.971 0.013 17.38); font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-size: 14px; font-weight: 500; line-height: 1.2; cursor: pointer; transition: background 150ms ease, transform 100ms ease; } @media (min-width: 640px) { .ds-submit-row-primary { align-self: auto; width: auto; } } .ds-submit-row-primary:hover { background: oklch(0.1 0.006 107.1); } .ds-submit-row-primary:focus-visible { border-color: oklch(0.737 0.021 106.9); box-shadow: 0 0 0 3px oklch(0.737 0.021 106.9 / 0.5); } .ds-submit-row-primary:active { transform: translateY(1px); } .ds-submit-row-primary:disabled { opacity: 0.5; pointer-events: none; cursor: not-allowed; } .ds-submit-row-primary[aria-busy='true'] { pointer-events: none; } .ds-submit-row-blockers { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 8px; border: 1px solid oklch(0.93 0.007 106.5); background: oklch(0.966 0.005 106.5 / 0.6); } .ds-submit-row-blockers-label { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-size: 11px; font-weight: 600; line-height: 1.3; color: oklch(0.58 0.031 107.3); text-transform: uppercase; letter-spacing: 0.05em; margin: 0; } .ds-submit-row-blockers-list { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; } .ds-submit-row-blocker { display: flex; align-items: flex-start; gap: 8px; font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-size: 12px; line-height: 1.4; color: oklch(0.577 0.245 27.325); } .ds-submit-row-blocker-dot { display: inline-block; flex-shrink: 0; width: 6px; height: 6px; border-radius: 9999px; background: oklch(0.505 0.213 27.518); margin-top: 6px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Board-Game Café at Office Hours",
+    "overview": "BoardVerse is a back-office for a Vietnamese board-game café during a working shift. The aesthetic is the warmth of a neighborhood parlor — wood, cream paper, a single scarlet accent — translated into a tool that staff and owners can run without ceremony. The product is operational, not aspirational: pages are organized as a ledger, copy is in Vietnamese, and the only design the user feels is that the surface has been considered. The brand lives in a single color (scarlet) and a single typeface (Be Vietnam Pro), not in ornament.\n\nPersonality: warm, Vietnamese-first, ledger-like. Dense enough to hold a working session; generous enough to let the user breathe. The interface recedes; the work advances.\n\nTone of voice: operational clarity. Vietnamese copy throughout the back-office. Marketing-speak and puffery are absent; claims are concrete and verifiable.",
+    "keyCharacteristics": [
+      "One accent color. Scarlet (cinnabar, oklch 0.505 0.213 27.518) is reserved for primary actions and brand surfaces. The neutral palette does the rest of the work.",
+      "One typeface. Be Vietnam Pro carries body, headings, and labels. No display face; no system fallback as a default.",
+      "Flat with focus. Surfaces are flat at rest. The 1px ring + 3px focus shadow is the only depth signal on most controls. Modals and popovers earn their shadow.",
+      "Generous padding. Cards pad at 24–40px. Inputs are 36px tall (touch target 44px). The form breathes.",
+      "Vietnamese-first copy. Every label, button, error, and message is in Vietnamese. The English words that appear (POS, checkout, bracket) are terms of art, not style."
+    ],
+    "rules": [
+      { "name": "The Cinnabar Rule", "section": "colors", "body": "Scarlet is for brand and primary CTAs only — never for backgrounds, banners, chart bars, or decorative fills. Its rarity is the point. If more than ~5% of any given screen is scarlet, the design is misusing the accent." },
+      { "name": "The One Accent Rule", "section": "colors", "body": "The system has exactly one accent color: scarlet. The chart blues and the portal-color sidebar gradients are exceptions with their own roles (data viz, role identification) and must not bleed into the back-office UI." },
+      { "name": "The Cream Paper Rule", "section": "colors", "body": "Warm cream (#F4EFE8 / #E8DFCF) is a decorative surface only — never a back-office page background. It belongs on the login aside and the partner landing hero. The back-office stays on white/cool-paper/warm-paper." },
+      { "name": "The One Voice Rule", "section": "typography", "body": "Be Vietnam Pro is the only typeface. No display face, no alternate serifs, no system-font fallback. The visual hierarchy is carried by size, weight, and case — never by switching the family." },
+      { "name": "The Small-Caps for Labels Rule", "section": "typography", "body": "Sub-section labels are always rendered in SUB_LABEL_CLASS (11px, semibold, uppercase, tracking-wide) — a small-caps idiom that reads as a chapter marker, not a heading. The roman-numeral section headers carry the actual hierarchy." },
+      { "name": "The Form-Typography-Utility Rule", "section": "typography", "body": "Inside forms, never use text-neutral-* Tailwind defaults directly. Use the four utility classes (text-sub-label, text-section-header, text-helper, text-unit-suffix) so the gray tonal ramp stays defined by the system tokens (label-foreground, section-foreground, helper-foreground), not by Tailwind's neutral ramp. This keeps the form's gray warmth consistent across the back-office, even if the design system later retunes the dark-mode values." },
+      { "name": "The Flat-By-Default Rule", "section": "elevation", "body": "Surfaces are flat at rest. Shadows appear only as a response to state (hover, elevation, focus) or to a deliberate modal context. The form does not lift on hover. The card does not lift on hover." },
+      { "name": "The Single-Shadow Rule", "section": "elevation", "body": "A surface gets one shadow family — not a 1px drop plus a 24px ambient. When a card needs more lift, the modal vocabulary (8px 24px) is used, not a hybrid." },
+      { "name": "The Conditional Submit Rule", "section": "components", "body": "A form's primary button never lies. Its label and behavior are driven by server state (operationalStatus, canActivate), not by what's currently in the local form fields. If the cafe is DATA_BLANK, the button is 'Kích hoạt quán' — not 'Lưu'. The submit row is a state-driven affordance, not a free-form 'Save' button." }
+    ],
+    "dos": [
+      "Use scarlet (oklch 0.505 0.213 27.518) for primary CTAs, the active nav item, and brand surfaces only. Keep the accent below ~5% of any given screen.",
+      "Carry hierarchy with size and weight, not typeface switches. Be Vietnam Pro at six sizes, three weights, two cases is the entire type system.",
+      "Use the 1px hairline border (oklch 0.93 0.007 106.5) as the default separator. Reach for a heavier line only when the section break needs to read as deliberate.",
+      "Use h-11 (44px) for the most important button on any page. Use h-9 (36px) for everything else.",
+      "Use rounded-md (8px) for form controls and rounded-xl (14px) for cards. Larger radii are reserved for marketing surfaces.",
+      "Keep the form's breathing room generous. p-6 to p-8 on cards, gap-4 to gap-6 between fields, gap-1.5 between label and input.",
+      "Use the destructive soft-tint (bg-destructive/10 text-destructive) for destructive buttons. Reserve the full destructive fill for inline banners and alert dialogs.",
+      "Write copy in Vietnamese. English is reserved for terms of art (POS, checkout, bracket, settle, signalR).",
+      "Keep validation messages near the input, in Vietnamese, naming the field and the constraint.",
+      "Treat the focus ring (ring-3 ring-ring/50) as the strongest affordance in the system. Every interactive control gets one.",
+      "Drive a form's primary button label from server state, not from the local form fields. A cafe in DATA_BLANK shows 'Kích hoạt quán', not 'Lưu'. Use the State-Conditional Submit Row pattern (flex-col-reverse sm:flex-row sm:justify-between gap-3 + h-11 buttons + optional inline blocker list).",
+      "Use the form-typography utility classes (text-sub-label, text-section-header, text-helper, text-unit-suffix) inside forms instead of writing ad-hoc text-neutral-* class strings. The utility classes map to documented color tokens (label-foreground, section-foreground, helper-foreground) and are rethemeable in one place."
+    ],
+    "donts": [
+      "Don't use gradient text. Emphasis comes from weight or size, not color.",
+      "Don't use glass or blur as a default decoration. The backdrop blur on AlertDialog and on SelectContent is functional (the scrim and the menu), not decorative.",
+      "Don't use a border-left or border-right above 1px on cards, list items, or callouts. The 3px scarlet inset on the active nav item is the only exception.",
+      "Don't reach for hard-offset box-shadow: 4px 4px 0 neobrutalist shadows. The system is not neobrutalist; one such shadow would look like a costume.",
+      "Don't use monospace as a costume for 'technical' rather than for code, data, or measurement (times, prices, codes).",
+      "Don't use a system display face (Impact, Arial Black) as the display voice. There is no display voice. Be Vietnam Pro is the only voice.",
+      "Don't use a Unicode glyph or emoji as a stand-in for an icon. Icons come from lucide-react or @tabler/icons-react, in a single consistent stroke (1.5 or 1.75).",
+      "Don't use the warm cream (#F4EFE8 / #E8DFCF) as a back-office page background. It's a decorative surface for the login aside and the partner landing hero only.",
+      "Don't use the portal-color gradients (rose-orange, emerald-teal, violet-indigo) in the back-office UI. They are sidebar logo gradients only.",
+      "Don't ship a form that congratulates the user for doing nothing. A successful save is one that changed something.",
+      "Don't write a button label that names the channel ('Submit', 'Click here'). Name the action ('Lưu hồ sơ vận hành', 'Mở phiên chơi', 'Bắt đầu ca trực').",
+      "Don't show a generic 'Save' button when the next action is really a state transition. A 'Kích hoạt quán' CTA is a different surface treatment from a 'Lưu' — different icon (Sparkles vs. none), different copy, different type (button vs. submit). The State-Conditional Submit Row pattern documents the three branches.",
+      "Don't write text-neutral-500 / text-neutral-600 / text-neutral-800 directly inside a form. Reach for text-helper / text-sub-label / text-section-header instead. The Tailwind neutrals are an off-ramp from the design system; inside forms, the gray tonal ramp should always be a named utility class."
+    ],
+    "driftNotes": [
+      {
+        "topic": "Font loading",
+        "observation": "src/app/layout.tsx loads three families — Be Vietnam Pro (--font-sans), Geist Sans (--font-geist-sans), and Geist Mono (--font-geist-mono). Only Be Vietnam Pro and Geist Mono are referenced in actual code; Geist Sans is loaded but its CSS variable is never used. The design system does not require Geist Sans."
+      },
+      {
+        "topic": "Portal-color sidebar gradients",
+        "observation": "src/components/layout/app-sidebar.tsx hardcodes three Tailwind named-color gradients per portal role (Admin: rose-500/orange-500/amber-500; Staff: emerald-500/teal-500/cyan-500; Manager: violet-500/indigo-500/blue-500). These bypass the scarlet primary. They are decorative logo gradients and should not bleed into the rest of the UI."
+      },
+      {
+        "topic": "Painted-black submit button",
+        "observation": "src/features/partner/components/partner-operational-profile-form.tsx ships a feature-level exception — a vertical-gradient black submit button with an inset highlight. This is louder than the shadcn primary default and is the most visually prominent element on that page. Treat as a one-off, not a system pattern."
+      },
+      {
+        "topic": "Partner landing hex literals",
+        "observation": "src/features/partner/components/partner-landing.tsx uses hardcoded hex values for the marketing surface (#f6f5f1 page background, #d1f4d6 / #fef3c7 / #fed7aa / #fbd1d1 mock-data tile colors, #16a34a check icon, #166534 dark-green accent on the dashboard tile, #171717 ink). These are decorative marketing assets and should not propagate to back-office surfaces."
+      }
+    ]
+  }
+}

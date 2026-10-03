@@ -502,4 +502,39 @@ export interface SubmitRegistrationResponse {
 
 }
 
+/**
+ * Payload rút gọn cho form đăng ký đối tác — chỉ giữ các trường
+ * user nhập trực tiếp ở FE. Kinh độ/vĩ độ được lấy từ GPS trình duyệt,
+ * businessLicenseImageUrl là secure_url trả về từ Cloudinary.
+ *
+ * POST /api/cafe-partner-applications
+ */
+export interface PartnerRegistrationPayload {
+  cafeName: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  phoneNumber: string;
+  representativeEmail: string;
+  businessLicense: string;
+  businessLicenseImageUrl: string;
+}
+
+/** Server contract for GET /api/cafe-partner/me/operational-profile. */
+export interface OperationalProfileResponse {
+  workingHours?: WorkingHours;
+  numberOfPrivateRooms: number;
+  spaceImageUrls: string[];
+  hasGameMaster: boolean;
+  billingModel: BillingModel;
+  basePrice?: number;
+  tieredBlockRate?: number;
+  tieredBlockMinutes?: number;
+  depositPercentage?: number;
+}
+
+/** Body of PUT /api/cafe-partner/me/operational-profile. */
+export interface OperationalProfileUpdate
+  extends OperationalProfileResponse {}
+
 

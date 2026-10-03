@@ -336,7 +336,7 @@ function MatchResultModalContent({
                           <button
                             type="button"
                             onClick={() => adjustScore(pId, -1)}
-                            className="w-8 h-8 bg-neutral-100 hover:bg-rose-50 hover:text-rose-600 rounded-lg flex items-center justify-center font-black text-neutral-800 active:scale-95 transition-transform"
+                            className="w-8 h-8 bg-neutral-100 hover:bg-rose-50 hover:text-rose-700 rounded-lg flex items-center justify-center font-black text-neutral-800 active:scale-95 transition-transform"
                             title="Giảm 1 điểm"
                           >
                             <Minus className="w-3.5 h-3.5" />
@@ -363,7 +363,7 @@ function MatchResultModalContent({
                         <button
                           type="button"
                           onClick={() => adjustScore(pId, +1)}
-                          className="w-8 h-8 bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-600 rounded-lg flex items-center justify-center font-black text-neutral-800 active:scale-95 transition-transform"
+                          className="w-8 h-8 bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg flex items-center justify-center font-black text-neutral-800 active:scale-95 transition-transform"
                           title="Tăng 1 điểm"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -388,7 +388,7 @@ function MatchResultModalContent({
                         <button
                           type="button"
                           onClick={() => adjustCards(pId, -1)}
-                          className="w-8 h-8 bg-neutral-100 hover:bg-rose-50 hover:text-rose-600 rounded-lg flex items-center justify-center font-black text-neutral-800 active:scale-95 transition-transform"
+                          className="w-8 h-8 bg-neutral-100 hover:bg-rose-50 hover:text-rose-700 rounded-lg flex items-center justify-center font-black text-neutral-800 active:scale-95 transition-transform"
                           title="Giảm 1 thẻ"
                         >
                           <Minus className="w-3.5 h-3.5" />
@@ -415,8 +415,8 @@ function MatchResultModalContent({
                           <button
                             type="button"
                             onClick={() => adjustCards(pId, +1)}
-                            className="w-8 h-8 bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-600 rounded-lg flex items-center justify-center font-black text-neutral-800 active:scale-95 transition-transform"
-                            title="Tăng 1 thẻ"
+className="w-8 h-8 bg-neutral-100 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg flex items-center justify-center font-black text-neutral-800 active:scale-95 transition-transform"
+                          title="Tăng 1 thẻ"
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
@@ -478,17 +478,13 @@ function MatchResultModalContent({
             <Button
               type="submit"
               disabled={isSubmitting}
-              className={`h-9 px-6 text-white text-xs font-bold rounded-xl shadow-xs ${
-                isEditMode
-                  ? "bg-purple-600 hover:bg-purple-700"
-                  : "bg-neutral-950 hover:bg-neutral-800"
-              }`}
+              className="h-9 rounded-xl bg-primary px-6 text-xs font-bold text-primary-foreground shadow-xs hover:bg-primary/90"
             >
               {isSubmitting
                 ? "Đang lưu..."
                 : isEditMode
-                  ? "Cập Nhật Kết Quả (PATCH)"
-                  : "Xác Nhận Kết Quả (POST)"}
+                  ? "Cập Nhật Kết Quả "
+                  : "Xác Nhận Kết Quả "}
             </Button>
           </div>
         </form>
