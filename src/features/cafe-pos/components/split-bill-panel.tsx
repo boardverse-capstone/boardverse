@@ -86,6 +86,15 @@ export function SplitBillPanel({
   const prevSessionKey = useRef(`${cafeId}::${sessionId}`);
   const hasInitializedSelection = useRef(false);
   const notifiedAllPaid = useRef(false);
+  /**
+   * [FIX #split-bill-auto-close] Chỉ auto-fire `onAllPaid` khi staff đã có
+   * tương tác thanh toán thật sự trong phiên này (`payMembers` /
+   * `manualConfirm`). Tránh case load `/payment-status` lần đầu mà BE
+   * trả `totalPaid === totalAmount` (do data cũ, cache, hoặc session
+   * trạng thái khác) → tự đóng modal + xóa session khỏi state dù chưa
+   * thanh toán gì từ flow này.
+   */
+  const hasUserInteracted = useRef(false);
   const onAllPaidRef = useRef(onAllPaid);
   const onQrListChangeRef = useRef(onQrListChange);
   const loadStatusRef = useRef<(opts?: { silent?: boolean }) => Promise<SessionPaymentStatus | null>>(
@@ -232,7 +241,10 @@ export function SplitBillPanel({
             isMemberPaid(m.status, resolvePaidAt(m.memberId, m.paidAt ?? null)),
           );
         const allPaid = totalMatches || allMembersMarkedPaid;
-        if (allPaid && !notifiedAllPaid.current) {
+        // [FIX #split-bill-auto-close] Chỉ auto-fire khi staff đã có tương tác
+        // thanh toán trong phiên này. Tránh BE trả totalPaid === totalAmount
+        // (data cũ, cache, hoặc session khác) khiến modal tự đóng + xóa session.
+        if (allPaid && hasUserInteracted.current && !notifiedAllPaid.current) {
           notifiedAllPaid.current = true;
           onAllPaidRef.current?.();
         }
@@ -267,6 +279,7 @@ export function SplitBillPanel({
     if (isNewSession) {
       // Reset cache khi chuyển session — lần render đầu của session mới.
       setPaymentResultByMember(new Map());
+      hasUserInteracted.current = false;
     }
     void loadStatusRef.current();
   }, [cafeId, sessionId]);
@@ -304,6 +317,9 @@ export function SplitBillPanel({
     }
 
     setBusy(true);
+    // [FIX #split-bill-auto-close] Đánh dấu staff đã có tương tác thanh toán
+    // thực sự — từ giờ `loadStatus` mới được auto-fire `onAllPaid` nếu đủ.
+    hasUserInteracted.current = true;
     try {
       // 1 request BE cho nhiều memberIds — không gọi tuần tự từng người
       const results = await PosCheckInService.payMembers(cafeId, sessionId, {
@@ -355,6 +371,8 @@ export function SplitBillPanel({
 
   const regenerateQr = async (memberId: string) => {
     setBusy(true);
+    // [FIX #split-bill-auto-close] Đánh dấu staff đã tương tác thanh toán.
+    hasUserInteracted.current = true;
     try {
       const row = await PosCheckInService.regenerateMemberQr(
         cafeId,
