@@ -40,6 +40,7 @@ export const ROUTES = {
     REPORTS: '/manager/reports',
   },
   PARTNER: {
+    LANDING: '/partner',
     REGISTER: '/partner/register',
   },
   STAFF: {

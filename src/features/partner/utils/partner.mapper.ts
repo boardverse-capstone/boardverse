@@ -705,3 +705,41 @@ export function formatApiDate(value?: string | null): string {
 }
 
 
+
+/** Normalize the operational-profile contract. Defensive — the BE may
+ *  omit optional pricing fields, or use a non-canonical billing string. */
+export function normalizeOperationalProfileResponse(
+  raw: unknown,
+): import('../types/partner.interface').OperationalProfileResponse {
+  if (!isRecord(raw)) {
+    throw new Error('Phản hồi hồ sơ vận hành không hợp lệ.');
+  }
+
+  const whRaw = isRecord(raw.workingHours) ? raw.workingHours : null;
+  const workingHours: WorkingHours | undefined = whRaw
+    ? {
+        weekdayStart: pickString(whRaw.weekdayStart as string | null | undefined),
+        weekdayEnd: pickString(whRaw.weekdayEnd as string | null | undefined),
+        weekendStart: pickString(whRaw.weekendStart as string | null | undefined),
+        weekendEnd: pickString(whRaw.weekendEnd as string | null | undefined),
+      }
+    : undefined;
+
+  return {
+    workingHours,
+    numberOfPrivateRooms: pickNumber(raw.numberOfPrivateRooms as number | null | undefined) ?? 0,
+    spaceImageUrls: Array.isArray(raw.spaceImageUrls)
+      ? (raw.spaceImageUrls as unknown[]).filter(
+          (u) => typeof u === 'string',
+        )
+      : [],
+    hasGameMaster: pickBoolean(raw.hasGameMaster as boolean | null | undefined),
+    billingModel: normalizeBillingModel(
+      pickString(raw.billingModel as string | null | undefined) || undefined,
+    ),
+    basePrice: pickNumber(raw.basePrice as number | null | undefined),
+    tieredBlockRate: pickNumber(raw.tieredBlockRate as number | null | undefined),
+    tieredBlockMinutes: pickNumber(raw.tieredBlockMinutes as number | null | undefined),
+    depositPercentage: pickNumber(raw.depositPercentage as number | null | undefined),
+  };
+}

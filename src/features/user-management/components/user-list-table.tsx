@@ -243,15 +243,15 @@ export function UserListTable() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-indigo-700">Tổng tài khoản</p>
-          <p className="mt-1 text-2xl font-bold text-indigo-900">{total}</p>
+        <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Tổng tài khoản</p>
+          <p className="mt-1 text-2xl font-bold text-neutral-900">{total}</p>
         </div>
-        <div className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-violet-700">Trang hiện tại</p>
-          <p className="mt-1 text-2xl font-bold text-violet-900">
+        <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Trang hiện tại</p>
+          <p className="mt-1 text-2xl font-bold text-neutral-900">
             {data?.meta.currentPage ?? 1}
-            <span className="text-base font-medium text-violet-600">
+            <span className="text-base font-medium text-neutral-500">
               {' '}
               / {data?.meta.totalPages ?? 1}
             </span>

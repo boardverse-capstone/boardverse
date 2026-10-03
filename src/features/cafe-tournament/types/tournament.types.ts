@@ -95,6 +95,7 @@ export interface TournamentMatch {
 export interface TournamentDetail {
   id: string;
   cafeId: string;
+  cafeName?: string;
   title: string;
   description?: string;
   gameTemplateId?: string;
@@ -105,16 +106,32 @@ export interface TournamentDetail {
   minParticipants: number;
   maxParticipants: number;
   minKarmaRequirement?: number;
+  minEloRequirement?: number;
+  maxEloRequirement?: number;
   winnerKarmaBonus: number;
   finalistKarmaBonus: number;
   noShowKarmaPenalty: number;
   currentRound: number;
   totalRounds: number;
   preliminaryRounds: number;
+  finalistCount?: number;
+  hasThirdPlaceMatch?: boolean;
   status: TournamentStatus;
   registeredCount: number;
   checkedInCount: number;
+  entryFee?: number;
+  pairingMode?: "Auto" | "Manual";
+  manualPairings?: {
+    round1Set: boolean;
+    round2Set: boolean;
+    round3Set: boolean;
+    finalSet: boolean;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+  startedAt?: string | null;
   cancellationReason?: string | null;
+  cancelledAt?: string | null;
   participants?: TournamentParticipant[];
   matches?: TournamentMatch[];
 }

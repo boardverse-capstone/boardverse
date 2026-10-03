@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useTournamentLobby } from "../hooks/useTournamentLobby";
 import { TournamentWalkInModal } from "./tournament-walkin-modal";
 import { TournamentPairingStudioModal } from "./tournament-pairing-studio-modal";
+import { CancelReasonDialog } from "./cancel-reason-dialog";
 import { apiClient } from "@/core/api/client";
 import {
   RoundPairingPreviewResponse,
@@ -69,6 +70,15 @@ export function TournamentLobbyScreen({
   const [showWalkInModal, setShowWalkInModal] = useState(false);
   const [showPairingStudio, setShowPairingStudio] = useState(false);
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
+
+  // Cancel / destructive dialogs
+  const [showCancelTournament, setShowCancelTournament] = useState(false);
+  const [showStartPartial, setShowStartPartial] = useState(false);
+  const [kickTarget, setKickTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [submittingDialog, setSubmittingDialog] = useState(false);
 
   // Preview Data State
   const [previewData, setPreviewData] =
@@ -152,13 +162,20 @@ export function TournamentLobbyScreen({
   };
 
   const handleStartPartial = async () => {
-    const reason = prompt("Lý do khởi chạy tùy chọn / rút gọn:");
-    if (!reason) return;
-    const ok = await handleStartWithOptions({
-      allowPartialStart: true,
-      reason,
-    });
-    if (ok && onTournamentStarted) onTournamentStarted();
+    setShowStartPartial(true);
+  };
+
+  const confirmStartPartial = async (reason: string) => {
+    setSubmittingDialog(true);
+    try {
+      const ok = await handleStartWithOptions({
+        allowPartialStart: true,
+        reason,
+      });
+      if (ok && onTournamentStarted) onTournamentStarted();
+    } finally {
+      setSubmittingDialog(false);
+    }
   };
 
   return (
@@ -219,13 +236,10 @@ export function TournamentLobbyScreen({
 
           <Button
             variant="outline"
-            onClick={() => {
-              const reason = prompt("Lý do hủy giải đấu:");
-              if (reason?.trim()) void handleCancelTournament(reason.trim());
-            }}
+            onClick={() => setShowCancelTournament(true)}
             className="h-9 border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold rounded-xl"
           >
-            <XCircle className="w-3.5 h-3.5 mr-1" /> Hủy Giải
+            <XCircle className="w-3.5 h-3.5 mr-1" /> Hủy giải
           </Button>
         </div>
       </div>
@@ -315,7 +329,7 @@ export function TournamentLobbyScreen({
                 <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-neutral-400" />
                 <Input
                   type="text"
-                  placeholder="Tìm theo tên VĐV..."
+                  placeholder="Tìm theo tên tuyển thủ..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="h-9 pl-8 text-xs bg-neutral-50 rounded-xl"
@@ -435,16 +449,12 @@ export function TournamentLobbyScreen({
                             size="sm"
                             variant="outline"
                             disabled={isActionLoading}
-                            onClick={async () => {
-                              const reason = prompt(
-                                `Nhập lý do xóa VĐV ${displayName}:`,
-                              );
-                              if (reason?.trim()) {
-                                setLoadingActionId(p.id);
-                                await handleKick(p.id, reason.trim());
-                                setLoadingActionId(null);
-                              }
-                            }}
+                            onClick={() =>
+                              setKickTarget({
+                                id: p.id,
+                                name: displayName,
+                              })
+                            }
                             className="h-7 px-2 border-rose-200 text-rose-700 hover:bg-rose-50 text-[10px] font-bold rounded-lg"
                             title="Xóa khỏi giải"
                           >
@@ -561,6 +571,47 @@ export function TournamentLobbyScreen({
         onPairingSaved={() => {
           void fetchParticipants();
           void refreshPairingPreview();
+        }}
+      />
+
+      <CancelReasonDialog
+        open={showCancelTournament}
+        onOpenChange={setShowCancelTournament}
+        scope="tournament"
+        subjectName={tournamentTitle}
+        submitting={submittingDialog}
+        onConfirm={async (reason) => {
+          await handleCancelTournament(reason);
+        }}
+      />
+
+      <CancelReasonDialog
+        open={showStartPartial}
+        onOpenChange={setShowStartPartial}
+        scope="round"
+        subjectName={`Vòng 1 — ${tournamentTitle}`}
+        submitting={submittingDialog}
+        onConfirm={async (reason) => {
+          await confirmStartPartial(reason);
+        }}
+      />
+
+      <CancelReasonDialog
+        open={!!kickTarget}
+        onOpenChange={(open) => {
+          if (!open) setKickTarget(null);
+        }}
+        scope="participant"
+        subjectName={kickTarget?.name}
+        submitting={!!kickTarget && loadingActionId === kickTarget.id}
+        onConfirm={async (reason) => {
+          if (!kickTarget) return;
+          setLoadingActionId(kickTarget.id);
+          try {
+            await handleKick(kickTarget.id, reason);
+          } finally {
+            setLoadingActionId(null);
+          }
         }}
       />
     </div>
