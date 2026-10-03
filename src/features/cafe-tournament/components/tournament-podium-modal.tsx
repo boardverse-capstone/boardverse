@@ -8,6 +8,7 @@ import {
   backdropCloseHandler,
   useDismissOnBackdrop,
 } from "../lib/use-dismiss-on-backdrop";
+import { cn } from "@/lib/utils";
 
 interface Props {
   isOpen: boolean;
@@ -164,10 +165,6 @@ export function TournamentPodiumModal({
                         )}
                       </div>
                     </div>
-
-                    <span className="text-xs font-black font-mono px-3 py-1 bg-white rounded-xl border text-neutral-900 shadow-2xs">
-                      {group.swissScore} Điểm Swiss
-                    </span>
                   </div>
 
                   {/* Danh sách người chơi cùng thứ hạng - Bố trí ngang hàng */}
@@ -191,10 +188,30 @@ export function TournamentPodiumModal({
                             <h4 className="font-black text-xs text-neutral-950 truncate">
                               {displayName}
                             </h4>
-                            <div className="text-[10px] font-mono text-neutral-400 mt-0.5">
-                              Elo: {p.currentElo || p.initialElo || 1200}
-                              {p.isWalkIn && " • Walk-in"}
-                            </div>
+                            {(() => {
+                              const baseElo = p.initialElo ?? 1200;
+                              const delta = p.eloDelta ?? 0;
+                              const deltaSign = delta > 0 ? "+" : "";
+                              const deltaClass =
+                                delta > 0
+                                  ? "text-emerald-700"
+                                  : delta < 0
+                                    ? "text-rose-700"
+                                    : "text-neutral-400";
+                              return (
+                                <div
+                                  className="text-[10px] font-mono text-neutral-400 mt-0.5"
+                                  data-testid="player-elo-line"
+                                >
+                                  Elo: {baseElo}{" "}
+                                  <span className={cn("font-bold", deltaClass)}>
+                                    ({deltaSign}
+                                    {delta})
+                                  </span>
+                                  {p.isWalkIn && " • Walk-in"}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       );
