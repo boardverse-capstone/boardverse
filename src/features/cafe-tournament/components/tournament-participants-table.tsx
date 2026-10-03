@@ -180,7 +180,7 @@ export function TournamentParticipantsTable({
   }, [participants, search, statusFilter]);
   const showActionColumn = !isTournamentCompleted;
   const showSelectColumn = !!onBulkCheckIn && !isTournamentCompleted;
-  const tableColSpan = (showSelectColumn ? 1 : 0) + (showActionColumn ? 5 : 4);
+  const tableColSpan = (showSelectColumn ? 1 : 0) + (showActionColumn ? 4 : 3);
 
   // Selection chỉ áp dụng cho VĐV đang Registered — đây là các hàng
   // có thể check-in. Các hàng đã Active/CheckedIn hoặc Out đều bỏ qua.
@@ -325,7 +325,6 @@ export function TournamentParticipantsTable({
               )}
               <th className="px-4 py-3">Tuyển thủ</th>
               <th className="px-4 py-3">Chỉ số Elo</th>
-              <th className="px-4 py-3">Điểm Swiss</th>
               <th className="px-4 py-3">Trạng thái</th>
               {showActionColumn && (
                 <th className="px-4 py-3 text-right">Thao tác quản trị</th>
@@ -428,14 +427,32 @@ export function TournamentParticipantsTable({
                       </div>
                     </td>
 
-                    {/* Elo */}
+                    {/* Elo: trước giải + delta (sau khi tổng kết) */}
                     <td className="px-4 py-3.5 font-mono text-sm font-medium text-foreground">
-                      {p.currentElo || p.initialElo || 1200}
-                    </td>
-
-                    {/* Điểm Swiss */}
-                    <td className="px-4 py-3.5 font-mono text-sm font-semibold text-foreground">
-                      {p.swissScore ?? 0}đ
+                      {(() => {
+                        const baseElo = p.initialElo ?? 1200;
+                        const delta = p.eloDelta ?? 0;
+                        const deltaColor =
+                          delta > 0
+                            ? "text-emerald-700"
+                            : delta < 0
+                              ? "text-rose-700"
+                              : "text-neutral-400";
+                        return (
+                          <span data-testid="participant-elo-line">
+                            {baseElo}
+                            <span
+                              className={cn(
+                                "ml-1 font-bold tabular-nums",
+                                deltaColor,
+                              )}
+                            >
+                              ({delta > 0 ? "+" : ""}
+                              {delta})
+                            </span>
+                          </span>
+                        );
+                      })()}
                     </td>
 
                     {/* Trạng thái */}
