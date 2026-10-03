@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Loader2, Mail, Lock, ShieldCheck, Users, LayoutGrid, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import { Loader2, Mail, Lock, ShieldCheck, Users, LayoutGrid, Eye, EyeOff, AlertTriangle, Store } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -309,6 +309,27 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
                 'Đăng nhập'
               )}
             </Button>
+
+            {/* Separator + secondary CTA — dành cho chủ quán chưa có tài khoản.
+                Phân tách thị giác bằng đường kẻ mờ + dòng "Hoặc" ở giữa để
+                không cạnh tranh attention với nút Submit chính. */}
+            <div
+              role="separator"
+              aria-orientation="horizontal"
+              className="relative my-1 h-px bg-neutral-200"
+            >
+              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-[11px] font-medium text-neutral-500 uppercase tracking-wider">
+                Hoặc
+              </span>
+            </div>
+
+            <Link
+              href={ROUTES.PARTNER.REGISTER}
+              className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg border border-neutral-900/15 bg-white text-neutral-900 hover:bg-neutral-50 hover:border-neutral-900/30 active:bg-neutral-100 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+            >
+              <Store className="h-4 w-4" aria-hidden />
+              Trở thành đối tác cafe
+            </Link>
 
           </form>
 
