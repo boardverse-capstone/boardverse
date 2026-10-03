@@ -119,7 +119,7 @@ export function InventoryDetailView({ cafeId, inventoryId }: InventoryDetailView
               </h2>
               <div className="flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-violet-700">
                 <span className="size-1.5 rounded-full bg-violet-500 shadow-[0_0_6px_currentColor]" />
-                <span className="truncate">{data.barcode ?? '— KHÔNG CÓ BARCODE —'}</span>
+                <span className="truncate">{data.barcode ?? '— KHÔNG CÓ MÃ VẠCH —'}</span>
               </div>
               {data.condition && (
                 <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-violet-700">
@@ -207,10 +207,10 @@ export function InventoryDetailView({ cafeId, inventoryId }: InventoryDetailView
                         ► Loại
                       </TableHead>
                       <TableHead className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-emerald-800">
-                        ► SL/hộp
+                        ► Số lượng/hộp
                       </TableHead>
                       <TableHead className="font-mono text-[10px] font-extrabold uppercase tracking-widest text-emerald-800">
-                        ► Phạt/đv
+                        ► Phạt/đơn vị
                       </TableHead>
                     </TableRow>
                   </TableHeader>

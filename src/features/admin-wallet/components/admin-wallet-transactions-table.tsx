@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -86,7 +86,7 @@ const columns: ColumnDef<AdminWalletTransaction>[] = [
 
       return (
         <span className="font-mono text-xs text-muted-foreground">
-          {refs.length > 0 ? refs.join(' · ') : '—'}
+          {refs.length > 0 ? refs.join(' · ') : 'Chưa có thông tin'}
         </span>
       );
     },
@@ -96,7 +96,7 @@ const columns: ColumnDef<AdminWalletTransaction>[] = [
     header: 'Ghi chú',
     cell: ({ row }) => (
       <span className="line-clamp-2 text-sm text-muted-foreground">
-        {row.original.note?.trim() || '—'}
+        {row.original.note?.trim() || 'Chưa có thông tin'}
       </span>
     ),
   },

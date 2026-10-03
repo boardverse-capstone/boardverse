@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, type FormEvent } from 'react';
 import { Search } from 'lucide-react';
@@ -125,14 +125,14 @@ export function SystemConfigLookupPanel() {
             </div>
             <div className="sm:col-span-2">
               <p className="text-xs text-muted-foreground">Mô tả</p>
-              <p>{lookup.data.description || '—'}</p>
+              <p>{lookup.data.description || 'Chưa có thông tin'}</p>
             </div>
             <div className="sm:col-span-2">
               <p className="text-xs text-muted-foreground">Cập nhật lúc</p>
               <p>
                 {lookup.data.updatedAt
                   ? new Date(lookup.data.updatedAt).toLocaleString('vi-VN')
-                  : '—'}
+                  : 'Chưa có thông tin'}
               </p>
             </div>
           </div>

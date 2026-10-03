@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -80,9 +80,9 @@ export function AdminFriendReportsPanel() {
         header: 'Người báo cáo',
         cell: ({ row }) => (
           <div>
-            <p className="font-medium">{row.original.reporterUsername || '—'}</p>
+            <p className="font-medium">{row.original.reporterUsername || 'Chưa có thông tin'}</p>
             <p className="font-mono text-xs text-muted-foreground">
-              {row.original.reporterUserId.slice(0, 8) || '—'}
+              {row.original.reporterUserId.slice(0, 8) || 'Chưa có thông tin'}
             </p>
           </div>
         ),
@@ -92,9 +92,9 @@ export function AdminFriendReportsPanel() {
         header: 'Người bị báo cáo',
         cell: ({ row }) => (
           <div>
-            <p className="font-medium">{row.original.targetUsername || '—'}</p>
+            <p className="font-medium">{row.original.targetUsername || 'Chưa có thông tin'}</p>
             <p className="font-mono text-xs text-muted-foreground">
-              {row.original.targetUserId.slice(0, 8) || '—'}
+              {row.original.targetUserId.slice(0, 8) || 'Chưa có thông tin'}
             </p>
           </div>
         ),
@@ -109,7 +109,7 @@ export function AdminFriendReportsPanel() {
         header: 'Nội dung',
         cell: ({ row }) => (
           <p className="line-clamp-2 max-w-sm text-sm" title={row.original.reason}>
-            {row.original.reason || '—'}
+            {row.original.reason || 'Chưa có thông tin'}
           </p>
         ),
       },
@@ -124,7 +124,7 @@ export function AdminFriendReportsPanel() {
         cell: ({ row }) =>
           row.original.createdAt
             ? new Date(row.original.createdAt).toLocaleString('vi-VN')
-            : '—',
+            : 'Chưa có thông tin',
       },
       {
         id: 'actions',
@@ -169,7 +169,7 @@ export function AdminFriendReportsPanel() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold tabular-nums">
-              {status === 'Pending' ? (query.data?.totalItems ?? 0) : '—'}
+              {status === 'Pending' ? (query.data?.totalItems ?? 0) : 'Chưa có thông tin'}
             </p>
           </CardContent>
         </Card>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -104,7 +104,7 @@ export function AdminRefundRequestsPanel() {
         cell: ({ row }) =>
           row.original.createdAt
             ? new Date(row.original.createdAt).toLocaleString('vi-VN')
-            : '—',
+            : 'Chưa có thông tin',
       },
       {
         id: 'actions',

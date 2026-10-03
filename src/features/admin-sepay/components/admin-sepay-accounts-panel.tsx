@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -45,7 +45,7 @@ import {
 } from './sepay-account-form-dialog';
 
 function accountNumberDisplay(account: SePayAccount) {
-  return account.maskedAccountNumber || account.accountNumber || '—';
+  return account.maskedAccountNumber || account.accountNumber || 'Chưa có thông tin';
 }
 
 export function AdminSePayAccountsPanel() {
@@ -86,7 +86,7 @@ export function AdminSePayAccountsPanel() {
         cell: ({ row }) =>
           row.original.accountType === 'Master'
             ? 'BoardVerse'
-            : row.original.cafeName || row.original.cafeId?.slice(0, 8) || '—',
+            : row.original.cafeName || row.original.cafeId?.slice(0, 8) || 'Chưa có thông tin',
       },
       {
         accessorKey: 'bankCode',

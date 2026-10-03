@@ -631,7 +631,7 @@ export function StartSessionModal({
                 className="flex h-9 items-center gap-1.5 rounded-md border-2 border-orange-700 bg-gradient-to-b from-orange-500 to-orange-600 px-4 font-mono text-xs font-extrabold uppercase tracking-widest text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_0_12px_rgba(249,115,22,0.3)] hover:from-orange-500 hover:to-orange-500"
               >
                 <Play className="size-3.5" />
-                <span>{loading ? "Đang xử lý…" : "► XÁC NHẬN MỞ BÀN"}</span>
+                <span>{loading ? "Đang xử lý…" : "XÁC NHẬN MỞ BÀN"}</span>
               </Button>
             </div>
           </div>

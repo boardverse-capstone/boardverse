@@ -549,18 +549,16 @@ export function PayConfirmModal({
             )}
           </div>
 
-          {/* Row: Tiền cọc */}
-          {depositApplied > 0 && (
-            <div className="flex justify-between items-center rounded-lg border border-amber-200/70 bg-white/80 px-3 py-2">
-              <span className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-widest text-amber-700">
-                <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
-                Tiền cọc cấn trừ:
-              </span>
-              <span className="font-mono text-sm font-extrabold uppercase tracking-wide text-amber-600">
-                -{depositApplied.toLocaleString("vi-VN")}đ
-              </span>
-            </div>
-          )}
+          {/* Row: Tiền cọc — luôn hiển thị để nhân viên thấy rõ đã trừ bao nhiêu */}
+          <div className="flex justify-between items-center rounded-lg border border-amber-200/70 bg-white/80 px-3 py-2">
+            <span className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-widest text-amber-700">
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
+              Tiền cọc cấn trừ (BR-09 / BR-22):
+            </span>
+            <span className="font-mono text-sm font-extrabold uppercase tracking-wide text-amber-600">
+              -{depositApplied.toLocaleString("vi-VN")}đ
+            </span>
+          </div>
 
           {/* TỔNG */}
           <div className="relative mt-2 flex justify-between items-center rounded-xl border-2 border-orange-500 bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-3 shadow-[inset_0_-2px_0_rgba(0,0,0,0.2),0_0_12px_rgba(249,115,22,0.4)]">

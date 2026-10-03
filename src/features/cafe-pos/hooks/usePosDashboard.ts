@@ -645,29 +645,6 @@ export function usePosDashboard(opts?: {
     }
   };
 
-  const handleReportInventoryLoss = async (
-    sessionId: string,
-    payload: {
-      sessionGameId: string;
-      missingComponents: Array<{
-        componentTemplateId: string;
-        missingQuantity: number;
-      }>;
-      notes?: string;
-    },
-  ) => {
-    if (!cafeId) return false;
-    try {
-      await PosCheckInService.reportInventoryLoss(cafeId, sessionId, payload);
-      toast.success("Đã ghi nhận hao hụt linh kiện.");
-      await fetchAllData(cafeId);
-      return true;
-    } catch (err: any) {
-      toast.error(err?.message || "Không thể ghi nhận hao hụt linh kiện.");
-      return false;
-    }
-  };
-
   const handlePartialCheckout = async (
     sessionId: string,
     memberUserIds: string[],
@@ -1390,7 +1367,6 @@ const handleFetchBoxHistory = useCallback(
     handleAddGuest,
     handleAttachSessionGame,
     handleAddSessionMembers,
-    handleReportInventoryLoss,
     handlePartialCheckout,
     handleMergeSessionMember,
     handleManualConfirmCash,

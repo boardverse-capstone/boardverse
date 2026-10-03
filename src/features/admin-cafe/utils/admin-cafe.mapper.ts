@@ -1,4 +1,4 @@
-import type { PaginatedResponse } from '@/shared/types/pagination.interface';
+﻿import type { PaginatedResponse } from '@/shared/types/pagination.interface';
 import type {
   AdminCafe,
   AdminCafeDetail,
@@ -87,7 +87,7 @@ export function mapApiAdminCafe(raw: RawAdminCafe): AdminCafe {
     managerId: pickString(raw.managerId, raw.ManagerId),
     managerName: (() => {
       const name = pickString(raw.managerName, raw.ManagerName);
-      if (!name || name.toUpperCase() === 'N/A') return '—';
+      if (!name || name.toUpperCase() === 'N/A') return 'Chưa có thông tin';
       return name;
     })(),
     operationalStatus: resolveOperationalStatus(raw),
@@ -97,7 +97,13 @@ export function mapApiAdminCafe(raw: RawAdminCafe): AdminCafe {
         raw.RefundPolicy,
         raw.depositRefundPolicy,
         raw.DepositRefundPolicy,
-      ) || '—',
+      ) || 'Chưa có thông tin',
+    totalSeats: pickNumber(raw.totalSeats, raw.TotalSeats),
+    numberOfTables: pickNumber(raw.numberOfTables, raw.NumberOfTables),
+    numberOfGamesOwned: pickNumber(raw.numberOfGamesOwned, raw.NumberOfGamesOwned),
+    staffCount: pickNumber(raw.staffCount, raw.StaffCount),
+    depositPercentage: pickNullableNumber(raw.depositPercentage, raw.DepositPercentage),
+    hasSePayConfigured: pickBoolean(raw.hasSePayConfigured, raw.HasSePayConfigured),
     createdAt: pickString(raw.createdAt, raw.CreatedAt),
     isActive: pickBoolean(raw.isActive, raw.IsActive),
   };
@@ -118,19 +124,9 @@ export function mapApiAdminCafeDetail(raw: RawAdminCafe): AdminCafeDetail {
       raw.partnerOperationalStatusChangedAt,
       raw.PartnerOperationalStatusChangedAt,
     ),
-    weekdayOpen: pickNullableString(raw.weekdayOpen, raw.WeekdayOpen),
-    weekdayClose: pickNullableString(raw.weekdayClose, raw.WeekdayClose),
-    weekendOpen: pickNullableString(raw.weekendOpen, raw.WeekendOpen),
-    weekendClose: pickNullableString(raw.weekendClose, raw.WeekendClose),
-    numberOfTables: pickNullableNumber(raw.numberOfTables, raw.NumberOfTables),
     numberOfPrivateRooms: pickNullableNumber(
       raw.numberOfPrivateRooms,
       raw.NumberOfPrivateRooms,
-    ),
-    totalSeats: pickNullableNumber(raw.totalSeats, raw.TotalSeats),
-    numberOfGamesOwned: pickNullableNumber(
-      raw.numberOfGamesOwned,
-      raw.NumberOfGamesOwned,
     ),
     popularGamesList: pickNullableString(raw.popularGamesList, raw.PopularGamesList),
     hasGameMaster: pickBoolean(raw.hasGameMaster, raw.HasGameMaster),
@@ -142,12 +138,10 @@ export function mapApiAdminCafeDetail(raw: RawAdminCafe): AdminCafeDetail {
       raw.TieredBlockMinutes,
     ),
     isPricingLocked: pickBoolean(raw.isPricingLocked, raw.IsPricingLocked),
-    depositPercentage: pickNullableNumber(raw.depositPercentage, raw.DepositPercentage),
     defaultHoldDurationMinutes: pickNullableNumber(
       raw.defaultHoldDurationMinutes,
       raw.DefaultHoldDurationMinutes,
     ),
-    hasSePayConfigured: pickBoolean(raw.hasSePayConfigured, raw.HasSePayConfigured),
     updatedAt: pickNullableString(raw.updatedAt, raw.UpdatedAt),
   };
 }
@@ -168,13 +162,20 @@ export function normalizeAdminCafeListResponse(
 
   const page = Array.isArray(raw)
     ? params.page
-    : pickNumber(raw?.page, raw?.Page, params.page) || params.page;
+    : pickNumber(raw?.pageNumber, raw?.PageNumber, raw?.page, raw?.Page, params.page) || params.page;
   const limit = Array.isArray(raw)
     ? params.limit
-    : pickNumber(raw?.pageSize, raw?.PageSize, params.limit) || params.limit;
+    : pickNumber(raw?.pageSize, raw?.PageSize, raw?.limit, raw?.Limit, params.limit) || params.limit;
   const totalPages =
     (!Array.isArray(raw) && pickNumber(raw?.totalPages, raw?.TotalPages)) ||
     Math.max(1, Math.ceil(totalItems / Math.max(limit, 1)));
+
+  const hasPrevious = Array.isArray(raw)
+    ? params.page > 1
+    : raw?.hasPreviousPage ?? raw?.HasPreviousPage ?? raw?.hasPrevious ?? raw?.HasPrevious ?? page > 1;
+  const hasNext = Array.isArray(raw)
+    ? params.page < totalPages
+    : raw?.hasNextPage ?? raw?.HasNextPage ?? raw?.hasNext ?? raw?.HasNext ?? page < totalPages;
 
   return {
     data,
@@ -183,8 +184,8 @@ export function normalizeAdminCafeListResponse(
       limit,
       totalItems,
       totalPages,
-      hasPrevious: page > 1,
-      hasNext: page < totalPages,
+      hasPrevious,
+      hasNext,
     },
   };
 }
@@ -212,30 +213,30 @@ export function mapOperationalStatusResponse(
 }
 
 export function formatCafeDate(value?: string | null): string {
-  if (!value) return '—';
+  if (!value) return 'Chưa có thông tin';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString('vi-VN');
 }
 
 export function formatCafeCoordinate(value: number): string {
-  if (!Number.isFinite(value)) return '—';
+  if (!Number.isFinite(value) || value === 0) return 'Chưa có thông tin';
   return value.toFixed(6);
 }
 
 export function formatCafeMoney(value?: number | null): string {
-  if (value == null || !Number.isFinite(value)) return '—';
+  if (value == null || !Number.isFinite(value) || value === 0) return 'Chưa có thông tin';
   return `${value.toLocaleString('vi-VN')} đ`;
 }
 
 export function formatCafePercent(value?: number | null): string {
-  if (value == null || !Number.isFinite(value)) return '—';
+  if (value == null || !Number.isFinite(value)) return 'Chưa có thông tin';
   return `${Math.round(value * 100)}%`;
 }
 
 export function formatCafeHours(open?: string | null, close?: string | null): string {
-  if (!open && !close) return '—';
-  return `${open || '—'} – ${close || '—'}`;
+  if (!open && !close) return 'Chưa có thông tin';
+  return `${open || 'Chưa có thông tin'} – ${close || 'Chưa có thông tin'}`;
 }
 
 export function formatCafeYesNo(value: boolean): string {

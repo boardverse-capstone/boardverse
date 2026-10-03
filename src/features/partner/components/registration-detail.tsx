@@ -168,8 +168,14 @@ export function RegistrationDetail({
       </Card>
 
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryChip label="Số bàn" value={application.numberOfTables} />
-        <SummaryChip label="Số game" value={application.numberOfGamesOwned} />
+        <SummaryChip
+          label="Số bàn"
+          value={application.numberOfTables || "Chưa có thông tin"}
+        />
+        <SummaryChip
+          label="Số game"
+          value={application.numberOfGamesOwned || "Chưa có thông tin"}
+        />
         <SummaryChip
           label="Sơ đồ bàn"
           value={
@@ -202,7 +208,7 @@ export function RegistrationDetail({
               />
               <InfoRow
                 label="Giấy phép KD"
-                value={application.businessLicense || "—"}
+                value={application.businessLicense || "Chưa có thông tin"}
               />
             </div>
             {application.businessLicenseImageUrl ? (
@@ -227,11 +233,11 @@ export function RegistrationDetail({
             <div className="grid gap-2 sm:grid-cols-2">
               <InfoRow
                 label="Số bàn công cộng"
-                value={application.numberOfTables}
+                value={application.numberOfTables || "Chưa có thông tin"}
               />
               <InfoRow
                 label="Phòng riêng"
-                value={application.numberOfPrivateRooms}
+                value={application.numberOfPrivateRooms || "Chưa có thông tin"}
               />
               <InfoRow
                 label="Sơ đồ bàn"
@@ -276,11 +282,11 @@ export function RegistrationDetail({
           <CardContent className="grid gap-2">
             <InfoRow
               label="Tổng số game sở hữu"
-              value={application.numberOfGamesOwned}
+              value={application.numberOfGamesOwned || "Chưa có thông tin"}
             />
             <InfoRow
               label="Game phổ biến"
-              value={application.popularGamesList || "—"}
+              value={application.popularGamesList || "Chưa có thông tin"}
             />
           </CardContent>
         </Card>
@@ -321,16 +327,16 @@ export function RegistrationDetail({
               value={
                 application.operationalStatus
                   ? OPERATIONAL_STATUS_LABELS[application.operationalStatus]
-                  : "—"
+                  : "Chưa có thông tin"
               }
             />
             <InfoRow
               label="Người nộp đơn"
-              value={application.submittedByUsername ?? "—"}
+              value={application.submittedByUsername ?? "Chưa có thông tin"}
             />
             <InfoRow
               label="Admin duyệt"
-              value={application.reviewedByAdminUsername ?? "—"}
+              value={application.reviewedByAdminUsername ?? "Chưa có thông tin"}
             />
             <InfoRow
               label="Thời gian nộp"
@@ -354,11 +360,11 @@ export function RegistrationDetail({
             />
             <InfoRow
               label="Mã quán đã tạo"
-              value={application.createdCafeId ?? "—"}
+              value={application.createdCafeId ?? "Chưa có thông tin"}
             />
             <InfoRow
               label="Mã manager đã tạo"
-              value={application.createdManagerUserId ?? "—"}
+              value={application.createdManagerUserId ?? "Chưa có thông tin"}
             />
             {application.submittedByUserId && (
               <InfoRow

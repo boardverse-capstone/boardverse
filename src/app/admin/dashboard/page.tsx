@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 // src/app/admin/dashboard/page.tsx
 import { Activity, Banknote, Building2, Users } from 'lucide-react';
@@ -16,7 +16,7 @@ export default function AdminDashboardPage() {
   const stats = [
     {
       label: 'Tổng người dùng',
-      value: overview.data?.totalUsers.toLocaleString('vi-VN') ?? '—',
+      value: overview.data?.totalUsers.toLocaleString('vi-VN') ?? 'Chưa có thông tin',
       icon: Users,
       color: 'text-blue-500',
     },
@@ -24,13 +24,13 @@ export default function AdminDashboardPage() {
       label: 'Quán đang hoạt động',
       value: overview.data
         ? `${overview.data.activeCafes.toLocaleString('vi-VN')}/${overview.data.totalCafes.toLocaleString('vi-VN')}`
-        : '—',
+        : 'Chưa có thông tin',
       icon: Building2,
       color: 'text-emerald-500',
     },
     {
       label: 'Lobby đang hoạt động',
-      value: overview.data?.activeLobbies.toLocaleString('vi-VN') ?? '—',
+      value: overview.data?.activeLobbies.toLocaleString('vi-VN') ?? 'Chưa có thông tin',
       icon: Activity,
       color: 'text-violet-500',
     },
@@ -38,7 +38,7 @@ export default function AdminDashboardPage() {
       label: 'Tổng doanh thu',
       value: overview.data
         ? `${overview.data.totalRevenue.toLocaleString('vi-VN')} đ`
-        : '—',
+        : 'Chưa có thông tin',
       icon: Banknote,
       color: 'text-amber-500',
     },
@@ -94,23 +94,23 @@ export default function AdminDashboardPage() {
             <CardContent className="pt-6 flex flex-col gap-3">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">User ID</span>
-                <span className="font-mono text-xs">{user?.id ?? '—'}</span>
+                <span className="font-mono text-xs">{user?.id ?? 'Chưa có thông tin'}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Username</span>
-                <span className="font-medium">{user?.username ?? '—'}</span>
+                <span className="font-medium">{user?.username ?? 'Chưa có thông tin'}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Email</span>
-                <span>{user?.email ?? '—'}</span>
+                <span>{user?.email ?? 'Chưa có thông tin'}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Vai trò</span>
-                <Badge variant="secondary">{user?.role ?? '—'}</Badge>
+                <Badge variant="secondary">{user?.role ?? 'Chưa có thông tin'}</Badge>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Provider</span>
-                <span>{user?.provider ?? '—'}</span>
+                <span>{user?.provider ?? 'Chưa có thông tin'}</span>
               </div>
             </CardContent>
           </Card>
