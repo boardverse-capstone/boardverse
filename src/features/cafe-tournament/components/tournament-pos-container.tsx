@@ -20,6 +20,8 @@ import { TournamentParticipantsTable } from "./tournament-participants-table";
 import { TournamentPodiumModal } from "./tournament-podium-modal";
 import { TournamentRowList } from "./tournament-row-list";
 import { CancelReasonDialog } from "./cancel-reason-dialog";
+import { StartWithOptionsDialog } from "./start-with-options-dialog";
+import { isMinParticipantsError } from "../hooks/useTournamentPos";
 import { apiClient } from "@/core/api/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -38,6 +40,7 @@ import {
   Lock,
   LayoutGrid,
   Users,
+  RotateCcw,
 } from "lucide-react";
 
 const primaryActionClass =
@@ -162,11 +165,14 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     handleCreateTournament,
     handleOpenRegistration,
     handleCloseRegistration,
+    handleReopenRegistration,
     handleStartTournament,
+    handleStartWithOptions,
     handleAdvanceRound,
     handleCompleteTournament,
     handleCancelTournament,
     handleCheckInParticipant,
+    handleBulkCheckIn,
     handleNoShowParticipant,
     handleStartMatch,
     handleRecordMatchResult,
@@ -190,6 +196,13 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     id: string;
     name: string;
   } | null>(null);
+  // Đề xuất fallback /start-with-options khi /start fail vì MinParticipants
+  const [startWithOptionsPrompt, setStartWithOptionsPrompt] = useState<{
+    message: string;
+    currentCount: number;
+    minRequired: number;
+  } | null>(null);
+  const [startingWithOptions, setStartingWithOptions] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<TournamentMatch | null>(
     null,
   );
@@ -370,6 +383,17 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     [matches, participantLookup],
   );
 
+  // Memoized count: re-derives only when participants changes.
+  const checkedInCount = useMemo(
+    () =>
+      participants.reduce(
+        (n, p) =>
+          p.status === "CheckedIn" || p.status === "Active" ? n + 1 : n,
+        0,
+      ),
+    [participants],
+  );
+
   // Bắt đầu 1 bàn đấu
   const onStartMatch = async (matchId: string) => {
     if (!activeTournament) return;
@@ -420,11 +444,12 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
 
   // Hủy bàn đấu
   const onCancelMatch = async (matchId: string, reason: string) => {
-    if (!activeTournament) return;
+    if (!activeTournament) return false;
     const ok = await handleCancelMatch(matchId, reason);
     if (ok) {
       await refreshMatches(activeTournament.id, activeTournament.currentRound);
     }
+    return ok;
   };
 
   // Loại VĐV khỏi giải đấu (Kick)
@@ -469,6 +494,31 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
     }
   };
 
+  // Check-in hàng loạt: track các VĐV đang được xử lý để disable row
+  // tương ứng trong lúc chờ BE trả lời (giúp staff tránh click đúp).
+  const [bulkLoadingIds, setBulkLoadingIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+
+  const onBulkCheckIn = async (
+    participantIds: string[],
+  ): Promise<{ ok: number; failed: string[] }> => {
+    if (!activeTournament || participantIds.length === 0) {
+      return { ok: 0, failed: [] };
+    }
+    setBulkLoadingIds(new Set(participantIds));
+    try {
+      const result = await handleBulkCheckIn(
+        activeTournament.id,
+        participantIds,
+      );
+      await refreshParticipants(activeTournament.id);
+      return result;
+    } finally {
+      setBulkLoadingIds(new Set());
+    }
+  };
+
   // No-show
   const onNoShow = async (participantId: string) => {
     if (!activeTournament) return;
@@ -483,6 +533,59 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
       }
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  // Bắt đầu giải với detection MinParticipants.
+  // - Nếu /start OK: giải bắt đầu bình thường.
+  // - Nếu fail vì lỗi khác: toast.error(message) để Manager biết.
+  // - Nếu fail vì "không đủ VĐV": mở dialog đề xuất dùng
+  //   /start-with-options (Manager nhập reducedRounds + reason).
+  const onStartTournament = async () => {
+    if (!activeTournament) return;
+    setActionLoadingId(activeTournament.id);
+    try {
+      const result = await handleStartTournament(activeTournament.id);
+      if (!result.ok) {
+        const message = result.message ?? "Chưa đủ điều kiện bắt đầu giải.";
+        if (isMinParticipantsError(message)) {
+          setStartWithOptionsPrompt({
+            message,
+            currentCount: participants.length,
+            minRequired: activeTournament.minParticipants ?? 0,
+          });
+        } else {
+          toast.error(message);
+        }
+      }
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // Confirm dialog → gọi /start-with-options
+  const onConfirmStartWithOptions = async (dto: {
+    reducedRounds: number;
+    reason: string;
+  }) => {
+    if (!activeTournament) return;
+    setStartingWithOptions(true);
+    try {
+      const result = await handleStartWithOptions(activeTournament.id, {
+        allowPartialStart: true,
+        reducedRounds: dto.reducedRounds,
+        reason: dto.reason,
+      });
+      if (!result.ok) {
+        const message =
+          result.message ?? "Không thể bắt đầu giải với tùy chọn.";
+        toast.error(message);
+      } else {
+        // Sau khi start thành công, refresh VĐV để sync badge trạng thái
+        await refreshParticipants(activeTournament.id);
+      }
+    } finally {
+      setStartingWithOptions(false);
     }
   };
 
@@ -508,7 +611,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
 
   if (loading && !activeTournament) {
     return (
-      <div className="flex h-96 flex-col items-center justify-center space-y-3">
+      <div className="flex h-96 flex-col items-center justify-center gap-3">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         <span className="text-xs font-medium text-muted-foreground">
           Đang nạp dữ liệu giải đấu...
@@ -521,12 +624,9 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
   const isAnyMatchStarted = matches.some(
     (m) => m.status === "OnGoing" || m.status === "Completed",
   );
-  const checkedInCount = participants.filter(
-    (p) => p.status === "CheckedIn" || p.status === "Active",
-  ).length;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4 pb-10">
+    <div className="mx-auto max-w-7xl flex flex-col gap-4 pb-10">
       {/* 1. Header Bar */}
       <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
@@ -560,7 +660,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
         onSelect={setActiveTournament}
         onOpenRegistration={handleOpenRegistration}
         onCloseRegistration={handleCloseRegistration}
-        onStartTournament={handleStartTournament}
+        onStartTournament={onStartTournament}
         onAdvanceRound={handleAdvanceRound}
         onCancelTournament={async (id) => {
           await handleCancelTournament(id, "Không có lý do");
@@ -572,8 +672,8 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
 
       {/* 2. Hero Tournament Card */}
       {activeTournament ? (
-        <div className="space-y-4">
-          <div className="space-y-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
             <div className="flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -636,7 +736,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                 {activeTournament.status === "RegistrationClosed" && (
                   <>
                     <Button
-                      onClick={() => handleStartTournament(activeTournament.id)}
+                      onClick={onStartTournament}
                       className={cn(primaryActionClass, "gap-1.5 px-5")}
                     >
                       <Swords className="h-4 w-4" /> Bắt đầu giải
@@ -647,6 +747,19 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                       className={cn(secondaryActionClass, "gap-1.5")}
                     >
                       <Swords className="h-3.5 w-3.5" /> Xếp bảng cặp R1
+                    </Button>
+                    <Button
+                      onClick={() =>
+                        handleReopenRegistration(activeTournament.id)
+                      }
+                      variant="outline"
+                      className={cn(
+                        secondaryActionClass,
+                        "gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50",
+                      )}
+                      title="Mở lại form đăng ký (sau khi đã đóng) để tuyển thêm VĐV"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" /> Mở lại đăng ký
                     </Button>
                   </>
                 )}
@@ -841,13 +954,13 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
               </div>
 
               {mainView === "MATCHES" ? (
-                <div className="space-y-4 p-4">
+                <div className="flex flex-col gap-4 p-4">
                   {loadingMatches ? (
                     <div className="py-16 text-center text-xs font-medium text-muted-foreground">
                       Đang tải danh sách bàn đấu...
                     </div>
                   ) : normalizedMatches.length === 0 ? (
-                    <div className="space-y-2 rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center">
+                    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center">
                       <Swords className="mx-auto h-8 w-8 text-muted-foreground/50" />
                       <p className="text-sm font-medium text-foreground">
                         Chưa có bàn đấu nào
@@ -863,9 +976,9 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                         return (
                           <div
                             key={id}
-                            className="flex flex-col justify-between space-y-4 rounded-2xl border border-border bg-background p-4 shadow-sm"
+                            className="flex flex-col gap-4 rounded-2xl border border-border bg-background p-4 shadow-sm"
                           >
-                            <div className="space-y-3">
+                            <div className="flex flex-col gap-3">
                               {/* Header Bàn đấu */}
                               <div className="flex items-center justify-between gap-3">
                                 <span className="text-sm font-semibold text-foreground">
@@ -1025,6 +1138,8 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                       await handleKickParticipant(id, reason);
                     }}
                     actionLoadingId={actionLoadingId}
+                    bulkLoadingIds={bulkLoadingIds}
+                    onBulkCheckIn={onBulkCheckIn}
                     isTournamentCompleted={
                       (activeTournament.status as string) === "Completed"
                     }
@@ -1044,6 +1159,8 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
                 await handleKickParticipant(id, reason);
               }}
               actionLoadingId={actionLoadingId}
+              bulkLoadingIds={bulkLoadingIds}
+              onBulkCheckIn={onBulkCheckIn}
               isTournamentCompleted={activeTournament.status === "Completed"}
               onRefresh={() => {
                 if (activeTournament) {
@@ -1068,6 +1185,7 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
         match={selectedMatch}
         onSaveResult={onSaveMatchResult}
         onUpdateResult={onUpdateMatchResult}
+        onCancelMatch={onCancelMatch}
       />
 
       <TournamentCreateModal
@@ -1082,15 +1200,6 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
           onClose={() => setShowPairingStudio(false)}
           tournamentId={activeTournament.id}
           roundNumber={activeTournament.currentRound || 1}
-          onPairingSaved={() => {
-            void fetchTournaments();
-            if (activeTournament.status === "OnGoing") {
-              void refreshMatches(
-                activeTournament.id,
-                activeTournament.currentRound,
-              );
-            }
-          }}
         />
       )}
 
@@ -1121,6 +1230,27 @@ export function TournamentPosContainer({ cafeId }: { cafeId: string | null }) {
               setActionLoadingId(null);
             }
           }}
+        />
+      )}
+
+      {activeTournament && (
+        <StartWithOptionsDialog
+          open={!!startWithOptionsPrompt}
+          onOpenChange={(next) => {
+            if (!next) setStartWithOptionsPrompt(null);
+          }}
+          tournamentTitle={activeTournament.title}
+          currentParticipants={
+            startWithOptionsPrompt?.currentCount ?? participants.length
+          }
+          minParticipants={
+            startWithOptionsPrompt?.minRequired ??
+            activeTournament.minParticipants ??
+            0
+          }
+          reasonFromBackend={startWithOptionsPrompt?.message}
+          submitting={startingWithOptions}
+          onConfirm={onConfirmStartWithOptions}
         />
       )}
 

@@ -34,7 +34,7 @@ export type OperationalStatus = 'DATA_BLANK' | 'ACTIVE' | 'INACTIVE' | 'BANNED' 
 
 
 
-export type BillingModel = 'BY_HOUR' | 'PER_DRINK';
+export type BillingModel = 'ByHour' | 'PerDrink';
 
 
 
@@ -531,6 +531,16 @@ export interface OperationalProfileResponse {
   tieredBlockRate?: number;
   tieredBlockMinutes?: number;
   depositPercentage?: number;
+  /** Tên quán (từ đơn đăng ký) — cho phép manager chỉnh trong form. */
+  cafeName?: string;
+  /** Địa chỉ quán. */
+  address?: string;
+  /** Số điện thoại hotline. */
+  phoneNumber?: string;
+  /** Danh sách board game phổ biến (chuỗi tự do, từ đơn đăng ký). */
+  popularGamesList?: string;
+  /** Số phút giữ chỗ mặc định khi booking. */
+  defaultHoldDurationMinutes?: number;
 }
 
 /** Body of PUT /api/cafe-partner/me/operational-profile. */

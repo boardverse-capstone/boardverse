@@ -14,6 +14,12 @@ export interface ManagerCafe {
   numberOfTables?: number;
   /** Số game đang sở hữu (read-only từ đơn). */
   numberOfGamesOwned?: number;
+  /** Danh sách board game phổ biến (chuỗi tự do). */
+  popularGamesList?: string;
+  /** Số phút giữ chỗ mặc định khi booking. */
+  defaultHoldDurationMinutes?: number;
+  /** Trạng thái duyệt đơn (APPROVED / PENDING / …). */
+  applicationStatus?: string;
   /** true ⇔ đã cấu hình layout bàn trên POS. */
   isTableLayoutConfigured?: boolean;
   /** Lý do dẫn đến trạng thái hiện tại (server-authoritative). */
@@ -49,6 +55,22 @@ export interface ManagerCafeOperationalProfile {
   tieredBlockRate?: number;
   tieredBlockMinutes?: number;
   depositPercentage?: number;
+  /** Tên quán (từ đơn đăng ký) — cho phép manager chỉnh trong form. */
+  cafeName?: string;
+  /** Địa chỉ quán. */
+  address?: string;
+  /** Số điện thoại hotline. */
+  phoneNumber?: string;
+  /** Danh sách board game phổ biến (chuỗi tự do, từ đơn đăng ký). */
+  popularGamesList?: string;
+  /** Số phút giữ chỗ mặc định khi booking. */
+  defaultHoldDurationMinutes?: number;
+  /** Trạng thái duyệt đơn (APPROVED / PENDING / …). */
+  applicationStatus?: string;
+  /** Số bàn đã đăng ký (read-only). */
+  numberOfTables?: number;
+  /** Số game đang sở hữu (read-only). */
+  numberOfGamesOwned?: number;
 }
 
 /** POST /api/manager/cafes/me/activate — phản hồi. */
@@ -67,8 +89,10 @@ export interface ActivateCafeResponse {
 export interface SePayConfig {
   /** Mã ngân hàng (vd: VCB, MB, TCB...). */
   bankCode: string;
-  /** Số tài khoản nhận tiền. */
-  accountNumber: string;
+  /** Số tài khoản nhận tiền (raw — chỉ trả về cho chủ quán). */
+  accountNumber?: string | null;
+  /** Số tài khoản đã mask (vd: ******9924) — BE mặc định trả về. */
+  maskedAccountNumber?: string | null;
   /** Tên chủ tài khoản (optional, dùng để verify). */
   accountHolder?: string | null;
   /** ISO timestamp lần cập nhật gần nhất. */
@@ -169,25 +193,24 @@ export interface UpdatePricingConfigInput {
 export type CafeStaffRole = "CafeStaff" | "ShiftLeader";
 
 export interface CafeStaff {
-  /** UUID của staff assignment. */
-  id: string;
-  /** User ID của staff. */
+  /** User ID của staff (BE không trả id assignment — chỉ userId). */
   userId: string;
-  /** Email đăng nhập (BE trả về để manager dễ nhận diện). */
+  /** Email đăng nhập. */
   email?: string;
-  /** Họ tên hiển thị. */
-  fullName?: string;
-  /** Số điện thoại (optional). */
-  phoneNumber?: string | null;
-  /** Vai trò tại quán. */
-  role: CafeStaffRole;
-  /** ISO timestamp khi gán vào quán. */
-  assignedAt: string;
+  /** Tên đăng nhập. */
+  username?: string;
+  /** ISO timestamp khi staff tham gia. */
+  joinedAt: string;
+  /** Vai trò tại quán (legacy — BE mới bỏ, vẫn optional cho form). */
+  role?: CafeStaffRole;
 }
 
 export interface AddCafeStaffInput {
   email: string;
-  role: CafeStaffRole;
+  /** Tên đăng nhập cho tài khoản mới. */
+  username: string;
+  /** Mật khẩu cho tài khoản mới. */
+  password: string;
 }
 
 /* ──────────────────────────────────────────────────────────────────────

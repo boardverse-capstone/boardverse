@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useCallback } from "react";
 import { apiClient } from "@/core/api/client";
@@ -9,12 +8,63 @@ import {
   RecordMatchResultDto,
   TournamentStatus,
   UpdateMatchResultDto,
+  StartWithOptionsDto,
 } from "../types/tournament.types";
+
+/**
+ * Phát hiện lỗi "không đủ VĐV" từ backend khi gọi POST /start.
+ * Backend .NET trả status 409 Conflict với message đặc trưng:
+ *  - "Không thể bắt đầu giải: cần tối thiểu 16 người đã check-in,
+ *    hiện tại mới có 6."
+ *  - "Số lượng người tham gia không đủ (tối thiểu X)."
+ *  - "Minimum participants not reached"
+ * Match theo keyword (lowercase, có thể tiếng Việt/Anh) để quyết định có
+ * đề xuất fallback `/start-with-options` hay không. Tránh match quá rộng
+ * (chỉ chứa từ "participant") để không false-positive với lỗi khác.
+ */
+export function isMinParticipantsError(message: string): boolean {
+  const m = message.toLowerCase();
+  // Keyword đặc trưng của lỗi MinParticipants từ BE .NET
+  const directHints = [
+    "không đủ", // "Số lượng... không đủ"
+    "tối thiểu", // "cần tối thiểu 16 người"
+    "số lượng", // "Số lượng người tham gia..."
+    "minparticipants", // camelCase của field
+    "minimum participants",
+    "not enough",
+    "need at least",
+  ];
+  if (directHints.some((h) => m.includes(h))) return true;
+
+  // Fallback: tổ hợp "không thể bắt đầu" + "người" (BE câu mở đầu thường gặp)
+  // kèm "hiện tại"/"đã check-in" — đủ đặc trưng để match message thật.
+  if (
+    m.includes("không thể bắt đầu") &&
+    (m.includes("hiện tại") || m.includes("đã check-in"))
+  ) {
+    return true;
+  }
+
+  return false;
+}
 
 export function useTournamentPos(cafeId: string | null) {
   const [tournaments, setTournaments] = useState<TournamentDetail[]>([]);
   const [activeTournament, setActiveTournament] = useState<TournamentDetail | null>(null);
   const [loading, setLoading] = useState(false);
+
+  /**
+   * Resolve tên giải đấu từ id để hiển thị trong toast. Rơi về chuỗi rút gọn
+   * nếu cache chưa sẵn sàng (vd: ngay sau một action thay đổi danh sách).
+   */
+  const titleOf = useCallback(
+    (tournamentId: string): string => {
+      const t = tournaments.find((x) => x.id === tournamentId);
+      if (t) return `"${t.title}"`;
+      return `giải #${tournamentId.slice(0, 6)}`;
+    },
+    [tournaments],
+  );
 
   // 1. GET /cafes/{cafeId}
   const fetchTournaments = useCallback(
@@ -81,7 +131,7 @@ export function useTournamentPos(cafeId: string | null) {
   const handleOpenRegistration = async (tournamentId: string) => {
     try {
       await apiClient.post(`/api/v1/pos/tournaments/${tournamentId}/open-registration`, {});
-      toast.success("Đã mở đăng ký!");
+      toast.success(`Đã mở đăng ký cho ${titleOf(tournamentId)}.`);
       await fetchTournaments();
       return true;
     } catch (err: any) {
@@ -94,7 +144,7 @@ export function useTournamentPos(cafeId: string | null) {
   const handleCloseRegistration = async (tournamentId: string) => {
     try {
       await apiClient.post(`/api/v1/pos/tournaments/${tournamentId}/close-registration`, {});
-      toast.success("Đã đóng đăng ký!");
+      toast.success(`Đã đóng đăng ký cho ${titleOf(tournamentId)}.`);
       await fetchTournaments();
       return true;
     } catch (err: any) {
@@ -103,16 +153,68 @@ export function useTournamentPos(cafeId: string | null) {
     }
   };
 
-  // 6. POST /{tournamentId}/start (Build Round 1)[cite: 1]
-  const handleStartTournament = async (tournamentId: string) => {
+  // 5c. POST /{tournamentId}/reopen-registration[cite: 1]
+  // Dùng khi manager lỡ tay close form và muốn mở lại để tuyển thêm VĐV
+  // (BE phân biệt open vs reopen: open chỉ áp dụng cho trạng thái
+  // RegistrationClosed → RegistrationOpen với auto-extend; reopen dùng
+  // khi muốn override sau khi auto-extend không đủ).
+  const handleReopenRegistration = async (tournamentId: string) => {
     try {
-      await apiClient.post(`/api/v1/pos/tournaments/${tournamentId}/start`, {});
-      toast.success("Giải đấu đã chính thức bắt đầu (Vòng 1)!");
+      await apiClient.post(
+        `/api/v1/pos/tournaments/${tournamentId}/reopen-registration`,
+        {},
+      );
+      toast.success(`Đã mở lại đăng ký cho ${titleOf(tournamentId)}.`);
       await fetchTournaments();
       return true;
     } catch (err: any) {
-      toast.error(err?.message || "Chưa đủ điều kiện bắt đầu giải.");
+      toast.error(err?.message || "Lỗi mở lại đăng ký.");
       return false;
+    }
+  };
+
+  // 6. POST /{tournamentId}/start (Build Round 1)[cite: 1]
+  // Trả về { ok, message? } thay vì auto-toast để caller (UI) có thể
+  // phát hiện lỗi "không đủ VĐV" và đề xuất fallback /start-with-options.
+  // Nếu fail vì lý do khác, caller có thể toast bình thường.
+  const handleStartTournament = async (
+    tournamentId: string,
+  ): Promise<{ ok: boolean; message?: string }> => {
+    try {
+      await apiClient.post(`/api/v1/pos/tournaments/${tournamentId}/start`, {});
+      toast.success(`${titleOf(tournamentId)} đã chính thức bắt đầu — Vòng 1!`);
+      await fetchTournaments();
+      return { ok: true };
+    } catch (err: any) {
+      return {
+        ok: false,
+        message: err?.message || "Chưa đủ điều kiện bắt đầu giải.",
+      };
+    }
+  };
+
+  // 6b. POST /{tournamentId}/start-with-options
+  // Bắt đầu giải với options override (partial start, reduced rounds).
+  // Dùng khi Manager muốn tiến hành dù không đủ MinParticipants.
+  const handleStartWithOptions = async (
+    tournamentId: string,
+    dto: StartWithOptionsDto,
+  ): Promise<{ ok: boolean; message?: string }> => {
+    try {
+      await apiClient.post(
+        `/api/v1/pos/tournaments/${tournamentId}/start-with-options`,
+        dto,
+      );
+      toast.success(
+        `${titleOf(tournamentId)} đã bắt đầu với tùy chọn — Vòng 1!`,
+      );
+      await fetchTournaments();
+      return { ok: true };
+    } catch (err: any) {
+      return {
+        ok: false,
+        message: err?.message || "Không thể bắt đầu giải với tùy chọn.",
+      };
     }
   };
 
@@ -120,7 +222,7 @@ export function useTournamentPos(cafeId: string | null) {
   const handleAdvanceRound = async (tournamentId: string) => {
     try {
       await apiClient.post(`/api/v1/pos/tournaments/${tournamentId}/advance-round`, {});
-      toast.success("Đã chuyển sang vòng đấu tiếp theo!");
+      toast.success(`Đã chuyển ${titleOf(tournamentId)} sang vòng tiếp theo.`);
       await fetchTournaments();
       return true;
     } catch (err: any) {
@@ -133,7 +235,7 @@ export function useTournamentPos(cafeId: string | null) {
   const handleCompleteTournament = async (tournamentId: string) => {
     try {
       await apiClient.post(`/api/v1/pos/tournaments/${tournamentId}/complete`, {});
-      toast.success("Đã hoàn thành giải đấu & đồng bộ Elo/Karma!");
+      toast.success(`Đã hoàn thành ${titleOf(tournamentId)} — Elo & Karma đã đồng bộ!`);
       await fetchTournaments();
       return true;
     } catch (err: any) {
@@ -146,7 +248,7 @@ export function useTournamentPos(cafeId: string | null) {
   const handleCancelTournament = async (tournamentId: string, reason: string) => {
     try {
       await apiClient.post(`/api/v1/pos/tournaments/${tournamentId}/cancel`, { reason });
-      toast.success("Đã hủy giải đấu.");
+      toast.success(`Đã hủy ${titleOf(tournamentId)}.`);
       await fetchTournaments();
       return true;
     } catch (err: any) {
@@ -169,6 +271,48 @@ export function useTournamentPos(cafeId: string | null) {
       toast.error(err?.message || "Lỗi điểm danh VĐV.");
       return false;
     }
+  };
+
+  /**
+   * Check-in hàng loạt — duyệt song song danh sách VĐV đã chọn.
+   * BE chỉ có endpoint đơn lẻ, nên ta loop với Promise.allSettled để:
+   *  - Một VĐV lỗi không chặn các VĐV khác
+   *  - Tổng thời gian ≈ 1 round-trip thay vì N lần nối tiếp
+   * Trả về { ok, failed[] } để UI hiển thị kết quả chi tiết.
+   */
+  const handleBulkCheckIn = async (
+    tournamentId: string,
+    participantIds: string[],
+  ): Promise<{ ok: number; failed: string[] }> => {
+    if (participantIds.length === 0) return { ok: 0, failed: [] };
+
+    const results = await Promise.allSettled(
+      participantIds.map((id) =>
+        apiClient.post(
+          `/api/v1/pos/tournaments/${tournamentId}/participants/${id}/check-in`,
+          {},
+        ),
+      ),
+    );
+
+    const failed: string[] = [];
+    results.forEach((r, idx) => {
+      if (r.status === "rejected") {
+        failed.push(participantIds[idx]!);
+      }
+    });
+
+    const ok = participantIds.length - failed.length;
+    if (ok > 0) {
+      toast.success(
+        `Đã check-in ${ok}/${participantIds.length} VĐV${failed.length > 0 ? ` (${failed.length} lỗi)` : ""}.`,
+      );
+    }
+    if (failed.length > 0 && ok === 0) {
+      toast.error(`Check-in thất bại cho cả ${failed.length} VĐV.`);
+    }
+    await fetchTournaments();
+    return { ok, failed };
   };
 
   const handleNoShowParticipant = async (tournamentId: string, participantId: string) => {
@@ -242,21 +386,6 @@ const handleUpdateMatchResult = async (dto: UpdateMatchResultDto): Promise<boole
       return false;
     }
   };
-  const fetchRoundPairingsPreview = useCallback(
-  async (tournamentId: string, roundNumber: number) => {
-    try {
-      const res: any = await apiClient.get(
-        `/api/v1/pos/tournaments/${tournamentId}/pairings/${roundNumber}/preview`
-      );
-      const resData = res?.data || res;
-      // Trả về pairings hoặc tables từ payload preview
-      return resData?.pairings || resData?.tables || [];
-    } catch (err) {
-      return [];
-    }
-  },
-  []
-);
 
   return {
     tournaments,
@@ -268,16 +397,18 @@ const handleUpdateMatchResult = async (dto: UpdateMatchResultDto): Promise<boole
     handleUpdateTournament,
     handleOpenRegistration,
     handleCloseRegistration,
+    handleReopenRegistration,
     handleStartTournament,
+    handleStartWithOptions,
     handleAdvanceRound,
     handleCompleteTournament,
     handleCancelTournament,
     handleCheckInParticipant,
+    handleBulkCheckIn,
     handleNoShowParticipant,
     handleStartMatch,
     handleRecordMatchResult,
     handleUpdateMatchResult,
     handleCancelMatch,
-    fetchRoundPairingsPreview,
   };
 }

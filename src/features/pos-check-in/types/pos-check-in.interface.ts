@@ -161,7 +161,7 @@ export interface ActivatedSession {
   depositCreditTotal: number;
 }
 
-export type BillingModel = 'BY_HOUR' | 'PER_DRINK';
+export type BillingModel = 'ByHour' | 'PerDrink';
 
 export interface BillLineItem {
   id: string;

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -63,6 +63,24 @@ export function SyncTablesModal({
     { busy: saving },
   );
 
+  // Tự sinh tên bàn tiếp theo: tìm số lớn nhất theo pattern "Bàn N"
+  // (hoặc tên nào có số ở cuối) trong list, +1. Fallback về 1 khi list rỗng
+  // hoặc không tên nào parse được.
+  //
+  // ⚠️ Hook này PHẢI đặt trước `if (!isOpen) return null;` — nếu đặt sau,
+  // render đầu (modal đóng) sẽ return sớm trước khi gọi hook, render sau
+  // (modal mở) lại gọi → React phát hiện hook order bị lệch.
+  const generateNextTableName = useCallback((current: TableItem[]): string => {
+    const usedNumbers = current
+      .map((t) => {
+        const match = (t.name || "").match(/(\d+)\s*$/);
+        return match ? Number.parseInt(match[1], 10) : 0;
+      })
+      .filter((n) => Number.isFinite(n) && n > 0);
+    const max = usedNumbers.length > 0 ? Math.max(...usedNumbers) : 0;
+    return `Bàn ${max + 1}`;
+  }, []);
+
   if (isOpen !== prevIsOpen) {
     setPrevIsOpen(isOpen);
     if (isOpen) {
@@ -83,16 +101,22 @@ export function SyncTablesModal({
   if (!isOpen) return null;
 
   // --- 1. THÊM BÀN MỚI ---
+  // - Nếu input có giá trị: dùng giá trị user gõ.
+  // - Nếu input rỗng: tự sinh tên theo số thứ tự tiếp theo.
+  // - Số ghế mặc định từ stepper (4 nếu chưa đụng).
   const handleAddTable = () => {
-    if (!newTableName.trim()) return;
-    setTablesList((prev) => [
-      ...prev,
-      {
-        name: newTableName.trim(),
-        seatCount: newSeatCount || 4,
-        sortOrder: prev.length,
-      },
-    ]);
+    setTablesList((prev) => {
+      const trimmedName = newTableName.trim();
+      const finalName = trimmedName || generateNextTableName(prev);
+      return [
+        ...prev,
+        {
+          name: finalName,
+          seatCount: Math.max(1, newSeatCount || 4),
+          sortOrder: prev.length,
+        },
+      ];
+    });
     setNewTableName("");
     setNewSeatCount(4);
   };
@@ -221,7 +245,7 @@ export function SyncTablesModal({
         <div className="flex items-center gap-2 bg-neutral-50 p-2 border border-neutral-200 rounded-xl">
           <Input
             type="text"
-            placeholder="Nhập tên bàn mới..."
+            placeholder="Để trống để tự đặt tên Bàn N..."
             value={newTableName}
             onChange={(e) => setNewTableName(e.target.value)}
             onKeyDown={(e) => {

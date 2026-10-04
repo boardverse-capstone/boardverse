@@ -14,6 +14,37 @@ function myCafesPath(role: UserRole | null): string {
   return "/api/manager/my-cafes";
 }
 
+/**
+ * Manager endpoint mới (Boardverse v2): `GET /api/manager/cafes/me` trả về
+ * aggregate của quán hiện tại với shape phẳng:
+ *   { data: { cafeId, applicationId, name, address, ... } }
+ *
+ * Lưu ý: field chính là `cafeId`, không phải `id`. Endpoint cũ
+ * `/api/manager/my-cafes` trả `[]` cho manager đã approved nhưng chưa có
+ * quán active — không còn tác dụng cho flow "lấy cafeId đang làm việc".
+ *
+ * Hàm này parse cả 2 kiểu response:
+ *   - BE wrap:    { data: { cafeId, ... } }
+ *   - BE phẳng:    { cafeId, ... }
+ */
+async function fetchManagerCafeId(): Promise<string | null> {
+  try {
+    const raw: any = await apiClient.get("/api/manager/cafes/me");
+    const data = raw?.data ?? raw ?? {};
+    const cafeId: string | undefined =
+      data?.cafeId ??
+      data?.CafeId ??
+      data?.id ??
+      data?.Id ??
+      data?.cafe?.id ??
+      data?.cafe?.cafeId;
+    return cafeId ?? null;
+  } catch (err) {
+    console.error("[usePosDashboard] Lỗi gọi /api/manager/cafes/me:", err);
+    return null;
+  }
+}
+
 function findSessionByGameId(sessions: any[], sessionGameId: string) {
   return sessions.find((s) =>
     (s.games || []).some(
@@ -509,16 +540,35 @@ export function usePosDashboard(opts?: {
       return;
     }
 
-    const init = async () => {
+const init = async () => {
       try {
-        const res: any = await apiClient.get(myCafesPath(role));
-        const list = res?.data || res || [];
-        if (list.length > 0) {
-          const cid = list[0].id ?? list[0].Id ?? list[0].cafeId;
+        // Ưu tiên endpoint v2 cho Manager — `/api/manager/my-cafes` trả `[]`
+        // cho manager đã approved và không còn tác dụng lấy cafeId hiện tại.
+        let cid: string | null = null;
+        if (role === UserRole.Manager) {
+          cid = await fetchManagerCafeId();
+          if (!cid) {
+            console.warn(
+              "[usePosDashboard] /api/manager/cafes/me không trả cafeId — fallback /api/manager/my-cafes.",
+            );
+            const res: any = await apiClient.get(myCafesPath(role));
+            const list = res?.data || res || [];
+            cid = (list[0]?.id ?? list[0]?.Id ?? list[0]?.cafeId) || null;
+          }
+        } else {
+          const res: any = await apiClient.get(myCafesPath(role));
+          const list = res?.data || res || [];
+          cid = (list[0]?.id ?? list[0]?.Id ?? list[0]?.cafeId) || null;
+        }
+
+        if (cid) {
           setCafeId(cid);
           isInitialFetched.current = true;
           await fetchAllData(cid, { showLoading: true });
         } else {
+          console.warn(
+            "[usePosDashboard] Không lấy được cafeId từ bất kỳ endpoint nào.",
+          );
           setLoading(false);
         }
       } catch (err) {
@@ -1102,18 +1152,51 @@ export function usePosDashboard(opts?: {
   const handleSyncTables = async (
     tablesData: Array<{ name: string; seatCount: number; sortOrder: number }>
   ) => {
-    if (!cafeId) return false;
+    if (!cafeId) {
+      toast.error("Chưa xác định được quán. Vui lòng đăng nhập lại.");
+      return false;
+    }
+    // Validate trước khi gửi — tránh PUT bị backend từ chối vì name rỗng.
+    const cleaned = tablesData
+      .map((t, idx) => ({
+        name: (t.name || "").trim() || `Bàn ${idx + 1}`,
+        seatCount: Math.max(1, Math.min(50, Number(t.seatCount) || 1)),
+        sortOrder: typeof t.sortOrder === "number" ? t.sortOrder : idx,
+      }))
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    if (cleaned.length === 0) {
+      toast.error("Cần ít nhất 1 bàn trong sơ đồ.");
+      return false;
+    }
     try {
       const res: any = await apiClient.put(`/api/cafes/${cafeId}/pos/tables`, {
-        tables: tablesData,
+        tables: cleaned,
       });
       toast.success("Đồng bộ sơ đồ bàn thành công.");
+      const list = (res?.data?.tables ?? res?.data ?? res ?? []) as any[];
       setTables(
-        (res?.data || res || []).sort((a: any, b: any) => a.sortOrder - b.sortOrder)
+        [...list].sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
       );
       return true;
     } catch (err: any) {
-      toast.error(err?.message || "Lỗi đồng bộ sơ đồ bàn.");
+      // BE thường trả về { message, statusCode } — ưu tiên message.
+      const status = err?.response?.status;
+      const data = err?.response?.data;
+      const msg =
+        data?.message ||
+        err?.message ||
+        "Lỗi đồng bộ sơ đồ bàn.";
+      // Log chi tiết để debug khi toast error không đủ thông tin.
+      console.error("[SyncTables] PUT failed", {
+        status,
+        url: `/api/cafes/${cafeId}/pos/tables`,
+        payload: { tables: cleaned },
+        responseData: data,
+        rawError: err,
+      });
+      toast.error(
+        status ? `Lỗi ${status}: ${msg}` : msg
+      );
       return false;
     }
   };

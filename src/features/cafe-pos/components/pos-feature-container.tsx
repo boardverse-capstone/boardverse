@@ -43,6 +43,7 @@ import {
   LobbyMergePendingList,
 } from "@/features/lobby-merge/components/lobby-merge-pending-list";
 import { usePendingMergeRequests } from "@/features/lobby-merge/hooks/useMergeRequests";
+import { useCafeMe } from "@/features/manager-cafe/hooks/useCafeMe";
 import {
   Dialog,
   DialogContent,
@@ -197,6 +198,20 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
       setEndingSession(session);
     },
   });
+
+  /**
+   * Cấu hình sơ đồ bàn được phép ở 2 trạng thái:
+   *  - `DATA_BLANK` (chưa kích hoạt): BẮT BUỘC cho phép — đây là 1 trong các
+   *    điều kiện `activationBlockers` của BE, nếu chặn thì manager bị kẹt
+   *    vòng lặp không thể kích hoạt quán.
+   *  - `ACTIVE`: cho phép bình thường.
+   * Chỉ chặn khi `INACTIVE` (đóng kinh doanh hẳn) — mọi thao tác setup đều bị BE
+   * từ chối. Trước đây gate theo `ACTIVE` là sai nghiệp vụ.
+   */
+  const cafeMeQuery = useCafeMe();
+  const operationalStatus = cafeMeQuery.data?.operationalStatus ?? null;
+  const isCafeClosed = operationalStatus === "INACTIVE";
+  const canConfigureLayout = !isCafeClosed;
 
   /**
    * Chia tiền xong — BE đã xác nhận Paid qua response /payment-status.
@@ -945,8 +960,22 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setIsSyncModalOpen(true)}
-                className="h-9 gap-2 border-2 font-bold uppercase tracking-wider shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] transition-all hover:translate-y-[-1px]"
+                disabled={!canConfigureLayout}
+                onClick={() => {
+                  if (!canConfigureLayout) {
+                    toast.error(
+                      "Quán đã đóng kinh doanh. Không thể thay đổi sơ đồ bàn.",
+                    );
+                    return;
+                  }
+                  setIsSyncModalOpen(true);
+                }}
+                title={
+                  canConfigureLayout
+                    ? undefined
+                    : "Quán đã đóng kinh doanh — không thể đổi sơ đồ bàn."
+                }
+                className="h-9 gap-2 border-2 font-bold uppercase tracking-wider shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] transition-all hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Settings className="size-4" />
                 Cài đặt bàn
@@ -1404,7 +1433,7 @@ export function PosFeatureContainer(props?: { initialBookingCode?: string }) {
         )}
       </div>
 
-      {canConfigureTables && (
+      {canConfigureTables && canConfigureLayout && (
         <SyncTablesModal
           isOpen={isSyncModalOpen}
           onClose={() => setIsSyncModalOpen(false)}

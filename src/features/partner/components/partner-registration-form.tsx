@@ -188,7 +188,12 @@ export default function PartnerRegistrationForm() {
             />
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field>
-                <FieldLabel icon={Mail}>Email người đại diện *</FieldLabel>
+                <FieldLabel icon={Mail}>
+                  <span>
+                    Email người đại diện{" "}
+                    <span className="text-red-600">*</span>
+                  </span>
+                </FieldLabel>
                 <Input
                   type="email"
                   name="representativeEmail"
@@ -200,7 +205,12 @@ export default function PartnerRegistrationForm() {
                 />
               </Field>
               <Field>
-                <FieldLabel icon={Phone}>Số điện thoại hotline *</FieldLabel>
+                <FieldLabel icon={Phone}>
+                  <span>
+                    Số điện thoại hotline{" "}
+                    <span className="text-red-600">*</span>
+                  </span>
+                </FieldLabel>
                 <Input
                   type="text"
                   name="phoneNumber"
@@ -222,7 +232,12 @@ export default function PartnerRegistrationForm() {
             <BentoSectionHeader step={stepII} />
             <div className="mt-6 grid grid-cols-1 gap-4">
               <Field>
-                <FieldLabel icon={Store}>Tên quán cafe *</FieldLabel>
+                <FieldLabel icon={Store}>
+                  <span>
+                    Tên quán cafe{" "}
+                    <span className="text-red-600">*</span>
+                  </span>
+                </FieldLabel>
                 <Input
                   type="text"
                   name="cafeName"
@@ -243,7 +258,10 @@ export default function PartnerRegistrationForm() {
               </Field>
               <Field>
                 <FieldLabel icon={MapPin}>
-                  Địa chỉ chi tiết của quán *
+                  <span>
+                    Địa chỉ chi tiết của quán{" "}
+                    <span className="text-red-600">*</span>
+                  </span>
                 </FieldLabel>
                 <Input
                   type="text"
@@ -265,7 +283,8 @@ export default function PartnerRegistrationForm() {
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-neutral-700" />
                   <span className="text-xs font-bold text-neutral-800 uppercase tracking-[0.12em]">
-                    Vị trí hiện tại của quán *
+                    Vị trí hiện tại của quán{" "}
+                    <span className="text-red-600">*</span>
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -340,7 +359,10 @@ export default function PartnerRegistrationForm() {
             <div className="mt-6 grid grid-cols-1 gap-4">
               <Field>
                 <FieldLabel icon={FileText}>
-                  Mã số giấy phép đăng ký kinh doanh *
+                  <span>
+                    Mã số giấy phép đăng ký kinh doanh{" "}
+                    <span className="text-red-600">*</span>
+                  </span>
                 </FieldLabel>
                 <Input
                   type="text"
@@ -357,7 +379,10 @@ export default function PartnerRegistrationForm() {
               </Field>
               <Field>
                 <FieldLabel icon={ImagePlus}>
-                  Ảnh chụp / file PDF giấy phép kinh doanh *
+                  <span>
+                    Ảnh chụp / file PDF giấy phép kinh doanh{" "}
+                    <span className="text-red-600">*</span>
+                  </span>
                   <span className="ml-1 normal-case font-normal text-neutral-500">
                     (JPEG, PNG, WEBP, PDF — tối đa 5MB)
                   </span>

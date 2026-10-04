@@ -89,6 +89,12 @@ export interface PlayerLocation {
   updatedAt: string | null;
   source: PlayerLocationSource | string | null;
   hasLocation: boolean;
+  // Reverse-geocoded display fields (do BE phân giải từ lat/lng)
+  district: string | null;
+  city: string | null;
+  country: string | null;
+  displayName: string | null;
+  hasResolvedName: boolean;
 }
 
 export interface RawPlayerLocation {
@@ -102,4 +108,15 @@ export interface RawPlayerLocation {
   Source?: string | null;
   hasLocation?: boolean;
   HasLocation?: boolean;
+  // Reverse-geocoded fields — PascalCase + camelCase fallback
+  district?: string | null;
+  District?: string | null;
+  city?: string | null;
+  City?: string | null;
+  country?: string | null;
+  Country?: string | null;
+  displayName?: string | null;
+  DisplayName?: string | null;
+  hasResolvedName?: boolean;
+  HasResolvedName?: boolean;
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PartnerService } from "../services/partner.service";
+import { uploadToCloudinary } from "./useCloudinaryUpload";
 import type {
   BillingModel,
   OperationalStatus,
@@ -22,19 +23,41 @@ export interface OperationalProfileFormState {
   billingModel: BillingModel;
   basePrice: number | undefined;
   tieredBlockRate: number | undefined;
+  /** UI-facing field, user nhập số giờ (vd 0.25 = 15 phút, 1 = 60 phút).
+   *  Hook chuyển sang `tieredBlockMinutes` khi submit để giữ BE contract. */
+  tieredBlockHours: number | undefined;
+  /** Nội bộ: số phút của khung giờ, lưu lên BE. Được derive từ
+   *  `tieredBlockHours` khi set field; không cho user sửa trực tiếp. */
   tieredBlockMinutes: number | undefined;
   depositPercentage: number | undefined;
+  /** Tên quán (cho sửa). */
+  cafeName: string;
+  /** Địa chỉ quán. */
+  address: string;
+  /** Số điện thoại hotline. */
+  phoneNumber: string;
+  /** Danh sách board game phổ biến (chuỗi tự do). */
+  popularGamesList: string;
+  /** Số phút giữ chỗ mặc định khi booking. */
+  defaultHoldDurationMinutes: number | undefined;
 }
 
-export type FieldKey = keyof OperationalProfileFormState;
+export type FieldKey =
+  | keyof OperationalProfileFormState
+  | `workingHours.${keyof WorkingHours}`
+  | `spaceImageUrls.${number}`;
 
-export type FieldErrors = Partial<Record<FieldKey, string>>;
+/** Error map keyed by FieldKey. We type as `Record<string, string>` for
+ *  ergonomic access in components (dot-notation indexes become plain
+ *  string lookups). Each write is constrained at the validate site. */
+export type FieldErrors = Record<string, string>;
 
 /** Cached pricing values per billing model so swapping the radio
  *  doesn't destroy the manager's in-progress work. */
 interface BillingCache {
   basePrice?: number;
   tieredBlockRate?: number;
+  tieredBlockHours?: number;
   tieredBlockMinutes?: number;
   depositPercentage?: number;
 }
@@ -46,14 +69,20 @@ const DEFAULT_FORM: OperationalProfileFormState = {
     weekdayEnd: "22:00",
     weekendEnd: "22:00",
   },
-  numberOfPrivateRooms: undefined,
+  numberOfPrivateRooms: 10,
   spaceImageUrls: [],
   hasGameMaster: true,
-  billingModel: "BY_HOUR",
-  basePrice: undefined,
-  tieredBlockRate: undefined,
-  tieredBlockMinutes: undefined,
-  depositPercentage: undefined,
+  billingModel: "ByHour",
+  basePrice: 100_000,
+  tieredBlockRate: 12_000,
+  tieredBlockHours: 2,
+  tieredBlockMinutes: 120,
+  depositPercentage: 0.15,
+  cafeName: "",
+  address: "",
+  phoneNumber: "",
+  popularGamesList: "",
+  defaultHoldDurationMinutes: 30,
 };
 
 const EMPTY_BILLING_CACHE: BillingCache = {
@@ -77,7 +106,17 @@ function hydrateFromCafe(cafe: ManagerCafe | undefined): OperationalProfileFormS
     basePrice: p.basePrice,
     tieredBlockRate: p.tieredBlockRate,
     tieredBlockMinutes: p.tieredBlockMinutes,
+    tieredBlockHours:
+      p.tieredBlockMinutes !== undefined && p.tieredBlockMinutes !== null
+        ? p.tieredBlockMinutes / 60
+        : undefined,
     depositPercentage: p.depositPercentage,
+    cafeName: p.cafeName ?? cafe.cafeName ?? "",
+    address: p.address ?? cafe.address ?? "",
+    phoneNumber: p.phoneNumber ?? cafe.phoneNumber ?? "",
+    popularGamesList: p.popularGamesList ?? "",
+    defaultHoldDurationMinutes:
+      p.defaultHoldDurationMinutes ?? DEFAULT_FORM.defaultHoldDurationMinutes,
   };
 }
 
@@ -97,8 +136,14 @@ function isSameFormState(
     a.billingModel === b.billingModel &&
     a.basePrice === b.basePrice &&
     a.tieredBlockRate === b.tieredBlockRate &&
+    a.tieredBlockHours === b.tieredBlockHours &&
     a.tieredBlockMinutes === b.tieredBlockMinutes &&
-    a.depositPercentage === b.depositPercentage
+    a.depositPercentage === b.depositPercentage &&
+    a.cafeName === b.cafeName &&
+    a.address === b.address &&
+    a.phoneNumber === b.phoneNumber &&
+    a.popularGamesList === b.popularGamesList &&
+    a.defaultHoldDurationMinutes === b.defaultHoldDurationMinutes
   );
 }
 
@@ -108,6 +153,39 @@ export function validateOperationalProfile(
 ): FieldErrors {
   const out: FieldErrors = {};
 
+  // Thông tin cơ bản
+  if (!data.cafeName || data.cafeName.trim().length < 2) {
+    out.cafeName = "Nhập tên quán từ 2 ký tự trở lên.";
+  } else if (data.cafeName.length > 200) {
+    out.cafeName = "Tên quán tối đa 200 ký tự.";
+  }
+
+  if (!data.address || data.address.trim().length < 5) {
+    out.address = "Nhập địa chỉ quán từ 5 ký tự trở lên.";
+  } else if (data.address.length > 500) {
+    out.address = "Địa chỉ tối đa 500 ký tự.";
+  }
+
+  // SĐT Việt Nam: 10 chữ số, bắt đầu bằng 0
+  const phone = data.phoneNumber.trim();
+  if (!phone) {
+    out.phoneNumber = "Nhập số điện thoại hotline.";
+  } else if (!/^0\d{9}$/.test(phone)) {
+    out.phoneNumber = "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng 0.";
+  }
+
+  if (data.popularGamesList && data.popularGamesList.length > 500) {
+    out.popularGamesList = "Danh sách game phổ biến tối đa 500 ký tự.";
+  }
+
+  // Hold duration: 5–240 phút (4 giờ)
+  const hold = data.defaultHoldDurationMinutes;
+  if (hold === undefined || !Number.isFinite(hold) || hold < 5) {
+    out.defaultHoldDurationMinutes = "Thời gian giữ chỗ tối thiểu 5 phút.";
+  } else if (hold > 240) {
+    out.defaultHoldDurationMinutes = "Thời gian giữ chỗ tối đa 240 phút (4 giờ).";
+  }
+
   const rooms = data.numberOfPrivateRooms;
   if (rooms === undefined || !Number.isFinite(rooms) || rooms < 0) {
     out.numberOfPrivateRooms = "Nhập số phòng riêng từ 0 đến 500.";
@@ -115,7 +193,68 @@ export function validateOperationalProfile(
     out.numberOfPrivateRooms = "Tối đa 500 phòng riêng.";
   }
 
-  if (data.billingModel === "BY_HOUR") {
+  // Validate workingHours (HH:MM, 00:00–23:59)
+  const wh = data.workingHours;
+  const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const validateTime = (value: string | undefined, label: string): string | null => {
+    if (!value || !TIME_RE.test(value)) return `${label} phải có dạng HH:MM (00:00–23:59).`;
+    return null;
+  };
+  const whFields: Array<[keyof WorkingHours, string]> = [
+    ["weekdayStart", "Giờ mở cửa ngày thường"],
+    ["weekdayEnd", "Giờ đóng cửa ngày thường"],
+    ["weekendStart", "Giờ mở cửa cuối tuần"],
+    ["weekendEnd", "Giờ đóng cửa cuối tuần"],
+  ];
+  for (const [key, label] of whFields) {
+    const err = validateTime(wh[key], label);
+    if (err) {
+      (out as Record<string, string>)[`workingHours.${key}`] = err;
+    }
+  }
+  // Mở phải trước đóng (cùng loại ngày)
+  const toMinutes = (s: string) => {
+    const [h, m] = s.split(":").map(Number);
+    return h * 60 + m;
+  };
+  // Mỗi khung giờ mở cửa không được dài quá 24h (= 1440 phút).
+  // Lưu ý: input time chỉ trong 0-23:59, nên duration thực tế luôn
+  // < 1440. Check này là defensive để phát hiện edge case nếu format
+  // thay đổi hoặc BE trả về giờ 24:00 trong tương lai.
+  const MAX_SHIFT_MINUTES = 24 * 60;
+  const errStore = out as Record<string, string>;
+  if (
+    !errStore["workingHours.weekdayStart"] &&
+    !errStore["workingHours.weekdayEnd"] &&
+    wh.weekdayStart &&
+    wh.weekdayEnd
+  ) {
+    const duration = toMinutes(wh.weekdayEnd) - toMinutes(wh.weekdayStart);
+    if (duration <= 0) {
+      errStore["workingHours.weekdayEnd"] =
+        "Giờ đóng phải sau giờ mở (ngày thường).";
+    } else if (duration > MAX_SHIFT_MINUTES) {
+      errStore["workingHours.weekdayEnd"] =
+        "Độ dài mỗi khung giờ tối đa 24 giờ (ngày thường).";
+    }
+  }
+  if (
+    !errStore["workingHours.weekendStart"] &&
+    !errStore["workingHours.weekendEnd"] &&
+    wh.weekendStart &&
+    wh.weekendEnd
+  ) {
+    const duration = toMinutes(wh.weekendEnd) - toMinutes(wh.weekendStart);
+    if (duration <= 0) {
+      errStore["workingHours.weekendEnd"] =
+        "Giờ đóng phải sau giờ mở (cuối tuần).";
+    } else if (duration > MAX_SHIFT_MINUTES) {
+      errStore["workingHours.weekendEnd"] =
+        "Độ dài mỗi khung giờ tối đa 24 giờ (cuối tuần).";
+    }
+  }
+
+  if (data.billingModel === "ByHour") {
     const base = data.basePrice;
     if (base === undefined || !Number.isFinite(base) || base < 0) {
       out.basePrice = "Nhập giá giờ đầu từ 0 đến 1.000.000đ.";
@@ -134,13 +273,13 @@ export function validateOperationalProfile(
       !Number.isFinite(minutes) ||
       minutes < 1
     ) {
-      out.tieredBlockMinutes = "Độ dài khung giờ phải từ 1 phút trở lên.";
-    } else if (minutes > 480) {
-      out.tieredBlockMinutes = "Độ dài khung giờ tối đa 480 phút (8 giờ).";
+      out.tieredBlockMinutes = "Độ dài khung giờ phải từ 1 phút trở lên (tối thiểu 0.0167 giờ).";
+    } else if (minutes > 1440) {
+      out.tieredBlockMinutes = "Độ dài khung giờ tối đa 24 giờ (1440 phút).";
     }
   }
 
-  if (data.billingModel === "PER_DRINK") {
+  if (data.billingModel === "PerDrink") {
     const pct = data.depositPercentage;
     if (pct === undefined || !Number.isFinite(pct) || pct < 0) {
       out.depositPercentage = "Nhập tỷ lệ đặt cọc từ 0% đến 100%.";
@@ -225,11 +364,11 @@ export function useOperationalProfile() {
   const [activeImage, setActiveImage] = useState<number | null>(null);
 
   const [billingCache, setBillingCache] = useState<{
-    BY_HOUR: BillingCache;
-    PER_DRINK: BillingCache;
+    ByHour: BillingCache;
+    PerDrink: BillingCache;
   }>({
-    BY_HOUR: { ...EMPTY_BILLING_CACHE },
-    PER_DRINK: { ...EMPTY_BILLING_CACHE },
+    ByHour: { ...EMPTY_BILLING_CACHE },
+    PerDrink: { ...EMPTY_BILLING_CACHE },
   });
 
   // Re-hydrate form từ cafe aggregate mỗi khi cache thay đổi.
@@ -240,15 +379,17 @@ export function useOperationalProfile() {
     setFormData(next);
     setSavedSnapshot(next);
     setBillingCache({
-      BY_HOUR: {
+      ByHour: {
         basePrice: next.basePrice,
         tieredBlockRate: next.tieredBlockRate,
+        tieredBlockHours: next.tieredBlockHours,
         tieredBlockMinutes: next.tieredBlockMinutes,
         depositPercentage: undefined,
       },
-      PER_DRINK: {
+      PerDrink: {
         basePrice: undefined,
         tieredBlockRate: undefined,
+        tieredBlockHours: undefined,
         tieredBlockMinutes: undefined,
         depositPercentage: next.depositPercentage,
       },
@@ -261,7 +402,10 @@ export function useOperationalProfile() {
 
   // ─── Field setters ──────────────────────────────────────────
   const setField = useCallback(
-    (name: FieldKey, value: OperationalProfileFormState[FieldKey]) => {
+    (
+      name: keyof OperationalProfileFormState,
+      value: OperationalProfileFormState[typeof name],
+    ) => {
       setErrors((prev) => {
         if (!prev[name]) return prev;
         const next = { ...prev };
@@ -272,27 +416,30 @@ export function useOperationalProfile() {
         const next = { ...prev, [name]: value };
         if (
           name === "billingModel" &&
-          (value === "BY_HOUR" || value === "PER_DRINK")
+          (value === "ByHour" || value === "PerDrink")
         ) {
           const previousModel: BillingModel =
-            prev.billingModel === "BY_HOUR" ? "BY_HOUR" : "PER_DRINK";
-          if (previousModel !== value) {
+            prev.billingModel === "ByHour" ? "ByHour" : "PerDrink";
+          const nextModel = value;
+          if (previousModel !== nextModel) {
             setBillingCache((cache) => ({
               ...cache,
               [previousModel]: {
                 basePrice: prev.basePrice,
                 tieredBlockRate: prev.tieredBlockRate,
+                tieredBlockHours: prev.tieredBlockHours,
                 tieredBlockMinutes: prev.tieredBlockMinutes,
                 depositPercentage: prev.depositPercentage,
               },
-              [value]: { ...cache[value] },
+              [nextModel]: { ...cache[nextModel] },
             }));
-            const restored = billingCache[value];
-            if (value === "BY_HOUR") {
+            const restored = billingCache[nextModel];
+            if (nextModel === "ByHour") {
               return {
                 ...next,
                 basePrice: restored.basePrice,
                 tieredBlockRate: restored.tieredBlockRate,
+                tieredBlockHours: restored.tieredBlockHours,
                 tieredBlockMinutes: restored.tieredBlockMinutes,
                 depositPercentage: undefined,
               };
@@ -301,6 +448,7 @@ export function useOperationalProfile() {
               ...next,
               basePrice: undefined,
               tieredBlockRate: undefined,
+              tieredBlockHours: undefined,
               tieredBlockMinutes: undefined,
               depositPercentage: restored.depositPercentage,
             };
@@ -319,25 +467,148 @@ export function useOperationalProfile() {
       >,
     ) => {
       const target = e.target;
+      const name = target.name;
       if (
         target instanceof HTMLInputElement &&
         target.type === "checkbox"
       ) {
-        setField("hasGameMaster", target.checked);
+        setField("hasGameMaster", target.checked as never);
+        return;
+      }
+      // WorkingHours sub-fields: e.g. name="workingHours.weekdayStart"
+      if (name.startsWith("workingHours.")) {
+        const key = name.slice("workingHours.".length) as keyof WorkingHours;
+        const value = target.value;
+        setFormData((prev) => ({
+          ...prev,
+          workingHours: { ...prev.workingHours, [key]: value },
+        }));
+        setErrors((prev) => {
+          const errKey = `workingHours.${key}`;
+          if (!prev[errKey]) return prev;
+          const next = { ...prev };
+          delete next[errKey];
+          return next;
+        });
+        return;
+      }
+      // spaceImageUrls.N — set one slot to the input value
+      if (name.startsWith("spaceImageUrls.")) {
+        const idx = Number(name.slice("spaceImageUrls.".length));
+        if (!Number.isFinite(idx)) return;
+        const value = target.value;
+        setFormData((prev) => {
+          const next = [...prev.spaceImageUrls];
+          next[idx] = value;
+          return { ...prev, spaceImageUrls: next };
+        });
+        setErrors((prev) => {
+          const errKey = `spaceImageUrls.${idx}`;
+          if (!prev[errKey]) return prev;
+          const next = { ...prev };
+          delete next[errKey];
+          return next;
+        });
         return;
       }
       if (target instanceof HTMLInputElement && target.type === "number") {
         const raw = target.value.trim();
+        const parsed = raw === "" ? undefined : Number(raw);
+        // tieredBlockHours: user nhập giờ → nội bộ cũng set phút để BE
+        // contract giữ nguyên. Nếu parsed là số hợp lệ và > 0, set cả 2.
+        if (name === "tieredBlockHours") {
+          setFormData((prev) => ({
+            ...prev,
+            tieredBlockHours: parsed,
+            tieredBlockMinutes:
+              parsed !== undefined && Number.isFinite(parsed) && parsed > 0
+                ? Math.round(parsed * 60)
+                : undefined,
+          }));
+          setErrors((prev) => {
+            const errKey = "tieredBlockMinutes";
+            if (!prev[errKey]) return prev;
+            const next = { ...prev };
+            delete next[errKey];
+            return next;
+          });
+          return;
+        }
         setField(
-          target.name as FieldKey,
-          (raw === "" ? undefined : Number(raw)) as never,
+          name as keyof OperationalProfileFormState,
+          parsed as never,
         );
         return;
       }
-      setField(target.name as FieldKey, target.value as never);
+      setField(
+        name as keyof OperationalProfileFormState,
+        target.value as never,
+      );
     },
     [setField],
   );
+
+  // ─── Image-list helpers ─────────────────────────────────────
+  const [uploadingImages, setUploadingImages] = useState(0);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+
+  const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5 MB
+  const IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+
+  function validateImageFile(file: File): string | null {
+    if (file.size === 0) return "File ảnh rỗng.";
+    if (file.size > MAX_IMAGE_SIZE) {
+      return "Ảnh vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.";
+    }
+    if (
+      !IMAGE_MIME_TYPES.includes(
+        file.type as (typeof IMAGE_MIME_TYPES)[number],
+      )
+    ) {
+      return "Định dạng ảnh phải là JPEG, PNG hoặc WEBP.";
+    }
+    return null;
+  }
+
+  /**
+   * Upload 1 ảnh lên Cloudinary rồi push `secure_url` vào
+   * `spaceImageUrls`. Trả về URL mới (hoặc null nếu thất bại).
+   * Caller hiển thị spinner / error ở UI tương ứng.
+   */
+  const uploadImageFile = useCallback(
+    async (file: File): Promise<string | null> => {
+      const err = validateImageFile(file);
+      if (err) {
+        setImageUploadError(err);
+        return null;
+      }
+      setImageUploadError(null);
+      setUploadingImages((n) => n + 1);
+      try {
+        const uploaded = await uploadToCloudinary({ file });
+        setFormData((prev) => ({
+          ...prev,
+          spaceImageUrls: [...prev.spaceImageUrls, uploaded.secure_url],
+        }));
+        return uploaded.secure_url;
+      } catch (e) {
+        const message =
+          e instanceof Error ? e.message : "Upload ảnh thất bại.";
+        setImageUploadError(message);
+        return null;
+      } finally {
+        setUploadingImages((n) => Math.max(0, n - 1));
+      }
+    },
+    [],
+  );
+
+  const removeImageUrl = useCallback((idx: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      spaceImageUrls: prev.spaceImageUrls.filter((_, i) => i !== idx),
+    }));
+  }, []);
 
   // ─── Reset to defaults ──────────────────────────────────────
   const resetToDefaults = useCallback(() => {
@@ -346,8 +617,8 @@ export function useOperationalProfile() {
       workingHours: { ...DEFAULT_FORM.workingHours },
     });
     setBillingCache({
-      BY_HOUR: { ...EMPTY_BILLING_CACHE },
-      PER_DRINK: { ...EMPTY_BILLING_CACHE },
+      ByHour: { ...EMPTY_BILLING_CACHE },
+      PerDrink: { ...EMPTY_BILLING_CACHE },
     });
     setErrors({});
   }, []);
@@ -398,6 +669,9 @@ export function useOperationalProfile() {
 
       try {
         await PartnerService.updateOperationalProfile({
+          cafeName: formData.cafeName.trim(),
+          address: formData.address.trim(),
+          phoneNumber: formData.phoneNumber.trim(),
           workingHours: formData.workingHours,
           numberOfPrivateRooms: formData.numberOfPrivateRooms ?? 0,
           spaceImageUrls: formData.spaceImageUrls,
@@ -407,6 +681,8 @@ export function useOperationalProfile() {
           tieredBlockRate: formData.tieredBlockRate,
           tieredBlockMinutes: formData.tieredBlockMinutes,
           depositPercentage: formData.depositPercentage,
+          popularGamesList: formData.popularGamesList.trim(),
+          defaultHoldDurationMinutes: formData.defaultHoldDurationMinutes,
         });
         setSavedSnapshot(formData);
         setSavedAt(formatSavedAt(new Date()));
@@ -463,6 +739,11 @@ export function useOperationalProfile() {
     activeImage,
     setActiveImage,
     openImage,
+    uploadImageFile,
+    uploadingImages,
+    imageUploadError,
+    clearImageUploadError: () => setImageUploadError(null),
+    removeImageUrl,
     operationalStatus,
     canActivate,
     canReopen: !!cafe?.canReopen,

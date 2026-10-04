@@ -15,54 +15,25 @@ import {
 } from "@/components/ui/sheet";
 import { useOperationalProfile } from "@/features/partner/hooks/useOperationalProfile";
 import { CafeStatusHeader } from "./cafe-status-header";
-import { CafeSummary } from "./cafe-summary";
 import PartnerOperationalProfileForm from "@/features/partner/components/partner-operational-profile-form";
-import { SetupChecklistSection } from "./sections/setup-checklist-section";
-import { PricingConfigSection } from "./sections/pricing-config-section";
 import { SePayConfigSection } from "./sections/sepay-config-section";
-import {
-  DepositRefundPolicySection,
-} from "./sections/deposit-refund-policy-section";
 import { StaffSection } from "./sections/staff-section";
-import { TablesSection } from "./sections/tables-section";
-import { TablesManageDialog } from "./sections/tables-manage-dialog";
-import {
-  InventoryGamesSection,
-} from "./sections/inventory-games-section";
-import {
-  useSePayConfig,
-  useDepositRefundPolicy,
-} from "../hooks/useCafeMe";
 
 /**
  * OperationalProfileShell — orchestrator cho
- * /manager/operational-profile. Layout 2-cột trên `lg+`:
+ * /manager/operational-profile.
  *
- *   ┌────────────────────────────────────────────┐
- *   │          CafeStatusHeader (full-width)      │
- *   ├──────────────────────────┬─────────────────┤
- *   │                          │                 │
- *   │   CafeSummary (8/12)     │  Form (4/12)    │
- *   │   ─ read-only cards      │  ─ editable     │
- *   │                          │                 │
- *   └──────────────────────────┴─────────────────┘
- *
- * Trên `md` collapse xuống 1 cột: Summary trên, Form dưới.
- * Trên mobile (`<md`): Summary full-width + Sticky "Chỉnh sửa" button
- * mở Sheet chứa Form (Sheet header fixed, body scroll).
+ * Trên mobile (`<md`): form mở qua sticky "Chỉnh sửa" Sheet (Sheet header
+ * fixed, body scroll). Trên desktop (`md+`): form inline ở góc phải H1.
  */
 export function OperationalProfileShell() {
   const { cafe, operationalStatus: status, hydrated, hydrating, hydratedError, refetch } =
     useOperationalProfile();
-  const sepayQuery = useSePayConfig(cafe?.id);
-  const depositQuery = useDepositRefundPolicy(cafe?.id);
 
   const [formSheetOpen, setFormSheetOpen] = useState(false);
   // Mặc định collapse: manager sau khi submit thường chỉ scan, hiếm khi
   // edit. Click "Chỉnh sửa" → expand inline form để vào lại flow edit.
   const [formExpanded, setFormExpanded] = useState(false);
-  // Dialogs cho tables / games — Phase 3.
-  const [tablesManageOpen, setTablesManageOpen] = useState(false);
 
   if (!hydrated && (hydrating || !cafe)) {
     return (
@@ -78,24 +49,6 @@ export function OperationalProfileShell() {
   // cafe luôn tồn tại khi hydrated=true
   const c = cafe!;
   const op = c.operationalProfile;
-  const summary = (
-    <CafeSummary
-      cafeName={c.cafeName}
-      address={c.address ?? ""}
-      phoneNumber={c.phoneNumber ?? ""}
-      workingHours={c.workingHours}
-      numberOfTables={c.numberOfTables ?? 0}
-      numberOfPrivateRooms={op.numberOfPrivateRooms ?? 0}
-      spaceImageUrls={op.spaceImageUrls ?? []}
-      hasGameMaster={op.hasGameMaster}
-      billingModel={op.billingModel}
-      basePrice={op.basePrice}
-      tieredBlockRate={op.tieredBlockRate}
-      tieredBlockMinutes={op.tieredBlockMinutes}
-      depositPercentage={op.depositPercentage}
-      operationalStatus={status}
-    />
-  );
 
   const inlineFormPanel = (
     <PartnerOperationalProfileForm
@@ -179,46 +132,17 @@ export function OperationalProfileShell() {
         canReopen={!!c.canReopen}
       />
 
-      {/* ─── Summary cards (I/II/III) — full width, stacked. ─── */}
-      <div className="md:hidden space-y-4 pb-20">{summary}</div>
-      <div className="hidden md:block">{summary}</div>
-
       {/* ─── Phase 2 sections: Setup Hub management cards ─── */}
-      <SetupChecklistSection
-        cafe={c}
-        sepayConfig={sepayQuery.data ?? null}
-        sepayLoading={sepayQuery.isLoading}
-        depositPolicy={depositQuery.data ?? null}
-        depositPolicyLoading={depositQuery.isLoading}
-      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <PricingConfigSection
-          cafeId={c.id}
-          fallbackPrivateRooms={op.numberOfPrivateRooms ?? 0}
-        />
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-4">
         <SePayConfigSection cafeId={c.id} />
       </div>
 
-      <DepositRefundPolicySection cafeId={c.id} />
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <TablesSection
-          total={c.numberOfTables ?? 0}
-          available={0}
-          onAddClick={() => setTablesManageOpen(true)}
-          onManageClick={() => setTablesManageOpen(true)}
-        />
-        <InventoryGamesSection cafeId={c.id} />
-      </div>
+      {/* DEPOSIT REFUND POLICY HIDDEN 2026-10 per request — restore by
+          uncommenting. The component + API still exist if needed. */}
+      {/* <DepositRefundPolicySection cafeId={c.id} /> */}
 
       <StaffSection cafeId={c.id} />
-
-      <TablesManageDialog
-        open={tablesManageOpen}
-        onOpenChange={setTablesManageOpen}
-        cafeId={c.id}
-      />
 
       {/* Sticky mobile edit button + Sheet content. */}
       <div className="md:hidden fixed bottom-4 inset-x-0 z-30 px-4 pointer-events-none">

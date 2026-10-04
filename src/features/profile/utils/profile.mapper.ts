@@ -50,6 +50,11 @@ export function mapApiPlayerLocation(raw: RawPlayerLocation | null | undefined):
       updatedAt: null,
       source: null,
       hasLocation: false,
+      district: null,
+      city: null,
+      country: null,
+      displayName: null,
+      hasResolvedName: false,
     };
   }
 
@@ -57,6 +62,12 @@ export function mapApiPlayerLocation(raw: RawPlayerLocation | null | undefined):
   const longitude = pickNumber(raw.longitude, raw.Longitude) ?? null;
   const hasLocation =
     raw.hasLocation ?? raw.HasLocation ?? (latitude != null && longitude != null);
+  const district = raw.district ?? raw.District ?? null;
+  const city = raw.city ?? raw.City ?? null;
+  const country = raw.country ?? raw.Country ?? null;
+  const displayName = raw.displayName ?? raw.DisplayName ?? null;
+  const hasResolvedName =
+    raw.hasResolvedName ?? raw.HasResolvedName ?? Boolean(displayName);
 
   return {
     latitude,
@@ -64,6 +75,11 @@ export function mapApiPlayerLocation(raw: RawPlayerLocation | null | undefined):
     updatedAt: parseApiDate(raw.updatedAt ?? raw.UpdatedAt),
     source: raw.source ?? raw.Source ?? null,
     hasLocation: Boolean(hasLocation),
+    district,
+    city,
+    country,
+    displayName,
+    hasResolvedName,
   };
 }
 

@@ -4,6 +4,11 @@
 import { useEffect, useState } from "react";
 import { apiClient } from "@/core/api/client";
 import { TournamentPosContainer } from "@/features/cafe-tournament/components/tournament-pos-container";
+import {
+  CafeNotActivatedPanel,
+  shouldBlockTournamentForStatus,
+} from "@/features/manager-cafe/components/cafe-not-activated-panel";
+import { useCafeMe } from "@/features/manager-cafe/hooks/useCafeMe";
 import { Store, ChevronDown } from "lucide-react";
 
 interface CafeItem {
@@ -39,6 +44,13 @@ export default function ManagerTournamentsPage() {
     fetchManagerCafes();
   }, []);
 
+  /**
+   * Lấy trạng thái kích hoạt quán + blockers từ `GET /api/manager/cafes/me`.
+   * Hook TanStack Query tự cache + invalidate; gọi lại sau khi manager
+   * kích hoạt xong sẽ tự re-render block này.
+   */
+  const { data: cafeMe, isLoading: cafeMeLoading } = useCafeMe();
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-2">
@@ -63,6 +75,24 @@ export default function ManagerTournamentsPage() {
           Tài khoản của bạn chưa được gán quyền quản lý chi nhánh nào. Vui lòng
           liên hệ Admin hệ thống.
         </p>
+      </div>
+    );
+  }
+
+  // Quán chưa kích hoạt (hoặc bị hạn chế bởi Boardverse) → block trang,
+  // không cho chạy POS. Đợi useCafeMe xong trước khi render block để tránh
+  // flash "chưa kích hoạt" trong khi query đang loading.
+  if (
+    !cafeMeLoading &&
+    shouldBlockTournamentForStatus(cafeMe?.operationalStatus)
+  ) {
+    return (
+      <div className="max-w-2xl mx-auto mt-10">
+        <CafeNotActivatedPanel
+          operationalStatus={cafeMe?.operationalStatus ?? null}
+          canActivate={cafeMe?.canActivate ?? false}
+          activationBlockers={cafeMe?.activationBlockers ?? []}
+        />
       </div>
     );
   }

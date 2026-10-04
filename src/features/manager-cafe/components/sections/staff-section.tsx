@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import {
+  KeyRound,
   Loader2,
   Mail,
   Plus,
-  ShieldCheck,
   Trash2,
+  User,
   UserCog,
   Users as UsersIcon,
 } from "lucide-react";
@@ -25,41 +26,17 @@ import {
   FieldDescription,
   FieldLabel,
 } from "@/components/ui/field";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
   useStaff,
   useAddStaff,
   useRemoveStaff,
 } from "../../hooks/useCafeMe";
-import type { CafeStaff, CafeStaffRole } from "../../types/manager-cafe.interface";
+import type { CafeStaff } from "../../types/manager-cafe.interface";
 
 export interface StaffSectionProps {
   cafeId: string;
 }
-
-const ROLE_OPTIONS: ReadonlyArray<{
-  value: CafeStaffRole;
-  label: string;
-  hint: string;
-}> = [
-  {
-    value: "CafeStaff",
-    label: "Nhân viên",
-    hint: "POS, check-in, settlement.",
-  },
-  {
-    value: "ShiftLeader",
-    label: "Trưởng ca",
-    hint: "Có thêm quyền đóng/mở ca, xem báo cáo.",
-  },
-];
 
 export function StaffSection({ cafeId }: StaffSectionProps) {
   const staffQuery = useStaff(cafeId);
@@ -70,10 +47,10 @@ export function StaffSection({ cafeId }: StaffSectionProps) {
   function handleRemove(staff: CafeStaff) {
     if (typeof window === "undefined") return;
     const ok = window.confirm(
-      `Gỡ nhân viên "${staff.fullName ?? staff.email ?? staff.userId}" khỏi quán?`,
+      `Gỡ nhân viên "${staff.username ?? staff.email ?? staff.userId}" khỏi quán?`,
     );
     if (!ok) return;
-    removeMutation.mutate(staff.id);
+    removeMutation.mutate(staff.userId);
   }
 
   return (
@@ -124,7 +101,7 @@ export function StaffSection({ cafeId }: StaffSectionProps) {
         <ul className="divide-y divide-neutral-100">
           {staff.map((s) => (
             <StaffRow
-              key={s.id}
+              key={s.userId}
               staff={s}
               onRemove={() => handleRemove(s)}
             />
@@ -148,30 +125,17 @@ function StaffRow({
   staff: CafeStaff;
   onRemove: () => void;
 }) {
-  const role = ROLE_OPTIONS.find((o) => o.value === staff.role);
   return (
     <li className="flex items-center gap-3 py-3">
       <div className="h-9 w-9 rounded-full bg-neutral-100 flex items-center justify-center shrink-0">
-        {role?.value === "ShiftLeader" ? (
-          <ShieldCheck
-            className="h-4 w-4 text-amber-600"
-            aria-hidden
-          />
-        ) : (
-          <UserCog className="h-4 w-4 text-neutral-600" aria-hidden />
-        )}
+        <UserCog className="h-4 w-4 text-neutral-600" aria-hidden />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-neutral-900 truncate">
-          {staff.fullName ?? staff.email ?? staff.userId}
+          {staff.username ?? staff.email ?? staff.userId}
         </p>
         <p className="text-xs text-neutral-600 truncate">
           {staff.email ?? "—"}
-          {staff.role ? (
-            <span className="ml-2 inline-flex items-center gap-1 text-neutral-500">
-              • {role?.label ?? staff.role}
-            </span>
-          ) : null}
         </p>
       </div>
       <Button
@@ -180,7 +144,7 @@ function StaffRow({
         size="sm"
         onClick={onRemove}
         className="h-8 px-2 text-xs font-medium text-neutral-600 hover:text-destructive"
-        aria-label={`Gỡ ${staff.fullName ?? staff.email ?? staff.userId}`}
+        aria-label={`Gỡ ${staff.username ?? staff.email ?? staff.userId}`}
       >
         <Trash2 className="h-3.5 w-3.5" aria-hidden />
       </Button>
@@ -201,15 +165,24 @@ function AddStaffDialog({
   const addMutation = useAddStaff(cafeId);
 
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<CafeStaffRole>("CafeStaff");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
   const isSubmitting = addMutation.isPending;
   const canSubmit =
-    email.trim().length > 0 && /^\S+@\S+\.\S+$/.test(email.trim()) && !isSubmitting;
+    email.trim().length > 0 &&
+    /^\S+@\S+\.\S+$/.test(email.trim()) &&
+    username.trim().length >= 3 &&
+    password.length >= 6 &&
+    !isSubmitting;
 
   function handleSubmit() {
     addMutation.mutate(
-      { email: email.trim().toLowerCase(), role },
+      {
+        email: email.trim().toLowerCase(),
+        username: username.trim(),
+        password,
+      },
       {
         onSuccess: () => onOpenChange(false),
       },
@@ -228,11 +201,35 @@ function AddStaffDialog({
             Thêm nhân viên
           </DialogTitle>
           <DialogDescription className="text-helper">
-            POST /api/cafes/&#123;id&#125;/staff
+            Tạo tài khoản mới và gán vào quán. Nhân viên dùng email/username để đăng nhập.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
+          <Field>
+            <FieldLabel htmlFor="staff-username" className="text-sub-label">
+              Tên đăng nhập
+            </FieldLabel>
+            <div className="relative">
+              <User
+                className="h-4 w-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                aria-hidden
+              />
+              <Input
+                id="staff-username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="staff01"
+                autoComplete="off"
+                className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white pl-9"
+              />
+            </div>
+            <FieldDescription className="text-helper">
+              Tối thiểu 3 ký tự, dùng để đăng nhập cùng với mật khẩu.
+            </FieldDescription>
+          </Field>
+
           <Field>
             <FieldLabel htmlFor="staff-email" className="text-sub-label">
               Email nhân viên
@@ -252,36 +249,32 @@ function AddStaffDialog({
               />
             </div>
             <FieldDescription className="text-helper">
-              Nhân viên cần tài khoản Boardverse trước khi được gán vào quán.
+              Email dùng để nhận thông báo và khôi phục tài khoản.
             </FieldDescription>
           </Field>
 
           <Field>
-            <FieldLabel className="text-sub-label">Vai trò</FieldLabel>
-            <Select
-              value={role}
-              onValueChange={(v) => {
-                if (v === "CafeStaff" || v === "ShiftLeader") setRole(v);
-              }}
-            >
-              <SelectTrigger className="w-full h-11 border-neutral-200 bg-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ROLE_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    <span className="flex flex-col">
-                      <span className="font-medium text-neutral-900">
-                        {opt.label}
-                      </span>
-                      <span className="text-xs text-neutral-500">
-                        {opt.hint}
-                      </span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <FieldLabel htmlFor="staff-password" className="text-sub-label">
+              Mật khẩu
+            </FieldLabel>
+            <div className="relative">
+              <KeyRound
+                className="h-4 w-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                aria-hidden
+              />
+              <Input
+                id="staff-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Tối thiểu 6 ký tự"
+                autoComplete="new-password"
+                className="w-full h-11 text-base border-neutral-200 rounded-lg focus-visible:ring-2 focus-visible:ring-ring bg-white pl-9"
+              />
+            </div>
+            <FieldDescription className="text-helper">
+              Nhân viên nên đổi mật khẩu sau lần đăng nhập đầu tiên.
+            </FieldDescription>
           </Field>
         </div>
 

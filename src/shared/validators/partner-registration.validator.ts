@@ -102,7 +102,7 @@ export const PartnerRegistrationSchema = z.object({
   }),
   additionalServices: z.object({
     hasGameMaster: z.boolean(),
-    billingModel: z.enum(['BY_HOUR', 'PER_DRINK']),
+    billingModel: z.enum(['ByHour', 'PerDrink']),
   }),
 });
 

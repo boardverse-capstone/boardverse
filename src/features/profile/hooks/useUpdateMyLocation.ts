@@ -91,6 +91,36 @@ export function useSyncGpsLocation() {
   });
 }
 
+/**
+ * Resolve lat/lng → displayName thông qua BE (dùng endpoint
+ * PUT /api/UserProfile/me/location vốn đã có sẵn khả năng reverse-geocode).
+ *
+ * Dùng cho form đăng ký đối tác — sau khi lấy GPS thành công, gọi hook này
+ * để BE trả về tên địa điểm đã phân giải (ví dụ "Dĩ An, Thành phố Hồ Chí
+ * Minh, Việt Nam") mà không cần submit form đăng ký.
+ *
+ * Lưu ý: hook này CẬP NHẬT location của user hiện tại trên server — chỉ
+ * dùng khi form đăng ký đối tác được mở với mục đích lấy tên địa điểm
+ * của quán (vốn trùng vị trí của user tại thời điểm đăng ký).
+ */
+export function useResolveCafeDisplayName() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { latitude: number; longitude: number }): Promise<string | null> => {
+      const result = await ProfileService.updateMyLocation({
+        latitude: input.latitude,
+        longitude: input.longitude,
+        source: 'Gps',
+      });
+      return result.displayName ?? null;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: MY_LOCATION_QUERY_KEY });
+    },
+  });
+}
+
 export function useClearMyLocation() {
   const queryClient = useQueryClient();
 
@@ -103,6 +133,11 @@ export function useClearMyLocation() {
         updatedAt: null,
         source: null,
         hasLocation: false,
+        district: null,
+        city: null,
+        country: null,
+        displayName: null,
+        hasResolvedName: false,
       });
       invalidateLocationQueries(queryClient);
       toast.success('Đã xóa vị trí đã lưu.');

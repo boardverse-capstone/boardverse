@@ -103,8 +103,12 @@ export const PartnerService = {
   },
 
   /**
-   * PUT /api/cafe-partner/me/operational-profile
+   * PUT /api/manager/cafes/me/operational-profile
    * Writes the manager's operational configuration.
+   *
+   * The route lives under `/api/manager/...` (manager self-service
+   * operational profile write), even though the read path was removed
+   * in 2026-10 (the form now hydrates from `ManagerCafeService.getMe()`).
    *
    * Read path removed in 2026-10: the form now hydrates from
    * `ManagerCafeService.getMe()` (cafe aggregate) which already
@@ -118,7 +122,7 @@ export const PartnerService = {
       throw new Error('Mock không hỗ trợ operational profile.');
     }
     const raw = await apiClient.put(
-      '/api/cafe-partner/me/operational-profile',
+      '/api/manager/cafes/me/operational-profile',
       payload,
     );
     return normalizeOperationalProfileResponse(raw);
