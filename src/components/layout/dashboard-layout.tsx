@@ -22,6 +22,11 @@ interface DashboardLayoutProps {
   navItems: NavItem[];
   pageTitle?: string;
   appSubtitle?: string;
+  /**
+   * Ẩn toàn bộ sidebar bên trái + nút SidebarTrigger trên top bar.
+   * Dùng cho các portal muốn chỉ giữ top bar + content (vd: manager).
+   */
+  hideSidebar?: boolean;
 }
 
 /**
@@ -34,23 +39,30 @@ export function DashboardLayout({
   navItems,
   pageTitle,
   appSubtitle,
+  hideSidebar = false,
 }: DashboardLayoutProps) {
   return (
     <SidebarProvider>
-      <AppSidebar
-        navItems={navItems}
-        appSubtitle={appSubtitle}
-        homeUrl={navItems[0]?.url}
-      />
+      {!hideSidebar && (
+        <AppSidebar
+          navItems={navItems}
+          appSubtitle={appSubtitle}
+          homeUrl={navItems[0]?.url}
+        />
+      )}
       <SidebarInset>
         {/* Top bar */}
         <header className="flex h-14 shrink-0 items-center gap-2 border-b md:h-16">
           <div className="flex items-center gap-2 px-3 md:px-4">
-            <SidebarTrigger className="-ms-1 size-10 touch-manipulation md:size-11" />
-            <Separator
-              orientation="vertical"
-              className="me-2 data-vertical:h-4 data-vertical:self-auto"
-            />
+            {!hideSidebar && (
+              <>
+                <SidebarTrigger className="-ms-1 size-10 touch-manipulation md:size-11" />
+                <Separator
+                  orientation="vertical"
+                  className="me-2 data-vertical:h-4 data-vertical:self-auto"
+                />
+              </>
+            )}
             {pageTitle && (
               <Breadcrumb>
                 <BreadcrumbList>
